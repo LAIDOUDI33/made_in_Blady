@@ -1,617 +1,322 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback, Suspense } from "react";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Separator } from "@/components/ui/separator";
-import {
-  Slider,
-} from "@/components/ui/slider";
-import {
-  Search,
-  SlidersHorizontal,
-  Grid3X3,
-  List,
-  MapPin,
-  Factory,
-  Star,
-  Shield,
-  Heart,
-  ChevronDown,
-  X,
-} from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
+import { ProductGrid } from "@/components/products/ProductGrid";
+import { ProductFilters, FilterState, defaultFilters } from "@/components/products/ProductFilters";
+import { SearchBar } from "@/components/products/SearchBar";
+import { ProductListResponse, Product } from "@/types/product";
+import { Package, SlidersHorizontal } from "lucide-react";
 
-const mockProducts = [
-  {
-    id: 1,
-    name: "Panneaux Solaires Monocristallins 550W - Haute Efficacité",
-    shortDesc: "Panneaux solaires de qualité premium avec rendement supérieur à 22%. Garantie 25 ans.",
-    company: "SolarTech Algeria",
-    location: "Alger",
-    price: 45000,
-    currency: "DZD",
-    moq: 10,
-    unit: "unités",
-    image: "https://images.unsplash.com/photo-1509391366600-2e10622a1a11?w=400&h=300&fit=crop",
-    verified: true,
-    rating: 4.8,
-    reviewCount: 124,
-    category: "Énergie Solaire",
-    badge: "Meilleure vente",
-  },
-  {
-    id: 2,
-    name: "Câble Électrique Cuivre 16mm² - Norme IEC",
-    shortDesc: "Câble électrique en cuivre pur pour installations industrielles et résidentielles.",
-    company: "CableAlger Industrie",
-    location: "Oran",
-    price: 850,
-    currency: "DZD",
-    moq: 100,
-    unit: "mètres",
-    image: "https://images.unsplash.com/photo-1558618666-fcd25c85f82e?w=400&h=300&fit=crop",
-    verified: true,
-    rating: 4.6,
-    reviewCount: 89,
-    category: "Électricité",
-    badge: "Certifié ISO",
-  },
-  {
-    id: 3,
-    name: "Pompes Submersibles Profondes pour Irrigation",
-    shortDesc: "Pompes submersibles haute performance pour l'irrigation agricole. Débit jusqu'à 100m³/h.",
-    company: "HydroEquip Spécialistes",
-    location: "Sétif",
-    price: 125000,
-    currency: "DZD",
-    moq: 1,
-    unit: "unité",
-    image: "https://images.unsplash.com/photo-1581092918056-0c4c3acd3789?w=400&h=300&fit=crop",
-    verified: true,
-    rating: 4.9,
-    reviewCount: 67,
-    category: "Agriculture",
-    badge: "Nouveau",
-  },
-  {
-    id: 4,
-    name: "Acier de Construction Fe500 - Barres 12mm",
-    shortDesc: "Barres d'acier laminé à chaud pour béton armé. Conforme aux normes algériennes NA16002.",
-    company: "MetalPro Algérie",
-    location: "Constantine",
-    price: 285000,
-    currency: "DZD",
-    moq: 5,
-    unit: "tonnes",
-    image: "https://images.unsplash.com/photo-1504917595217-d2dc543e1627?w=400&h=300&fit=crop",
-    verified: false,
-    rating: 4.3,
-    reviewCount: 45,
-    category: "Construction",
-    badge: null,
-  },
-  {
-    id: 5,
-    name: "Onduleur Hybride SolarEdge 10kW avec Optimiseurs",
-    shortDesc: "Onduleur hybride intelligent avec monitoring intégré. Compatible avec toutes marques de panneaux.",
-    company: "EnergiePlus Solutions",
-    location: "Blida",
-    price: 385000,
-    currency: "DZD",
-    moq: 1,
-    unit: "unité",
-    image: "https://images.unsplash.com/photo-1473341304170-97d111809fae?w=400&h=300&fit=crop",
-    verified: true,
-    rating: 4.7,
-    reviewCount: 92,
-    category: "Énergie Solaire",
-    badge: "Premium",
-  },
-  {
-    id: 6,
-    name: "Machines CNC Multifonctions pour Travail du Bois",
-    shortDesc: "Machine CNC 3 axes complète avec table de travail 1300x2500mm. Logiciel inclus.",
-    company: "IndustrieMach Algérie",
-    location: "Alger",
-    price: 2850000,
-    currency: "DZD",
-    moq: 1,
-    unit: "unité",
-    image: "https://images.unsplash.com/photo-1565193566173-7a0ee3dbe261?w=400&h=300&fit=crop",
-    verified: true,
-    rating: 4.9,
-    reviewCount: 34,
-    category: "Équipement Industriel",
-    badge: null,
-  },
-  {
-    id: 7,
-    name: "Blocs de Construction Béton Cellulaire (20x20x60)",
-    shortDesc: "Blocs de construction légers et isolants. Dimensions standards. Résistance thermique excellente.",
-    company: "BatiConfort",
-    location: "Tlemcen",
-    price: 65,
-    currency: "DZD",
-    moq: 500,
-    unit: "unités",
-    image: "https://images.unsplash.com/photo-1503387765974-757c56e72e14?w=400&h=300&fit=crop",
-    verified: true,
-    rating: 4.4,
-    reviewCount: 156,
-    category: "Construction",
-    badge: "Populaire",
-  },
-  {
-    id: 8,
-    name: "Système d'Irrigation Goutte à Goutte Automatisé",
-    shortDesc: "Système complet d'irrigation goutte à goutte avec contrôleur programmable et capteurs d'humidité.",
-    company: "AgriTech Solutions",
-    location: "Sidi Bel Abbès",
-    price: 185000,
-    currency: "DZD",
-    moq: 5,
-    unit: "kits",
-    image: "https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=400&h=300&fit=crop",
-    verified: true,
-    rating: 4.8,
-    reviewCount: 78,
-    category: "Agriculture",
-    badge: null,
-  },
-];
-
-const categories = [
-  "Toutes les catégories",
-  "Agriculture & Alimentation",
-  "Construction & BTP",
-  "Équipement Industriel",
-  "Énergie Solaire",
-  "ICT & Télécoms",
-  "Automobile",
-  "Textiles",
-  "Chimiques",
-];
-
-const wilayas = [
-  "Toutes les wilayas",
-  "Alger", "Oran", "Constantine", "Annaba", "Blida", "Batna", 
-  "Sétif", "Sidi Bel Abbès", "Skikda", "Tlemcen"
-];
-
-export default function ProductsPage() {
+function ProductsContent() {
+  const searchParams = useSearchParams();
+  
+  // State
+  const [productsData, setProductsData] = useState<ProductListResponse | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
-  const [showFilters, setShowFilters] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("Toutes les catégories");
-  const [selectedWilaya, setSelectedWilaya] = useState("Toutes les wilayas");
-  const [priceRange, setPriceRange] = useState([0, 5000000]);
-  const [onlyVerified, setOnlyVerified] = useState(false);
-  const [sortBy, setSortBy] = useState("relevance");
+  const [sortBy, setSortBy] = useState("newest");
+  const [favorites, setFavorites] = useState<Set<string>>(new Set());
+  const [filters, setFilters] = useState<FilterState>(defaultFilters);
 
-  // Filter products based on search and filters
-  const filteredProducts = mockProducts.filter((product) => {
-    const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      product.shortDesc.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    const matchesCategory = selectedCategory === "Toutes les catégories" || product.category === selectedCategory;
-    
-    const matchesWilaya = selectedWilaya === "Toutes les wilayas" || product.location === selectedWilaya;
-    
-    const matchesPrice = product.price >= priceRange[0] && product.price <= priceRange[1];
-    
-    const matchesVerified = !onlyVerified || product.verified;
-    
-    return matchesSearch && matchesCategory && matchesWilaya && matchesPrice && matchesVerified;
-  });
+  // Initialize filters from URL params
+  useEffect(() => {
+    const category = searchParams.get("category") || "";
+    const subcategory = searchParams.get("subcategory") || "";
+    const wilaya = searchParams.get("wilaya") || "";
+    const minPrice = parseFloat(searchParams.get("minPrice") || "0");
+    const maxPrice = parseFloat(searchParams.get("maxPrice") || "10000000");
+    const minMoq = parseInt(searchParams.get("minMoq") || "0");
+    const maxMoq = parseInt(searchParams.get("maxMoq") || "100000");
+    const verifiedOnly = searchParams.get("verifiedOnly") === "true";
+    const availabilityParam = searchParams.get("availability");
+    const availability = availabilityParam ? availabilityParam.split(",") : [];
+    const sort = searchParams.get("sortBy") || "newest";
+    const view = searchParams.get("view") as "grid" | "list" | null;
 
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat("fr-DZ").format(price);
-  };
+    setFilters({
+      category,
+      subcategory,
+      wilaya,
+      minPrice,
+      maxPrice,
+      minMoq,
+      maxMoq,
+      verifiedOnly,
+      availability,
+    });
+    
+    if (sort) setSortBy(sort);
+    if (view) setViewMode(view);
+  }, [searchParams]);
+
+  // Fetch products
+  const fetchProducts = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const params = new URLSearchParams();
+      
+      // Pagination
+      params.set("page", searchParams.get("page") || "1");
+      params.set("limit", "20");
+
+      // Filters
+      if (filters.category) params.set("category", filters.category);
+      if (filters.subcategory) params.set("subcategory", filters.subcategory);
+      if (filters.wilaya) params.set("wilaya", filters.wilaya);
+      if (filters.minPrice > 0) params.set("minPrice", filters.minPrice.toString());
+      if (filters.maxPrice < 10000000) params.set("maxPrice", filters.maxPrice.toString());
+      if (filters.minMoq > 0) params.set("minMoq", filters.minMoq.toString());
+      if (filters.maxMoq < 100000) params.set("maxMoq", filters.maxMoq.toString());
+      if (filters.verifiedOnly) params.set("verifiedOnly", "true");
+      if (filters.availability.length > 0) params.set("availability", filters.availability.join(","));
+
+      // Sort
+      params.set("sortBy", sortBy);
+
+      // Search query
+      const searchQuery = searchParams.get("search");
+      if (searchQuery) params.set("search", searchQuery);
+
+      const response = await fetch(`/api/products?${params.toString()}`);
+      const data = await response.json();
+
+      if (data.success) {
+        setProductsData(data.data);
+      }
+    } catch (error) {
+      console.error("Error fetching products:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [filters, sortBy, searchParams]);
+
+  useEffect(() => {
+    fetchProducts();
+  }, [fetchProducts]);
+
+  // Handle filter changes
+  const handleFiltersChange = useCallback((newFilters: Partial<FilterState>) => {
+    setFilters((prev) => ({ ...prev, ...newFilters }));
+    
+    // Update URL without navigation
+    const url = new URL(window.location.href);
+    Object.entries(newFilters).forEach(([key, value]) => {
+      if (value !== undefined && value !== "" && value !== false && 
+          (Array.isArray(value) ? value.length > 0 : true)) {
+        if (Array.isArray(value)) {
+          url.searchParams.set(key, value.join(","));
+        } else {
+          url.searchParams.set(key, String(value));
+        }
+      } else {
+        url.searchParams.delete(key);
+      }
+    });
+    url.searchParams.delete("page"); // Reset to page 1 on filter change
+    window.history.pushState({}, "", url.toString());
+  }, []);
+
+  // Handle sort change
+  const handleSortChange = useCallback((sort: string) => {
+    setSortBy(sort);
+    const url = new URL(window.location.href);
+    url.searchParams.set("sortBy", sort);
+    window.history.pushState({}, "", url.toString());
+  }, []);
+
+  // Handle view mode change
+  const handleViewModeChange = useCallback((mode: "grid" | "list") => {
+    setViewMode(mode);
+    const url = new URL(window.location.href);
+    url.searchParams.set("view", mode);
+    window.history.pushState({}, "", url.toString());
+  }, []);
+
+  // Handle add to RFQ
+  const handleAddToRFQ = useCallback((product: Product) => {
+    // TODO: Implement RFQ functionality
+    alert(`Produit "${product.name}" ajouté au devis!`);
+  }, []);
+
+  // Handle toggle favorite
+  const handleToggleFavorite = useCallback((product: Product) => {
+    setFavorites((prev) => {
+      const newFavorites = new Set(prev);
+      if (newFavorites.has(product.id)) {
+        newFavorites.delete(product.id);
+      } else {
+        newFavorites.add(product.id);
+      }
+      return newFavorites;
+    });
+  }, []);
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="border-b bg-muted/50">
-        <div className="container mx-auto px-4 py-8">
-          <div className="max-w-3xl mx-auto text-center space-y-4">
-            <h1 className="text-3xl font-bold">Produits</h1>
-            <p className="text-muted-foreground">
-              Découvrez des milliers de produits de fournisseurs algériens vérifiés
-            </p>
-            
-            {/* Search Bar */}
-            <div className="relative mt-6">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-              <Input
-                type="text"
-                placeholder="Rechercher des produits... Ex: Panneaux solaires, câbles industriels..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-12 pr-4 py-6 text-base h-auto"
-              />
-              <Button className="absolute right-2 top-1/2 -translate-y-1/2 bg-green-600 hover:bg-green-700">
-                Rechercher
-              </Button>
+    <div className="min-h-screen bg-gray-50/50">
+      {/* Header Section */}
+      <div className="bg-white border-b">
+        <div className="container mx-auto px-4 py-6">
+          <Breadcrumb>
+            <BreadcrumbList>
+              <BreadcrumbItem>
+                <BreadcrumbLink href="/">Accueil</BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbPage>Produits</BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
+
+          <div className="mt-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <h1 className="text-2xl md:text-3xl font-bold text-foreground flex items-center gap-2">
+                <Package className="h-8 w-8 text-green-600" />
+                Catalogue des Produits
+              </h1>
+              <p className="mt-1 text-muted-foreground">
+                Découvrez des milliers de produits algériens de qualité
+              </p>
             </div>
+
+            {/* Mobile Search */}
+            <div className="md:hidden w-full">
+              <SearchBar placeholder="Rechercher un produit..." showShortcuts={false} />
+            </div>
+          </div>
+
+          {/* Desktop Search */}
+          <div className="hidden md:block mt-4 max-w-2xl">
+            <SearchBar placeholder="Rechercher des produits, marques, catégories..." />
           </div>
         </div>
       </div>
 
-      {/* Content */}
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex gap-8">
+      {/* Main Content */}
+      <div className="container mx-auto px-4 py-6">
+        <div className="flex gap-6">
           {/* Sidebar Filters - Desktop */}
-          <aside className={`hidden lg:block w-64 shrink-0 ${showFilters ? "" : ""}`}>
-            <div className="sticky top-24 space-y-6">
-              <div className="flex items-center justify-between">
-                <h3 className="font-semibold">Filtres</h3>
-                <Button variant="ghost" size="sm" onClick={() => {
-                  setSearchQuery("");
-                  setSelectedCategory("Toutes les catégories");
-                  setSelectedWilaya("Toutes les wilayas");
-                  setPriceRange([0, 5000000]);
-                  setOnlyVerified(false);
-                }}>
-                  Réinitialiser
-                </Button>
-              </div>
-
-              {/* Category Filter */}
-              <div className="space-y-3">
-                <h4 className="font-medium text-sm">Catégorie</h4>
-                <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map((cat) => (
-                      <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Wilaya Filter */}
-              <div className="space-y-3">
-                <h4 className="font-medium text-sm">Localisation</h4>
-                <Select value={selectedWilaya} onValueChange={setSelectedWilaya}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {wilayas.map((wilaya) => (
-                      <SelectItem key={wilaya} value={wilaya}>{wilaya}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Price Range */}
-              <div className="space-y-3">
-                <h4 className="font-medium text-sm">Fourchette de Prix (DZD)</h4>
-                <Slider
-                  value={priceRange}
-                  onValueChange={setPriceRange}
-                  max={5000000}
-                  step={10000}
-                  className="mt-2"
-                />
-                <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>{formatPrice(priceRange[0])}</span>
-                  <span>{formatPrice(priceRange[1])}</span>
-                </div>
-              </div>
-
-              {/* Verified Only */}
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="verified"
-                  checked={onlyVerified}
-                  onCheckedChange={(checked) => setOnlyVerified(checked === true)}
-                />
-                <label htmlFor="verified" className="text-sm cursor-pointer flex items-center gap-1">
-                  <Shield className="h-4 w-4 text-blue-500" />
-                  Fournisseurs vérifiés uniquement
-                </label>
-              </div>
-
-              <Separator />
-
-              {/* Quick Stats */}
-              <div className="bg-green-50 rounded-lg p-4 space-y-2">
-                <p className="text-sm font-medium text-green-800">
-                  {filteredProducts.length} produits trouvés
-                </p>
-                <p className="text-xs text-green-600">
-                  De fournisseurs algériens vérifiés
-                </p>
-              </div>
-            </div>
+          <aside className="hidden lg:block w-72 shrink-0">
+            <ProductFilters
+              categories={productsData?.filters.categories}
+              onFiltersChange={handleFiltersChange}
+              currentFilters={filters}
+              priceRange={productsData?.filters.priceRange as [number, number]}
+              moqRange={productsData?.filters.moqRange as [number, number]}
+            />
           </aside>
 
-          {/* Main Content */}
+          {/* Main Content Area */}
           <main className="flex-1 min-w-0">
-            {/* Toolbar */}
-            <div className="flex items-center justify-between mb-6 gap-4">
-              <div className="flex items-center gap-4">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="lg:hidden"
-                  onClick={() => setShowFilters(!showFilters)}
+            {/* Mobile Filter Button */}
+            <div className="lg:hidden mb-4 flex items-center gap-2">
+              <ProductFilters
+                categories={productsData?.filters.categories}
+                onFiltersChange={handleFiltersChange}
+                currentFilters={filters}
+                priceRange={productsData?.filters.priceRange as [number, number]}
+                moqRange={productsData?.filters.moqRange as [number, number]}
+              />
+              
+              {/* View Mode Toggle - Mobile */}
+              <div className="flex border rounded-md overflow-hidden ml-auto">
+                <button
+                  onClick={() => handleViewModeChange("grid")}
+                  className={`p-2 transition-colors ${
+                    viewMode === "grid"
+                      ? "bg-green-600 text-white"
+                      : "bg-background hover:bg-muted"
+                  }`}
                 >
-                  <SlidersHorizontal className="h-4 w-4 mr-2" />
-                  Filtres
-                </Button>
-                
-                <span className="text-sm text-muted-foreground">
-                  {filteredProducts.length} résultats
-                </span>
-              </div>
-
-              <div className="flex items-center gap-4">
-                <Select value={sortBy} onValueChange={setSortBy}>
-                  <SelectTrigger className="w-[180px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="relevance">Pertinence</SelectItem>
-                    <SelectItem value="price-low">Prix croissant</SelectItem>
-                    <SelectItem value="price-high">Prix décroissant</SelectItem>
-                    <SelectItem value="rating">Meilleure note</SelectItem>
-                    <SelectItem value="newest">Plus récent</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                <div className="hidden sm:flex border rounded-md">
-                  <Button
-                    variant={viewMode === "grid" ? "default" : "ghost"}
-                    size="icon"
-                    className="rounded-r-none"
-                    onClick={() => setViewMode("grid")}
-                  >
-                    <Grid3X3 className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant={viewMode === "list" ? "default" : "ghost"}
-                    size="icon"
-                    className="rounded-l-none"
-                    onClick={() => setViewMode("list")}
-                  >
-                    <List className="h-4 w-4" />
-                  </Button>
-                </div>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>
+                </button>
+                <button
+                  onClick={() => handleViewModeChange("list")}
+                  className={`p-2 transition-colors ${
+                    viewMode === "list"
+                      ? "bg-green-600 text-white"
+                      : "bg-background hover:bg-muted"
+                  }`}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" x2="21" y1="6" y2="6"/><line x1="8" x2="21" y1="12" y2="12"/><line x1="8" x2="21" y1="18" y2="18"/><line x1="3" x2="3.01" y1="6" y2="6"/><line x1="3" x2="3.01" y1="12" y2="12"/><line x1="3" x2="3.01" y1="18" y2="18"/></svg>
+                </button>
               </div>
             </div>
 
-            {/* Mobile Filters */}
-            {showFilters && (
-              <Card className="lg:hidden mb-6">
-                <CardContent className="pt-6 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-semibold">Filtres</h3>
-                    <Button variant="ghost" size="sm" onClick={() => setShowFilters(false)}>
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  
-                  <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                    <SelectTrigger><SelectValue placeholder="Catégorie" /></SelectTrigger>
-                    <SelectContent>
-                      {categories.map((cat) => (
-                        <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-
-                  <Select value={selectedWilaya} onValueChange={setSelectedWilaya}>
-                    <SelectTrigger><SelectValue placeholder="Wilaya" /></SelectTrigger>
-                    <SelectContent>
-                      {wilayas.map((wilaya) => (
-                        <SelectItem key={wilaya} value={wilaya}>{wilaya}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="verified-mobile"
-                      checked={onlyVerified}
-                      onCheckedChange={(checked) => setOnlyVerified(checked === true)}
-                    />
-                    <label htmlFor="verified-mobile" className="text-sm cursor-pointer">
-                      Fournisseurs vérifiés uniquement
-                    </label>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
             {/* Products Grid/List */}
-            {filteredProducts.length > 0 ? (
-              <div className={
-                viewMode === "grid"
-                  ? "grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6"
-                  : "space-y-4"
-              }>
-                {filteredProducts.map((product) => (
-                  <Link key={product.id} href={`/products/${product.id}`}>
-                    <Card className="group overflow-hidden hover:shadow-lg transition-all duration-300 h-full">
-                      {viewMode === "grid" ? (
-                        /* Grid View */
-                        <>
-                          <div className="relative aspect-[4/3] overflow-hidden bg-gray-100">
-                            <img
-                              src={product.image}
-                              alt={product.name}
-                              className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-300"
-                            />
-                            {product.badge && (
-                              <Badge className="absolute top-3 left-3 bg-green-600">
-                                {product.badge}
-                              </Badge>
-                            )}
-                            {product.verified && (
-                              <div className="absolute top-3 right-3 bg-white rounded-full p-1 shadow">
-                                <Shield className="h-4 w-4 text-blue-600" />
-                              </div>
-                            )}
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="absolute bottom-3 right-3 bg-white/90 hover:bg-white opacity-0 group-hover:opacity-100 transition-opacity"
-                              onClick={(e) => e.preventDefault()}
-                            >
-                              <Heart className="h-5 w-5" />
-                            </Button>
-                          </div>
-                          <CardContent className="p-4 space-y-3">
-                            <h3 className="font-medium line-clamp-2 group-hover:text-green-600 transition-colors">
-                              {product.name}
-                            </h3>
-                            <p className="text-sm text-muted-foreground line-clamp-2">
-                              {product.shortDesc}
-                            </p>
-                            <div className="space-y-1 text-xs text-muted-foreground">
-                              <div className="flex items-center gap-1">
-                                <Factory className="h-3 w-3" />
-                                <span>{product.company}</span>
-                              </div>
-                              <div className="flex items-center gap-1">
-                                <MapPin className="h-3 w-3" />
-                                <span>{product.location}</span>
-                              </div>
-                            </div>
-                            <div className="flex items-center justify-between pt-2 border-t">
-                              <div>
-                                <p className="font-bold text-green-600">
-                                  {formatPrice(product.price)} {product.currency}
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                  MOQ: {product.moq} {product.unit}
-                                </p>
-                              </div>
-                              <div className="flex items-center gap-1 text-xs">
-                                <Star className="h-3 w-3 text-yellow-500 fill-yellow-500" />
-                                <span>{product.rating}</span>
-                                <span className="text-muted-foreground">({product.reviewCount})</span>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </>
-                      ) : (
-                        /* List View */
-                        <CardContent className="p-4">
-                          <div className="flex gap-4">
-                            <div className="relative w-32 h-32 shrink-0 overflow-hidden rounded-lg bg-gray-100">
-                              <img
-                                src={product.image}
-                                alt={product.name}
-                                className="object-cover w-full h-full"
-                              />
-                              {product.badge && (
-                                <Badge className="absolute top-2 left-2 bg-green-600 text-[10px]">
-                                  {product.badge}
-                                </Badge>
-                              )}
-                            </div>
-                            <div className="flex-1 min-w-0 space-y-2">
-                              <h3 className="font-medium line-clamp-1 group-hover:text-green-600 transition-colors">
-                                {product.name}
-                              </h3>
-                              <p className="text-sm text-muted-foreground line-clamp-2">
-                                {product.shortDesc}
-                              </p>
-                              <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                                <span className="flex items-center gap-1">
-                                  <Factory className="h-3 w-3" />
-                                  {product.company}
-                                </span>
-                                <span className="flex items-center gap-1">
-                                  <MapPin className="h-3 w-3" />
-                                  {product.location}
-                                </span>
-                                <span className="flex items-center gap-1">
-                                  <Star className="h-3 w-3 text-yellow-500 fill-yellow-500" />
-                                  {product.rating}
-                                </span>
-                              </div>
-                              <div className="flex items-center justify-between">
-                                <div>
-                                  <span className="font-bold text-green-600">
-                                    {formatPrice(product.price)} {product.currency}
-                                  </span>
-                                  <span className="text-xs text-muted-foreground ml-2">
-                                    MOQ: {product.moq} {product.unit}
-                                  </span>
-                                </div>
-                                <Button size="sm">Contact</Button>
-                              </div>
-                            </div>
-                          </div>
-                        </CardContent>
-                      )}
-                    </Card>
-                  </Link>
-                ))}
-              </div>
-            ) : (
-              /* Empty State */
-              <div className="text-center py-12 space-y-4">
-                <div className="mx-auto w-16 h-16 rounded-full bg-muted flex items-center justify-center">
-                  <Search className="h-8 w-8 text-muted-foreground" />
-                </div>
-                <h3 className="text-lg font-semibold">Aucun produit trouvé</h3>
-                <p className="text-muted-foreground max-w-md mx-auto">
-                  Essayez de modifier vos critères de recherche ou de supprimer certains filtres.
-                </p>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setSearchQuery("");
-                    setSelectedCategory("Toutes les catégories");
-                    setSelectedWilaya("Toutes les wilayas");
-                    setPriceRange([0, 5000000]);
-                    setOnlyVerified(false);
-                  }}
-                >
-                  Effacer tous les filtres
-                </Button>
-              </div>
-            )}
-
-            {/* Pagination */}
-            {filteredProducts.length > 0 && (
-              <div className="mt-8 flex justify-center">
-                <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm" disabled>
-                    Précédent
-                  </Button>
-                  <Button size="sm" className="bg-green-600">1</Button>
-                  <Button variant="outline" size="sm">2</Button>
-                  <Button variant="outline" size="sm">3</Button>
-                  <span className="px-2 text-muted-foreground">...</span>
-                  <Button variant="outline" size="sm">12</Button>
-                  <Button variant="outline" size="sm">
-                    Suivant
-                  </Button>
-                </div>
-              </div>
-            )}
+            <Suspense fallback={<ProductGrid isLoading />}>
+              <ProductGrid
+                data={productsData || undefined}
+                isLoading={isLoading}
+                viewMode={viewMode}
+                onViewModeChange={handleViewModeChange}
+                onSortChange={handleSortChange}
+                currentSort={sortBy}
+                onAddToRFQ={handleAddToRFQ}
+                onToggleFavorite={handleToggleFavorite}
+                favorites={favorites}
+              />
+            </Suspense>
           </main>
         </div>
       </div>
+
+      {/* SEO Content Section */}
+      <section className="bg-white border-t mt-8">
+        <div className="container mx-auto px-4 py-8">
+          <div className="max-w-4xl mx-auto prose prose-sm">
+            <h2 className="text-xl font-semibold mb-4">À propos du Catalogue AlgeriaTrade</h2>
+            <p className="text-muted-foreground leading-relaxed">
+              AlgeriaTrade.dz est la première plateforme B2B dédiée au marché algérien. 
+              Notre catalogue comprend plus de 50 000 produits provenant de fournisseurs 
+              vérifiés dans toutes les wilayas d&apos;Algérie.
+            </p>
+            <p className="text-muted-foreground leading-relaxed mt-3">
+              Que vous soyez à la recherche de matériaux de construction, d&apos;équipements 
+              industriels, de produits agricoles ou de solutions énergétiques, vous trouverez 
+              ici les meilleurs fournisseurs algériens avec des prix compétitifs et une 
+              qualité garantie.
+            </p>
+            
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8 not-prose">
+              <div className="text-center p-4 bg-gray-50 rounded-lg">
+                <p className="text-2xl font-bold text-green-600">50K+</p>
+                <p className="text-sm text-muted-foreground">Produits</p>
+              </div>
+              <div className="text-center p-4 bg-gray-50 rounded-lg">
+                <p className="text-2xl font-bold text-green-600">2.5K+</p>
+                <p className="text-sm text-muted-foreground">Fournisseurs</p>
+              </div>
+              <div className="text-center p-4 bg-gray-50 rounded-lg">
+                <p className="text-2xl font-bold text-green-600">58</p>
+                <p className="text-sm text-muted-foreground">Wilayas</p>
+              </div>
+              <div className="text-center p-4 bg-gray-50 rounded-lg">
+                <p className="text-2xl font-bold text-green-600">98%</p>
+                <p className="text-sm text-muted-foreground">Satisfaction</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
     </div>
+  );
+}
+
+export default function ProductsPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50/50 flex items-center justify-center">
+        <div className="text-center">
+          <Package className="h-12 w-12 text-green-600 mx-auto animate-pulse" />
+          <p className="mt-4 text-muted-foreground">Chargement...</p>
+        </div>
+      </div>
+    }>
+      <ProductsContent />
+    </Suspense>
   );
 }

@@ -1,78 +1,212 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { signIn, getSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Eye, EyeOff, Mail, Lock, Building2, User } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { Eye, EyeOff, Mail, Lock, AlertCircle, Loader2 } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const { toast } = useToast();
+  
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     email: "",
     password: "",
     rememberMe: false,
   });
 
+  // Check for error message from NextAuth
+  useEffect(() => {
+    const errorParam = searchParams.get("error");
+    if (errorParam) {
+      const errorMessages: Record<string, string> = {
+        Configuration: "Erreur de configuration du serveur",
+        AccessDenied: "Accès refusé",
+        Verification: "Vérification requise",
+        Default: "Email ou mot de passe incorrect",
+        Signin: "Email ou mot de passe incorrect",
+        OAuthSignin: "Erreur lors de la connexion au fournisseur",
+        OAuthCallback: "Erreur lors du retour du fournisseur",
+        OAuthCreateAccount: "Impossible de créer un compte avec ce fournisseur",
+        EmailCreateAccount: "Impossible de créer un compte email",
+        Callback: "Erreur lors de la connexion",
+        OAuthAccountNotLinked: "Ce compte est déjà lié à une autre méthode de connexion",
+        SessionRequired: "Connexion requise",
+      };
+      
+      const message = errorMessages[errorParam] || "Une erreur est survenue lors de la connexion";
+      setError(message);
+      toast({
+        title: "Erreur de connexion",
+        description: message,
+        variant: "destructive",
+      });
+    }
+    
+    // Check for registered success
+    const registered = searchParams.get("registered");
+    if (registered === "true") {
+      toast({
+        title: "Compte créé !",
+        description: "Votre compte a été créé avec succès. Vous pouvez maintenant vous connecter.",
+      });
+    }
+  }, [searchParams, toast]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
     setIsLoading(true);
-    
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    
-    // Redirect to dashboard
-    router.push("/dashboard");
-    setIsLoading(false);
+
+    try {
+      // Validate form
+      if (!formData.email || !formData.password) {
+        throw new Error("Veuillez remplir tous les champs");
+      }
+
+      // Simple email validation
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(formData.email)) {
+        throw new Error("Format d'email invalide");
+      }
+
+      // Attempt sign in with NextAuth
+      const result = await signIn("credentials", {
+        email: formData.email.toLowerCase().trim(),
+        password: formData.password,
+        redirect: false,
+      });
+
+      if (result?.error) {
+        // Handle specific errors
+        let errorMessage = result.error;
+        
+        if (result.error.includes("requis")) {
+          errorMessage = "Email et mot de passe requis";
+        } else if (result.error.includes("trouvé")) {
+          errorMessage = "Aucun compte trouvé avec cet email";
+        } else if (result.error.includes("désactivé")) {
+          errorMessage = "Ce compte a été désactivé. Contactez le support.";
+        } else if (result.error.includes("incorrect")) {
+          errorMessage = "Mot de passe incorrect";
+        }
+        
+        throw new Error(errorMessage);
+      }
+
+      if (result?.ok) {
+        // Get session to determine redirect based on role
+        const session = await getSession();
+        const role = session?.user?.role as string;
+        
+        // Role-based redirect
+        const roleRedirects: Record<string, string> = {
+          BUYER: "/dashboard/buyer",
+          SUPPLIER: "/dashboard/seller",
+          MODERATOR: "/admin",
+          ADMIN: "/admin",
+          SUPER_ADMIN: "/admin",
+        };
+        
+        const redirectPath = role ? roleRedirects[role] : "/dashboard";
+        
+        toast({
+          title: "Connexion réussie",
+          description: "Bienvenue sur AlgeriaTrade !",
+        });
+        
+        router.push(redirectPath);
+        router.refresh();
+      }
+    } catch (err: any) {
+      const errorMessage = err.message || "Une erreur est survenue";
+      setError(errorMessage);
+      toast({
+        title: "Erreur de connexion",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-emerald-50 p-4">
-      <div className="w-full max-w-md space-y-6">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 via-white to-emerald-50 p-4">
+      {/* Background Pattern */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-green-100 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-pulse" />
+        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-emerald-100 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-pulse" style={{ animationDelay: '2s' }} />
+      </div>
+
+      <div className="w-full max-w-md space-y-6 relative z-10">
         {/* Logo & Header */}
-        <div className="text-center space-y-2">
-          <Link href="/" className="inline-flex items-center gap-2">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-green-600 to-green-700 text-white font-bold text-2xl">
-              AT
+        <div className="text-center space-y-3">
+          <Link href="/" className="inline-flex items-center gap-2 group">
+            <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-gradient-to-br from-[#006233] to-[#004d28] text-white font-bold text-xl shadow-lg group-hover:shadow-xl transition-shadow">
+              <svg viewBox="0 0 24 24" fill="none" className="w-8 h-8" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M2 17L12 22L22 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M2 12L12 17L22 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
             </div>
+            <span className="text-2xl font-bold text-[#006233]">AlgeriaTrade</span>
           </Link>
-          <h1 className="text-2xl font-bold text-foreground">Connexion</h1>
-          <p className="text-muted-foreground">
-            Accédez à votre compte AlgeriaTrade
+          <h1 className="text-2xl font-bold text-gray-900">Connexion</h1>
+          <p className="text-gray-500 text-sm">
+            Accédez à votre espace professionnel AlgeriaTrade.dz
           </p>
         </div>
 
         {/* Login Form */}
-        <Card>
+        <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
           <CardContent className="pt-6">
             <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Error Display */}
+              {error && (
+                <div className="flex items-start gap-3 p-4 rounded-lg bg-red-50 border border-red-200 text-red-800">
+                  <AlertCircle className="h-5 w-5 mt-0.5 flex-shrink-0" />
+                  <p className="text-sm">{error}</p>
+                </div>
+              )}
+
               {/* Email */}
               <div className="space-y-2">
-                <Label htmlFor="email">Adresse Email</Label>
+                <Label htmlFor="email" className="text-gray-700 font-medium">
+                  Adresse Email
+                </Label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                   <Input
                     id="email"
                     type="email"
                     placeholder="votre@email.com"
                     value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    className="pl-10"
+                    onChange={(e) =>
+                      setFormData({ ...formData, email: e.target.value })
+                    }
+                    className="pl-10 h-11 border-gray-200 focus:border-[#006233] focus:ring-[#006233]/20"
                     required
+                    disabled={isLoading}
                   />
                 </div>
               </div>
@@ -80,28 +214,41 @@ export default function LoginPage() {
               {/* Password */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="password">Mot de Passe</Label>
-                  <Link href="/forgot-password" className="text-sm text-green-600 hover:underline">
-                    Mot de passe oublié?
+                  <Label htmlFor="password" className="text-gray-700 font-medium">
+                    Mot de Passe
+                  </Label>
+                  <Link
+                    href="/forgot-password"
+                    className="text-sm text-[#006233] hover:text-[#004d28] hover:underline transition-colors"
+                  >
+                    Mot de passe oublié ?
                   </Link>
                 </div>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                   <Input
                     id="password"
                     type={showPassword ? "text" : "password"}
                     placeholder="••••••••"
                     value={formData.password}
-                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                    className="pl-10 pr-10"
+                    onChange={(e) =>
+                      setFormData({ ...formData, password: e.target.value })
+                    }
+                    className="pl-10 pr-10 h-11 border-gray-200 focus:border-[#006233] focus:ring-[#006233]/20"
                     required
+                    disabled={isLoading}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                    tabIndex={-1}
                   >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
                   </button>
                 </div>
               </div>
@@ -111,60 +258,79 @@ export default function LoginPage() {
                 <Checkbox
                   id="remember"
                   checked={formData.rememberMe}
-                  onCheckedChange={(checked) => 
+                  onCheckedChange={(checked) =>
                     setFormData({ ...formData, rememberMe: checked === true })
                   }
+                  disabled={isLoading}
+                  className="data-[state=checked]:bg-[#006233] data-[state=checked]:border-[#006233]"
                 />
-                <label htmlFor="remember" className="text-sm text-muted-foreground cursor-pointer">
+                <label
+                  htmlFor="remember"
+                  className="text-sm text-gray-500 cursor-pointer select-none"
+                >
                   Se souvenir de moi
                 </label>
               </div>
 
               {/* Submit Button */}
-              <Button type="submit" className="w-full bg-green-600 hover:bg-green-700" disabled={isLoading}>
-                {isLoading ? "Connexion en cours..." : "Se Connecter"}
+              <Button
+                type="submit"
+                className="w-full h-11 bg-[#006233] hover:bg-[#004d28] text-white font-medium shadow-md hover:shadow-lg transition-all"
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Connexion en cours...
+                  </>
+                ) : (
+                  "Se Connecter"
+                )}
               </Button>
             </form>
 
             <Separator className="my-6" />
 
-            {/* Social Login */}
-            <div className="space-y-3">
-              <p className="text-center text-sm text-muted-foreground">
-                Ou continuer avec
+            {/* Demo Credentials Info */}
+            <div className="rounded-lg bg-gray-50 p-4 border border-gray-200">
+              <p className="text-xs text-gray-500 text-center mb-2">
+                Plateforme B2B pour le marché algérien
               </p>
-              <div className="grid grid-cols-2 gap-3">
-                <Button variant="outline" type="button">
-                  <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
-                    <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/>
-                    <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-                    <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
-                    <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-                  </svg>
-                  Google
-                </Button>
-                <Button variant="outline" type="button">
-                  <svg className="mr-2 h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
-                  </svg>
-                  GitHub
-                </Button>
+              <div className="grid grid-cols-2 gap-2 text-xs text-gray-600">
+                <div className="flex items-center gap-1">
+                  <div className="w-2 h-2 rounded-full bg-[#006233]" />
+                  Acheteurs
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="w-2 h-2 rounded-full bg-[#D52B1E]" />
+                  Fournisseurs
+                </div>
               </div>
             </div>
           </CardContent>
         </Card>
 
         {/* Register Link */}
-        <p className="text-center text-sm text-muted-foreground">
-          Pas encore de compte?{" "}
-          <Link href="/register" className="text-green-600 font-medium hover:underline">
-            Inscrivez-vous gratuitement
-          </Link>
-        </p>
+        <Card className="shadow-sm border-0 bg-white/60 backdrop-blur-sm">
+          <CardContent className="py-4">
+            <p className="text-center text-sm text-gray-600">
+              Pas encore de compte ?{" "}
+              <Link
+                href="/register"
+                className="text-[#006233] font-semibold hover:text-[#004d28] hover:underline transition-colors"
+              >
+                Inscrivez-vous gratuitement
+              </Link>
+            </p>
+          </CardContent>
+        </Card>
 
         {/* Back to Home */}
         <p className="text-center">
-          <Link href="/" className="text-sm text-muted-foreground hover:text-green-600">
+          <Link
+            href="/"
+            className="text-sm text-gray-400 hover:text-[#006233] transition-colors inline-flex items-center gap-1"
+          >
             ← Retour à l&apos;accueil
           </Link>
         </p>
