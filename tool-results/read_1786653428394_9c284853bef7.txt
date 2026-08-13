@@ -1,0 +1,2002 @@
+     1→# MASTER PROMPT — BUILD A COMPLETE ALGERIAN B2B MARKETPLACE
+     2→
+     3→## 1. PROJECT OBJECTIVE
+     4→
+     5→Build a complete, production-ready B2B marketplace inspired by the business model and functionality of Made-in-China.com, but designed specifically for the Algerian market.
+     6→
+     7→The platform must connect:
+     8→
+     9→* Algerian manufacturers
+    10→* Algerian distributors
+    11→* Wholesalers
+    12→* Importers
+    13→* Exporters
+    14→* Retailers
+    15→* SMEs
+    16→* Large enterprises
+    17→* Public-sector organizations
+    18→* International buyers looking for Algerian products
+    19→
+    20→The platform must NOT be a simple e-commerce website.
+    21→
+    22→It must be a complete B2B sourcing, supplier discovery, RFQ, quotation, communication, procurement and business networking platform.
+    23→
+    24→Use Made-in-China.com as a functional benchmark, NOT as a source for copying its code, copyrighted content, branding, images, text or visual identity.
+    25→
+    26→Create an original Algerian brand, UI and architecture.
+    27→
+    28→Suggested working name:
+    29→
+    30→"AlgeriaTrade"
+    31→
+    32→Alternative names can be proposed by the AI.
+    33→
+    34→---
+    35→
+    36→# 2. TARGET MARKET
+    37→
+    38→Primary market:
+    39→
+    40→ALGERIA
+    41→
+    42→Secondary market:
+    43→
+    44→* Tunisia
+    45→* Morocco
+    46→* Mauritania
+    47→* Libya
+    48→* Sub-Saharan Africa
+    49→* Europe
+    50→* Middle East
+    51→* International buyers interested in Algerian products
+    52→
+    53→The platform should eventually become:
+    54→
+    55→"THE B2B DIGITAL MARKETPLACE FOR ALGERIAN INDUSTRY AND AFRICAN TRADE"
+    56→
+    57→---
+    58→
+    59→# 3. LANGUAGES
+    60→
+    61→The platform must be multilingual from day one.
+    62→
+    63→Mandatory:
+    64→
+    65→1. French
+    66→2. Arabic
+    67→3. English
+    68→
+    69→Arabic must support complete RTL layout.
+    70→
+    71→Do NOT hardcode translations.
+    72→
+    73→Create a complete internationalization architecture.
+    74→
+    75→Example:
+    76→
+    77→/locales
+    78→/fr
+    79→/ar
+    80→/en
+    81→
+    82→Every UI string must come from the translation system.
+    83→
+    84→---
+    85→
+    86→# 4. CURRENCY
+    87→
+    88→Primary currency:
+    89→
+    90→DZD — Algerian Dinar
+    91→
+    92→Additional currencies:
+    93→
+    94→* EUR
+    95→* USD
+    96→* GBP
+    97→
+    98→Currency conversion must be configurable by administrators.
+    99→
+   100→Do not hardcode exchange rates.
+   101→
+   102→Create:
+   103→
+   104→Currency
+   105→ExchangeRate
+   106→CurrencyHistory
+   107→
+   108→database entities.
+   109→
+   110→---
+   111→
+   112→# 5. ALGERIAN BUSINESS CONTEXT
+   113→
+   114→The platform must be adapted to Algerian companies.
+   115→
+   116→Supplier registration must support:
+   117→
+   118→* Company name
+   119→* Legal form
+   120→* RC / Registre de Commerce
+   121→* NIF
+   122→* NIS
+   123→* AI / Article d'Imposition where applicable
+   124→* Wilaya
+   125→* Commune
+   126→* Business address
+   127→* Phone
+   128→* Email
+   129→* Website
+   130→* Company activity
+   131→* Industry
+   132→* Year established
+   133→* Number of employees
+   134→* Annual turnover range
+   135→* Production capacity
+   136→* Export capability
+   137→* Import capability
+   138→* Certifications
+   139→* Bank information where legally appropriate
+   140→* Contact persons
+   141→
+   142→Do not expose sensitive financial/banking information publicly.
+   143→
+   144→---
+   145→
+   146→# 6. WILAYAS
+   147→
+   148→Create Algeria's complete administrative structure.
+   149→
+   150→Database:
+   151→
+   152→Wilaya
+   153→Commune
+   154→
+   155→Every company must be associated with a Wilaya and optionally Commune.
+   156→
+   157→Allow search:
+   158→
+   159→"Suppliers in Sétif"
+   160→
+   161→"Manufacturers in Oran"
+   162→
+   163→"Companies in Algiers"
+   164→
+   165→etc.
+   166→
+   167→---
+   168→
+   169→# 7. PRODUCT CATALOG
+   170→
+   171→Build a very powerful product catalog.
+   172→
+   173→Each product should support:
+   174→
+   175→* Product name
+   176→* SKU
+   177→* Product reference
+   178→* Description
+   179→* Short description
+   180→* Category
+   181→* Subcategory
+   182→* Brand
+   183→* Manufacturer
+   184→* Supplier
+   185→* Country of origin
+   186→* Wilaya
+   187→* Images
+   188→* Videos
+   189→* Technical specifications
+   190→* Documents
+   191→* Datasheets
+   192→* Certifications
+   193→* Minimum Order Quantity
+   194→* Maximum Order Quantity
+   195→* Unit
+   196→* Price
+   197→* Price range
+   198→* Negotiable price
+   199→* Wholesale price
+   200→* Availability
+   201→* Production capacity
+   202→* Lead time
+   203→* Packaging
+   204→* Warranty
+   205→* Delivery options
+   206→* Payment conditions
+   207→* Incoterms where applicable
+   208→* Export availability
+   209→
+   210→Products can have multiple variants.
+   211→
+   212→Example:
+   213→
+   214→Product:
+   215→Industrial Cable
+   216→
+   217→Variants:
+   218→
+   219→* 10 mm²
+   220→* 16 mm²
+   221→* 25 mm²
+   222→* 35 mm²
+   223→
+   224→---
+   225→
+   226→# 8. PRODUCT CATEGORIES
+   227→
+   228→Create a hierarchical category system.
+   229→
+   230→Initial categories:
+   231→
+   232→## Agriculture & Food
+   233→
+   234→* Agricultural machinery
+   235→* Seeds
+   236→* Fertilizers
+   237→* Irrigation
+   238→* Food products
+   239→* Dairy
+   240→* Fruits
+   241→* Vegetables
+   242→* Cereals
+   243→* Animal feed
+   244→
+   245→## Construction
+   246→
+   247→* Cement
+   248→* Steel
+   249→* Pipes
+   250→* Tiles
+   251→* Sanitary equipment
+   252→* Electrical equipment
+   253→* Building materials
+   254→* Insulation
+   255→
+   256→## Industrial Equipment
+   257→
+   258→* CNC
+   259→* Compressors
+   260→* Pumps
+   261→* Generators
+   262→* Industrial machinery
+   263→* Automation
+   264→* Robotics
+   265→
+   266→## Energy
+   267→
+   268→* Solar
+   269→* Electrical equipment
+   270→* Batteries
+   271→* Transformers
+   272→* Cables
+   273→* Renewable energy
+   274→
+   275→## ICT & Telecom
+   276→
+   277→* Networking
+   278→* Servers
+   279→* Storage
+   280→* Cybersecurity
+   281→* Telecom equipment
+   282→* Fiber optics
+   283→* Software
+   284→* Cloud
+   285→* Data center equipment
+   286→
+   287→## Automotive
+   288→
+   289→* Vehicles
+   290→* Spare parts
+   291→* Tires
+   292→* Batteries
+   293→* Lubricants
+   294→* Accessories
+   295→
+   296→## Textiles
+   297→
+   298→* Fabrics
+   299→* Clothing
+   300→* Workwear
+   301→* Industrial textiles
+   302→
+   303→## Chemicals
+   304→
+   305→* Industrial chemicals
+   306→* Paint
+   307→* Plastics
+   308→* Fertilizers
+   309→* Cleaning products
+   310→
+   311→## Health & Medical
+   312→
+   313→* Medical equipment
+   314→* Laboratory equipment
+   315→* Hospital supplies
+   316→* Pharmaceutical equipment
+   317→
+   318→## Furniture
+   319→
+   320→* Office furniture
+   321→* Industrial furniture
+   322→* Hotel furniture
+   323→* Home furniture
+   324→
+   325→## Packaging
+   326→
+   327→* Plastic packaging
+   328→* Cartons
+   329→* Bottles
+   330→* Industrial packaging
+   331→
+   332→## Logistics & Transportation
+   333→
+   334→* Trucks
+   335→* Transport services
+   336→* Warehousing
+   337→* Freight forwarding
+   338→
+   339→The administrator must be able to create unlimited categories and subcategories.
+   340→
+   341→---
+   342→
+   343→# 9. HOMEPAGE
+   344→
+   345→Create a modern professional B2B homepage.
+   346→
+   347→Header:
+   348→
+   349→* Logo
+   350→* Categories
+   351→* Products
+   352→* Suppliers
+   353→* RFQ
+   354→* Services
+   355→* Industries
+   356→* About
+   357→* Login
+   358→* Register
+   359→
+   360→Main hero:
+   361→
+   362→"Source from Algeria. Buy from trusted suppliers."
+   363→
+   364→Large search bar:
+   365→
+   366→"What are you looking for?"
+   367→
+   368→Search modes:
+   369→
+   370→* Products
+   371→* Suppliers
+   372→* Categories
+   373→* RFQs
+   374→
+   375→Buttons:
+   376→
+   377→Search
+   378→
+   379→Post RFQ
+   380→
+   381→Find Suppliers
+   382→
+   383→Hero should visually communicate:
+   384→
+   385→Algerian industry
+   386→Manufacturing
+   387→Agriculture
+   388→Construction
+   389→Technology
+   390→Energy
+   391→Logistics
+   392→
+   393→---
+   394→
+   395→# 10. SEARCH ENGINE
+   396→
+   397→Create a powerful marketplace search engine.
+   398→
+   399→Search products by:
+   400→
+   401→* Keyword
+   402→* Category
+   403→* Supplier
+   404→* Wilaya
+   405→* Price
+   406→* MOQ
+   407→* Availability
+   408→* Certification
+   409→* Industry
+   410→* Product attributes
+   411→* Verified supplier
+   412→* Export capability
+   413→
+   414→Search suppliers by:
+   415→
+   416→* Company
+   417→* Wilaya
+   418→* Industry
+   419→* Product
+   420→* Certification
+   421→* Company size
+   422→* Export capability
+   423→* Verification level
+   424→
+   425→Implement:
+   426→
+   427→* Full-text search
+   428→* Filters
+   429→* Sorting
+   430→* Pagination
+   431→* Search suggestions
+   432→* Popular searches
+   433→* Recently searched
+   434→* Related searches
+   435→
+   436→Architecture should allow future integration with:
+   437→
+   438→Elasticsearch / OpenSearch / Meilisearch.
+   439→
+   440→---
+   441→
+   442→# 11. AI SEARCH
+   443→
+   444→Create an AI sourcing assistant.
+   445→
+   446→User can type:
+   447→
+   448→"I need 500 solar panels 550W for a project in Oran."
+   449→
+   450→AI should extract:
+   451→
+   452→Product:
+   453→Solar panels
+   454→
+   455→Quantity:
+   456→500
+   457→
+   458→Specification:
+   459→550W
+   460→
+   461→Destination:
+   462→Oran
+   463→
+   464→Then recommend:
+   465→
+   466→* Relevant products
+   467→* Relevant suppliers
+   468→* Estimated price range
+   469→* Matching RFQs
+   470→* Similar products
+   471→
+   472→The architecture must allow integration with an LLM API.
+   473→
+   474→Do NOT hardcode a specific AI provider.
+   475→
+   476→Create an abstraction:
+   477→
+   478→AIProvider
+   479→
+   480→---
+   481→
+   482→# 12. IMAGE SEARCH
+   483→
+   484→Allow buyers to upload a product image.
+   485→
+   486→The platform should eventually identify:
+   487→
+   488→* Similar products
+   489→* Matching products
+   490→* Categories
+   491→* Suppliers
+   492→
+   493→Build the frontend and backend architecture so computer vision can be integrated later.
+   494→
+   495→---
+   496→
+   497→# 13. SUPPLIER DIRECTORY
+   498→
+   499→Create a professional supplier directory.
+   500→
+   501→Supplier profile:
+   502→
+   503→* Company logo
+   504→* Cover image
+   505→* Company name
+   506→* Verification badge
+   507→* Wilaya
+   508→* Company description
+   509→* Products
+   510→* Categories
+   511→* Certifications
+   512→* Factory information
+   513→* Production capacity
+   514→* Export markets
+   515→* Contact information
+   516→* Business years
+   517→* Employees
+   518→* Response rate
+   519→* Response time
+   520→* Reviews
+   521→* Rating
+   522→* RFQ participation
+   523→* Documents
+   524→* Company gallery
+   525→* Factory videos
+   526→
+   527→Supplier levels:
+   528→
+   529→1. Registered
+   530→2. Verified
+   531→3. Audited
+   532→4. Premium
+   533→
+   534→These levels must be configurable by administrators.
+   535→
+   536→---
+   537→
+   538→# 14. SUPPLIER VERIFICATION
+   539→
+   540→Create a supplier verification workflow.
+   541→
+   542→Supplier submits:
+   543→
+   544→* RC
+   545→* NIF
+   546→* NIS
+   547→* Company documents
+   548→* Certifications
+   549→* Identity of authorized representative
+   550→* Address
+   551→* Business information
+   552→
+   553→Admin reviews documents.
+   554→
+   555→Status:
+   556→
+   557→PENDING
+   558→
+   559→UNDER_REVIEW
+   560→
+   561→VERIFIED
+   562→
+   563→REJECTED
+   564→
+   565→SUSPENDED
+   566→
+   567→Create an audit trail.
+   568→
+   569→Never automatically mark a company as verified.
+   570→
+   571→---
+   572→
+   573→# 15. RFQ — REQUEST FOR QUOTATION
+   574→
+   575→This is one of the most important features.
+   576→
+   577→Buyer can create an RFQ.
+   578→
+   579→Fields:
+   580→
+   581→* Product
+   582→* Description
+   583→* Quantity
+   584→* Unit
+   585→* Technical specifications
+   586→* Target price
+   587→* Delivery location
+   588→* Required delivery date
+   589→* Payment conditions
+   590→* Documents
+   591→* Images
+   592→* Expiration date
+   593→
+   594→Workflow:
+   595→
+   596→DRAFT
+   597→
+   598→PUBLISHED
+   599→
+   600→MATCHING
+   601→
+   602→QUOTATIONS_RECEIVED
+   603→
+   604→NEGOTIATION
+   605→
+   606→AWARDED
+   607→
+   608→CLOSED
+   609→
+   610→CANCELLED
+   611→
+   612→---
+   613→
+   614→# 16. SUPPLIER MATCHING
+   615→
+   616→When an RFQ is published, automatically identify relevant suppliers.
+   617→
+   618→Matching criteria:
+   619→
+   620→* Product category
+   621→* Product similarity
+   622→* Wilaya
+   623→* Production capability
+   624→* Capacity
+   625→* Certifications
+   626→* MOQ
+   627→* Export capability
+   628→* Supplier rating
+   629→* Verification level
+   630→
+   631→Notify matching suppliers.
+   632→
+   633→---
+   634→
+   635→# 17. QUOTATION SYSTEM
+   636→
+   637→Suppliers can respond to RFQs.
+   638→
+   639→Quotation fields:
+   640→
+   641→* Product
+   642→* Quantity
+   643→* Unit price
+   644→* Total price
+   645→* Currency
+   646→* MOQ
+   647→* Lead time
+   648→* Delivery cost
+   649→* Payment terms
+   650→* Warranty
+   651→* Validity
+   652→* Technical documents
+   653→* Comments
+   654→
+   655→Buyer can compare quotations.
+   656→
+   657→Create a professional quotation comparison interface.
+   658→
+   659→---
+   660→
+   661→# 18. NEGOTIATION
+   662→
+   663→Implement buyer/supplier negotiation.
+   664→
+   665→Support:
+   666→
+   667→* Messages
+   668→* Counter offers
+   669→* Price negotiation
+   670→* Quantity negotiation
+   671→* Delivery negotiation
+   672→* Payment terms
+   673→* Attachments
+   674→
+   675→Every negotiation must be recorded.
+   676→
+   677→---
+   678→
+   679→# 19. INTERNAL MESSAGING
+   680→
+   681→Create secure B2B messaging.
+   682→
+   683→Features:
+   684→
+   685→* One-to-one chat
+   686→* Buyer/supplier chat
+   687→* RFQ-specific conversations
+   688→* File attachments
+   689→* Images
+   690→* Documents
+   691→* Notifications
+   692→* Read status
+   693→* Search conversations
+   694→* Block/report user
+   695→
+   696→Architecture must support WebSockets.
+   697→
+   698→---
+   699→
+   700→# 20. NOTIFICATION SYSTEM
+   701→
+   702→Notifications:
+   703→
+   704→* New message
+   705→* New RFQ
+   706→* New quotation
+   707→* Quotation accepted
+   708→* Quotation rejected
+   709→* RFQ expiration
+   710→* Supplier verification
+   711→* Product approval
+   712→* Account activity
+   713→* Security alerts
+   714→
+   715→Channels:
+   716→
+   717→* In-app
+   718→* Email
+   719→* SMS
+   720→* WhatsApp integration later
+   721→
+   722→Create notification preferences.
+   723→
+   724→---
+   725→
+   726→# 21. ORDERS
+   727→
+   728→Although the platform is primarily B2B sourcing, support optional online orders.
+   729→
+   730→Order states:
+   731→
+   732→PENDING
+   733→
+   734→CONFIRMED
+   735→
+   736→PROCESSING
+   737→
+   738→READY_TO_SHIP
+   739→
+   740→SHIPPED
+   741→
+   742→DELIVERED
+   743→
+   744→CANCELLED
+   745→
+   746→DISPUTED
+   747→
+   748→COMPLETED
+   749→
+   750→Create:
+   751→
+   752→Order
+   753→OrderItem
+   754→Shipment
+   755→Payment
+   756→Invoice
+   757→Dispute
+   758→
+   759→---
+   760→
+   761→# 22. ALGERIAN PAYMENT ARCHITECTURE
+   762→
+   763→Do NOT assume that international payment gateways are the only option.
+   764→
+   765→Design a payment abstraction layer.
+   766→
+   767→Potential payment methods:
+   768→
+   769→* CIB
+   770→* Edahabia
+   771→* Bank transfer
+   772→* CCP
+   773→* Cash on delivery where appropriate
+   774→* International payment gateways where legally permitted
+   775→* Escrow integration in future
+   776→
+   777→Create:
+   778→
+   779→PaymentProvider
+   780→
+   781→so additional payment providers can be integrated later.
+   782→
+   783→Never store raw card numbers.
+   784→
+   785→---
+   786→
+   787→# 23. LOGISTICS
+   788→
+   789→Create logistics management.
+   790→
+   791→Shipment information:
+   792→
+   793→* Origin
+   794→* Destination
+   795→* Carrier
+   796→* Tracking number
+   797→* Weight
+   798→* Dimensions
+   799→* Shipping cost
+   800→* Delivery date
+   801→* Status
+   802→
+   803→Support:
+   804→
+   805→* Wilaya delivery
+   806→* National delivery
+   807→* International shipping
+   808→* Freight forwarding
+   809→
+   810→Future integration:
+   811→
+   812→* Algerian logistics companies
+   813→* courier APIs
+   814→* freight APIs
+   815→
+   816→---
+   817→
+   818→# 24. DOCUMENT MANAGEMENT
+   819→
+   820→Buyers and suppliers can upload:
+   821→
+   822→* PDF
+   823→* Excel
+   824→* Word
+   825→* Images
+   826→* Certifications
+   827→* Datasheets
+   828→* Commercial documents
+   829→
+   830→Implement:
+   831→
+   832→* Object storage
+   833→* Access control
+   834→* File size restrictions
+   835→* File type validation
+   836→* Virus scanning architecture
+   837→* Private/public files
+   838→* Signed URLs
+   839→* Document versioning
+   840→
+   841→---
+   842→
+   843→# 25. REVIEWS AND REPUTATION
+   844→
+   845→Buyers can review suppliers.
+   846→
+   847→Supplier reputation:
+   848→
+   849→* Overall rating
+   850→* Product quality
+   851→* Communication
+   852→* Delivery
+   853→* Price
+   854→* Reliability
+   855→
+   856→Prevent fake reviews.
+   857→
+   858→Only allow reviews after a valid business interaction/order/RFQ.
+   859→
+   860→Create moderation tools.
+   861→
+   862→---
+   863→
+   864→# 26. FAVORITES
+   865→
+   866→Users can save:
+   867→
+   868→* Products
+   869→* Suppliers
+   870→* RFQs
+   871→* Searches
+   872→
+   873→Create:
+   874→
+   875→Favorites
+   876→SavedSearches
+   877→
+   878→Notify users when saved products change.
+   879→
+   880→---
+   881→
+   882→# 27. BUYER DASHBOARD
+   883→
+   884→Create a professional buyer dashboard.
+   885→
+   886→Sections:
+   887→
+   888→Dashboard
+   889→
+   890→My RFQs
+   891→
+   892→My Quotations
+   893→
+   894→My Orders
+   895→
+   896→Messages
+   897→
+   898→Favorites
+   899→
+   900→Suppliers
+   901→
+   902→Saved Searches
+   903→
+   904→Documents
+   905→
+   906→Notifications
+   907→
+   908→Company Profile
+   909→
+   910→Settings
+   911→
+   912→Analytics
+   913→
+   914→---
+   915→
+   916→# 28. SUPPLIER DASHBOARD
+   917→
+   918→Supplier dashboard:
+   919→
+   920→Dashboard
+   921→
+   922→Products
+   923→
+   924→RFQs
+   925→
+   926→Quotations
+   927→
+   928→Orders
+   929→
+   930→Messages
+   931→
+   932→Customers
+   933→
+   934→Company Profile
+   935→
+   936→Verification
+   937→
+   938→Documents
+   939→
+   940→Analytics
+   941→
+   942→Reviews
+   943→
+   944→Subscription
+   945→
+   946→Settings
+   947→
+   948→---
+   949→
+   950→# 29. SUPPLIER ANALYTICS
+   951→
+   952→Show:
+   953→
+   954→* Product views
+   955→* Search appearances
+   956→* Inquiries
+   957→* RFQs received
+   958→* Quotations sent
+   959→* Quotation conversion
+   960→* Orders
+   961→* Revenue
+   962→* Most viewed products
+   963→* Most contacted products
+   964→* Buyer locations
+   965→
+   966→Use charts.
+   967→
+   968→---
+   969→
+   970→# 30. ADMINISTRATOR PLATFORM
+   971→
+   972→Build a powerful administration panel.
+   973→
+   974→Admin sections:
+   975→
+   976→Dashboard
+   977→
+   978→Users
+   979→
+   980→Companies
+   981→
+   982→Suppliers
+   983→
+   984→Buyers
+   985→
+   986→Products
+   987→
+   988→Categories
+   989→
+   990→RFQs
+   991→
+   992→Quotations
+   993→
+   994→Orders
+   995→
+   996→Payments
+   997→
+   998→Shipments
+   999→
+  1000→Messages
+  1001→
+  1002→Reviews
+  1003→
+  1004→Verification
+  1005→
+  1006→Documents
+  1007→
+  1008→Reports
+  1009→
+  1010→Subscriptions
+  1011→
+  1012→Advertisements
+  1013→
+  1014→CMS
+  1015→
+  1016→Translations
+  1017→
+  1018→Countries
+  1019→
+  1020→Wilayas
+  1021→
+  1022→Communes
+  1023→
+  1024→Currencies
+  1025→
+  1026→Exchange Rates
+  1027→
+  1028→Notifications
+  1029→
+  1030→System Settings
+  1031→
+  1032→Security
+  1033→
+  1034→Audit Logs
+  1035→
+  1036→---
+  1037→
+  1038→# 31. ADMIN DASHBOARD
+  1039→
+  1040→KPIs:
+  1041→
+  1042→Total users
+  1043→
+  1044→Total companies
+  1045→
+  1046→Verified suppliers
+  1047→
+  1048→Products
+  1049→
+  1050→RFQs
+  1051→
+  1052→Quotations
+  1053→
+  1054→Orders
+  1055→
+  1056→GMV
+  1057→
+  1058→Revenue
+  1059→
+  1060→Active users
+  1061→
+  1062→New registrations
+  1063→
+  1064→Most popular categories
+  1065→
+  1066→Top suppliers
+  1067→
+  1068→Top products
+  1069→
+  1070→Top Wilayas
+  1071→
+  1072→Charts:
+  1073→
+  1074→Users growth
+  1075→
+  1076→RFQ growth
+  1077→
+  1078→Orders growth
+  1079→
+  1080→Revenue
+  1081→
+  1082→Supplier registrations
+  1083→
+  1084→---
+  1085→
+  1086→# 32. SUBSCRIPTION MODEL
+  1087→
+  1088→Create a freemium B2B business model.
+  1089→
+  1090→FREE SUPPLIER
+  1091→
+  1092→* Company profile
+  1093→* Limited products
+  1094→* Basic RFQs
+  1095→* Basic messaging
+  1096→
+  1097→PRO SUPPLIER
+  1098→
+  1099→* More products
+  1100→* Priority visibility
+  1101→* Advanced analytics
+  1102→* More RFQ responses
+  1103→* Verified badge eligibility
+  1104→
+  1105→PREMIUM SUPPLIER
+  1106→
+  1107→* Featured products
+  1108→* Premium placement
+  1109→* Advanced analytics
+  1110→* Lead generation
+  1111→* Priority support
+  1112→* Advertising
+  1113→
+  1114→Plans must be configurable by admin.
+  1115→
+  1116→---
+  1117→
+  1118→# 33. ADVERTISING
+  1119→
+  1120→Create B2B advertising system.
+  1121→
+  1122→Advertisement types:
+  1123→
+  1124→* Homepage banner
+  1125→* Category banner
+  1126→* Sponsored product
+  1127→* Featured supplier
+  1128→* Search result promotion
+  1129→
+  1130→Track:
+  1131→
+  1132→* Impressions
+  1133→* Clicks
+  1134→* CTR
+  1135→* Campaign cost
+  1136→* Start/end date
+  1137→
+  1138→---
+  1139→
+  1140→# 34. CMS
+  1141→
+  1142→Admin must be able to manage:
+  1143→
+  1144→* Homepage sections
+  1145→* Banners
+  1146→* Articles
+  1147→* News
+  1148→* Industry pages
+  1149→* FAQ
+  1150→* Static pages
+  1151→* SEO metadata
+  1152→
+  1153→No developer intervention should be required for normal content management.
+  1154→
+  1155→---
+  1156→
+  1157→# 35. SEO
+  1158→
+  1159→Build excellent SEO.
+  1160→
+  1161→Every:
+  1162→
+  1163→* Product
+  1164→* Supplier
+  1165→* Category
+  1166→* Industry
+  1167→* Wilaya
+  1168→
+  1169→should have SEO metadata.
+  1170→
+  1171→Implement:
+  1172→
+  1173→* Dynamic metadata
+  1174→* Canonical URLs
+  1175→* Sitemap
+  1176→* robots.txt
+  1177→* Structured data
+  1178→* Open Graph
+  1179→* Breadcrumbs
+  1180→
+  1181→Example:
+  1182→
+  1183→/products/industrial-pumps
+  1184→
+  1185→/suppliers/industrial-pump-manufacturers-algeria
+  1186→
+  1187→/categories/industrial-equipment
+  1188→
+  1189→/suppliers/wilaya/algiers
+  1190→
+  1191→---
+  1192→
+  1193→# 36. SECURITY
+  1194→
+  1195→Security is a critical requirement.
+  1196→
+  1197→Implement:
+  1198→
+  1199→* Secure authentication
+  1200→* Password hashing
+  1201→* MFA / 2FA
+  1202→* RBAC
+  1203→* Session management
+  1204→* Rate limiting
+  1205→* CSRF protection
+  1206→* XSS protection
+  1207→* SQL injection prevention
+  1208→* Input validation
+  1209→* File upload security
+  1210→* API authentication
+  1211→* Audit logging
+  1212→* Security headers
+  1213→* Encryption where appropriate
+  1214→* Secrets management
+  1215→* Account lockout
+  1216→* Suspicious activity detection
+  1217→
+  1218→Follow OWASP best practices.
+  1219→
+  1220→---
+  1221→
+  1222→# 37. USER ROLES
+  1223→
+  1224→Create granular RBAC.
+  1225→
+  1226→Roles:
+  1227→
+  1228→SUPER_ADMIN
+  1229→
+  1230→ADMIN
+  1231→
+  1232→MODERATOR
+  1233→
+  1234→VERIFICATION_AGENT
+  1235→
+  1236→SUPPORT_AGENT
+  1237→
+  1238→BUYER
+  1239→
+  1240→SUPPLIER
+  1241→
+  1242→SUPPLIER_ADMIN
+  1243→
+  1244→SUPPLIER_EMPLOYEE
+  1245→
+  1246→LOGISTICS_PARTNER
+  1247→
+  1248→CONTENT_MANAGER
+  1249→
+  1250→FINANCE_MANAGER
+  1251→
+  1252→AUDITOR
+  1253→
+  1254→---
+  1255→
+  1256→# 38. DATABASE
+  1257→
+  1258→Use PostgreSQL.
+  1259→
+  1260→Design a professional normalized relational database.
+  1261→
+  1262→Minimum entities:
+  1263→
+  1264→User
+  1265→
+  1266→Role
+  1267→
+  1268→Permission
+  1269→
+  1270→UserRole
+  1271→
+  1272→Company
+  1273→
+  1274→CompanyUser
+  1275→
+  1276→CompanyDocument
+  1277→
+  1278→CompanyVerification
+  1279→
+  1280→Supplier
+  1281→
+  1282→Buyer
+  1283→
+  1284→Product
+  1285→
+  1286→ProductVariant
+  1287→
+  1288→ProductImage
+  1289→
+  1290→ProductDocument
+  1291→
+  1292→Category
+  1293→
+  1294→CategoryTranslation
+  1295→
+  1296→Brand
+  1297→
+  1298→ProductAttribute
+  1299→
+  1300→ProductAttributeValue
+  1301→
+  1302→RFQ
+  1303→
+  1304→RFQItem
+  1305→
+  1306→RFQAttachment
+  1307→
+  1308→RFQSupplierMatch
+  1309→
+  1310→Quotation
+  1311→
+  1312→QuotationItem
+  1313→
+  1314→Negotiation
+  1315→
+  1316→NegotiationMessage
+  1317→
+  1318→Conversation
+  1319→
+  1320→Message
+  1321→
+  1322→Notification
+  1323→
+  1324→Order
+  1325→
+  1326→OrderItem
+  1327→
+  1328→Payment
+  1329→
+  1330→Invoice
+  1331→
+  1332→Shipment
+  1333→
+  1334→Review
+  1335→
+  1336→Favorite
+  1337→
+  1338→SavedSearch
+  1339→
+  1340→Subscription
+  1341→
+  1342→SubscriptionPlan
+  1343→
+  1344→Advertisement
+  1345→
+  1346→AdvertisementCampaign
+  1347→
+  1348→Wilaya
+  1349→
+  1350→Commune
+  1351→
+  1352→Country
+  1353→
+  1354→Currency
+  1355→
+  1356→ExchangeRate
+  1357→
+  1358→AuditLog
+  1359→
+  1360→SystemSetting
+  1361→
+  1362→Translation
+  1363→
+  1364→CMSPage
+  1365→
+  1366→CMSBlock
+  1367→
+  1368→BlogPost
+  1369→
+  1370→ContactRequest
+  1371→
+  1372→SupportTicket
+  1373→
+  1374→---
+  1375→
+  1376→# 39. DATABASE REQUIREMENTS
+  1377→
+  1378→Use:
+  1379→
+  1380→* Primary keys
+  1381→* Foreign keys
+  1382→* Unique constraints
+  1383→* Indexes
+  1384→* Composite indexes where needed
+  1385→* Soft delete where appropriate
+  1386→* CreatedAt
+  1387→* UpdatedAt
+  1388→* CreatedBy
+  1389→* UpdatedBy
+  1390→
+  1391→Use UUIDs where appropriate.
+  1392→
+  1393→Do not duplicate data unnecessarily.
+  1394→
+  1395→Analyze query performance.
+  1396→
+  1397→Prepare the database for millions of products and users.
+  1398→
+  1399→---
+  1400→
+  1401→# 40. BACKEND ARCHITECTURE
+  1402→
+  1403→Build a scalable API architecture.
+  1404→
+  1405→Preferred architecture:
+  1406→
+  1407→Frontend:
+  1408→
+  1409→Next.js + TypeScript
+  1410→
+  1411→Backend:
+  1412→
+  1413→NestJS + TypeScript
+  1414→
+  1415→Database:
+  1416→
+  1417→PostgreSQL
+  1418→
+  1419→ORM:
+  1420→
+  1421→Prisma
+  1422→
+  1423→Cache:
+  1424→
+  1425→Redis
+  1426→
+  1427→Search:
+  1428→
+  1429→OpenSearch or Meilisearch
+  1430→
+  1431→Object Storage:
+  1432→
+  1433→S3-compatible storage
+  1434→
+  1435→Realtime:
+  1436→
+  1437→WebSocket
+  1438→
+  1439→Background jobs:
+  1440→
+  1441→BullMQ / Redis
+  1442→
+  1443→Email:
+  1444→
+  1445→provider abstraction
+  1446→
+  1447→SMS:
+  1448→
+  1449→provider abstraction
+  1450→
+  1451→AI:
+  1452→
+  1453→AI provider abstraction
+  1454→
+  1455→Payment:
+  1456→
+  1457→payment provider abstraction
+  1458→
+  1459→---
+  1460→
+  1461→# 41. API
+  1462→
+  1463→Create REST API or modular API architecture.
+  1464→
+  1465→API modules:
+  1466→
+  1467→/auth
+  1468→
+  1469→/users
+  1470→
+  1471→/companies
+  1472→
+  1473→/suppliers
+  1474→
+  1475→/products
+  1476→
+  1477→/categories
+  1478→
+  1479→/search
+  1480→
+  1481→/rfqs
+  1482→
+  1483→/quotations
+  1484→
+  1485→/negotiations
+  1486→
+  1487→/messages
+  1488→
+  1489→/orders
+  1490→
+  1491→/payments
+  1492→
+  1493→/shipments
+  1494→
+  1495→/reviews
+  1496→
+  1497→/notifications
+  1498→
+  1499→/subscriptions
+  1500→
+  1501→/advertisements
+  1502→
+  1503→/admin
+  1504→
+  1505→/analytics
+  1506→
+  1507→/cms
+  1508→
+  1509→---
+  1510→
+  1511→# 42. API QUALITY
+  1512→
+  1513→Every API must include:
+  1514→
+  1515→* Authentication
+  1516→* Authorization
+  1517→* Validation
+  1518→* Error handling
+  1519→* Pagination
+  1520→* Filtering
+  1521→* Sorting
+  1522→* Logging
+  1523→* Rate limiting
+  1524→
+  1525→Use consistent API response format.
+  1526→
+  1527→Example:
+  1528→
+  1529→{
+  1530→"success": true,
+  1531→"data": {},
+  1532→"meta": {}
+  1533→}
+  1534→
+  1535→Errors:
+  1536→
+  1537→{
+  1538→"success": false,
+  1539→"error": {
+  1540→"code": "...",
+  1541→"message": "..."
+  1542→}
+  1543→}
+  1544→
+  1545→---
+  1546→
+  1547→# 43. FRONTEND TECHNOLOGY
+  1548→
+  1549→Use:
+  1550→
+  1551→Next.js
+  1552→
+  1553→TypeScript
+  1554→
+  1555→Tailwind CSS
+  1556→
+  1557→Modern component architecture
+  1558→
+  1559→Responsive design
+  1560→
+  1561→Accessibility
+  1562→
+  1563→Mobile-first approach
+  1564→
+  1565→Use a professional B2B visual language.
+  1566→
+  1567→Do NOT make it look like a generic startup template.
+  1568→
+  1569→---
+  1570→
+  1571→# 44. DESIGN
+  1572→
+  1573→Design should communicate:
+  1574→
+  1575→Trust
+  1576→
+  1577→Industry
+  1578→
+  1579→Professionalism
+  1580→
+  1581→Technology
+  1582→
+  1583→Algerian identity
+  1584→
+  1585→International business
+  1586→
+  1587→Use an original visual identity.
+  1588→
+  1589→Do not copy Made-in-China colors, logos or exact layouts.
+  1590→
+  1591→Create:
+  1592→
+  1593→* Professional navigation
+  1594→* Mega menu
+  1595→* Product cards
+  1596→* Supplier cards
+  1597→* RFQ cards
+  1598→* Trust badges
+  1599→* Verification badges
+  1600→* Data-rich tables
+  1601→* Dashboard widgets
+  1602→
+  1603→---
+  1604→
+  1605→# 45. MOBILE
+  1606→
+  1607→The entire platform must work perfectly on:
+  1608→
+  1609→Desktop
+  1610→
+  1611→Tablet
+  1612→
+  1613→Mobile
+  1614→
+  1615→Supplier and buyer dashboards must be mobile responsive.
+  1616→
+  1617→---
+  1618→
+  1619→# 46. PERFORMANCE
+  1620→
+  1621→Target:
+  1622→
+  1623→Lighthouse Performance > 90
+  1624→
+  1625→Fast initial loading
+  1626→
+  1627→Image optimization
+  1628→
+  1629→Lazy loading
+  1630→
+  1631→Code splitting
+  1632→
+  1633→Caching
+  1634→
+  1635→CDN support
+  1636→
+  1637→Database indexes
+  1638→
+  1639→Efficient API queries
+  1640→
+  1641→Avoid N+1 queries.
+  1642→
+  1643→---
+  1644→
+  1645→# 47. OBSERVABILITY
+  1646→
+  1647→Implement architecture for:
+  1648→
+  1649→* Application logs
+  1650→* API logs
+  1651→* Error tracking
+  1652→* Performance monitoring
+  1653→* Database monitoring
+  1654→* Security logs
+  1655→* Audit logs
+  1656→
+  1657→Prepare integration with:
+  1658→
+  1659→Sentry
+  1660→
+  1661→Prometheus
+  1662→
+  1663→Grafana
+  1664→
+  1665→OpenTelemetry
+  1666→
+  1667→---
+  1668→
+  1669→# 48. TESTING
+  1670→
+  1671→Do NOT consider the project complete without tests.
+  1672→
+  1673→Create:
+  1674→
+  1675→Unit tests
+  1676→
+  1677→Integration tests
+  1678→
+  1679→API tests
+  1680→
+  1681→Database tests
+  1682→
+  1683→Authentication tests
+  1684→
+  1685→Authorization tests
+  1686→
+  1687→E2E tests
+  1688→
+  1689→Security tests
+  1690→
+  1691→Performance tests
+  1692→
+  1693→Critical workflows must have automated tests.
+  1694→
+  1695→---
+  1696→
+  1697→# 49. CRITICAL E2E WORKFLOWS
+  1698→
+  1699→Test completely:
+  1700→
+  1701→## Workflow 1
+  1702→
+  1703→Register buyer
+  1704→
+  1705→→ Verify email
+  1706→
+  1707→→ Complete company profile
+  1708→
+  1709→→ Search product
+  1710→
+  1711→→ Contact supplier
+  1712→
+  1713→## Workflow 2
+  1714→
+  1715→Register supplier
+  1716→
+  1717→→ Submit documents
+  1718→
+  1719→→ Admin verification
+  1720→
+  1721→→ Create product
+  1722→
+  1723→→ Product moderation
+  1724→
+  1725→→ Product published
+  1726→
+  1727→## Workflow 3
+  1728→
+  1729→Buyer creates RFQ
+  1730→
+  1731→→ Matching suppliers
+  1732→
+  1733→→ Suppliers receive notification
+  1734→
+  1735→→ Supplier submits quotation
+  1736→
+  1737→→ Buyer compares quotations
+  1738→
+  1739→→ Negotiation
+  1740→
+  1741→→ Award
+  1742→
+  1743→## Workflow 4
+  1744→
+  1745→Buyer places order
+  1746→
+  1747→→ Supplier confirms
+  1748→
+  1749→→ Payment
+  1750→
+  1751→→ Shipment
+  1752→
+  1753→→ Delivery
+  1754→
+  1755→→ Review
+  1756→
+  1757→---
+  1758→
+  1759→# 50. FRAUD AND ABUSE
+  1760→
+  1761→Create mechanisms for:
+  1762→
+  1763→* Spam detection
+  1764→* Fake company detection
+  1765→* Duplicate accounts
+  1766→* Suspicious messaging
+  1767→* Fake reviews
+  1768→* Fraudulent products
+  1769→* Malicious documents
+  1770→* Account takeover
+  1771→
+  1772→Create:
+  1773→
+  1774→RiskScore
+  1775→
+  1776→ModerationCase
+  1777→
+  1778→FraudAlert
+  1779→
+  1780→entities.
+  1781→
+  1782→---
+  1783→
+  1784→# 51. ALGERIAN LOCALIZATION
+  1785→
+  1786→The system must understand Algerian terminology.
+  1787→
+  1788→Examples:
+  1789→
+  1790→RC
+  1791→
+  1792→NIF
+  1793→
+  1794→NIS
+  1795→
+  1796→CIB
+  1797→
+  1798→Edahabia
+  1799→
+  1800→CCP
+  1801→
+  1802→Wilaya
+  1803→
+  1804→Commune
+  1805→
+  1806→DZD
+  1807→
+  1808→SARL
+  1809→
+  1810→EURL
+  1811→
+  1812→SPA
+  1813→
+  1814→SNC
+  1815→
+  1816→Auto-entrepreneur where applicable
+  1817→
+  1818→Include French terminology where commonly used.
+  1819→
+  1820→---
+  1821→
+  1822→# 52. DATA PRIVACY
+  1823→
+  1824→Implement privacy-by-design.
+  1825→
+  1826→Users must be able to:
+  1827→
+  1828→* View personal data
+  1829→* Update personal data
+  1830→* Request account deletion
+  1831→* Manage consent
+  1832→* Manage notifications
+  1833→* Export personal data
+  1834→
+  1835→Do not expose private company documents.
+  1836→
+  1837→---
+  1838→
+  1839→# 53. SEO CONTENT
+  1840→
+  1841→Automatically generate SEO-friendly structures for:
+  1842→
+  1843→"Manufacturers in Algeria"
+  1844→
+  1845→"Industrial suppliers in Algeria"
+  1846→
+  1847→"Algerian agricultural companies"
+  1848→
+  1849→"Construction material suppliers Algeria"
+  1850→
+  1851→"Electronics suppliers Algeria"
+  1852→
+  1853→"IT suppliers Algeria"
+  1854→
+  1855→"Telecom suppliers Algeria"
+  1856→
+  1857→"Solar energy companies Algeria"
+  1858→
+  1859→"Exporters in Algeria"
+  1860→
+  1861→etc.
+  1862→
+  1863→---
+  1864→
+  1865→# 54. INTERNATIONALIZATION
+  1866→
+  1867→Every database entity that requires localization should support translations.
+  1868→
+  1869→For example:
+  1870→
+  1871→ProductTranslation
+  1872→
+  1873→CategoryTranslation
+  1874→
+  1875→CMSPageTranslation
+  1876→
+  1877→Fields:
+  1878→
+  1879→language
+  1880→
+  1881→name
+  1882→
+  1883→description
+  1884→
+  1885→slug
+  1886→
+  1887→SEO title
+  1888→
+  1889→SEO description
+  1890→
+  1891→---
+  1892→
+  1893→# 55. SLUGS
+  1894→
+  1895→Use SEO-friendly URLs.
+  1896→
+  1897→Examples:
+  1898→
+  1899→/fr/produits/panneaux-solaires
+  1900→
+  1901→/ar/products/...
+  1902→
+  1903→/en/products/solar-panels
+  1904→
+  1905→/company/algerian-industrial-group
+  1906→
+  1907→/supplier/algiers/industrial-equipment
+  1908→
+  1909→/rfq/industrial-pump-500-units
+  1910→
+  1911→---
+  1912→
+  1913→# 56. DOCUMENT STORAGE
+  1914→
+  1915→Never store large files directly inside PostgreSQL.
+  1916→
+  1917→Store metadata in PostgreSQL.
+  1918→
+  1919→Store files in:
+  1920→
+  1921→S3-compatible object storage.
+  1922→
+  1923→Create secure access URLs.
+  1924→
+  1925→---
+  1926→
+  1927→# 57. ARCHITECTURE
+  1928→
+  1929→Create a clean modular architecture.
+  1930→
+  1931→Recommended structure:
+  1932→
+  1933→apps/
+  1934→
+  1935→web/
+  1936→
+  1937→api/
+  1938→
+  1939→admin/
+  1940→
+  1941→packages/
+  1942→
+  1943→ui/
+  1944→
+  1945→database/
+  1946→
+  1947→auth/
+  1948→
+  1949→config/
+  1950→
+  1951→types/
+  1952→
+  1953→i18n/
+  1954→
+  1955→search/
+  1956→
+  1957→payments/
+  1958→
+  1959→notifications/
+  1960→
+  1961→ai/
+  1962→
+  1963→storage/
+  1964→
+  1965→security/
+  1966→
+  1967→Do not create a monolithic spaghetti codebase.
+  1968→
+  1969→---
+  1970→
+  1971→# 58. DEVELOPMENT METHODOLOGY
+  1972→
+  1973→Do not attempt to generate the entire application blindly in one step.
+  1974→
+  1975→Work in phases.
+  1976→
+  1977→PHASE 1:
+  1978→
+  1979→Architecture
+  1980→
+  1981→PHASE 2:
+  1982→
+  1983→Database
+  1984→
+  1985→PHASE 3:
+  1986→
+  1987→Authentication/RBAC
+  1988→
+  1989→PHASE 4:
+  1990→
+  1991→Company/Supplier management
+  1992→
+  1993→PHASE 5:
+  1994→
+  1995→Product catalog
+  1996→
+  1997→PHASE 6:
+  1998→
+  1999→Search
+  2000→
+
+[showing lines 1-2000 of 2660; use offset=2001 with limit to continue reading]

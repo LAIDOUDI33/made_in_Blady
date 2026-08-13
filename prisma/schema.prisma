@@ -1,0 +1,478 @@
+// AlgeriaTrade B2B Marketplace - Database Schema
+// Designed for Algerian market with multilingual support
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// USER & AUTHENTICATION
+// ============================================
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  MODERATOR
+  BUYER
+  SUPPLIER
+}
+
+enum VerificationStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+  SUSPENDED
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  password      String
+  firstName     String
+  lastName      String
+  phone         String?
+  avatar        String?
+  role          UserRole @default(BUYER)
+  isActive      Boolean  @default(true)
+  emailVerified Boolean  @default(false)
+  
+  // Relations
+  company       Company?
+  reviews      Review[]
+  favorites    Favorite[]
+  notifications Notification[]
+  messagesSent  Message[] @relation("MessageFrom")
+  messagesReceived Message[] @relation("MessageTo")
+  ordersPlaced Order[] @relation("BuyerOrders")
+  rfqsCreated  RFQ[] @relation("BuyerRFQs")
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("users")
+}
+
+model Company {
+  id                  String             @id @default(cuid())
+  name                String
+  slug                String             @unique
+  legalForm           String             // SARL, EURL, SPA, SNC
+  rcNumber            String             // Registre de Commerce
+  nif                 String             // Numéro d'Identification Fiscale
+  nis                 String             // Numéro d'Identification Statistique
+  website             String?
+  description         String?
+  logo                String?
+  coverImage          String?
+  yearEstablished     Int?
+  employeeCount       Int?
+  productionCapacity  String?
+  exportCapability    Boolean            @default(false)
+  verificationStatus  VerificationStatus  @default(PENDING)
+  rating              Float              @default(0)
+  reviewCount         Int                @default(0)
+  responseRate        Float              @default(0)
+  
+  // Location
+  wilaya              String
+  commune             String?
+  address             String?
+  
+  // Contact
+  contactEmail        String
+  contactPhone        String
+  
+  isVerified          Boolean            @default(false)
+  isActive            Boolean            @default(true)
+  
+  // Relations
+  userId              String             @unique
+  user                User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  products            Product[]
+  ordersReceived      Order[] @relation("SupplierOrders")
+  quotations          Quotation[]
+  companyReviews      Review[] @relation("CompanyReviews")
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("companies")
+}
+
+// ============================================
+// PRODUCT CATALOG
+// ============================================
+
+model Category {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  description String?
+  parentId    String?
+  image       String?
+  icon        String?
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+
+  parent      Category? @relation("CategoryTree", fields: [parentId], references: [id])
+  subcategories Category[] @relation("CategoryTree")
+  products    Product[]
+  rfqs        RFQ[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("categories")
+}
+
+model Product {
+  id                  String   @id @default(cuid())
+  name                String
+  slug                String
+  sku                 String?  @unique
+  shortDescription    String?
+  description         String?
+  
+  // Pricing
+  price               Float?
+  priceRangeMin       Float?
+  priceRangeMax       Float?
+  currency            String   @default("DZD")
+  negotiablePrice     Boolean  @default(false)
+  
+  // Inventory
+  moq                 Int?
+  unit                String?
+  availability        String   @default("in_stock")
+  
+  // Production
+  leadTime            String?
+  
+  // Origin
+  countryOfOrigin     String?
+  
+  // Relations
+  companyId           String
+  categoryId          String
+  
+  company             Company  @relation(fields: [companyId], references: [id])
+  category            Category @relation(fields: [categoryId], references: [id])
+  
+  images              ProductImage[]
+  favorites           Favorite[] @relation("ProductFavorites")
+  reviews             Review[] @relation("ProductReviews")
+  orderItems          OrderItem[]
+  
+  viewCount           Int      @default(0)
+  status              String   @default("draft")
+  isFeatured          Boolean  @default(false)
+  isActive            Boolean  @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([categoryId])
+  @@index([companyId])
+  @@map("products")
+}
+
+model ProductImage {
+  id          String @id @default(cuid())
+  productId   String
+  url         String
+  alt         String?
+  sortOrder   Int      @default(0)
+  isPrimary   Boolean  @default(false)
+
+  product     Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@map("product_images")
+}
+
+// ============================================
+// RFQ (REQUEST FOR QUOTATION) SYSTEM
+// ============================================
+
+enum RFQStatus {
+  DRAFT
+  PUBLISHED
+  QUOTATIONS_RECEIVED
+  NEGOTIATION
+  AWARDED
+  CLOSED
+  CANCELLED
+}
+
+model RFQ {
+  id                  String    @id @default(cuid())
+  title               String
+  description         String?
+  quantity            Int
+  unit                String?
+  targetPrice         Float?
+  targetCurrency      String    @default("DZD")
+  deliveryLocation     String?
+  requiredDeliveryDate DateTime?
+  expirationDate      DateTime?
+  
+  // Relations
+  buyerId             String
+  categoryId          String?
+  
+  buyer               User     @relation("BuyerRFQs", fields: [buyerId], references: [id])
+  category            Category? @relation(fields: [categoryId], references: [id])
+  quotations          Quotation[]
+  
+  status              RFQStatus @default(DRAFT)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([buyerId])
+  @@map("rfqs")
+}
+
+// ============================================
+// QUOTATION SYSTEM
+// ============================================
+
+enum QuotationStatus {
+  DRAFT
+  SENT
+  VIEWED
+  ACCEPTED
+  REJECTED
+  EXPIRED
+}
+
+model Quotation {
+  id          String         @id @default(cuid())
+  rfqId       String
+  companyId   String
+  totalPrice  Float
+  currency    String         @default("DZD")
+  notes       String?
+  validUntil  DateTime?
+
+  rfq         RFQ            @relation(fields: [rfqId], references: [id])
+  company     Company        @relation(fields: [companyId], references: [id])
+  items       QuotationItem[]
+
+  status      QuotationStatus @default(DRAFT)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([rfqId])
+  @@index([companyId])
+  @@map("quotations")
+}
+
+model QuotationItem {
+  id          String @id @default(cuid())
+  quotationId String
+  productName String
+  quantity    Int
+  unitPrice   Float
+  totalPrice  Float
+  unit        String?
+
+  quotation   Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+
+  @@map("quotation_items")
+}
+
+// ============================================
+// MESSAGING SYSTEM
+// ============================================
+
+model Conversation {
+  id          String   @id @default(cuid())
+  type        String   @default("direct")
+
+  messages    Message[]
+
+  lastMessageAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("conversations")
+}
+
+model Message {
+  id          String   @id @default(cuid())
+  conversationId String
+  fromUserId  String
+  toUserId    String
+  content     String?
+  fileType    String?
+  fileUrl     String?
+  fileName    String?
+  isRead      Boolean  @default(false)
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  fromUser    User     @relation("MessageFrom", fields: [fromUserId], references: [id])
+  toUser      User     @relation("MessageTo", fields: [toUserId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([conversationId])
+  @@map("messages")
+}
+
+// ============================================
+// ORDER MANAGEMENT
+// ============================================
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  COMPLETED
+}
+
+model Order {
+  id              String      @id @default(cuid())
+  orderNumber     String      @unique
+  buyerId         String
+  companyId       String
+  subtotal        Float
+  taxAmount       Float       @default(0)
+  shippingCost    Float       @default(0)
+  totalAmount     Float
+  currency        String      @default("DZD")
+  notes           String?
+  
+  deliveryName    String
+  deliveryPhone   String
+  deliveryAddress String
+  deliveryWilaya  String
+  
+  buyer           User       @relation("BuyerOrders", fields: [buyerId], references: [id])
+  company         Company     @relation("SupplierOrders", fields: [companyId], references: [id])
+  items           OrderItem[]
+  
+  status          OrderStatus @default(PENDING)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([buyerId])
+  @@index([companyId])
+  @@map("orders")
+}
+
+model OrderItem {
+  id          String  @id @default(cuid())
+  orderId     String
+  productId   String
+  productName String
+  quantity    Int
+  unitPrice   Float
+  totalPrice  Float
+
+  order       Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product     Product @relation(fields: [productId], references: [id])
+
+  @@map("order_items")
+}
+
+// ============================================
+// REVIEWS
+// ============================================
+
+model Review {
+  id          String   @id @default(cuid())
+  productId   String?
+  companyId   String?
+  reviewerId  String
+  rating      Int
+  title       String?
+  comment     String?
+  status      String   @default("published")
+
+  product     Product? @relation("ProductReviews", fields: [productId], references: [id])
+  company     Company? @relation("CompanyReviews", fields: [companyId], references: [id])
+  reviewer    User     @relation(fields: [reviewerId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("reviews")
+}
+
+// ============================================
+// FAVORITES
+// ============================================
+
+enum FavoriteType {
+  PRODUCT
+  SUPPLIER
+  RFQ
+}
+
+model Favorite {
+  id          String       @id @default(cuid())
+  userId      String
+  itemType    FavoriteType
+  itemId      String
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product     Product?     @relation("ProductFavorites", fields: [itemId], references: [id])
+
+  @@unique([userId, itemType, itemId])
+  @@map("favorites")
+}
+
+// ============================================
+// NOTIFICATIONS
+// ============================================
+
+enum NotificationType {
+  NEW_MESSAGE
+  NEW_RFQ
+  NEW_QUOTATION
+  ORDER_UPDATE
+  NEW_REVIEW
+}
+
+model Notification {
+  id          String           @id @default(cuid())
+  userId      String
+  type        NotificationType
+  title       String
+  message     String
+  data        String?
+  isRead      Boolean          @default(false)
+
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, isRead])
+  @@map("notifications")
+}
+
+// ============================================
+// ALGERIAN WILAYAS (Seed Data)
+// ============================================
+
+model Wilaya {
+  id          String   @id @default(cuid())
+  name        String
+  nameAr      String
+  code        String   @unique
+
+  createdAt DateTime @default(now())
+
+  @@map("wilayas")
+}

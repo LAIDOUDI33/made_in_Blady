@@ -1,0 +1,2659 @@
+# MASTER PROMPT — BUILD A COMPLETE ALGERIAN B2B MARKETPLACE
+
+## 1. PROJECT OBJECTIVE
+
+Build a complete, production-ready B2B marketplace inspired by the business model and functionality of Made-in-China.com, but designed specifically for the Algerian market.
+
+The platform must connect:
+
+* Algerian manufacturers
+* Algerian distributors
+* Wholesalers
+* Importers
+* Exporters
+* Retailers
+* SMEs
+* Large enterprises
+* Public-sector organizations
+* International buyers looking for Algerian products
+
+The platform must NOT be a simple e-commerce website.
+
+It must be a complete B2B sourcing, supplier discovery, RFQ, quotation, communication, procurement and business networking platform.
+
+Use Made-in-China.com as a functional benchmark, NOT as a source for copying its code, copyrighted content, branding, images, text or visual identity.
+
+Create an original Algerian brand, UI and architecture.
+
+Suggested working name:
+
+"AlgeriaTrade"
+
+Alternative names can be proposed by the AI.
+
+---
+
+# 2. TARGET MARKET
+
+Primary market:
+
+ALGERIA
+
+Secondary market:
+
+* Tunisia
+* Morocco
+* Mauritania
+* Libya
+* Sub-Saharan Africa
+* Europe
+* Middle East
+* International buyers interested in Algerian products
+
+The platform should eventually become:
+
+"THE B2B DIGITAL MARKETPLACE FOR ALGERIAN INDUSTRY AND AFRICAN TRADE"
+
+---
+
+# 3. LANGUAGES
+
+The platform must be multilingual from day one.
+
+Mandatory:
+
+1. French
+2. Arabic
+3. English
+
+Arabic must support complete RTL layout.
+
+Do NOT hardcode translations.
+
+Create a complete internationalization architecture.
+
+Example:
+
+/locales
+/fr
+/ar
+/en
+
+Every UI string must come from the translation system.
+
+---
+
+# 4. CURRENCY
+
+Primary currency:
+
+DZD — Algerian Dinar
+
+Additional currencies:
+
+* EUR
+* USD
+* GBP
+
+Currency conversion must be configurable by administrators.
+
+Do not hardcode exchange rates.
+
+Create:
+
+Currency
+ExchangeRate
+CurrencyHistory
+
+database entities.
+
+---
+
+# 5. ALGERIAN BUSINESS CONTEXT
+
+The platform must be adapted to Algerian companies.
+
+Supplier registration must support:
+
+* Company name
+* Legal form
+* RC / Registre de Commerce
+* NIF
+* NIS
+* AI / Article d'Imposition where applicable
+* Wilaya
+* Commune
+* Business address
+* Phone
+* Email
+* Website
+* Company activity
+* Industry
+* Year established
+* Number of employees
+* Annual turnover range
+* Production capacity
+* Export capability
+* Import capability
+* Certifications
+* Bank information where legally appropriate
+* Contact persons
+
+Do not expose sensitive financial/banking information publicly.
+
+---
+
+# 6. WILAYAS
+
+Create Algeria's complete administrative structure.
+
+Database:
+
+Wilaya
+Commune
+
+Every company must be associated with a Wilaya and optionally Commune.
+
+Allow search:
+
+"Suppliers in Sétif"
+
+"Manufacturers in Oran"
+
+"Companies in Algiers"
+
+etc.
+
+---
+
+# 7. PRODUCT CATALOG
+
+Build a very powerful product catalog.
+
+Each product should support:
+
+* Product name
+* SKU
+* Product reference
+* Description
+* Short description
+* Category
+* Subcategory
+* Brand
+* Manufacturer
+* Supplier
+* Country of origin
+* Wilaya
+* Images
+* Videos
+* Technical specifications
+* Documents
+* Datasheets
+* Certifications
+* Minimum Order Quantity
+* Maximum Order Quantity
+* Unit
+* Price
+* Price range
+* Negotiable price
+* Wholesale price
+* Availability
+* Production capacity
+* Lead time
+* Packaging
+* Warranty
+* Delivery options
+* Payment conditions
+* Incoterms where applicable
+* Export availability
+
+Products can have multiple variants.
+
+Example:
+
+Product:
+Industrial Cable
+
+Variants:
+
+* 10 mm²
+* 16 mm²
+* 25 mm²
+* 35 mm²
+
+---
+
+# 8. PRODUCT CATEGORIES
+
+Create a hierarchical category system.
+
+Initial categories:
+
+## Agriculture & Food
+
+* Agricultural machinery
+* Seeds
+* Fertilizers
+* Irrigation
+* Food products
+* Dairy
+* Fruits
+* Vegetables
+* Cereals
+* Animal feed
+
+## Construction
+
+* Cement
+* Steel
+* Pipes
+* Tiles
+* Sanitary equipment
+* Electrical equipment
+* Building materials
+* Insulation
+
+## Industrial Equipment
+
+* CNC
+* Compressors
+* Pumps
+* Generators
+* Industrial machinery
+* Automation
+* Robotics
+
+## Energy
+
+* Solar
+* Electrical equipment
+* Batteries
+* Transformers
+* Cables
+* Renewable energy
+
+## ICT & Telecom
+
+* Networking
+* Servers
+* Storage
+* Cybersecurity
+* Telecom equipment
+* Fiber optics
+* Software
+* Cloud
+* Data center equipment
+
+## Automotive
+
+* Vehicles
+* Spare parts
+* Tires
+* Batteries
+* Lubricants
+* Accessories
+
+## Textiles
+
+* Fabrics
+* Clothing
+* Workwear
+* Industrial textiles
+
+## Chemicals
+
+* Industrial chemicals
+* Paint
+* Plastics
+* Fertilizers
+* Cleaning products
+
+## Health & Medical
+
+* Medical equipment
+* Laboratory equipment
+* Hospital supplies
+* Pharmaceutical equipment
+
+## Furniture
+
+* Office furniture
+* Industrial furniture
+* Hotel furniture
+* Home furniture
+
+## Packaging
+
+* Plastic packaging
+* Cartons
+* Bottles
+* Industrial packaging
+
+## Logistics & Transportation
+
+* Trucks
+* Transport services
+* Warehousing
+* Freight forwarding
+
+The administrator must be able to create unlimited categories and subcategories.
+
+---
+
+# 9. HOMEPAGE
+
+Create a modern professional B2B homepage.
+
+Header:
+
+* Logo
+* Categories
+* Products
+* Suppliers
+* RFQ
+* Services
+* Industries
+* About
+* Login
+* Register
+
+Main hero:
+
+"Source from Algeria. Buy from trusted suppliers."
+
+Large search bar:
+
+"What are you looking for?"
+
+Search modes:
+
+* Products
+* Suppliers
+* Categories
+* RFQs
+
+Buttons:
+
+Search
+
+Post RFQ
+
+Find Suppliers
+
+Hero should visually communicate:
+
+Algerian industry
+Manufacturing
+Agriculture
+Construction
+Technology
+Energy
+Logistics
+
+---
+
+# 10. SEARCH ENGINE
+
+Create a powerful marketplace search engine.
+
+Search products by:
+
+* Keyword
+* Category
+* Supplier
+* Wilaya
+* Price
+* MOQ
+* Availability
+* Certification
+* Industry
+* Product attributes
+* Verified supplier
+* Export capability
+
+Search suppliers by:
+
+* Company
+* Wilaya
+* Industry
+* Product
+* Certification
+* Company size
+* Export capability
+* Verification level
+
+Implement:
+
+* Full-text search
+* Filters
+* Sorting
+* Pagination
+* Search suggestions
+* Popular searches
+* Recently searched
+* Related searches
+
+Architecture should allow future integration with:
+
+Elasticsearch / OpenSearch / Meilisearch.
+
+---
+
+# 11. AI SEARCH
+
+Create an AI sourcing assistant.
+
+User can type:
+
+"I need 500 solar panels 550W for a project in Oran."
+
+AI should extract:
+
+Product:
+Solar panels
+
+Quantity:
+500
+
+Specification:
+550W
+
+Destination:
+Oran
+
+Then recommend:
+
+* Relevant products
+* Relevant suppliers
+* Estimated price range
+* Matching RFQs
+* Similar products
+
+The architecture must allow integration with an LLM API.
+
+Do NOT hardcode a specific AI provider.
+
+Create an abstraction:
+
+AIProvider
+
+---
+
+# 12. IMAGE SEARCH
+
+Allow buyers to upload a product image.
+
+The platform should eventually identify:
+
+* Similar products
+* Matching products
+* Categories
+* Suppliers
+
+Build the frontend and backend architecture so computer vision can be integrated later.
+
+---
+
+# 13. SUPPLIER DIRECTORY
+
+Create a professional supplier directory.
+
+Supplier profile:
+
+* Company logo
+* Cover image
+* Company name
+* Verification badge
+* Wilaya
+* Company description
+* Products
+* Categories
+* Certifications
+* Factory information
+* Production capacity
+* Export markets
+* Contact information
+* Business years
+* Employees
+* Response rate
+* Response time
+* Reviews
+* Rating
+* RFQ participation
+* Documents
+* Company gallery
+* Factory videos
+
+Supplier levels:
+
+1. Registered
+2. Verified
+3. Audited
+4. Premium
+
+These levels must be configurable by administrators.
+
+---
+
+# 14. SUPPLIER VERIFICATION
+
+Create a supplier verification workflow.
+
+Supplier submits:
+
+* RC
+* NIF
+* NIS
+* Company documents
+* Certifications
+* Identity of authorized representative
+* Address
+* Business information
+
+Admin reviews documents.
+
+Status:
+
+PENDING
+
+UNDER_REVIEW
+
+VERIFIED
+
+REJECTED
+
+SUSPENDED
+
+Create an audit trail.
+
+Never automatically mark a company as verified.
+
+---
+
+# 15. RFQ — REQUEST FOR QUOTATION
+
+This is one of the most important features.
+
+Buyer can create an RFQ.
+
+Fields:
+
+* Product
+* Description
+* Quantity
+* Unit
+* Technical specifications
+* Target price
+* Delivery location
+* Required delivery date
+* Payment conditions
+* Documents
+* Images
+* Expiration date
+
+Workflow:
+
+DRAFT
+
+PUBLISHED
+
+MATCHING
+
+QUOTATIONS_RECEIVED
+
+NEGOTIATION
+
+AWARDED
+
+CLOSED
+
+CANCELLED
+
+---
+
+# 16. SUPPLIER MATCHING
+
+When an RFQ is published, automatically identify relevant suppliers.
+
+Matching criteria:
+
+* Product category
+* Product similarity
+* Wilaya
+* Production capability
+* Capacity
+* Certifications
+* MOQ
+* Export capability
+* Supplier rating
+* Verification level
+
+Notify matching suppliers.
+
+---
+
+# 17. QUOTATION SYSTEM
+
+Suppliers can respond to RFQs.
+
+Quotation fields:
+
+* Product
+* Quantity
+* Unit price
+* Total price
+* Currency
+* MOQ
+* Lead time
+* Delivery cost
+* Payment terms
+* Warranty
+* Validity
+* Technical documents
+* Comments
+
+Buyer can compare quotations.
+
+Create a professional quotation comparison interface.
+
+---
+
+# 18. NEGOTIATION
+
+Implement buyer/supplier negotiation.
+
+Support:
+
+* Messages
+* Counter offers
+* Price negotiation
+* Quantity negotiation
+* Delivery negotiation
+* Payment terms
+* Attachments
+
+Every negotiation must be recorded.
+
+---
+
+# 19. INTERNAL MESSAGING
+
+Create secure B2B messaging.
+
+Features:
+
+* One-to-one chat
+* Buyer/supplier chat
+* RFQ-specific conversations
+* File attachments
+* Images
+* Documents
+* Notifications
+* Read status
+* Search conversations
+* Block/report user
+
+Architecture must support WebSockets.
+
+---
+
+# 20. NOTIFICATION SYSTEM
+
+Notifications:
+
+* New message
+* New RFQ
+* New quotation
+* Quotation accepted
+* Quotation rejected
+* RFQ expiration
+* Supplier verification
+* Product approval
+* Account activity
+* Security alerts
+
+Channels:
+
+* In-app
+* Email
+* SMS
+* WhatsApp integration later
+
+Create notification preferences.
+
+---
+
+# 21. ORDERS
+
+Although the platform is primarily B2B sourcing, support optional online orders.
+
+Order states:
+
+PENDING
+
+CONFIRMED
+
+PROCESSING
+
+READY_TO_SHIP
+
+SHIPPED
+
+DELIVERED
+
+CANCELLED
+
+DISPUTED
+
+COMPLETED
+
+Create:
+
+Order
+OrderItem
+Shipment
+Payment
+Invoice
+Dispute
+
+---
+
+# 22. ALGERIAN PAYMENT ARCHITECTURE
+
+Do NOT assume that international payment gateways are the only option.
+
+Design a payment abstraction layer.
+
+Potential payment methods:
+
+* CIB
+* Edahabia
+* Bank transfer
+* CCP
+* Cash on delivery where appropriate
+* International payment gateways where legally permitted
+* Escrow integration in future
+
+Create:
+
+PaymentProvider
+
+so additional payment providers can be integrated later.
+
+Never store raw card numbers.
+
+---
+
+# 23. LOGISTICS
+
+Create logistics management.
+
+Shipment information:
+
+* Origin
+* Destination
+* Carrier
+* Tracking number
+* Weight
+* Dimensions
+* Shipping cost
+* Delivery date
+* Status
+
+Support:
+
+* Wilaya delivery
+* National delivery
+* International shipping
+* Freight forwarding
+
+Future integration:
+
+* Algerian logistics companies
+* courier APIs
+* freight APIs
+
+---
+
+# 24. DOCUMENT MANAGEMENT
+
+Buyers and suppliers can upload:
+
+* PDF
+* Excel
+* Word
+* Images
+* Certifications
+* Datasheets
+* Commercial documents
+
+Implement:
+
+* Object storage
+* Access control
+* File size restrictions
+* File type validation
+* Virus scanning architecture
+* Private/public files
+* Signed URLs
+* Document versioning
+
+---
+
+# 25. REVIEWS AND REPUTATION
+
+Buyers can review suppliers.
+
+Supplier reputation:
+
+* Overall rating
+* Product quality
+* Communication
+* Delivery
+* Price
+* Reliability
+
+Prevent fake reviews.
+
+Only allow reviews after a valid business interaction/order/RFQ.
+
+Create moderation tools.
+
+---
+
+# 26. FAVORITES
+
+Users can save:
+
+* Products
+* Suppliers
+* RFQs
+* Searches
+
+Create:
+
+Favorites
+SavedSearches
+
+Notify users when saved products change.
+
+---
+
+# 27. BUYER DASHBOARD
+
+Create a professional buyer dashboard.
+
+Sections:
+
+Dashboard
+
+My RFQs
+
+My Quotations
+
+My Orders
+
+Messages
+
+Favorites
+
+Suppliers
+
+Saved Searches
+
+Documents
+
+Notifications
+
+Company Profile
+
+Settings
+
+Analytics
+
+---
+
+# 28. SUPPLIER DASHBOARD
+
+Supplier dashboard:
+
+Dashboard
+
+Products
+
+RFQs
+
+Quotations
+
+Orders
+
+Messages
+
+Customers
+
+Company Profile
+
+Verification
+
+Documents
+
+Analytics
+
+Reviews
+
+Subscription
+
+Settings
+
+---
+
+# 29. SUPPLIER ANALYTICS
+
+Show:
+
+* Product views
+* Search appearances
+* Inquiries
+* RFQs received
+* Quotations sent
+* Quotation conversion
+* Orders
+* Revenue
+* Most viewed products
+* Most contacted products
+* Buyer locations
+
+Use charts.
+
+---
+
+# 30. ADMINISTRATOR PLATFORM
+
+Build a powerful administration panel.
+
+Admin sections:
+
+Dashboard
+
+Users
+
+Companies
+
+Suppliers
+
+Buyers
+
+Products
+
+Categories
+
+RFQs
+
+Quotations
+
+Orders
+
+Payments
+
+Shipments
+
+Messages
+
+Reviews
+
+Verification
+
+Documents
+
+Reports
+
+Subscriptions
+
+Advertisements
+
+CMS
+
+Translations
+
+Countries
+
+Wilayas
+
+Communes
+
+Currencies
+
+Exchange Rates
+
+Notifications
+
+System Settings
+
+Security
+
+Audit Logs
+
+---
+
+# 31. ADMIN DASHBOARD
+
+KPIs:
+
+Total users
+
+Total companies
+
+Verified suppliers
+
+Products
+
+RFQs
+
+Quotations
+
+Orders
+
+GMV
+
+Revenue
+
+Active users
+
+New registrations
+
+Most popular categories
+
+Top suppliers
+
+Top products
+
+Top Wilayas
+
+Charts:
+
+Users growth
+
+RFQ growth
+
+Orders growth
+
+Revenue
+
+Supplier registrations
+
+---
+
+# 32. SUBSCRIPTION MODEL
+
+Create a freemium B2B business model.
+
+FREE SUPPLIER
+
+* Company profile
+* Limited products
+* Basic RFQs
+* Basic messaging
+
+PRO SUPPLIER
+
+* More products
+* Priority visibility
+* Advanced analytics
+* More RFQ responses
+* Verified badge eligibility
+
+PREMIUM SUPPLIER
+
+* Featured products
+* Premium placement
+* Advanced analytics
+* Lead generation
+* Priority support
+* Advertising
+
+Plans must be configurable by admin.
+
+---
+
+# 33. ADVERTISING
+
+Create B2B advertising system.
+
+Advertisement types:
+
+* Homepage banner
+* Category banner
+* Sponsored product
+* Featured supplier
+* Search result promotion
+
+Track:
+
+* Impressions
+* Clicks
+* CTR
+* Campaign cost
+* Start/end date
+
+---
+
+# 34. CMS
+
+Admin must be able to manage:
+
+* Homepage sections
+* Banners
+* Articles
+* News
+* Industry pages
+* FAQ
+* Static pages
+* SEO metadata
+
+No developer intervention should be required for normal content management.
+
+---
+
+# 35. SEO
+
+Build excellent SEO.
+
+Every:
+
+* Product
+* Supplier
+* Category
+* Industry
+* Wilaya
+
+should have SEO metadata.
+
+Implement:
+
+* Dynamic metadata
+* Canonical URLs
+* Sitemap
+* robots.txt
+* Structured data
+* Open Graph
+* Breadcrumbs
+
+Example:
+
+/products/industrial-pumps
+
+/suppliers/industrial-pump-manufacturers-algeria
+
+/categories/industrial-equipment
+
+/suppliers/wilaya/algiers
+
+---
+
+# 36. SECURITY
+
+Security is a critical requirement.
+
+Implement:
+
+* Secure authentication
+* Password hashing
+* MFA / 2FA
+* RBAC
+* Session management
+* Rate limiting
+* CSRF protection
+* XSS protection
+* SQL injection prevention
+* Input validation
+* File upload security
+* API authentication
+* Audit logging
+* Security headers
+* Encryption where appropriate
+* Secrets management
+* Account lockout
+* Suspicious activity detection
+
+Follow OWASP best practices.
+
+---
+
+# 37. USER ROLES
+
+Create granular RBAC.
+
+Roles:
+
+SUPER_ADMIN
+
+ADMIN
+
+MODERATOR
+
+VERIFICATION_AGENT
+
+SUPPORT_AGENT
+
+BUYER
+
+SUPPLIER
+
+SUPPLIER_ADMIN
+
+SUPPLIER_EMPLOYEE
+
+LOGISTICS_PARTNER
+
+CONTENT_MANAGER
+
+FINANCE_MANAGER
+
+AUDITOR
+
+---
+
+# 38. DATABASE
+
+Use PostgreSQL.
+
+Design a professional normalized relational database.
+
+Minimum entities:
+
+User
+
+Role
+
+Permission
+
+UserRole
+
+Company
+
+CompanyUser
+
+CompanyDocument
+
+CompanyVerification
+
+Supplier
+
+Buyer
+
+Product
+
+ProductVariant
+
+ProductImage
+
+ProductDocument
+
+Category
+
+CategoryTranslation
+
+Brand
+
+ProductAttribute
+
+ProductAttributeValue
+
+RFQ
+
+RFQItem
+
+RFQAttachment
+
+RFQSupplierMatch
+
+Quotation
+
+QuotationItem
+
+Negotiation
+
+NegotiationMessage
+
+Conversation
+
+Message
+
+Notification
+
+Order
+
+OrderItem
+
+Payment
+
+Invoice
+
+Shipment
+
+Review
+
+Favorite
+
+SavedSearch
+
+Subscription
+
+SubscriptionPlan
+
+Advertisement
+
+AdvertisementCampaign
+
+Wilaya
+
+Commune
+
+Country
+
+Currency
+
+ExchangeRate
+
+AuditLog
+
+SystemSetting
+
+Translation
+
+CMSPage
+
+CMSBlock
+
+BlogPost
+
+ContactRequest
+
+SupportTicket
+
+---
+
+# 39. DATABASE REQUIREMENTS
+
+Use:
+
+* Primary keys
+* Foreign keys
+* Unique constraints
+* Indexes
+* Composite indexes where needed
+* Soft delete where appropriate
+* CreatedAt
+* UpdatedAt
+* CreatedBy
+* UpdatedBy
+
+Use UUIDs where appropriate.
+
+Do not duplicate data unnecessarily.
+
+Analyze query performance.
+
+Prepare the database for millions of products and users.
+
+---
+
+# 40. BACKEND ARCHITECTURE
+
+Build a scalable API architecture.
+
+Preferred architecture:
+
+Frontend:
+
+Next.js + TypeScript
+
+Backend:
+
+NestJS + TypeScript
+
+Database:
+
+PostgreSQL
+
+ORM:
+
+Prisma
+
+Cache:
+
+Redis
+
+Search:
+
+OpenSearch or Meilisearch
+
+Object Storage:
+
+S3-compatible storage
+
+Realtime:
+
+WebSocket
+
+Background jobs:
+
+BullMQ / Redis
+
+Email:
+
+provider abstraction
+
+SMS:
+
+provider abstraction
+
+AI:
+
+AI provider abstraction
+
+Payment:
+
+payment provider abstraction
+
+---
+
+# 41. API
+
+Create REST API or modular API architecture.
+
+API modules:
+
+/auth
+
+/users
+
+/companies
+
+/suppliers
+
+/products
+
+/categories
+
+/search
+
+/rfqs
+
+/quotations
+
+/negotiations
+
+/messages
+
+/orders
+
+/payments
+
+/shipments
+
+/reviews
+
+/notifications
+
+/subscriptions
+
+/advertisements
+
+/admin
+
+/analytics
+
+/cms
+
+---
+
+# 42. API QUALITY
+
+Every API must include:
+
+* Authentication
+* Authorization
+* Validation
+* Error handling
+* Pagination
+* Filtering
+* Sorting
+* Logging
+* Rate limiting
+
+Use consistent API response format.
+
+Example:
+
+{
+"success": true,
+"data": {},
+"meta": {}
+}
+
+Errors:
+
+{
+"success": false,
+"error": {
+"code": "...",
+"message": "..."
+}
+}
+
+---
+
+# 43. FRONTEND TECHNOLOGY
+
+Use:
+
+Next.js
+
+TypeScript
+
+Tailwind CSS
+
+Modern component architecture
+
+Responsive design
+
+Accessibility
+
+Mobile-first approach
+
+Use a professional B2B visual language.
+
+Do NOT make it look like a generic startup template.
+
+---
+
+# 44. DESIGN
+
+Design should communicate:
+
+Trust
+
+Industry
+
+Professionalism
+
+Technology
+
+Algerian identity
+
+International business
+
+Use an original visual identity.
+
+Do not copy Made-in-China colors, logos or exact layouts.
+
+Create:
+
+* Professional navigation
+* Mega menu
+* Product cards
+* Supplier cards
+* RFQ cards
+* Trust badges
+* Verification badges
+* Data-rich tables
+* Dashboard widgets
+
+---
+
+# 45. MOBILE
+
+The entire platform must work perfectly on:
+
+Desktop
+
+Tablet
+
+Mobile
+
+Supplier and buyer dashboards must be mobile responsive.
+
+---
+
+# 46. PERFORMANCE
+
+Target:
+
+Lighthouse Performance > 90
+
+Fast initial loading
+
+Image optimization
+
+Lazy loading
+
+Code splitting
+
+Caching
+
+CDN support
+
+Database indexes
+
+Efficient API queries
+
+Avoid N+1 queries.
+
+---
+
+# 47. OBSERVABILITY
+
+Implement architecture for:
+
+* Application logs
+* API logs
+* Error tracking
+* Performance monitoring
+* Database monitoring
+* Security logs
+* Audit logs
+
+Prepare integration with:
+
+Sentry
+
+Prometheus
+
+Grafana
+
+OpenTelemetry
+
+---
+
+# 48. TESTING
+
+Do NOT consider the project complete without tests.
+
+Create:
+
+Unit tests
+
+Integration tests
+
+API tests
+
+Database tests
+
+Authentication tests
+
+Authorization tests
+
+E2E tests
+
+Security tests
+
+Performance tests
+
+Critical workflows must have automated tests.
+
+---
+
+# 49. CRITICAL E2E WORKFLOWS
+
+Test completely:
+
+## Workflow 1
+
+Register buyer
+
+→ Verify email
+
+→ Complete company profile
+
+→ Search product
+
+→ Contact supplier
+
+## Workflow 2
+
+Register supplier
+
+→ Submit documents
+
+→ Admin verification
+
+→ Create product
+
+→ Product moderation
+
+→ Product published
+
+## Workflow 3
+
+Buyer creates RFQ
+
+→ Matching suppliers
+
+→ Suppliers receive notification
+
+→ Supplier submits quotation
+
+→ Buyer compares quotations
+
+→ Negotiation
+
+→ Award
+
+## Workflow 4
+
+Buyer places order
+
+→ Supplier confirms
+
+→ Payment
+
+→ Shipment
+
+→ Delivery
+
+→ Review
+
+---
+
+# 50. FRAUD AND ABUSE
+
+Create mechanisms for:
+
+* Spam detection
+* Fake company detection
+* Duplicate accounts
+* Suspicious messaging
+* Fake reviews
+* Fraudulent products
+* Malicious documents
+* Account takeover
+
+Create:
+
+RiskScore
+
+ModerationCase
+
+FraudAlert
+
+entities.
+
+---
+
+# 51. ALGERIAN LOCALIZATION
+
+The system must understand Algerian terminology.
+
+Examples:
+
+RC
+
+NIF
+
+NIS
+
+CIB
+
+Edahabia
+
+CCP
+
+Wilaya
+
+Commune
+
+DZD
+
+SARL
+
+EURL
+
+SPA
+
+SNC
+
+Auto-entrepreneur where applicable
+
+Include French terminology where commonly used.
+
+---
+
+# 52. DATA PRIVACY
+
+Implement privacy-by-design.
+
+Users must be able to:
+
+* View personal data
+* Update personal data
+* Request account deletion
+* Manage consent
+* Manage notifications
+* Export personal data
+
+Do not expose private company documents.
+
+---
+
+# 53. SEO CONTENT
+
+Automatically generate SEO-friendly structures for:
+
+"Manufacturers in Algeria"
+
+"Industrial suppliers in Algeria"
+
+"Algerian agricultural companies"
+
+"Construction material suppliers Algeria"
+
+"Electronics suppliers Algeria"
+
+"IT suppliers Algeria"
+
+"Telecom suppliers Algeria"
+
+"Solar energy companies Algeria"
+
+"Exporters in Algeria"
+
+etc.
+
+---
+
+# 54. INTERNATIONALIZATION
+
+Every database entity that requires localization should support translations.
+
+For example:
+
+ProductTranslation
+
+CategoryTranslation
+
+CMSPageTranslation
+
+Fields:
+
+language
+
+name
+
+description
+
+slug
+
+SEO title
+
+SEO description
+
+---
+
+# 55. SLUGS
+
+Use SEO-friendly URLs.
+
+Examples:
+
+/fr/produits/panneaux-solaires
+
+/ar/products/...
+
+/en/products/solar-panels
+
+/company/algerian-industrial-group
+
+/supplier/algiers/industrial-equipment
+
+/rfq/industrial-pump-500-units
+
+---
+
+# 56. DOCUMENT STORAGE
+
+Never store large files directly inside PostgreSQL.
+
+Store metadata in PostgreSQL.
+
+Store files in:
+
+S3-compatible object storage.
+
+Create secure access URLs.
+
+---
+
+# 57. ARCHITECTURE
+
+Create a clean modular architecture.
+
+Recommended structure:
+
+apps/
+
+web/
+
+api/
+
+admin/
+
+packages/
+
+ui/
+
+database/
+
+auth/
+
+config/
+
+types/
+
+i18n/
+
+search/
+
+payments/
+
+notifications/
+
+ai/
+
+storage/
+
+security/
+
+Do not create a monolithic spaghetti codebase.
+
+---
+
+# 58. DEVELOPMENT METHODOLOGY
+
+Do not attempt to generate the entire application blindly in one step.
+
+Work in phases.
+
+PHASE 1:
+
+Architecture
+
+PHASE 2:
+
+Database
+
+PHASE 3:
+
+Authentication/RBAC
+
+PHASE 4:
+
+Company/Supplier management
+
+PHASE 5:
+
+Product catalog
+
+PHASE 6:
+
+Search
+
+PHASE 7:
+
+RFQ
+
+PHASE 8:
+
+Quotation
+
+PHASE 9:
+
+Messaging
+
+PHASE 10:
+
+Orders
+
+PHASE 11:
+
+Payments
+
+PHASE 12:
+
+Logistics
+
+PHASE 13:
+
+Dashboards
+
+PHASE 14:
+
+Admin
+
+PHASE 15:
+
+AI
+
+PHASE 16:
+
+SEO
+
+PHASE 17:
+
+Security
+
+PHASE 18:
+
+Testing
+
+PHASE 19:
+
+Performance
+
+PHASE 20:
+
+Production deployment
+
+---
+
+# 59. IMPORTANT AI AGENT RULE
+
+Before writing code:
+
+1. Analyze the complete requirements.
+2. Produce the architecture.
+3. Produce the database ERD.
+4. Identify dependencies.
+5. Identify security risks.
+6. Identify missing requirements.
+7. Propose improvements.
+8. Then begin implementation.
+
+Do NOT start coding immediately.
+
+---
+
+# 60. DATABASE-FIRST APPROACH
+
+First create:
+
+schema.prisma
+
+Then validate:
+
+npx prisma validate
+
+Then generate migrations.
+
+Create seed data.
+
+Seed:
+
+* Algeria
+* 58 Wilayas
+* Communes
+* Initial categories
+* Roles
+* Permissions
+* Subscription plans
+* Currencies
+* System settings
+
+---
+
+# 61. DEMO DATA
+
+Create realistic demo data.
+
+At least:
+
+100 companies
+
+500 products
+
+50 RFQs
+
+100 quotations
+
+50 users
+
+20 suppliers
+
+Use fictional data.
+
+Do NOT use fake real-world companies without permission.
+
+---
+
+# 62. ADMIN DEMO ACCOUNT
+
+Create a development-only administrator account through environment configuration.
+
+Never hardcode production credentials.
+
+---
+
+# 63. ENVIRONMENT
+
+Provide:
+
+.env.example
+
+Variables for:
+
+DATABASE_URL
+
+REDIS_URL
+
+S3_ENDPOINT
+
+S3_ACCESS_KEY
+
+S3_SECRET_KEY
+
+JWT_SECRET
+
+EMAIL_PROVIDER
+
+SMS_PROVIDER
+
+AI_PROVIDER
+
+PAYMENT_PROVIDER
+
+SEARCH_URL
+
+etc.
+
+Never commit secrets.
+
+---
+
+# 64. DEVOPS
+
+Create:
+
+Dockerfile
+
+docker-compose.yml
+
+Development environment
+
+Production configuration
+
+Database migration strategy
+
+Backup strategy
+
+Health checks
+
+Readiness checks
+
+Liveness checks
+
+---
+
+# 65. CI/CD
+
+Create CI/CD pipeline.
+
+Steps:
+
+Install
+
+Lint
+
+Type check
+
+Unit tests
+
+Integration tests
+
+Build
+
+Security scan
+
+Database migration validation
+
+E2E tests
+
+Deployment
+
+---
+
+# 66. SECURITY AUDIT
+
+Before declaring the platform complete, perform a security audit.
+
+Check:
+
+OWASP Top 10
+
+Authentication
+
+Authorization
+
+RBAC
+
+SQL injection
+
+XSS
+
+CSRF
+
+SSRF
+
+File upload
+
+Rate limiting
+
+Session security
+
+API security
+
+Secrets
+
+Dependencies
+
+Docker security
+
+Database security
+
+Access control
+
+Tenant isolation
+
+---
+
+# 67. MULTI-TENANCY
+
+The platform must support multiple companies.
+
+A company can have:
+
+Multiple users
+
+Multiple departments
+
+Multiple employees
+
+Multiple products
+
+Multiple RFQs
+
+Multiple quotations
+
+Multiple orders
+
+Ensure users cannot access another company's private data.
+
+---
+
+# 68. AUDIT TRAIL
+
+Record sensitive operations:
+
+Login
+
+Logout
+
+Password changes
+
+Company changes
+
+Product changes
+
+RFQ creation
+
+Quotation creation
+
+Order changes
+
+Payment changes
+
+Verification decisions
+
+Admin actions
+
+Document access
+
+---
+
+# 69. SEARCH RANKING
+
+Develop configurable ranking.
+
+Factors:
+
+Relevance
+
+Verified supplier
+
+Supplier rating
+
+Response rate
+
+Product quality
+
+Availability
+
+Location
+
+Price
+
+Premium status
+
+Product popularity
+
+Do not allow premium suppliers to completely destroy relevance.
+
+---
+
+# 70. TRUST SYSTEM
+
+Create trust indicators.
+
+Examples:
+
+✓ Verified Company
+
+✓ Verified Documents
+
+✓ Audited Supplier
+
+✓ Active Supplier
+
+✓ Fast Response
+
+✓ High Response Rate
+
+✓ Established Business
+
+---
+
+# 71. PLATFORM DIFFERENTIATORS
+
+The Algerian platform must go beyond Made-in-China.
+
+Add:
+
+## Algerian Supplier Map
+
+Interactive map showing suppliers by Wilaya.
+
+## Algerian Industry Directory
+
+Industry-based business directory.
+
+## B2B Opportunities
+
+Show:
+
+* RFQs
+* Tenders
+* Procurement opportunities
+* Partnership opportunities
+
+## Export Center
+
+Help Algerian companies discover international buyers.
+
+## AI Business Assistant
+
+Help companies:
+
+* Find suppliers
+* Find buyers
+* Create RFQs
+* Analyze quotations
+* Translate product descriptions
+* Generate product descriptions
+* Recommend suppliers
+
+---
+
+# 72. FUTURE B2G CAPABILITY
+
+Prepare the architecture for government and institutional procurement.
+
+Potential users:
+
+* Public companies
+* Government organizations
+* Universities
+* Hospitals
+* Industrial groups
+
+Do not implement complex public procurement regulations unless explicitly required, but make the architecture extensible.
+
+---
+
+# 73. BUSINESS MODEL
+
+The platform should support revenue from:
+
+1. Supplier subscriptions
+2. Premium supplier profiles
+3. Sponsored products
+4. Advertising
+5. Lead generation
+6. Transaction commissions
+7. Verification services
+8. Audit services
+9. Logistics services
+10. Premium AI sourcing
+11. Enterprise accounts
+
+---
+
+# 74. UX PRINCIPLE
+
+The platform should optimize for:
+
+DISCOVER
+
+COMPARE
+
+CONTACT
+
+REQUEST QUOTE
+
+NEGOTIATE
+
+ORDER
+
+DELIVER
+
+REVIEW
+
+The user should be able to move through this process naturally.
+
+---
+
+# 75. FINAL QUALITY REQUIREMENT
+
+Do not produce a fake prototype where buttons simply display:
+
+"Coming soon"
+
+or
+
+"TODO"
+
+Critical functionality must actually work.
+
+All major buttons must connect to real frontend/backend functionality.
+
+Forms must validate.
+
+Database operations must work.
+
+Authentication must work.
+
+Search must work.
+
+RFQ must work.
+
+Quotation must work.
+
+Messaging must work.
+
+Admin must work.
+
+---
+
+# 76. COMPLETION CRITERIA
+
+The project is considered complete only when:
+
+Frontend works.
+
+Backend works.
+
+Database works.
+
+Authentication works.
+
+RBAC works.
+
+Supplier management works.
+
+Product management works.
+
+Search works.
+
+RFQ works.
+
+Quotation works.
+
+Messaging works.
+
+Notifications work.
+
+Admin works.
+
+File storage works.
+
+SEO works.
+
+Multilingual system works.
+
+Arabic RTL works.
+
+Responsive design works.
+
+Tests pass.
+
+Security audit completed.
+
+Performance optimized.
+
+Production deployment documented.
+
+---
+
+# 77. DELIVERABLES
+
+At the end provide:
+
+1. Complete source code
+2. Database schema
+3. ERD
+4. API documentation
+5. Frontend documentation
+6. Backend documentation
+7. Deployment documentation
+8. Environment configuration
+9. Docker configuration
+10. CI/CD configuration
+11. Test suite
+12. Security audit report
+13. Performance report
+14. User documentation
+15. Admin documentation
+16. Architecture diagram
+17. Technical debt report
+18. Future roadmap
+
+---
+
+# 78. MOST IMPORTANT INSTRUCTION
+
+Think like a team composed of:
+
+* CTO
+* Enterprise Architect
+* Product Manager
+* UX/UI Designer
+* Senior Frontend Engineer
+* Senior Backend Engineer
+* Database Architect
+* DevSecOps Engineer
+* Cybersecurity Engineer
+* QA Engineer
+* AI Engineer
+* B2B Marketplace Expert
+
+Do not optimize only for visual appearance.
+
+The objective is to build a REAL, scalable Algerian B2B marketplace.
+
+The platform should be capable of eventually supporting:
+
+Millions of products
+
+Hundreds of thousands of companies
+
+Millions of users
+
+Large numbers of simultaneous searches
+
+Large RFQ volumes
+
+High transaction volumes
+
+---
+
+# 79. START NOW
+
+First response must NOT contain thousands of lines of code.
+
+First produce:
+
+A. Executive architecture
+
+B. Technology stack
+
+C. System architecture diagram
+
+D. Database ERD
+
+E. Complete database model
+
+F. API architecture
+
+G. Frontend architecture
+
+H. Authentication/RBAC architecture
+
+I. Search architecture
+
+J. RFQ/Quotation workflow
+
+K. Payment architecture
+
+L. Security architecture
+
+M. Deployment architecture
+
+N. Development phases
+
+O. MVP definition
+
+P. V2 roadmap
+
+Q. Risks and recommendations
+
+Then wait for approval before implementing Phase 1.
+
+When implementation begins, implement one phase at a time and verify each phase before moving to the next.
