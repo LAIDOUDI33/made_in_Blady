@@ -1,15 +1,42 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { EscrowStatus, DisputeStatus, DisputeReason } from '@prisma/client';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import { UserRole } from '@prisma/client';
 
-// GET /api/escrow - List escrow accounts
+// Authentication helper for escrow endpoints
+async function authenticateRequest(request: NextRequest) {
+  const session = await getServerSession(authOptions);
+  
+  if (!session?.user?.id) {
+    return { 
+      error: NextResponse.json(
+        { success: false, error: 'Authentication required' },
+        { status: 401 }
+      ), 
+      user: null 
+    };
+  }
+  
+  return { error: null, user: session.user };
+}
+
+// GET /api/escrow - List escrow accounts (authenticated)
 export async function GET(request: NextRequest) {
+  // Authenticate
+  const auth = await authenticateRequest(request);
+  if (auth.error) return auth.error;
+  
   try {
     const { searchParams } = new URL(request.url);
     const orderId = searchParams.get('orderId');
-    const buyerId = searchParams.get('buyerId');
     const status = searchParams.get('status') as EscrowStatus | null;
 
+    // Regular users can only see their own escrows
+    // Admins/SuperAdmins can see all
+    const isAdmin = auth.user!.role === UserRole.ADMIN || auth.user!.role === UserRole.SUPER_ADMIN;
+    
     if (orderId) {
       const escrow = await db.escrowAccount.findUnique({
         where: { orderId },
@@ -22,6 +49,7 @@ export async function GET(request: NextRequest) {
               totalAmount: true,
               currency: true,
               status: true,
+              buyerId: true,
               createdAt: true
             }
           }
@@ -35,12 +63,28 @@ export async function GET(request: NextRequest) {
         );
       }
 
+      // Non-admin users can only view their own escrows
+      if (!isAdmin && escrow.order.buyerId !== auth.user!.id && escrow.supplierCompanyId !== auth.user!.companyId) {
+        return NextResponse.json(
+          { success: false, error: 'Forbidden: You can only view your own escrow accounts' },
+          { status: 403 }
+        );
+      }
+
       return NextResponse.json({ success: true, data: escrow });
     }
 
-    // List escrows with filters
+    // List escrows with filters - restrict to user's own for non-admin
     const where: any = {};
-    if (buyerId) where.buyerId = buyerId;
+    
+    if (!isAdmin) {
+      // Users can see escrows where they are buyer or their company is supplier
+      where.OR = [
+        { buyerId: auth.user!.id },
+        { supplierCompanyId: auth.user!.companyId || 'no-company' }
+      ];
+    }
+    
     if (status) where.status = status;
 
     const escrows = await db.escrowAccount.findMany({
@@ -80,26 +124,29 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST /api/escrow - Create escrow account for order
+// POST /api/escrow - Create escrow account for order (authenticated, buyer only)
 export async function POST(request: NextRequest) {
+  // Authenticate
+  const auth = await authenticateRequest(request);
+  if (auth.error) return auth.error;
+  
   try {
     const body = await request.json();
     const {
       orderId,
-      buyerId,
       amount,
       paymentMethod,
       paymentReference
     } = body;
 
-    if (!orderId || !buyerId || !amount) {
+    if (!orderId || !amount) {
       return NextResponse.json(
-        { success: false, error: 'Missing required fields: orderId, buyerId, amount' },
+        { success: false, error: 'Missing required fields: orderId, amount' },
         { status: 400 }
       );
     }
 
-    // Check if order exists and belongs to buyer
+    // Check if order exists and belongs to authenticated buyer
     const order = await db.order.findUnique({
       where: { id: orderId },
       include: { company: true }
@@ -112,9 +159,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (order.buyerId !== buyerId) {
+    // Verify the authenticated user is the buyer
+    if (order.buyerId !== auth.user!.id) {
+      // Log unauthorized attempt
+      await db.securityEvent.create({
+        data: {
+          eventType: 'UNAUTHORIZED_ESCROW_ACCESS',
+          severity: 'HIGH',
+          description: `User ${auth.user!.id} attempted to create escrow for order belonging to ${order.buyerId}`,
+          ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
+          userId: auth.user!.id,
+        }
+      }).catch(() => {}); // Don't fail if logging fails
+      
       return NextResponse.json(
-        { success: false, error: 'Order does not belong to this buyer' },
+        { success: false, error: 'Forbidden: You can only create escrow accounts for your own orders' },
         { status: 403 }
       );
     }
@@ -143,7 +202,7 @@ export async function POST(request: NextRequest) {
       data: {
         accountId,
         orderId,
-        buyerId,
+        buyerId: auth.user!.id, // Use authenticated user's ID, not from request body
         supplierCompanyId: order.companyId,
         amount,
         feeAmount,
@@ -151,6 +210,24 @@ export async function POST(request: NextRequest) {
         paymentMethod,
         paymentReference,
         autoReleaseDays: 30 // Default 30 days
+      }
+    });
+
+    // Audit log for financial transaction
+    await db.auditLog.create({
+      data: {
+        userId: auth.user!.id,
+        action: 'CREATE_ESCROW',
+        resource: 'escrow',
+        resourceId: escrow.id,
+        oldValue: null,
+        newValue: JSON.stringify({ 
+          orderId, 
+          amount, 
+          accountId,
+          ipAddress: request.headers.get('x-forwarded-for') || 'unknown'
+        }),
+        ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
       }
     });
 

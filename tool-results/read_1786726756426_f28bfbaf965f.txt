@@ -1,0 +1,750 @@
+     1→"use client";
+     2→
+     3→import React, { useState, useEffect, useCallback, Suspense } from "react";
+     4→import Link from "next/link";
+     5→import { useSearchParams } from "next/navigation";
+     6→import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
+     7→import { Card, CardContent } from "@/components/ui/card";
+     8→import { Button } from "@/components/ui/button";
+     9→import { Badge } from "@/components/ui/badge";
+    10→import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+    11→import { ProductGrid } from "@/components/products/ProductGrid";
+    12→import {
+    13→  AdvancedFilters,
+    14→  defaultAdvancedFilters,
+    15→  type AdvancedFilterState,
+    16→} from "@/components/search/AdvancedFilters";
+    17→import { SearchSuggestions } from "@/components/search/SearchSuggestions";
+    18→import { ActiveFilters } from "@/components/search/ActiveFilters";
+    19→import { SavedSearches } from "@/components/search/SavedSearches";
+    20→import { SearchResultsMeta } from "@/components/search/SearchResultsMeta";
+    21→import type { SearchResponse as SearchResponseType, ProductListResponse, Product, SearchSuggestion } from "@/types/product";
+    22→import {
+    23→  Search,
+    24→  X,
+    25→  Clock,
+    26→  TrendingUp,
+    27→  Package,
+    28→  Building2,
+    29→  FolderOpen,
+    30→  Lightbulb,
+    31→  Loader2,
+    32→  AlertCircle,
+    33→  FileText,
+    34→  ChevronRight,
+    35→} from "lucide-react";
+    36→
+    37→// ============================================
+    38→// Popular Searches (Algerian B2B Focus)
+    39→// ============================================
+    40→
+    41→const POPULAR_SEARCHES = [
+    42→  "Panneaux solaires",
+    43→  "Câble électrique",
+    44→  "Acier construction",
+    45→  "Pompes irrigation",
+    46→  "Huile d'olive",
+    47→  "Dates deglet nour",
+    48→  "Machines agricoles",
+    49→  "Outils industriels",
+    50→];
+    51→
+    52→// ============================================
+    53→// Main Search Content Component
+    54→// ============================================
+    55→
+    56→function SearchContent() {
+    57→  const searchParams = useSearchParams();
+    58→  const initialQuery = searchParams.get("q") || "";
+    59→
+    60→  // State
+    61→  const [query, setQuery] = useState(initialQuery);
+    62→  const [searchData, setSearchData] = useState<SearchResponseType | null>(null);
+    63→  const [isLoading, setIsLoading] = useState(false);
+    64→  const [hasSearched, setHasSearched] = useState(!!initialQuery);
+    65→  const [recentSearches, setRecentSearches] = useState<string[]>([]);
+    66→  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+    67→  const [sortBy, setSortBy] = useState("relevance");
+    68→  const [filters, setFilters] = useState<AdvancedFilterState>(defaultAdvancedFilters);
+    69→  const [activeTab, setActiveTab] = useState<"products" | "suppliers" | "rfqs">("products");
+    70→  const [showMobileFilters, setShowMobileFilters] = useState(false);
+    71→
+    72→  // Load recent searches from localStorage
+    73→  useEffect(() => {
+    74→    try {
+    75→      const recent = localStorage.getItem("recent_searches");
+    76→      if (recent) setRecentSearches(JSON.parse(recent));
+    77→    } catch {
+    78→      // Ignore errors
+    79→    }
+    80→  }, []);
+    81→
+    82→  // Build search URL with all filters
+    83→  const buildSearchUrl = useCallback(
+    84→    (searchQuery: string) => {
+    85→      const params = new URLSearchParams();
+    86→      params.set("q", searchQuery);
+    87→      params.set("limit", "20");
+    88→      params.set("sortBy", sortBy);
+    89→
+    90→      // Add filter parameters if they have values
+    91→      if (filters.categories.length > 0) params.set("categories", filters.categories.join(","));
+    92→      if (filters.wilayas.length > 0) params.set("wilaya", filters.wilayas.join(","));
+    93→      if (filters.minPrice > 0) params.set("minPrice", String(filters.minPrice));
+    94→      if (filters.maxPrice < 10000000) params.set("maxPrice", String(filters.maxPrice));
+    95→      if (filters.minMoq > 0) params.set("minMoq", String(filters.minMoq));
+    96→      if (filters.maxMoq < 100000) params.set("maxMoq", String(filters.maxMoq));
+    97→      if (filters.verifiedOnly) params.set("verifiedOnly", "true");
+    98→      if (filters.availability.length > 0) params.set("availability", filters.availability.join(","));
+    99→      if (filters.countryOfOrigin) params.set("countryOfOrigin", filters.countryOfOrigin);
+   100→      if (filters.minRating > 0) params.set("minRating", String(filters.minRating));
+   101→      if (filters.datePosted) params.set("datePosted", filters.datePosted);
+   102→      if (filters.leadTime) params.set("leadTime", filters.leadTime);
+   103→
+   104→      return `/api/search?${params.toString()}`;
+   105→    },
+   106→    [filters, sortBy]
+   107→  );
+   108→
+   109→  // Perform search
+   110→  const performSearch = useCallback(
+   111→    async (searchQuery: string) => {
+   112→      if (!searchQuery.trim()) return;
+   113→
+   114→      setIsLoading(true);
+   115→      setHasSearched(true);
+   116→
+   117→      try {
+   118→        const url = buildSearchUrl(searchQuery);
+   119→        const response = await fetch(url);
+   120→        const data = await response.json();
+   121→
+   122→        if (data.success) {
+   123→          setSearchData(data.data);
+   124→
+   125→          // Save to recent searches
+   126→          const updatedRecent = [
+   127→            searchQuery,
+   128→            ...recentSearches.filter((s) => s !== searchQuery),
+   129→          ].slice(0, 10);
+   130→          setRecentSearches(updatedRecent);
+   131→
+   132→          try {
+   133→            localStorage.setItem("recent_searches", JSON.stringify(updatedRecent));
+   134→          } catch {
+   135→            // Ignore errors
+   136→          }
+   137→        }
+   138→      } catch (error) {
+   139→        console.error("Error searching:", error);
+   140→      } finally {
+   141→        setIsLoading(false);
+   142→      }
+   143→    },
+   144→    [buildSearchUrl, recentSearches]
+   145→  );
+   146→
+   147→  // Initial search on mount
+   148→  useEffect(() => {
+   149→    if (initialQuery) {
+   150→      performSearch(initialQuery);
+   151→    }
+   152→  }, [initialQuery, performSearch]);
+   153→
+   154→  // Handle form submit
+   155→  const handleSubmit = (e: React.FormEvent) => {
+   156→    e.preventDefault();
+   157→
+   158→    if (query.trim()) {
+   159→      const url = new URL(window.location.href);
+   160→      url.searchParams.set("q", query);
+   161→      window.history.pushState({}, "", url.toString());
+   162→
+   163→      performSearch(query);
+   164→    }
+   165→  };
+   166→
+   167→  // Handle suggestion click
+   168→  const handleSuggestionClick = (suggestion: SearchSuggestion) => {
+   169→    setQuery(suggestion.text);
+   170→
+   171→    const url = new URL(window.location.href);
+   172→    url.searchParams.set("q", suggestion.text);
+   173→    window.history.pushState({}, "", url.toString());
+   174→
+   175→    performSearch(suggestion.text);
+   176→  };
+   177→
+   178→  // Handle popular search click
+   179→  const handlePopularClick = (term: string) => {
+   180→    setQuery(term);
+   181→
+   182→    const url = new URL(window.location.href);
+   183→    url.searchParams.set("q", term);
+   184→    window.history.pushState({}, "", url.toString());
+   185→
+   186→    performSearch(term);
+   187→  };
+   188→
+   189→  // Handle recent search click
+   190→  const handleRecentClick = (term: string) => {
+   191→    setQuery(term);
+   192→    performSearch(term);
+   193→  };
+   194→
+   195→  // Handle saved search apply
+   196→  const handleApplySavedSearch = (savedSearch: any) => {
+   197→    setQuery(savedSearch.query);
+   198→    if (savedSearch.filters) {
+   199→      setFilters({ ...defaultAdvancedFilters, ...savedSearch.filters });
+   200→    }
+   201→    performSearch(savedSearch.query);
+   202→  };
+   203→
+   204→  // Clear search
+   205→  const handleClearSearch = () => {
+   206→    setQuery("");
+   207→    setSearchData(null);
+   208→    setHasSearched(false);
+   209→    window.history.pushState({}, "", "/search");
+   210→  };
+   211→
+   212→  // Remove single filter
+   213→  const handleRemoveFilter = (category: string, value?: string) => {
+   214→    let updatedFilters = { ...filters };
+   215→
+   216→    switch (category) {
+   217→      case "categories":
+   218→      case "wilayas":
+   219→      case "availability":
+   220→      case "businessTypes":
+   221→      case "supplierWilayas":
+   222→      case "rfqStatus":
+   223→        updatedFilters = {
+   224→          ...updatedFilters,
+   225→          [category]: (updatedFilters[category] as string[]).filter((v) => v !== value),
+   226→        };
+   227→        break;
+   228→      case "priceRange":
+   229→        updatedFilters = { ...updatedFilters, minPrice: 0, maxPrice: 10000000 };
+   230→        break;
+   231→      case "moqRange":
+   232→        updatedFilters = { ...updatedFilters, minMoq: 0, maxMoq: 100000 };
+   233→        break;
+   234→      case "verifiedOnly":
+   235→        updatedFilters = { ...updatedFilters, verifiedOnly: false };
+   236→        break;
+   237→      case "supplierVerifiedOnly":
+   238→        updatedFilters = { ...updatedFilters, supplierVerifiedOnly: false };
+   239→        break;
+   240→      case "countryOfOrigin":
+   241→        updatedFilters = { ...updatedFilters, countryOfOrigin: "" };
+   242→        break;
+   243→      case "minRating":
+   244→        updatedFilters = { ...updatedFilters, minRating: 0 };
+   245→        break;
+   246→      case "datePosted":
+   247→        updatedFilters = { ...updatedFilters, datePosted: "" };
+   248→        break;
+   249→      case "leadTime":
+   250→        updatedFilters = { ...updatedFilters, leadTime: "" };
+   251→        break;
+   252→      case "yearsInBusiness":
+   253→        updatedFilters = { ...updatedFilters, yearsInBusiness: "" };
+   254→        break;
+   255→      case "sortBy":
+   256→        updatedFilters = { ...updatedFilters, sortBy: "relevance" };
+   257→        setSortBy("relevance");
+   258→        break;
+   259→      default:
+   260→        break;
+   261→    }
+   262→
+   263→    setFilters(updatedFilters);
+   264→    
+   265→    // Re-search with updated filters
+   266→    if (query) {
+   267→      setTimeout(() => performSearch(query), 100);
+   268→    }
+   269→  };
+   270→
+   271→  // Clear all filters
+   272→  const handleClearAllFilters = () => {
+   273→    setFilters(defaultAdvancedFilters);
+   274→    setSortBy("relevance");
+   275→    if (query) {
+   276→      setTimeout(() => performSearch(query), 100);
+   277→    }
+   278→  };
+   279→
+   280→  // Convert search results to product list format for ProductGrid
+   281→  const convertToProductListResponse = (): ProductListResponse | undefined => {
+   282→    if (!searchData) return undefined;
+   283→
+   284→    return {
+   285→      products: searchData.results.map((p) => ({
+   286→        ...p,
+   287→        _count: p._count || { reviews: 0, favorites: 0 },
+   288→      })) as ProductListResponse["products"],
+   289→      pagination: searchData.pagination,
+   290→      filters: {
+   291→        categories: [],
+   292→        wilayas: [],
+   293→        priceRange: [0, 10000000],
+   294→        moqRange: [0, 100000],
+   295→      },
+   296→    };
+   297→  };
+   298→
+   299→  return (
+   300→    <div className="min-h-screen bg-gray-50/50">
+   301→      {/* Header Section */}
+   302→      <div className="bg-white border-b sticky top-[105px] z-30">
+   303→        <div className="container mx-auto px-4 py-4">
+   304→          <Breadcrumb className="mb-4">
+   305→            <BreadcrumbList>
+   306→              <BreadcrumbItem>
+   307→                <BreadcrumbLink href="/">Accueil</BreadcrumbLink>
+   308→              </BreadcrumbItem>
+   309→              <BreadcrumbSeparator />
+   310→              <BreadcrumbItem>
+   311→                <BreadcrumbPage>Recherche</BreadcrumbPage>
+   312→              </BreadcrumbItem>
+   313→            </BreadcrumbList>
+   314→          </Breadcrumb>
+   315→
+   316→          {/* Search Form */}
+   317→          <form onSubmit={handleSubmit} className="flex gap-3">
+   318→            <div className="relative flex-1 max-w-3xl">
+   319→              <SearchSuggestions
+   320→                placeholder="Rechercher des produits, fournisseurs, catégories..."
+   321→                showShortcuts={false}
+   322→                size="lg"
+   323→                onSearch={(term) => {
+   324→                  setQuery(term);
+   325→                  performSearch(term);
+   326→                }}
+   327→              />
+   328→            </div>
+   329→
+   330→            <Button type="submit" size="lg" className="bg-green-600 hover:bg-green-700 px-8 h-14">
+   331→              <Search className="h-5 w-5 mr-2" />
+   332→              Rechercher
+   333→            </Button>
+   334→          </form>
+   335→
+   336→          {/* Did You Mean */}
+   337→          {searchData?.didYouMean && (
+   338→            <div className="mt-3 flex items-center gap-2 text-sm">
+   339→              <Lightbulb className="h-4 w-4 text-yellow-500" />
+   340→              <span className="text-muted-foreground">Vouliez-vous dire:</span>
+   341→              <button
+   342→                onClick={() => handlePopularClick(searchData.didYouMean!)}
+   343→                className="font-medium text-green-600 hover:text-green-700 hover:underline"
+   344→              >
+   345→                {searchData.didYouMean}
+   346→              </button>
+   347→            </div>
+   348→          )}
+   349→        </div>
+   350→      </div>
+   351→
+   352→      {/* Main Content */}
+   353→      <div className="container mx-auto px-4 py-6">
+   354→        {!hasSearched ? (
+   355→          /* Initial State - No search performed */
+   356→          <div className="max-w-4xl mx-auto py-8">
+   357→            {/* Recent Searches */}
+   358→            {recentSearches.length > 0 && (
+   359→              <Card className="mb-6">
+   360→                <CardContent className="p-6">
+   361→                  <div className="flex items-center justify-between mb-4">
+   362→                    <h2 className="font-semibold flex items-center gap-2">
+   363→                      <Clock className="h-5 w-5 text-muted-foreground" />
+   364→                      Recherches Récentes
+   365→                    </h2>
+   366→                    <Button
+   367→                      variant="ghost"
+   368→                      size="sm"
+   369→                      onClick={() => {
+   370→                        setRecentSearches([]);
+   371→                        localStorage.removeItem("recent_searches");
+   372→                      }}
+   373→                    >
+   374→                      Effacer tout
+   375→                    </Button>
+   376→                  </div>
+   377→
+   378→                  <div className="flex flex-wrap gap-2">
+   379→                    {recentSearches.map((term) => (
+   380→                      <Badge
+   381→                        key={term}
+   382→                        variant="secondary"
+   383→                        className="cursor-pointer hover:bg-green-100 hover:text-green-700 px-3 py-1.5 text-sm"
+   384→                        onClick={() => handleRecentClick(term)}
+   385→                      >
+   386→                        <Search className="h-3 w-3 mr-1" />
+   387→                        {term}
+   388→                        <X
+   389→                          className="h-3 w-3 ml-2 opacity-50 hover:opacity-100"
+   390→                          onClick={(e) => {
+   391→                            e.stopPropagation();
+   392→                            setRecentSearches(recentSearches.filter((s) => s !== term));
+   393→                          }}
+   394→                        />
+   395→                      </Badge>
+   396→                    ))}
+   397→                  </div>
+   398→                </CardContent>
+   399→              </Card>
+   400→            )}
+   401→
+   402→            {/* Saved Searches */}
+   403→            <SavedSearches
+   404→              currentQuery={query}
+   405→              currentFilters={filters}
+   406→              onApplySavedSearch={handleApplySavedSearch}
+   407→              compact={false}
+   408→            />
+   409→
+   410→            {/* Popular Searches */}
+   411→            <Card>
+   412→              <CardContent className="p-6">
+   413→                <h2 className="font-semibold flex items-center gap-2 mb-4">
+   414→                  <TrendingUp className="h-5 w-5 text-orange-500" />
+   415→                  Recherches Populaires en Algérie
+   416→                </h2>
+   417→
+   418→                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+   419→                  {POPULAR_SEARCHES.map((term) => (
+   420→                    <button
+   421→                      key={term}
+   422→                      onClick={() => handlePopularClick(term)}
+   423→                      className="flex items-center gap-2 p-3 border rounded-lg hover:border-green-200 hover:bg-green-50 transition-colors text-left"
+   424→                    >
+   425→                      <Search className="h-4 w-4 text-muted-foreground shrink-0" />
+   426→                      <span className="text-sm truncate">{term}</span>
+   427→                    </button>
+   428→                  ))}
+   429→                </div>
+   430→              </CardContent>
+   431→            </Card>
+   432→
+   433→            {/* Quick Links */}
+   434→            <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
+   435→              <Link href="/products" className="group">
+   436→                <Card className="hover:border-green-200 transition-colors h-full">
+   437→                  <CardContent className="p-6 text-center">
+   438→                    <Package className="h-10 w-10 mx-auto mb-3 text-green-600 group-hover:scale-110 transition-transform" />
+   439→                    <h3 className="font-medium group-hover:text-green-600 transition-colors">
+   440→                      Explorer les Produits
+   441→                    </h3>
+   442→                    <p className="text-sm text-muted-foreground mt-1">
+   443→                      Parcourir le catalogue complet
+   444→                    </p>
+   445→                  </CardContent>
+   446→                </Card>
+   447→              </Link>
+   448→
+   449→              <Link href="/categories" className="group">
+   450→                <Card className="hover:border-green-200 transition-colors h-full">
+   451→                  <CardContent className="p-6 text-center">
+   452→                    <FolderOpen className="h-10 w-10 mx-auto mb-3 text-blue-600 group-hover:scale-110 transition-transform" />
+   453→                    <h3 className="font-medium group-hover:text-blue-600 transition-colors">
+   454→                      Par Catégorie
+   455→                    </h3>
+   456→                    <p className="text-sm text-muted-foreground mt-1">
+   457→                      Trouver par secteur d&apos;activité
+   458→                    </p>
+   459→                  </CardContent>
+   460→                </Card>
+   461→              </Link>
+   462→
+   463→              <Link href="/suppliers" className="group">
+   464→                <Card className="hover:border-green-200 transition-colors h-full">
+   465→                  <CardContent className="p-6 text-center">
+   466→                    <Building2 className="h-10 w-10 mx-auto mb-3 text-purple-600 group-hover:scale-110 transition-transform" />
+   467→                    <h3 className="font-medium group-hover:text-purple-600 transition-colors">
+   468→                      Fournisseurs Vérifiés
+   469→                    </h3>
+   470→                    <p className="text-sm text-muted-foreground mt-1">
+   471→                      Découvrir nos partenaires
+   472→                    </p>
+   473→                  </CardContent>
+   474→                </Card>
+   475→              </Link>
+   476→            </div>
+   477→          </div>
+   478→        ) : isLoading ? (
+   479→          /* Loading State */
+   480→          <div className="py-16 text-center">
+   481→            <Loader2 className="h-12 w-12 text-green-600 animate-spin mx-auto mb-4" />
+   482→            <p className="text-lg font-medium">Recherche en cours...</p>
+   483→            <p className="text-muted-foreground mt-1">
+   484→              Recherche de &quot;{query}&quot; avec vos filtres
+   485→            </p>
+   486→          </div>
+   487→        ) : searchData ? (
+   488→          /* Results State */
+   489→          <div>
+   490→            {/* Results Header with Meta Info */}
+   491→            <div className="mb-6">
+   492→              <SearchResultsMeta
+   493→                totalResults={searchData.pagination.total}
+   494→                searchQuery={searchData.searchQuery}
+   495→                currentSort={sortBy}
+   496→                viewMode={viewMode}
+   497→                onSortChange={setSortBy}
+   498→                onViewModeChange={setViewMode}
+   499→                onToggleFilters={() => setShowMobileFilters(!showMobileFilters)}
+   500→                isLoading={isLoading}
+   501→              />
+   502→
+   503→              {/* Active Filters Display */}
+   504→              <div className="mt-4">
+   505→                <ActiveFilters
+   506→                  filters={filters}
+   507→                  onRemoveFilter={handleRemoveFilter}
+   508→                  onClearAll={handleClearAllFilters}
+   509→                />
+   510→              </div>
+   511→
+   512→              {/* Save Current Search Button */}
+   513→              <div className="mt-4 flex items-center gap-3">
+   514→                <SavedSearches
+   515→                  currentQuery={query}
+   516→                  currentFilters={filters}
+   517→                  onApplySavedSearch={handleApplySavedSearch}
+   518→                  compact={true}
+   519→                />
+   520→              </div>
+   521→            </div>
+   522→
+   523→            {/* Tab Navigation for different result types */}
+   524→            {(searchData.rfqResults && searchData.rfqResults.length > 0 ||
+   525→              searchData.suggestions.some((s) => s.type === "company")) && (
+   526→              <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="mb-6">
+   527→                <TabsList>
+   528→                  <TabsTrigger value="products" className="gap-2">
+   529→                    <Package className="h-4 w-4" />
+   530→                    Produits ({searchData.pagination.total})
+   531→                  </TabsTrigger>
+   532→                  {searchData.suggestions.some((s) => s.type === "company") && (
+   533→                    <TabsTrigger value="suppliers" className="gap-2">
+   534→                      <Building2 className="h-4 w-4" />
+   535→                      Fournisseurs
+   536→                    </TabsTrigger>
+   537→                  )}
+   538→                  {searchData.rfqResults && searchData.rfqResults.length > 0 && (
+   539→                    <TabsTrigger value="rfqs" className="gap-2">
+   540→                      <FileText className="h-4 w-4" />
+   541→                      RFQs ({searchData.rfqResults.length})
+   542→                    </TabsTrigger>
+   543→                  )}
+   544→                </TabsList>
+   545→              </Tabs>
+   546→            )}
+   547→
+   548→            <div className="flex gap-6">
+   549→              {/* Sidebar Filters - Desktop */}
+   550→              <aside className={`w-72 shrink-0 ${showMobileFilters ? "block" : "hidden lg:block"}`}>
+   551→                <AdvancedFilters
+   552→                  filterType="all"
+   553→                  onFiltersChange={(newFilters) => {
+   554→                    setFilters({ ...filters, ...newFilters });
+   555→                    // Debounce re-search
+   556→                    setTimeout(() => query && performSearch(query), 300);
+   557→                  }}
+   558→                  currentFilters={filters}
+   559→                />
+   560→              </aside>
+   561→
+   562→              {/* Main Content */}
+   563→              <main className="flex-1 min-w-0">
+   564→                {/* Products Results */}
+   565→                {(activeTab === "products" || !searchData.rfqResults?.length) &&
+   566→                  (searchData.results.length > 0 ? (
+   567→                    <Suspense fallback={<ProductGrid isLoading />}>
+   568→                      <ProductGrid
+   569→                        data={convertToProductListResponse()}
+   570→                        viewMode={viewMode}
+   571→                        onViewModeChange={setViewMode}
+   572→                        onSortChange={setSortBy}
+   573→                        currentSort={sortBy}
+   574→                        onAddToRFQ={() => {}}
+   575→                        onToggleFavorite={() => {}}
+   576→                      />
+   577→                    </Suspense>
+   578→                  ) : (
+   579→                    /* Empty Products Results */
+   580→                    <Card>
+   581→                      <CardContent className="p-12 text-center">
+   582→                        <AlertCircle className="h-16 w-16 text-muted-foreground/30 mx-auto mb-4" />
+   583→                        <h2 className="text-xl font-semibold mb-2">
+   584→                          Aucun produit trouvé
+   585→                        </h2>
+   586→                        <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+   587→                          Nous n&apos;avons trouvé aucun produit correspondant à &quot;{searchData.searchQuery}&quot;.{" "}
+   588→                          Essayez avec d&apos;autres termes ou modifiez vos filtres.
+   589→                        </p>
+   590→
+   591→                        {/* Suggestions */}
+   592→                        {searchData.suggestions.length > 0 && (
+   593→                          <div className="mb-6">
+   594→                            <p className="text-sm font-medium mb-3">Suggestions:</p>
+   595→                            <div className="flex flex-wrap justify-center gap-2">
+   596→                              {searchData.suggestions.slice(0, 5).map((suggestion) => (
+   597→                                <Badge
+   598→                                  key={suggestion.id}
+   599→                                  variant="secondary"
+   600→                                  className="cursor-pointer hover:bg-green-100 hover:text-green-700 px-3 py-1.5"
+   601→                                  onClick={() => handleSuggestionClick(suggestion)}
+   602→                                >
+   603→                                  {suggestion.type === "product" && (
+   604→                                    <Package className="h-3 w-3 mr-1" />
+   605→                                  )}
+   606→                                  {suggestion.type === "category" && (
+   607→                                    <FolderOpen className="h-3 w-3 mr-1" />
+   608→                                  )}
+   609→                                  {suggestion.type === "company" && (
+   610→                                    <Building2 className="h-3 w-3 mr-1" />
+   611→                                  )}
+   612→                                  {suggestion.text}
+   613→                                </Badge>
+   614→                              ))}
+   615→                            </div>
+   616→                          </div>
+   617→                        )}
+   618→
+   619→                        {/* Popular Searches */}
+   620→                        <div>
+   621→                          <p className="text-sm font-medium mb-3 flex items-center justify-center gap-1">
+   622→                            <TrendingUp className="h-4 w-4" />
+   623→                            Recherches populaires:
+   624→                          </p>
+   625→                          <div className="flex flex-wrap justify-center gap-2">
+   626→                            {POPULAR_SEARCHES.slice(0, 4).map((term) => (
+   627→                              <Badge
+   628→                                key={term}
+   629→                                variant="outline"
+   630→                                className="cursor-pointer hover:border-green-300 px-3 py-1.5"
+   631→                                onClick={() => handlePopularClick(term)}
+   632→                              >
+   633→                                {term}
+   634→                              </Badge>
+   635→                            ))}
+   636→                          </div>
+   637→                        </div>
+   638→                      </CardContent>
+   639→                    </Card>
+   640→                  ))}
+   641→
+   642→                {/* Supplier Suggestions */}
+   643→                {activeTab === "suppliers" && (
+   644→                  <div className="space-y-3">
+   645→                    {searchData.suggestions
+   646→                      .filter((s) => s.type === "company")
+   647→                      .map((supplier) => (
+   648→                        <Card key={supplier.id} className="hover:border-green-200 transition-colors cursor-pointer">
+   649→                          <CardContent className="p-4 flex items-center gap-4">
+   650→                            <Building2 className="h-10 w-10 text-purple-600 bg-purple-50 rounded-lg p-2" />
+   651→                            <div className="flex-1 min-w-0">
+   652→                              <h3 className="font-medium">{supplier.text}</h3>
+   653→                              {supplier.count !== undefined && (
+   654→                                <p className="text-sm text-muted-foreground">
+   655→                                  {supplier.count} produits
+   656→                                </p>
+   657→                              )}
+   658→                              {supplier.rating !== undefined && (
+   659→                                <div className="flex items-center gap-1 mt-1">
+   660→                                  <span className="text-yellow-500">⭐</span>
+   661→                              <span className="text-sm">{supplier.rating}</span>
+   662→                                </div>
+   663→                              )}
+   664→                            </div>
+   665→                            <ChevronRight className="h-5 w-5 text-muted-foreground" />
+   666→                          </CardContent>
+   667→                        </Card>
+   668→                      ))}
+   669→                  </div>
+   670→                )}
+   671→
+   672→                {/* RFQ Results */}
+   673→                {activeTab === "rfqs" && searchData.rfqResults && (
+   674→                  <div className="space-y-3">
+   675→                    {searchData.rfqResults.map((rfq: any) => (
+   676→                      <Card key={rfq.id} className="hover:border-orange-200 transition-colors cursor-pointer">
+   677→                        <CardContent className="p-4">
+   678→                          <div className="flex items-start gap-4">
+   679→                            <FileText className="h-10 w-10 text-orange-600 bg-orange-50 rounded-lg p-2 shrink-0" />
+   680→                            <div className="flex-1 min-w-0">
+   681→                              <h3 className="font-medium">{rfq.title}</h3>
+   682→                              <p className="text-sm text-muted-foreground line-clamp-2 mt-1">
+   683→                                {rfq.description}
+   684→                              </p>
+   685→                              <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
+   686→                                <span>Qté: {rfq.quantity.toLocaleString()} {rfq.unit}</span>
+   687→                                {rfq.targetPrice && (
+   688→                                  <span>Budget: {rfq.targetPrice.toLocaleString()} DZD</span>
+   689→                                )}
+   690→                                <span>{rfq._count?.quotations || 0} devis</span>
+   691→                              </div>
+   692→                            </div>
+   693→                          </div>
+   694→                        </CardContent>
+   695→                      </Card>
+   696→                    ))}
+   697→                  </div>
+   698→                )}
+   699→
+   700→                {/* Related Searches / Popular Searches */}
+   701→                {searchData.relatedSearches && searchData.relatedSearches.length > 0 && searchData.results.length > 0 && (
+   702→                  <Card className="mt-6">
+   703→                    <CardContent className="p-4">
+   704→                      <h3 className="text-sm font-medium mb-3 flex items-center gap-2">
+   705→                        <Lightbulb className="h-4 w-4 text-yellow-500" />
+   706→                        Autres recherches populaires
+   707→                      </h3>
+   708→                      <div className="flex flex-wrap gap-2">
+   709→                        {searchData.relatedSearches.map((item, index) => (
+   710→                          <Badge
+   711→                            key={index}
+   712→                            variant="outline"
+   713→                            className="cursor-pointer hover:border-green-300 hover:bg-green-50"
+   714→                            onClick={() => handlePopularClick(item.term)}
+   715→                          >
+   716→                            <TrendingUp className="h-3 w-3 mr-1" />
+   717→                            {item.term}
+   718→                          </Badge>
+   719→                        ))}
+   720→                      </div>
+   721→                    </CardContent>
+   722→                  </Card>
+   723→                )}
+   724→              </main>
+   725→            </div>
+   726→          </div>
+   727→        ) : null}
+   728→      </div>
+   729→    </div>
+   730→  );
+   731→}
+   732→
+   733→// ============================================
+   734→// Export Page Component
+   735→// ============================================
+   736→
+   737→export default function SearchPage() {
+   738→  return (
+   739→    <Suspense
+   740→      fallback={
+   741→        <div className="min-h-screen bg-gray-50/50 flex items-center justify-center">
+   742→          <Loader2 className="h-8 w-8 text-green-600 animate-spin" />
+   743→        </div>
+   744→      }
+   745→    >
+   746→      <SearchContent />
+   747→    </Suspense>
+   748→  );
+   749→}
+   750→

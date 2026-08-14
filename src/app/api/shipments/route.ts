@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import { UserRole } from '@prisma/client';
 
 // Valid shipment statuses
 const VALID_STATUSES = [
@@ -27,11 +30,32 @@ const VALID_INCOTERMS = [
   'FAS', // Free Alongside Ship
   'FOB', // Free on Board
   'CFR', // Cost and Freight
-  'CIF', // Cost Insurance and Freight
+  'CIF', // Cost Insurance Freight
 ];
 
-// GET /api/shipments?orderId=xxx - List shipments with filters
+// Authentication helper for shipment endpoints
+async function authenticateShipmentRequest(request: NextRequest) {
+  const session = await getServerSession(authOptions);
+  
+  if (!session?.user?.id) {
+    return { 
+      error: NextResponse.json(
+        { success: false, error: 'Authentication required' },
+        { status: 401 }
+      ), 
+      user: null 
+    };
+  }
+  
+  return { error: null, user: session.user };
+}
+
+// GET /api/shipments?orderId=xxx - List shipments with filters (authenticated)
 export async function GET(request: NextRequest) {
+  // Authenticate
+  const auth = await authenticateShipmentRequest(request);
+  if (auth.error) return auth.error;
+  
   try {
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
@@ -40,20 +64,25 @@ export async function GET(request: NextRequest) {
     
     // Filters
     const orderId = searchParams.get('orderId');
-    const buyerId = searchParams.get('buyerId');
-    const supplierCompanyId = searchParams.get('supplierCompanyId');
     const status = searchParams.get('status');
     const trackingNumber = searchParams.get('trackingNumber');
     const shippingMethod = searchParams.get('shippingMethod');
     const dateFrom = searchParams.get('dateFrom');
     const dateTo = searchParams.get('dateTo');
 
-    // Build where clause
+    // Build where clause - restrict to user's shipments unless admin
+    const isAdmin = auth.user!.role === UserRole.ADMIN || auth.user!.role === UserRole.SUPER_ADMIN;
     const where: Record<string, unknown> = {};
 
+    if (!isAdmin) {
+      // Non-admin users can only see their own shipments (as buyer or supplier)
+      where.OR = [
+        { buyerId: auth.user!.id },
+        { supplierCompanyId: auth.user!.companyId || 'no-company' }
+      ];
+    }
+
     if (orderId) where.orderId = orderId;
-    if (buyerId) where.buyerId = buyerId;
-    if (supplierCompanyId) where.supplierCompanyId = supplierCompanyId;
     if (status && VALID_STATUSES.includes(status.toUpperCase())) {
       where.status = status.toUpperCase();
     }
@@ -69,7 +98,7 @@ export async function GET(request: NextRequest) {
         (where.createdAt as Record<string, unknown>).gte = new Date(dateFrom);
       }
       if (dateTo) {
-        (where.createdAt as Record<string, unknown>).lte = new Date(dateTo);
+        (where.createdAt as Record<string,unknown>).lte = new Date(dateTo);
       }
     }
 
@@ -94,7 +123,6 @@ export async function GET(request: NextRequest) {
               firstName: true,
               lastName: true,
               email: true,
-              phone: true,
             },
           },
           supplierCompany: {
@@ -102,9 +130,6 @@ export async function GET(request: NextRequest) {
               id: true,
               name: true,
               slug: true,
-              phone: true,
-              address: true,
-              wilaya: true,
             },
           },
           shippingRate: {
@@ -187,14 +212,16 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST /api/shipments - Create shipment
+// POST /api/shipments - Create shipment (authenticated)
 export async function POST(request: NextRequest) {
+  // Authenticate
+  const auth = await authenticateShipmentRequest(request);
+  if (auth.error) return auth.error;
+  
   try {
     const body = await request.json();
     const {
       orderId,
-      buyerId,
-      supplierCompanyId,
       shippingMethod,
       shippingRateId,
       originAddress,
@@ -222,7 +249,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if order exists
+    // Check if order exists and user has access
     const order = await db.order.findUnique({
       where: { id: orderId },
       include: {
@@ -235,6 +262,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { success: false, error: 'Order not found' },
         { status: 404 }
+      );
+    }
+
+    // Verify user is authorized (buyer or supplier company)
+    const isAdmin = auth.user!.role === UserRole.ADMIN || auth.user!.role === UserRole.SUPER_ADMIN;
+    const isBuyer = order.buyerId === auth.user!.id;
+    const isSupplier = order.companyId === auth.user!.companyId;
+    
+    if (!isAdmin && !isBuyer && !isSupplier) {
+      return NextResponse.json(
+        { success: false, error: 'Forbidden: You can only create shipments for your own orders' },
+        { status: 403 }
       );
     }
 
@@ -299,8 +338,8 @@ export async function POST(request: NextRequest) {
       const newShipment = await tx.shipment.create({
         data: {
           orderId,
-          buyerId: buyerId || order.buyerId,
-          supplierCompanyId: supplierCompanyId || order.companyId,
+          buyerId: order.buyerId, // Use order's buyer ID, not from request body
+          supplierCompanyId: order.companyId, // Use order's company ID
           shippingMethod,
           shippingRateId: shippingRateId || null,
           trackingNumber,
@@ -336,6 +375,23 @@ export async function POST(request: NextRequest) {
 
       return newShipment;
     });
+
+    // Audit log
+    await db.auditLog.create({
+      data: {
+        userId: auth.user!.id,
+        action: 'CREATE_SHIPMENT',
+        resource: 'shipment',
+        resourceId: shipment.id,
+        oldValue: null,
+        newValue: JSON.stringify({ 
+          orderId, 
+          trackingNumber,
+          createdBy: auth.user!.id 
+        }),
+        ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
+      }
+    }).catch(() => {}); // Don't fail if audit logging fails
 
     // Fetch full shipment with relations
     const fullShipment = await db.shipment.findUnique({
@@ -377,8 +433,12 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// PUT /api/shipments - Update shipment status or details
+// PUT /api/shipments - Update shipment status or details (authenticated, admin/supplier only)
 export async function PUT(request: NextRequest) {
+  // Authenticate
+  const auth = await authenticateShipmentRequest(request);
+  if (auth.error) return auth.error;
+  
   try {
     const body = await request.json();
     const { id, status, trackingInfo, ...updateData } = body;
@@ -399,6 +459,17 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json(
         { success: false, error: 'Shipment not found' },
         { status: 404 }
+      );
+    }
+
+    // Authorization check - only admin or supplier company can update
+    const isAdmin = auth.user!.role === UserRole.ADMIN || auth.user!.role === UserRole.SUPER_ADMIN;
+    const isSupplier = existingShipment.supplierCompanyId === auth.user!.companyId;
+    
+    if (!isAdmin && !isSupplier) {
+      return NextResponse.json(
+        { success: false, error: 'Forbidden: Only suppliers or admins can update shipments' },
+        { status: 403 }
       );
     }
 
@@ -469,6 +540,21 @@ export async function PUT(request: NextRequest) {
       where: { id },
       data: updateData,
     });
+
+    // Audit log for status changes
+    if (status) {
+      await db.auditLog.create({
+        data: {
+          userId: auth.user!.id,
+          action: 'UPDATE_SHIPMENT_STATUS',
+          resource: 'shipment',
+          resourceId: id,
+          oldValue: JSON.stringify({ status: existingShipment.status }),
+          newValue: JSON.stringify({ status }),
+          ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
+        }
+      }).catch(() => {});
+    }
 
     return NextResponse.json({
       success: true,

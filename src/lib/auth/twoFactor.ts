@@ -14,10 +14,21 @@ const ENCRYPTION_KEY_LENGTH = 32;
 const IV_LENGTH = 16;
 const TAG_LENGTH = 16;
 
-// Get encryption key from environment or generate a deterministic one for development
+// Get encryption key from environment - REQUIRED for production
+// NEVER use hardcoded fallback keys - this is a security vulnerability
 function getEncryptionKey(): Buffer {
-  const key = process.env.TWO_FACTOR_ENCRYPTION_KEY || 'algeriatrade-2fa-encryption-key-2024!';
-  return crypto.scryptSync(key, 'salt', ENCRYPTION_KEY_LENGTH);
+  const key = process.env.TWO_FACTOR_ENCRYPTION_KEY;
+  
+  if (!key || key.length < 32) {
+    throw new Error(
+      'INVALID CONFIGURATION: TWO_FACTOR_ENCRYPTION_KEY environment variable is required and must be at least 32 characters. '
+      + 'Generate one with: openssl rand -base64 48'
+    );
+  }
+  
+  // Use unique salt per deployment via environment or generate deterministic one
+  const salt = process.env.ENCRYPTION_SALT || 'algeriatrade-salt-2024-v1';
+  return crypto.scryptSync(key, salt, ENCRYPTION_KEY_LENGTH);
 }
 
 /**

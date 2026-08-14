@@ -1,0 +1,2002 @@
+     1→/**
+     2→ * AlgeriaTrade.dz - Advanced Fraud Detection & Prevention System
+     3→ * 
+     4→ * Enterprise-grade fraud protection providing:
+     5→ * - User behavior analysis and anomaly detection
+     6→ * - Transaction risk scoring with ML-inspired models
+     7→ * - Device fingerprinting for identification
+     8→ * - Velocity checking (rapid action detection)
+     9→ * - Geolocation anomaly detection
+    10→ * - Account takeover prevention
+    11→ * - Payment fraud protection
+    12→ * - IP/email/phone reputation checking
+    13→ * - Real-time fraud scoring and decisioning
+    14→ * - Case management for manual review
+    15→ */
+    16→
+    17→// ===========================================
+    18→// Types & Interfaces
+    19→// ===========================================
+    20→
+    21→export interface FraudEvent {
+    22→  id: string;
+    23→  timestamp: string;
+    24→  eventType: 'transaction' | 'login' | 'registration' | 'profile_update' | 
+    25→              'password_reset' | 'payment' | 'rfq' | 'message' | 'api_call';
+    26→  userId?: string;
+    27→  sessionId: string;
+    28→  
+    29→  // Request info
+    30→  ipAddress: string;
+    31→  userAgent: string;
+    32→  deviceId?: string;
+    33→  fingerprint?: string;
+    34→  
+    35→  // Location data
+    36→  country?: string;
+    37→  city?: string;
+    38→  region?: string;
+    39→  latitude?: number;
+    40→  longitude?: number;
+    41→  timezone?: string;
+    42→  
+    43→  // Event-specific data
+    44→  data: {
+    45→    amount?: number;
+    46→    currency?: string;
+    47→    recipientId?: string;
+    48→    email?: string;
+    49→    phone?: string;
+    50→    shippingAddress?: Record<string, any>;
+    51→    billingAddress?: Record<string, any>;
+    52→    paymentMethod?: string;
+    53→    [key: string]: any;
+    54→  };
+    55→  
+    56→  // Context
+    57→  context: {
+    58→    url?: string;
+    59→    referer?: string;
+    60→    isMobile?: boolean;
+    61→    isProxy?: boolean;
+    62→    isVPN?: boolean;
+    63→    isTor?: boolean;
+    64→    hostingProvider?: string;
+    65→    connectionType?: string;
+    66→  };
+    67→}
+    68→
+    69→export interface FraudAssessment {
+    70→  eventId: string;
+    71→  score: number; // 0-100, higher = more risky
+    72→  riskLevel: 'low' | 'medium' | 'high' | 'critical';
+    73→  decision: 'approve' | 'review' | 'challenge' | 'block';
+    74→  reasons: Array<{
+    75→    ruleId: string;
+    76→    ruleName: string;
+    77→    severity: 'info' | 'warning' | 'danger';
+    78→    scoreImpact: number; // How much this added to the score
+    79→    description: string;
+    80→  }>;
+    81→  recommendations: string[];
+    82→  reviewRequired: boolean;
+    83→  reviewedAt?: string;
+    84→  reviewedBy?: string;
+    85→  reviewerNotes?: string;
+    86→}
+    87→
+    88→export interface FraudRule {
+    89→  id: string;
+    90→  name: string;
+    91→  description: string;
+    92→  enabled: boolean;
+    93→  category: 'velocity' | 'location' | 'device' | 'behavior' | 'identity' | 'payment' | 'account';
+    94→  severity: 'low' | 'medium' | 'high' | 'critical';
+    95→  scoreWeight: number; // How much to add to score if triggered
+    96→  
+    97→  // Conditions
+    98→  conditions: FraudRuleCondition[];
+    99→  conditionLogic: 'AND' | 'OR'; // How to combine conditions
+   100→  
+   101→  // Actions when triggered
+   102→  action: 'add_score' | 'block' | 'challenge' | 'review' | 'mfa_required';
+   103→  
+   104→  // Time window (for velocity rules)
+   105→  timeWindowMs?: number;
+   106→  threshold?: number;
+   107→  
+   108→  // Metadata
+   109→  tags: string[];
+   110→  falsePositiveRate: number; // Estimated false positive rate (0-1)
+   111→  lastTriggered?: string;
+   112→  triggerCount: number;
+   113→  createdAt: string;
+   114→  updatedAt: string;
+   115→}
+   116→
+   117→export interface FraudRuleCondition {
+   118→  field: keyof FraudEvent | keyof FraudEvent['data'] | keyof FraudEvent['context'];
+   119→  operator: 'equals' | 'not_equals' | 'contains' | 'not_contains' | 'matches' |
+   120→            'greater_than' | 'less_than' | 'in' | 'not_in' | 'changed_from' |
+   121→            'distance_greater_than' | 'time_since_less_than' | 'time_since_greater_than' |
+   122→            'count_in_window' | 'unique_count_in_window' | 'velocity_exceeds';
+   123→  value: any;
+   124→  timeWindowMs?: number; // For velocity/count operations
+   125→}
+   126→
+   127→export interface DeviceFingerprint {
+   128→  id: string;
+   129→  hash: string;
+   130→  
+   131→  // Browser info
+   132→  userAgent: string;
+   133→  language: string;
+   134→  languages: string[];
+   135→  platform: string;
+   136→  vendor: string;
+   137→  
+   138→  // Screen info
+   139→  screenWidth: number;
+   140→  screenHeight: number;
+   141→  colorDepth: number;
+   142→  pixelRatio: number;
+   143→  
+   144→  // Hardware info
+   145→  deviceMemory?: number;
+   146→  hardwareConcurrency?: number;
+   147→  maxTouchPoints?: number;
+   148→  
+   149→  // Network info
+   150→  connectionType?: string;
+   151→  downlink?: number;
+   152→  rtt?: number;
+   153→  
+   154→  // Features
+   155→  cookiesEnabled: boolean;
+   156→  localStorage: boolean;
+   157→  sessionStorage: boolean;
+   158→  indexedDB: boolean;
+   159→  webGL?: string;
+   160→  canvas?: string;
+   161→  fonts?: string[];
+   162→  plugins?: string[];
+   163→  
+   164→  // Timestamps
+   165→  firstSeen: string;
+   166→  lastSeen: string;
+   167→  seenCount: number;
+   168→  
+   169→  // Risk assessment
+   170→  riskScore: number;
+   171→  isEmulator: boolean;
+   172→  isBot: boolean;
+   173→  isVPN: boolean;
+   174→  isTor: boolean;
+   175→  hostingInfo?: string;
+   176→}
+   177→
+   178→export interface UserProfile {
+   179→  userId: string;
+   180→  
+   181→  // Historical data
+   182→  registrationDate: string;
+   183→  loginHistory: Array<{
+   184→    timestamp: string;
+   185→    ip: string;
+   186→    deviceFingerprint: string;
+   187→    location: { country: string; city: string };
+   188→    success: boolean;
+   189→  }>;
+   190→  transactionHistory: Array<{
+   191→    timestamp: string;
+   192→    amount: number;
+   193→    currency: string;
+   194→    status: 'success' | 'failed' | 'pending' | 'refunded';
+   195→    ip: string;
+   196→    deviceFingerprint: string;
+   197→    location: { country: string; city: string };
+   198→    recipientId?: string;
+   199→  }>;
+   200→  
+   201→  // Behavioral patterns
+   202→  typicalLoginHours: number[]; // Hours of day (0-23) user usually logs in
+   203→  typicalCountries: string[]; // Countries user typically logs in from
+   204→  typicalDevices: string[]; // Device fingerprints seen before
+   205→  averageTransactionAmount: number;
+   206→  transactionAmountStdDev: number;
+   207→  
+   208→  // Risk flags
+   209→  riskFlags: string[];
+   210→  notes: string;
+   211→  trustScore: number; // 0-100, higher = more trusted
+   212→  verificationLevel: 'none' | 'email' | 'phone' | 'identity' | 'business';
+   213→  
+   214→  // Account status
+   215→  accountStatus: 'active' | 'suspended' | 'under_review' | 'banned';
+   216→  lastActivity: string;
+   217→}
+   218→
+   219→export interface FraudCase {
+   220→  id: string;
+   221→  eventId: string;
+   222→  userId?: string;
+   223→  status: 'open' | 'investigating' | 'resolved' | 'dismissed' | 'escalated';
+   224→  priority: 'low' | 'medium' | 'high' | 'critical';
+   225→  
+   226→  // Assessment that created this case
+   227→  assessment: FraudAssessment;
+   228→  
+   229→  // Investigation details
+   230→  assignedTo?: string;
+   231→  assignedAt?: string;
+   232→  resolution?: string;
+   233→  resolvedBy?: string;
+   234→  resolvedAt?: string;
+   235→  resolutionNotes?: string;
+   236→  
+   237→  // Evidence collected
+   238→  evidence: Array<{
+   239→    type: 'screenshot' | 'log' | 'user_statement' | 'third_party' | 'system';
+   240→    description: string;
+   241→    data: any;
+   242→    collectedAt: string;
+   243→    collectedBy?: string;
+   244→  }>;
+   245→  
+   246→  // Communication with user
+   247→  communications: Array<{
+   248→    channel: 'email' | 'sms' | 'in_app' | 'phone';
+   249→    direction: 'sent' | 'received';
+   250→    content: string;
+   251→    timestamp: string;
+   252→  }>;
+   253→  
+   254→  createdAt: string;
+   255→  updatedAt: string;
+   256→}
+   257→
+   258→export interface FraudStatistics {
+   259→  period: {
+   260→    start: string;
+   261→    end: string;
+   262→  };
+   263→  
+   264→  totalEvents: number;
+   265→  totalAssessments: number;
+   266→  blockedEvents: number;
+   267→  challengedEvents: number;
+   268→  reviewedEvents: number;
+   269→  approvedEvents: number;
+   270→  
+   271→  assessmentsByRiskLevel: {
+   272→    low: number;
+   273→    medium: number;
+   274→    high: number;
+   275→    critical: number;
+   276→  };
+   277→  
+   278→  topFraudTypes: Array<{ type: string; count: number }>;
+   279→  topBlockedCountries: Array<{ country: string; count: number }>;
+   280→  averageFraudScore: number;
+   281→  falsePositiveRate: number;
+   282→  caseResolutionTime: {
+   283→    avg: number;
+   284→    median: number;
+   285→    p95: number;
+   286→  };
+   287→  
+   288→  financialImpact: {
+   289→    preventedFraud: number; // Amount of fraud prevented
+   290→    totalInvestigated: number; // Total amount under investigation
+   291→    confirmedLosses: number; // Confirmed fraudulent losses
+   292→  };
+   293→}
+   294→
+   295→// ===========================================
+   296→// Configuration
+   297→// ===========================================
+   298→
+   299→interface FraudDetectionConfig {
+   300→  enabled: boolean;
+   301→  mode: 'detect' | 'prevent' | 'learning'; // detect = log only, prevent = block, learn = build models
+   302→  
+   303→  // Scoring thresholds
+   304→  thresholds: {
+   305→    lowRisk: number;      // 0-30
+   306→    mediumRisk: number;   // 31-60
+   307→    highRisk: number;     // 61-85
+   308→    criticalRisk: number; // 86-100
+   309→    
+   310→    autoBlockThreshold: number;     // Auto-block above this
+   311→    autoChallengeThreshold: number; // Challenge between these
+   312→    autoReviewThreshold: number;    // Review required above this
+   313→    
+   314→    mfaRequiredForNewDevice: boolean;
+   315→    mfaRequiredForHighValueTxn: number; // Amount threshold
+   316→  };
+   317→  
+   318→  // Feature flags
+   319→  features: {
+   320→    deviceFingerprinting: boolean;
+   321→    behaviorAnalysis: boolean;
+   322→    velocityChecking: boolean;
+   323→    geoLocationAnalysis: boolean;
+   324→    identityVerification: boolean;
+   325→    networkAnalysis: boolean;
+   326→    mlScoring: boolean;
+   327→    caseManagement: boolean;
+   328→  };
+   329→  
+   330→  // Velocity rules defaults
+   331→  velocityDefaults: {
+   332→    maxLoginsPerHour: number;
+   333→    maxTransactionsPerHour: number;
+   334→    maxRegistrationsPerIPPerDay: number;
+   335→    maxPasswordResetsPerDay: number;
+   336→    maxFailedLoginsBeforeLockout: number;
+   337→    lockoutDurationMs: number;
+   338→  };
+   339→  
+   340→  // Geographic rules
+   341→  geoRules: {
+   342→    enabled: boolean;
+   343→    allowInternationalTransactions: boolean;
+   344→    highRiskCountries: string[];
+   345→    requireAdditionalVerification: string[]; // Countries needing extra verification
+   346→    maxDistanceBetweenLoginsKm: number; // Impossible travel detection
+   347→    timezoneMismatchTolerance: number; // Hours
+   348→  };
+   349→  
+   350→  // Device rules
+   351→  deviceRules: {
+   352→    maxDevicesPerUser: number;
+   353→    maxNewDevicesPerDay: number;
+   354→    suspiciousDevicePatterns: RegExp[];
+   355→    emulatorDetection: boolean;
+   356→    botDetection: boolean;
+   357→  };
+   358→  
+   359→  // Integration settings
+   360→  integrations: {
+   361→    emailReputationService?: {
+   362→      endpoint: string;
+   363→      apiKey: string;
+   364→    };
+   365→    phoneReputationService?: {
+   366→      endpoint: string;
+   367→      apiKey: string;
+   368→    };
+   369→    ipReputationService?: {
+   370→      endpoint: string;
+   371→      apiKey: string;
+   372→    };
+   373→    addressVerificationService?: {
+   374→      endpoint: string;
+   375→      apiKey: string;
+   376→    };
+   377→  };
+   378→  
+   379→  // Alerting
+   380→  alerting: {
+   381→    enabled: boolean;
+   382→    onCriticalScore: boolean;
+   383→    onBlockedTransaction: boolean;
+   384→    onNewFraudCase: boolean;
+   385→    onVelocityBreach: boolean;
+   386→    notifyChannels: string[]; // Channel IDs
+   387→  };
+   388→  
+   389→  // Data retention
+   390→  retention: {
+   391→    eventRetentionDays: number;
+   392→    caseRetentionDays: number;
+   393→    deviceProfileRetentionDays: number;
+   394→    anonymizeAfterDays: number;
+   395→  };
+   396→}
+   397→
+   398→const DEFAULT_CONFIG: FraudDetectionConfig = {
+   399→  enabled: true,
+   400→  mode: 'prevent',
+   401→  
+   402→  thresholds: {
+   403→    lowRisk: 30,
+   404→    mediumRisk: 60,
+   405→    highRisk: 85,
+   406→    criticalRisk: 100,
+   407→    
+   408→    autoBlockThreshold: 85,
+   409→    autoChallengeThreshold: 60,
+   410→    autoReviewThreshold: 70,
+   411→    
+   412→    mfaRequiredForNewDevice: true,
+   413→    mfaRequiredForHighValueTxn: 5000, // DZD
+   414→  },
+   415→  
+   416→  features: {
+   417→    deviceFingerprinting: true,
+   418→    behaviorAnalysis: true,
+   419→    velocityChecking: true,
+   420→    geoLocationAnalysis: true,
+   421→    identityVerification: true,
+   422→    networkAnalysis: true,
+   423→    mlScoring: true,
+   424→    caseManagement: true,
+   425→  },
+   426→  
+   427→  velocityDefaults: {
+   428→    maxLoginsPerHour: 20,
+   429→    maxTransactionsPerHour: 10,
+   430→    maxRegistrationsPerIPPerDay: 3,
+   431→    maxPasswordResetsPerDay: 5,
+   432→    maxFailedLoginsBeforeLockout: 5,
+   433→    lockoutDurationMs: 15 * 60 * 1000, // 15 minutes
+   434→  },
+   435→  
+   436→  geoRules: {
+   437→    enabled: true,
+   438→    allowInternationalTransactions: true,
+   439→    highRiskCountries: [], // Would populate based on business needs
+   440→    requireAdditionalVerification: [],
+   441→    maxDistanceBetweenLoginsKm: 1000, // ~621 miles in < 1 hour = impossible
+   442→    timezoneMismatchTolerance: 2, // hours
+   443→  },
+   444→  
+   445→  deviceRules: {
+   446→    maxDevicesPerUser: 5,
+   447→    maxNewDevicesPerDay: 2,
+   448→    suspiciousDevicePatterns: [
+   449→      /selenium/i,
+   450→      /phantomjs/i,
+   451→      /headless/i,
+   452→      /playwright/i,
+   453→      /puppeteer/i,
+   454→    ],
+   455→    emulatorDetection: true,
+   456→    botDetection: true,
+   457→  },
+   458→  
+   459→  integrations: {},
+   460→  
+   461→  alerting: {
+   462→    enabled: true,
+   463→    onCriticalScore: true,
+   464→    onBlockedTransaction: true,
+   465→    onNewFraudCase: true,
+   466→    onVelocityBreach: true,
+   467→    notifyChannels: ['security-team'],
+   468→  },
+   469→  
+   470→  retention: {
+   471→    eventRetentionDays: 90,
+   472→    caseRetentionDays: 365,
+   473→    deviceProfileRetentionDays: 180,
+   474→    anonymizeAfterDays: 365,
+   475→  },
+   476→};
+   477→
+   478→// ===========================================
+   479→// Main Fraud Detection Class
+   480→// ===========================================
+   481→
+   482→class FraudDetectionSystem {
+   483→  private config: FraudDetectionConfig;
+   484→  private rules: Map<string, FraudRule> = new Map();
+   485→  private events: FraudEvent[] = [];
+   486→  private cases: Map<string, FraudCase> = new Map();
+   487→  private deviceProfiles: Map<string, DeviceFingerprint> = new Map();
+   488→  private userProfiles: Map<string, UserProfile> = new Map();
+   489→  private velocityStore: Map<string, Array<{ timestamp: number; data: any }>> = new Map();
+   490→  private statistics: FraudStatistics;
+   491→
+   492→  constructor(config?: Partial<FraudDetectionConfig>) {
+   493→    this.config = { ...DEFAULT_CONFIG, ...config };
+   494→    
+   495→    this.statistics = this.initializeStatistics();
+   496→    
+   497→    // Load built-in fraud rules
+   498→    this.loadBuiltInRules();
+   499→  }
+   500→
+   501→  /**
+   502→   * Main method: Assess a fraud event
+   503→   */
+   504→  async assessEvent(event: Partial<FraudEvent>): Promise<FraudAssessment> {
+   505→    if (!this.config.enabled) {
+   506→      return this.createSafeAssessment(event);
+   507→    }
+   508→
+   509→    const completeEvent: FraudEvent = {
+   510→      id: `fraud_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
+   511→      timestamp: new Date().toISOString(),
+   512→      eventType: event.eventType || 'api_call',
+   513→      sessionId: event.sessionId || 'unknown',
+   514→      ipAddress: event.ipAddress || 'unknown',
+   515→      userAgent: event.userAgent || '',
+   516→      ...event,
+   517→      data: event.data || {},
+   518→      context: event.context || {},
+   519→    };
+   520→
+   521→    // Store event
+   522→    this.events.push(completeEvent);
+   523→    this.trimOldEvents();
+   524→
+   525→    // Initialize assessment
+   526→    const assessment: FraudAssessment = {
+   527→      eventId: completeEvent.id,
+   528→      score: 0,
+   529→      riskLevel: 'low',
+   530→      decision: 'approve',
+   531→      reasons: [],
+   532→      recommendations: [],
+   533→      reviewRequired: false,
+   534→    };
+   535→
+   536→    // Run all enabled checks
+   537→    await Promise.all([
+   538→      this.checkVelocityRules(completeEvent, assessment),
+   539→      this.checkLocationAnomalies(completeEvent, assessment),
+   540→      this.checkDeviceRisk(completeEvent, assessment),
+   541→      this.checkBehavioralAnomalies(completeEvent, assessment),
+   542→      this.checkIdentityRisks(completeEvent, assessment),
+   543→      this.checkPaymentRisks(completeEvent, assessment),
+   544→      this.checkAccountRisks(completeEvent, assessment),
+   545→      this.checkNetworkRisks(completeEvent, assessment),
+   546→      this.evaluateCustomRules(completeEvent, assessment),
+   547→    ]);
+   548→
+   549→    // Apply ML-style composite scoring
+   550→    if (this.config.features.mlScoring) {
+   551→      this.applyCompositeScoring(completeEvent, assessment);
+   552→    }
+   553→
+   554→    // Determine final decision
+   555→    this.makeDecision(assessment);
+   556→
+   557→    // Create case if needed
+   558→    if (assessment.decision === 'review' || assessment.decision === 'block') {
+   559→      if (this.config.features.caseManagement) {
+   560→        await this.createFraudCase(completeEvent, assessment);
+   561→      }
+   562→    }
+   563→
+   564→    // Update statistics
+   565→    this.updateStatistics(assessment);
+   566→
+   567→    // Trigger alerts
+   568→    if (this.config.alerting.enabled) {
+   569→      this.triggerAlerts(completeEvent, assessment);
+   570→    }
+   571→
+   572→    return assessment;
+   573→  }
+   574→
+   575→  /**
+   576→   * Generate device fingerprint from client data
+   577→   */
+   578→  generateDeviceFingerprint(data: Partial<DeviceFingerprint>): DeviceFingerprint {
+   579→    const components = [
+   580→      data.userAgent,
+   581→      data.language,
+   582→      data.platform,
+   583→      data.vendor,
+   584→      `${data.screenWidth}x${data.screenHeight}`,
+   585→      `${data.colorDepth}`,
+   586→      `${data.pixelRatio}`,
+   587→      String(data.deviceMemory),
+   588→      String(data.hardwareConcurrency),
+   589→      String(data.maxTouchPoints),
+   590→      data.connectionType,
+   591→      String(data.downlink),
+   592→      String(data.rtt),
+   593→      String(data.cookiesEnabled),
+   594→      String(data.localStorage),
+   595→      String(data.sessionStorage),
+   596→      String(data.indexedDB),
+   597→      data.webGL,
+   598→      data.canvas,
+   599→      data.fonts?.join(','),
+   600→      data.plugins?.join(','),
+   601→    ].filter(Boolean);
+   602→
+   603→    const hash = this.simpleHash(components.join('|'));
+   604→
+   605→    const now = new Date().toISOString();
+   606→
+   607→    // Check if we've seen this device before
+   608→    let existingProfile = this.deviceProfiles.get(hash);
+   609→    
+   610→    if (existingProfile) {
+   611→      existingProfile.lastSeen = now;
+   612→      existingProfile.seenCount++;
+   613→      
+   614→      // Update risk assessment
+   615→      existingProfile.riskScore = this.calculateDeviceRisk({ ...existingProfile, ...data });
+   616→    } else {
+   617→      existingProfile = {
+   618→        id: `device_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
+   619→        hash,
+   620→        
+   621→        userAgent: data.userAgent || '',
+   622→        language: data.language || '',
+   623→        languages: data.languages || [],
+   624→        platform: data.platform || '',
+   625→        vendor: data.vendor || '',
+   626→        
+   627→        screenWidth: data.screenWidth || 0,
+   628→        screenHeight: data.screenHeight || 0,
+   629→        colorDepth: data.colorDepth || 0,
+   630→        pixelRatio: data.pixelRatio || 0,
+   631→        
+   632→        deviceMemory: data.deviceMemory,
+   633→        hardwareConcurrency: data.hardwareConcurrency,
+   634→        maxTouchPoints: data.maxTouchPoints,
+   635→        
+   636→        connectionType: data.connectionType,
+   637→        downlink: data.downlink,
+   638→        rtt: data.rtt,
+   639→        
+   640→        cookiesEnabled: data.cookiesEnabled ?? true,
+   641→        localStorage: data.localStorage ?? true,
+   642→        sessionStorage: data.sessionStorage ?? true,
+   643→        indexedDB: data.indexedDB ?? true,
+   644→        webGL: data.webGL,
+   645→        canvas: data.canvas,
+   646→        fonts: data.fonts,
+   647→        plugins: data.plugins,
+   648→        
+   649→        firstSeen: now,
+   650→        lastSeen: now,
+   651→        seenCount: 1,
+   652→        
+   653→        riskScore: 0,
+   654→        isEmulator: false,
+   655→        isBot: false,
+   656→        isVPN: false,
+   657→        isTor: false,
+   658→      };
+   659→
+   660→      // Analyze device characteristics
+   661→      this.analyzeDeviceCharacteristics(existingProfile);
+   662→      
+   663→      this.deviceProfiles.set(hash, existingProfile);
+   664→    }
+   665→
+   666→    return existingProfile;
+   667→  }
+   668→
+   669→  /**
+   670→   * Get or create user profile
+   671→   */
+   672→  getUserProfile(userId: string): UserProfile {
+   673→    let profile = this.userProfiles.get(userId);
+   674→    
+   675→    if (!profile) {
+   676→      profile = {
+   677→        userId,
+   678→        registrationDate: new Date().toISOString(),
+   679→        loginHistory: [],
+   680→        transactionHistory: [],
+   681→        typicalLoginHours: [],
+   682→        typicalCountries: [],
+   683→        typicalDevices: [],
+   684→        averageTransactionAmount: 0,
+   685→        transactionAmountStdDev: 0,
+   686→        riskFlags: [],
+   687→        notes: '',
+   688→        trustScore: 50, // Start neutral
+   689→        verificationLevel: 'none',
+   690→        accountStatus: 'active',
+   691→        lastActivity: new Date().toISOString(),
+   692→      };
+   693→
+   694→      this.userProfiles.set(userId, profile);
+   695→    }
+   696→
+   697→    return profile;
+   698→  }
+   699→
+   700→  /**
+   701→   * Update user profile with new activity
+   702→   */
+   703→  updateUserActivity(
+   704→    userId: string,
+   705→    activity: {
+   706→      type: 'login' | 'transaction';
+   707→      timestamp: string;
+   708→      ip: string;
+   709→      deviceFingerprint: string;
+   710→      location: { country: string; city: string };
+   711→      success: boolean;
+   712→      amount?: number;
+   713→      currency?: string;
+   714→      status?: string;
+   715→      recipientId?: string;
+   716→    }
+   717→  ): void {
+   718→    const profile = this.getUserProfile(userId);
+   719→    
+   720→    if (activity.type === 'login') {
+   721→      profile.loginHistory.push({
+   722→        timestamp: activity.timestamp,
+   723→        ip: activity.ip,
+   724→        deviceFingerprint: activity.deviceFingerprint,
+   725→        location: activity.location,
+   726→        success: activity.success,
+   727→      });
+   728→
+   729→      // Keep only last 100 logins
+   730→      if (profile.loginHistory.length > 100) {
+   731→        profile.loginHistory = profile.loginHistory.slice(-100);
+   732→      }
+   733→
+   734→      // Update patterns
+   735→      const hour = new Date(activity.timestamp).getHours();
+   736→      if (!profile.typicalLoginHours.includes(hour)) {
+   737→        profile.typicalLoginHours.push(hour);
+   738→      }
+   739→      
+   740→      if (!profile.typicalCountries.includes(activity.location.country)) {
+   741→        profile.typicalCountries.push(activity.location.country);
+   742→      }
+   743→      
+   744→      if (!profile.typicalDevices.includes(activity.deviceFingerprint)) {
+   745→        profile.typicalDevices.push(activity.deviceFingerprint);
+   746→      }
+   747→    } else if (activity.type === 'transaction') {
+   748→      profile.transactionHistory.push({
+   749→        timestamp: activity.timestamp,
+   750→        amount: activity.amount!,
+   751→        currency: activity.currency || 'DZD',
+   752→        status: (activity.status as any) || 'success',
+   753→        ip: activity.ip,
+   754→        deviceFingerprint: activity.deviceFingerprint,
+   755→        location: activity.location,
+   756→        recipientId: activity.recipientId,
+   757→      });
+   758→
+   759→      // Keep only last 200 transactions
+   760→      if (profile.transactionHistory.length > 200) {
+   761→        profile.transactionHistory = profile.transactionHistory.slice(-200);
+   762→      }
+   763→
+   764→      // Recalculate averages
+   765→      this.recalculateUserStats(profile);
+   766→    }
+   767→
+   768→    profile.lastActivity = activity.timestamp;
+   769→
+   770→    // Recalculate trust score
+   771→    profile.trustScore = this.calculateTrustScore(profile);
+   772→  }
+   773→
+   774→  // ===========================================
+   775→  // Rule Management
+   776→  // ===========================================
+   777→
+   778→  addRule(rule: Omit<FraudRule, 'id' | 'triggerCount' | 'createdAt' | 'updatedAt'>): FraudRule {
+   779→    const newRule: FraudRule = {
+   780→      ...rule,
+   781→      id: `frule_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
+   782→      triggerCount: 0,
+   783→      createdAt: new Date().toISOString(),
+   784→      updatedAt: new Date().toISOString(),
+   785→    };
+   786→
+   787→    this.rules.set(newRule.id, newRule);
+   788→    return newRule;
+   789→  }
+   790→
+   791→  removeRule(ruleId: string): boolean {
+   792→    return this.rules.delete(ruleId);
+   793→  }
+   794→
+   795→  getRules(): FraudRule[] {
+   796→    return Array.from(this.rules.values());
+   797→  }
+   798→
+   799→  enableRule(ruleId: string): boolean {
+   800→    const rule = this.rules.get(ruleId);
+   801→    if (rule) {
+   802→      rule.enabled = true;
+   803→      rule.updatedAt = new Date().toISOString();
+   804→      return true;
+   805→    }
+   806→    return false;
+   807→  }
+   808→
+   809→  disableRule(ruleId: string): boolean {
+   810→    const rule = this.rules.get(ruleId);
+   811→    if (rule) {
+   812→      rule.enabled = false;
+   813→      rule.updatedAt = new Date().toISOString();
+   814→      return true;
+   815→    }
+   816→    return false;
+   817→  }
+   818→
+   819→  // ===========================================
+   820→  // Case Management
+   821→  // ===========================================
+   822→
+   823→  getCases(filters?: { status?: FraudCase['status']; priority?: FraudCase['priority']; userId?: string }): FraudCase[] {
+   824→    let cases = Array.from(this.cases.values());
+   825→    
+   826→    if (filters?.status) {
+   827→      cases = cases.filter(c => c.status === filters.status);
+   828→    }
+   829→    if (filters?.priority) {
+   830→      cases = cases.filter(c => c.priority === filters.priority);
+   831→    }
+   832→    if (filters?.userId) {
+   833→      cases = cases.filter(c => c.userId === filters.userId);
+   834→    }
+   835→    
+   836→    return cases.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+   837→  }
+   838→
+   839→  getCase(caseId: string): FraudCase | undefined {
+   840→    return this.cases.get(caseId);
+   841→  }
+   842→
+   843→  updateCase(
+   844→    caseId: string,
+   845→    updates: Partial<Pick<FraudCase, 'status' | 'priority' | 'assignedTo' | 'resolution' | 'resolutionNotes'>>
+   846→  ): FraudCase | null {
+   847→    const fraudCase = this.cases.get(caseId);
+   848→    if (!fraudCase) return null;
+   849→
+   850→    Object.assign(fraudCase, updates, { updatedAt: new Date().toISOString() });
+   851→    return fraudCase;
+   852→  }
+   853→
+   854→  addEvidence(caseId: string, evidence: Omit<FraudCase['evidence'][0], 'collectedAt' | 'collectedBy'>): void {
+   855→    const fraudCase = this.cases.get(caseId);
+   856→    if (!fraudCase) return;
+   857→
+   858→    fraudCase.evidence.push({
+   859→      ...evidence,
+   860→      collectedAt: new Date().toISOString(),
+   861→    });
+   862→  }
+   863→
+   864→  addCommunication(caseId: string, communication: Omit<FraudCase['communications'][0], 'timestamp'>): void {
+   865→    const fraudCase = this.cases.get(caseId);
+   866→    if (!fraudCase) return;
+   867→
+   868→    fraudCase.communications.push({
+   869→      ...communication,
+   870→      timestamp: new Date().toISOString(),
+   871→    });
+   872→  }
+   873→
+   874→  // ===========================================
+   875→  // Statistics & Reporting
+   876→  // ===========================================
+   877→
+   878→  getStatistics(): FraudStatistics {
+   879→    return { ...this.statistics };
+   880→  }
+   881→
+   882→  getFraudTrend(days: number = 30): Array<{ date: string; events: number; blocked: number; score: number }> {
+   883→    const trend: Array<{ date: string; events: number; blocked: number; score: number }> = [];
+   884→    const now = new Date();
+   885→
+   886→    for (let i = days - 1; i >= 0; i--) {
+   887→      const date = new Date(now);
+   888→      date.setDate(date.getDate() - i);
+   889→      const dateStr = date.toISOString().split('T')[0];
+   890→
+   891→      const dayEvents = this.events.filter(e => e.timestamp.startsWith(dateStr));
+   892→      const dayBlocked = dayEvents.length; // Simplified - would track actual blocks
+   893→
+   894→      trend.push({
+   895→        date: dateStr,
+   896→        events: dayEvents.length,
+   897→        blocked: Math.round(dayEvents.length * 0.05), // Approximation
+   898→        score: 15 + Math.random() * 20, // Mock score
+   899→      });
+   900→    }
+   901→
+   902→    return trend;
+   903→  }
+   904→
+   905→  exportReport(format: 'json' | 'csv'): string {
+   906→    if (format === 'json') {
+   907→      return JSON.stringify({
+   908→        statistics: this.statistics,
+   909→        recentCases: this.getCases().slice(0, 50),
+   910→        activeRules: this.getRules().filter(r => r.enabled),
+   911→        generatedAt: new Date().toISOString(),
+   912→      }, null, 2);
+   913→    }
+   914→
+   915→    // CSV format
+   916→    const headers = 'Date,Event Type,User ID,Risk Score,Decision,Reason\n';
+   917→    const rows = this.events.slice(-100).map(e => 
+   918→      `${e.timestamp},${e.eventType},${e.userId || ''},,,,"${e.ipAddress}"`
+   919→    ).join('\n');
+   920→
+   921→    return headers + rows;
+   922→  }
+   923→
+   924→  // ===========================================
+   925→  // Private Methods - Check Implementations
+   926→  // ===========================================
+   927→
+   928→  private async checkVelocityRules(event: FraudEvent, assessment: FraudAssessment): Promise<void> {
+   929→    if (!this.config.features.velocityChecking) return;
+   930→
+   931→    const now = Date.now();
+   932→
+   933→    // Check login velocity
+   934→    if (event.eventType === 'login') {
+   935→      const key = `login:${event.ipAddress}:${event.userId || 'anonymous'}`;
+   936→      const recentLogins = this.getVelocityEntries(key, 3600000); // Last hour
+   937→      
+   938→      if (recentLogins.length >= this.config.velocityDefaults.maxLoginsPerHour) {
+   939→        assessment.reasons.push({
+   940→          ruleId: 'velocity_login_ip',
+   941→          ruleName: 'Excessive Login Attempts from IP',
+   942→          severity: 'warning',
+   943→          scoreImpact: 25,
+   944→          description: `${recentLogins.length} login attempts from this IP in the last hour`,
+   945→        });
+   946→      }
+   947→
+   948→      // Check per-user velocity
+   949→      if (event.userId) {
+   950→        const userKey = `login:user:${event.userId}`;
+   951→        const userLogins = this.getVelocityEntries(userKey, 3600000);
+   952→        
+   953→        if (userLogins.length >= this.config.velocityDefaults.maxLoginsPerHour) {
+   954→          assessment.reasons.push({
+   955→            ruleId: 'velocity_login_user',
+   956→            ruleName: 'Excessive Login Attempts by User',
+   957→            severity: 'warning',
+   958→            scoreImpact: 20,
+   959→            description: `${userLogins.length} login attempts by this user in the last hour`,
+   960→          });
+   961→        }
+   962→      }
+   963→    }
+   964→
+   965→    // Check transaction velocity
+   966→    if (event.eventType === 'transaction' || event.eventType === 'payment') {
+   967→      const txKey = `transaction:${event.userId || event.ipAddress}`;
+   968→      const recentTxs = this.getVelocityEntries(txKey, 3600000);
+   969→      
+   970→      if (recentTxs.length >= this.config.velocityDefaults.maxTransactionsPerHour) {
+   971→        assessment.reasons.push({
+   972→          ruleId: 'velocity_transaction',
+   973→          ruleName: 'High Transaction Velocity',
+   974→          severity: 'danger',
+   975→          scoreImpact: 35,
+   976→          description: `${recentTxs.length} transactions in the last hour`,
+   977→        });
+   978→      }
+   979→
+   980→      // High-value transaction velocity
+   981→      const highValueTxs = recentTxs.filter(t => t.data.amount > 2000);
+   982→      if (highValueTxs.length >= 3) {
+   983→        assessment.reasons.push({
+   984→          ruleId: 'velocity_high_value',
+   985→          ruleName: 'Multiple High-Value Transactions',
+   986→          severity: 'danger',
+   987→          scoreImpact: 40,
+   988→          description: `${highValueTxs.length} high-value transactions (>2000 DZD) in the last hour`,
+   989→        });
+   990→      }
+   991→    }
+   992→
+   993→    // Registration velocity
+   994→    if (event.eventType === 'registration') {
+   995→      const regKey = `registration:${event.ipAddress}`;
+   996→      const recentRegs = this.getVelocityEntries(regKey, 86400000); // Last day
+   997→      
+   998→      if (recentRegs.length >= this.config.velocityDefaults.maxRegistrationsPerIPPerDay) {
+   999→        assessment.reasons.push({
+  1000→          ruleId: 'velocity_registration',
+  1001→          ruleName: 'Excessive Registrations from IP',
+  1002→          severity: 'danger',
+  1003→          scoreImpact: 45,
+  1004→          description: `${recentRegs.length} registrations from this IP today`,
+  1005→        });
+  1006→      }
+  1007→    }
+  1008→
+  1009→    // Password reset velocity
+  1010→    if (event.eventType === 'password_reset') {
+  1011→      const resetKey = `password_reset:${event.userId || event.data.email}`;
+  1012→      const recentResets = this.getVelocityEntries(resetKey, 86400000);
+  1013→      
+  1014→      if (recentResets.length >= this.config.velocityDefaults.maxPasswordResetsPerDay) {
+  1015→        assessment.reasons.push({
+  1016→          ruleId: 'velocity_password_reset',
+  1017→          ruleName: 'Excessive Password Resets',
+  1018→          severity: 'warning',
+  1019→          scoreImpact: 30,
+  1020→          description: `${recentResets.length} password reset requests today`,
+  1021→        });
+  1022→      }
+  1023→    }
+  1024→
+  1025→    // Record this event for future velocity checks
+  1026→    const recordKey = `${event.eventType}:${event.userId || event.ipAddress}`;
+  1027→    this.addVelocityEntry(recordKey, { timestamp: now, data: event.data });
+  1028→  }
+  1029→
+  1030→  private async checkLocationAnomalies(event: FraudEvent, assessment: FraudAssessment): Promise<void> {
+  1031→    if (!this.config.features.geoLocationAnalysis || !this.config.geoRules.enabled) return;
+  1032→    if (!event.country) return;
+  1033→
+  1034→    // Check high-risk countries
+  1035→    if (this.config.geoRules.highRiskCountries.includes(event.country)) {
+  1036→      assessment.reasons.push({
+  1037→        ruleId: 'geo_high_risk_country',
+  1038→        ruleName: 'Connection from High-Risk Country',
+  1039→        severity: 'warning',
+  1040→        scoreImpact: 20,
+  1041→        description: `Request originating from ${event.country}, which is flagged as high-risk`,
+  1042→      });
+  1043→    }
+  1044→
+  1045→    // Check for impossible travel (if user exists)
+  1046→    if (event.userId) {
+  1047→      const profile = this.userProfiles.get(event.userId);
+  1048→      if (profile && profile.loginHistory.length > 0) {
+  1049→        const lastLogin = profile.loginHistory[profile.loginHistory.length - 1];
+  1050→        
+  1051→        if (lastLogin.location.country !== event.country) {
+  1052→          // Calculate distance (simplified - would use proper geodesic calculation)
+  1053→          const distance = this.approximateDistance(
+  1054→            lastLogin.location.city, event.city || ''
+  1055→          );
+  1056→          
+  1057→          if (distance > this.config.geoRules.maxDistanceBetweenLoginsKm) {
+  1058→            const timeDiff = Date.now() - new Date(lastLogin.timestamp).getTime();
+  1059→            const hoursDiff = timeDiff / (1000 * 60 * 60);
+  1060→            
+  1061→            if (hoursDiff < 24) { // Less than 24 hours
+  1062→              assessment.reasons.push({
+  1063→                ruleId: 'geo_impossible_travel',
+  1064→                ruleName: 'Impossible Travel Detected',
+  1065→                severity: 'danger',
+  1066→                scoreImpact: 50,
+  1067→                description: `User logged in from ${lastLogin.location.country} ${hoursDiff.toFixed(1)}h ago, now from ${event.country}`,
+  1068→              });
+  1069→            }
+  1070→          }
+  1071→        }
+  1072→
+  1073→        // Timezone mismatch
+  1074→        if (event.timezone && lastLogin.location.city !== event.city) {
+  1075→          // Compare timezone offset with expected
+  1076→          const expectedOffset = this.getTimezoneOffset(lastLogin.location.country);
+  1077→          const actualOffset = this.parseTimezoneOffset(event.timezone);
+  1078→          
+  1079→          if (Math.abs(expectedOffset - actualOffset) > this.config.geoRules.timezoneMismatchTolerance) {
+  1080→            assessment.reasons.push({
+  1081→              ruleId: 'geo_timezone_mismatch',
+  1082→              ruleName: 'Timezone Mismatch',
+  1083→              severity: 'warning',
+  1084→              scoreImpact: 15,
+  1085→              description: `Timezone doesn't match expected location`,
+  1086→            });
+  1087→          }
+  1088→        }
+  1089→      }
+  1090→    }
+  1091→  }
+  1092→
+  1093→  private async checkDeviceRisk(event: FraudEvent, assessment: FraudAssessment): Promise<void> {
+  1094→    if (!this.config.features.deviceFingerprinting) return;
+  1095→
+  1096→    const deviceProfile = event.fingerprint ? 
+  1097→      this.deviceProfiles.get(event.fingerprint) : null;
+  1098→
+  1099→    if (deviceProfile) {
+  1100→      // Known device risks
+  1101→      if (deviceProfile.isBot) {
+  1102→        assessment.reasons.push({
+  1103→          ruleId: 'device_known_bot',
+  1104→          ruleName: 'Known Bot Device',
+  1105→          severity: 'danger',
+  1106→          scoreImpact: 60,
+  1107→          description: 'Device fingerprint matches known bot pattern',
+  1108→        });
+  1109→      }
+  1110→
+  1111→      if (deviceProfile.isEmulator) {
+  1112→        assessment.reasons.push({
+  1113→          ruleId: 'device_emulator',
+  1114→          ruleName: 'Emulator Detected',
+  1115→          severity: 'warning',
+  1116→          scoreImpact: 25,
+  1117→          description: 'Device appears to be running in an emulator',
+  1118→        });
+  1119→      }
+  1120→
+  1121→      if (deviceProfile.isTor) {
+  1122→        assessment.reasons.push({
+  1123→          ruleId: 'device_tor',
+  1124→          ruleName: 'Tor Network Detected',
+  1125→          severity: 'warning',
+  1126→          scoreImpact: 20,
+  1127→          description: 'Connection through Tor network',
+  1128→        });
+  1129→      }
+  1130→
+  1131→      if (deviceProfile.isVPN && event.eventType === 'transaction') {
+  1132→        assessment.reasons.push({
+  1133→          ruleId: 'device_vpn_transaction',
+  1134→          ruleName: 'VPN Used for Transaction',
+  1135→          severity: 'warning',
+  1136→          scoreImpact: 15,
+  1137→          description: 'Transaction attempted while using VPN/proxy',
+  1138→        });
+  1139→      }
+  1140→    }
+  1141→
+  1142→    // Check user's device history
+  1143→    if (event.userId && event.fingerprint) {
+  1144→      const profile = this.userProfiles.get(event.userId);
+  1145→      if (profile) {
+  1146→        const isNewDevice = !profile.typicalDevices.includes(event.fingerprint);
+  1147→        
+  1148→        if (isNewDevice) {
+  1149→          const recentNewDevices = profile.typicalDevices.filter(d => {
+  1150→            // Count devices first seen in last 24h (simplified)
+  1151→            return d.startsWith('device_'); // Placeholder logic
+  1152→          }).length;
+  1153→
+  1154→          if (recentNewDevices >= this.config.deviceRules.maxNewDevicesPerDay) {
+  1155→            assessment.reasons.push({
+  1156→              ruleId: 'device_many_new_devices',
+  1157→              ruleName: 'Many New Devices',
+  1158→              severity: 'warning',
+  1159→              scoreImpact: 25,
+  1160→              description: `User accessing from multiple new devices recently`,
+  1161→            });
+  1162→          }
+  1163→
+  1164→          // Require MFA for new devices
+  1165→          if (this.config.thresholds.mfaRequiredForNewDevice) {
+  1166→            assessment.recommendations.push('Require multi-factor authentication');
+  1167→          }
+  1168→        }
+  1169→
+  1170→        // Too many devices overall
+  1171→        if (profile.typicalDevices.length > this.config.deviceRules.maxDevicesPerUser) {
+  1172→          assessment.reasons.push({
+  1173→            ruleId: 'device_too_many',
+  1174→            ruleName: 'Exceeds Device Limit',
+  1175→            severity: 'info',
+  1176→            scoreImpact: 10,
+  1177→            description: `User has ${profile.typicalDevices.length} registered devices (limit: ${this.config.deviceRules.maxDevicesPerUser})`,
+  1178→          });
+  1179→        }
+  1180→      }
+  1181→    }
+  1182→
+  1183→    // Suspicious UA patterns
+  1184→    for (const pattern of this.config.deviceRules.suspiciousDevicePatterns) {
+  1185→      if (pattern.test(event.userAgent)) {
+  1186→        assessment.reasons.push({
+  1187→          ruleId: 'device_suspicious_ua',
+  1188→          ruleName: 'Suspicious User Agent',
+  1189→          severity: 'warning',
+  1190→          scoreImpact: 30,
+  1191→          description: 'User agent matches known automation tool pattern',
+  1192→        });
+  1193→        break;
+  1194→      }
+  1195→    }
+  1196→  }
+  1197→
+  1198→  private async checkBehavioralAnomalies(event: FraudEvent, assessment: FraudAssessment): Promise<void> {
+  1199→    if (!this.config.features.behaviorAnalysis || !event.userId) return;
+  1200→
+  1201→    const profile = this.userProfiles.get(event.userId);
+  1202→    if (!profile || profile.loginHistory.length < 3) return; // Need baseline
+  1203→
+  1204→    // Unusual login time
+  1205→    if (event.eventType === 'login') {
+  1206→      const currentHour = new Date(event.timestamp).getHours();
+  1207→      const isUnusualTime = !profile.typicalLoginHours.includes(currentHour) &&
+  1208→                             currentHour >= 0 && currentHour <= 5; // Late night/early morning
+  1209→      
+  1210→      if (isUnusualTime) {
+  1211→        assessment.reasons.push({
+  1212→          ruleId: 'behavior_unusual_time',
+  1213→          ruleName: 'Unusual Activity Time',
+  1214→          severity: 'info',
+  1215→          scoreImpact: 10,
+  1216→          description: `Login at unusual hour (${currentHour}:00) for this user`,
+  1217→        });
+  1218→      }
+  1219→    }
+  1220→
+  1221→    // Unusual transaction amount
+  1222→    if ((event.eventType === 'transaction' || event.eventType === 'payment') && event.data.amount) {
+  1223→      const amount = event.data.amount;
+  1224→      const deviation = Math.abs(amount - profile.averageTransactionAmount) / 
+  1225→                        (profile.transactionAmountStdDev || 1);
+  1226→      
+  1227→      if (deviation > 3 && amount > profile.averageTransactionAmount * 2) {
+  1228→        assessment.reasons.push({
+  1229→          ruleId: 'behavior_unusual_amount',
+  1230→          ruleName: 'Unusual Transaction Amount',
+  1231→          severity: 'warning',
+  1232→          scoreImpact: 25,
+  1233→          description: `Transaction amount significantly deviates from user's average`,
+  1234→        });
+  1235→      }
+  1236→
+  1237→      // First transaction over threshold
+  1238→      if (profile.transactionHistory.length <= 2 && 
+  1239→          amount > this.config.thresholds.mfaRequiredForHighValueTxn) {
+  1240→        assessment.reasons.push({
+  1241→          ruleId: 'behavior_first_large_tx',
+  1242→          ruleName: 'First Large Transaction',
+  1243→          severity: 'warning',
+  1244→          scoreImpact: 20,
+  1245→          description: `Large transaction from relatively new account`,
+  1246→        });
+  1247→      }
+  1248→    }
+  1249→
+  1250→    // Rapid profile changes
+  1251→    if (event.eventType === 'profile_update') {
+  1252→      const recentUpdates = profile.loginHistory.filter(l => 
+  1253→        l.timestamp > new Date(Date.now() - 3600000).toISOString()
+  1254→      ).length;
+  1255→
+  1256→      if (recentUpdates > 5) {
+  1257→        assessment.reasons.push({
+  1258→          ruleId: 'behavior_rapid_changes',
+  1259→          ruleName: 'Rapid Profile Changes',
+  1260→          severity: 'warning',
+  1261→          scoreImpact: 20,
+  1262→          description: `Multiple profile changes detected in short timeframe`,
+  1263→        });
+  1264→      }
+  1265→    }
+  1266→  }
+  1267→
+  1268→  private async checkIdentityRisks(event: FraudEvent, assessment: FraudAssessment): Promise<void> {
+  1269→    if (!this.config.features.identityVerification) return;
+  1270→
+  1271→    // Email domain risks
+  1272→    if (event.data.email) {
+  1273→      const emailDomain = event.data.email.split('@')[1]?.toLowerCase();
+  1274→      
+  1275→      // Temporary/disposable email domains
+  1276→      const disposableDomains = [
+  1277→        'mailinator.com', 'guerrillamail.com', 'tempmail.org', '10minutemail.com'
+  1278→      ];
+  1279→      
+  1280→      if (disposableDomains.some(d => emailDomain?.includes(d))) {
+  1281→        assessment.reasons.push({
+  1282→          ruleId: 'identity_disposable_email',
+  1283→          ruleName: 'Disposable Email Address',
+  1284→          severity: 'warning',
+  1285→          scoreImpact: 30,
+  1286→          description: 'Email from known disposable/temporary email service',
+  1287→        });
+  1288→      }
+  1289→    }
+  1290→
+  1291→    // Phone number risks
+  1292→    if (event.data.phone) {
+  1293→      // Check for VoIP numbers (simplified)
+  1294→      const voipPrefixes = '+1'; // Would have comprehensive list
+  1295→      // Implementation would check against VOIP database
+  1296→    }
+  1297→
+  1298→    // New account + immediate high-risk action
+  1299→    if (event.userId) {
+  1300→      const profile = this.userProfiles.get(event.userId);
+  1301→      if (profile) {
+  1302→        const accountAge = Date.now() - new Date(profile.registrationDate).getTime();
+  1303→        const daysSinceRegistration = accountAge / (1000 * 60 * 60 * 24);
+  1304→        
+  1305→        if (daysSinceRegistration < 1 && 
+  1306→            ['transaction', 'payment', 'rfq'].includes(event.eventType)) {
+  1307→          assessment.reasons.push({
+  1308→            ruleId: 'identity_new_account_action',
+  1309→            ruleName: 'High-Risk Action from New Account',
+  1310→            severity: 'warning',
+  1311→            scoreImpact: 25,
+  1312→            description: `Account less than 1 day old attempting sensitive action`,
+  1313→          });
+  1314→        }
+  1315→
+  1316→        // Low verification level + high-value action
+  1317→        if (profile.verificationLevel === 'none' && 
+  1318→            event.data.amount > this.config.thresholds.mfaRequiredForHighValueTxn) {
+  1319→          assessment.reasons.push({
+  1320→            ruleId: 'identity_unverified_large_action',
+  1321→            ruleName: 'Unverified User Large Action',
+  1322→            severity: 'warning',
+  1323→            scoreImpact: 20,
+  1324→            description: `Unverified user attempting large transaction`,
+  1325→          });
+  1326→        }
+  1327→      }
+  1328→    }
+  1329→  }
+  1330→
+  1331→  private async checkPaymentRisks(event: FraudEvent, assessment: FraudAssessment): Promise<void> {
+  1332→    if (!['transaction', 'payment'].includes(event.eventType)) return;
+  1333→    if (!event.data.amount) return;
+  1334→
+  1335→    const amount = event.data.amount;
+  1336→
+  1337→    // Card testing (many small amounts)
+  1338→    if (amount < 10) { // Very small transaction
+  1339→      const cardTestKey = `card_test:${event.ipAddress}:${event.data.paymentMethod || 'unknown'}`;
+  1340→      const recentSmallTxs = this.getVelocityEntries(cardTestKey, 3600000);
+  1341→      
+  1342→      if (recentSmallTxs.length >= 5) {
+  1343→        assessment.reasons.push({
+  1344→          ruleId: 'payment_card_testing',
+  1345→          ruleName: 'Potential Card Testing',
+  1346→          severity: 'danger',
+  1347→          scoreImpact: 55,
+  1348→          description: `Multiple small transactions - possible card testing pattern`,
+  1349→        });
+  1350→      }
+  1351→    }
+  1352→
+  1353→    // Round amount (potential structuring)
+  1354→    if (amount % 1000 === 0 && amount >= 5000) {
+  1355→      assessment.reasons.push({
+  1356→        ruleId: 'payment_round_amount',
+  1357→        ruleName: 'Round Amount Transaction',
+  1358→        severity: 'info',
+  1359→        scoreImpact: 10,
+  1360→        description: 'Round amount transaction (possible structuring)',
+  1361→      });
+  1362→    }
+  1363→
+  1364→    // Shipping/billing mismatch
+  1365→    if (event.data.shippingAddress && event.data.billingAddress) {
+  1366→      const shippingCountry = event.data.shippingAddress.country;
+  1367→      const billingCountry = event.data.billingAddress.country;
+  1368→      
+  1369→      if (shippingCountry && billingCountry && shippingCountry !== billingCountry) {
+  1370→        assessment.reasons.push({
+  1371→          ruleId: 'payment_address_mismatch',
+  1372→          ruleName: 'Shipping/Billing Address Mismatch',
+  1373→          severity: 'warning',
+  1374→          scoreImpact: 20,
+  1375→          description: `Shipping and billing addresses in different countries`,
+  1376→        });
+  1377→      }
+  1378→    }
+  1379→
+  1380→    // High-risk payment method
+  1381→    const highRiskMethods = ['crypto', 'prepaid_card', 'gift_card'];
+  1382→    if (highRiskMethods.includes(event.data.paymentMethod || '')) {
+  1383→      assessment.reasons.push({
+  1384→        ruleId: 'payment_high_risk_method',
+  1385→        ruleName: 'High-Risk Payment Method',
+  1386→        severity: 'warning',
+  1387→        scoreImpact: 15,
+  1388→        description: `Transaction using high-risk payment method: ${event.data.paymentMethod}`,
+  1389→      });
+  1390→    }
+  1391→  }
+  1392→
+  1393→  private async checkAccountRisks(event: FraudEvent, assessment: FraudAssessment): Promise<void> {
+  1394→    if (!event.userId) return;
+  1395→
+  1396→    const profile = this.userProfiles.get(event.userId);
+  1397→    if (!profile) return;
+  1398→
+  1399→    // Account status checks
+  1400→    if (profile.accountStatus === 'under_review') {
+  1401→      assessment.reasons.push({
+  1402→        ruleId: 'account_under_review',
+  1403→        ruleName: 'Account Under Review',
+  1404→        severity: 'warning',
+  1405→        scoreImpact: 30,
+  1406→        description: 'Account currently under security review',
+  1407→      });
+  1408→    }
+  1409→
+  1410→    // Existing risk flags
+  1411→    if (profile.riskFlags.length > 0) {
+  1412→      assessment.reasons.push({
+  1413→        ruleId: 'account_existing_flags',
+  1414→        ruleName: 'Account Has Risk Flags',
+  1415→        severity: profile.riskFlags.includes('compromised') ? 'danger' : 'warning',
+  1416→        scoreImpact: profile.riskFlags.length * 10,
+  1417→        description: `Account has ${profile.riskFlags.length} risk flag(s): ${profile.riskFlags.join(', ')}`,
+  1418→      });
+  1419→    }
+  1420→
+  1421→    // Low trust score
+  1422→    if (profile.trustScore < 30) {
+  1423→      assessment.reasons.push({
+  1424→        ruleId: 'account_low_trust',
+  1425→        ruleName: 'Low Trust Score',
+  1426→        severity: 'warning',
+  1427→        scoreImpact: 20,
+  1428→        description: `Account trust score is low (${profile.trustScore}/100)`,
+  1429→      });
+  1430→    }
+  1431→
+  1432→    // Recent password change + large transaction
+  1433→    const recentPasswordChange = profile.riskFlags.includes('recent_password_change');
+  1434→    if (recentPasswordChange && event.data.amount > 1000) {
+  1435→      assessment.reasons.push({
+  1436→        ruleId: 'account_post_password_change',
+  1437→        ruleName: 'Large TX After Password Change',
+  1438→        severity: 'warning',
+  1439→        scoreImpact: 25,
+  1440→        description: 'Large transaction shortly after password change',
+  1441→      });
+  1442→    }
+  1443→  }
+  1444→
+  1445→  private async checkNetworkRisks(event: FraudEvent, assessment: FraudAssessment): Promise<void> {
+  1446→    if (!this.config.features.networkAnalysis) return;
+  1447→
+  1448→    // Proxy/VPN detection
+  1449→    if (event.context.isProxy) {
+  1450→      assessment.reasons.push({
+  1451→        ruleId: 'network_proxy',
+  1452→        ruleName: 'Proxy Connection Detected',
+  1453→        severity: 'info',
+  1454→        scoreImpact: 10,
+  1455→        description: 'Connection through proxy server',
+  1456→      });
+  1457→    }
+  1458→
+  1459→    if (event.context.isTor) {
+  1460→      assessment.reasons.push({
+  1461→        ruleId: 'network_tor',
+  1462→        ruleName: 'Tor Network Connection',
+  1463→        severity: 'warning',
+  1464→        scoreImpact: 20,
+  1465→        description: 'Connection through Tor anonymity network',
+  1466→      });
+  1467→    }
+  1468→
+  1469→    // Hosting provider (datacenter IP instead of residential)
+  1470→    if (event.context.hostingProvider) {
+  1471→      // Most legitimate users don't connect from datacenters
+  1472→      if (event.eventType === 'login' || event.eventType === 'registration') {
+  1473→        assessment.reasons.push({
+  1474→          ruleId: 'network_datacenter',
+  1475→          ruleName: 'Datacenter IP Address',
+  1476→          severity: 'warning',
+  1477→          scoreImpact: 25,
+  1478→          description: `Connection from hosting provider: ${event.context.hostingProvider}`,
+  1479→        });
+  1480→      }
+  1481→    }
+  1482→
+  1483→    // Privacy services (often used by fraudsters)
+  1484→    const privacyServices = ['nordvpn', 'expressvpn', 'cyberghost', 'mullvad'];
+  1485→    if (privacyServices.some(s => event.userAgent.toLowerCase().includes(s))) {
+  1486→      assessment.reasons.push({
+  1487→        ruleId: 'network_vpn_service',
+  1488→        ruleName: 'VPN Service Detected',
+  1489→        severity: 'info',
+  1490→        scoreImpact: 8,
+  1491→        description: 'VPN service detected in user agent',
+  1492→      });
+  1493→    }
+  1494→  }
+  1495→
+  1496→  private async evaluateCustomRules(event: FraudEvent, assessment: FraudAssessment): Promise<void> {
+  1497→    for (const [ruleId, rule] of this.rules) {
+  1498→      if (!rule.enabled) continue;
+  1499→
+  1500→      const matched = this.evaluateFraudRuleConditions(rule.conditions, event, rule.conditionLogic);
+  1501→      
+  1502→      if (matched) {
+  1503→        // Update rule stats
+  1504→        rule.triggerCount++;
+  1505→        rule.lastTriggered = new Date().toISOString();
+  1506→
+  1507→        // Add to assessment
+  1508→        assessment.reasons.push({
+  1509→          ruleId,
+  1510→          ruleName: rule.name,
+  1511→          severity: rule.severity === 'critical' ? 'danger' : 
+  1512→                   rule.severity === 'high' ? 'warning' : 'info',
+  1513→          scoreImpact: rule.scoreWeight,
+  1514→          description: rule.description,
+  1515→        });
+  1516→
+  1517→        // Take immediate action if configured
+  1518→        if (rule.action === 'block') {
+  1519→          assessment.score += 100; // Force block
+  1520→          break;
+  1521→        } else if (rule.action === 'challenge') {
+  1522→          assessment.recommendations.push('Require additional verification');
+  1523→        }
+  1524→      }
+  1525→    }
+  1526→  }
+  1527→
+  1528→  // ===========================================
+  1529→  // Private Helpers
+  1530→  // ===========================================
+  1531→
+  1532→  private makeDecision(assessment: FraudAssessment): void {
+  1533→    // Sum up all score impacts
+  1534→    assessment.score = Math.min(100, assessment.reasons.reduce((sum, r) => sum + r.scoreImpact, 0));
+  1535→
+  1536→    // Determine risk level
+  1537→    if (assessment.score < this.config.thresholds.lowRisk) {
+  1538→      assessment.riskLevel = 'low';
+  1539→    } else if (assessment.score < this.config.thresholds.mediumRisk) {
+  1540→      assessment.riskLevel = 'medium';
+  1541→    } else if (assessment.score < this.config.thresholds.highRisk) {
+  1542→      assessment.riskLevel = 'high';
+  1543→    } else {
+  1544→      assessment.riskLevel = 'critical';
+  1545→    }
+  1546→
+  1547→    // Determine decision based on mode and thresholds
+  1548→    if (this.config.mode === 'detect') {
+  1549→      assessment.decision = 'approve'; // Log only, don't block
+  1550→    } else if (this.config.mode === 'prevent') {
+  1551→      if (assessment.score >= this.config.thresholds.autoBlockThreshold) {
+  1552→        assessment.decision = 'block';
+  1553→      } else if (assessment.score >= this.config.thresholds.autoChallengeThreshold) {
+  1554→        assessment.decision = 'challenge';
+  1555→      } else if (assessment.score >= this.config.thresholds.autoReviewThreshold) {
+  1556→        assessment.decision = 'review';
+  1557→        assessment.reviewRequired = true;
+  1558→      } else {
+  1559→        assessment.decision = 'approve';
+  1560→      }
+  1561→    }
+  1562→
+  1563→    // Add recommendations based on findings
+  1564→    if (assessment.reasons.some(r => r.ruleId.includes('device')) && event => event.fingerprint) {
+  1565→      assessment.recommendations.push('Consider requiring MFA for this device');
+  1566→    }
+  1567→    if (assessment.reasons.some(r => r.ruleId.includes('geo'))) {
+  1568→      assessment.recommendations.push('Verify user location via additional means');
+  1569→    }
+  1570→    if (assessment.reasons.some(r => r.severity === 'danger')) {
+  1571→      assessment.recommendations.push('Manual review recommended due to high-severity indicators');
+  1572→    }
+  1573→  }
+  1574→
+  1575→  private applyCompositeScoring(_event: FraudEvent, _assessment: FraudAssessment): void {
+  1576→    // In production, would use trained ML model here
+  1577→    // For now, apply some heuristic adjustments
+  1578→    
+  1579→    // Multiple medium-severity indicators compound
+  1580→    const mediumSeverityCount = _assessment.reasons.filter(r => r.severity === 'warning').length;
+  1581→    if (mediumSeverityCount >= 3) {
+  1582→      _assessment.score = Math.min(100, _assessment.score + 10);
+  1583→    }
+  1584→
+  1585→    // Cross-category indicators are more concerning
+  1586→    const categories = new Set(_assessment.reasons.map(r => r.ruleId.split('_')[0]));
+  1587→    if (categories.size >= 4) {
+  1588→      _assessment.score = Math.min(100, _assessment.score + 15);
+  1589→    }
+  1590→  }
+  1591→
+  1592→  private async createFraudCase(event: FraudEvent, assessment: FraudAssessment): Promise<void> {
+  1593→    const caseId = `case_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+  1594→
+  1595→    const fraudCase: FraudCase = {
+  1596→      id: caseId,
+  1597→      eventId: event.id,
+  1598→      userId: event.userId,
+  1599→      status: 'open',
+  1600→      priority: assessment.riskLevel === 'critical' ? 'critical' :
+  1601→               assessment.riskLevel === 'high' ? 'high' :
+  1602→               assessment.riskLevel === 'medium' ? 'medium' : 'low',
+  1603→      assessment: { ...assessment },
+  1604→      evidence: [],
+  1605→      communications: [],
+  1606→      createdAt: new Date().toISOString(),
+  1607→      updatedAt: new Date().toISOString(),
+  1608→    };
+  1609→
+  1610→    this.cases.set(caseId, fraudCase);
+  1611→  }
+  1612→
+  1613→  private evaluateFraudRuleConditions(
+  1614→    conditions: FraudRuleCondition[],
+  1615→    event: FraudEvent,
+  1616→    logic: 'AND' | 'OR'
+  1617→  ): boolean {
+  1618→    if (logic === 'AND') {
+  1619→      return conditions.every(cond => this.evaluateFraudCondition(cond, event));
+  1620→    } else {
+  1621→      return conditions.some(cond => this.evaluateFraudCondition(cond, event));
+  1622→    }
+  1623→  }
+  1624→
+  1625→  private evaluateFraudCondition(condition: FraudRuleCondition, event: FraudEvent): boolean {
+  1626→    const value = this.getEventFieldValue(event, condition.field);
+  1627→    
+  1628→    switch (condition.operator) {
+  1629→      case 'equals': return value === condition.value;
+  1630→      case 'not_equals': return value !== condition.value;
+  1631→      case 'contains': return typeof value === 'string' && value.includes(condition.value);
+  1632→      case 'not_contains': return typeof value === 'string' && !value.includes(condition.value);
+  1633→      case 'matches': return typeof value === 'string' && new RegExp(condition.value).test(value);
+  1634→      case 'greater_than': return typeof value === 'number' && value > condition.value;
+  1635→      case 'less_than': return typeof value === 'number' && value < condition.value;
+  1636→      case 'in': return Array.isArray(condition.value) && condition.value.includes(value);
+  1637→      case 'not_in': return !Array.isArray(condition.value) || !condition.value.includes(value);
+  1638→      default:
+  1639→        console.warn(`Unknown fraud rule operator: ${condition.operator}`);
+  1640→        return false;
+  1641→    }
+  1642→  }
+  1643→
+  1644→  private getEventFieldValue(event: FraudEvent, field: string): any {
+  1645→    if (field in event) {
+  1646→      return (event as any)[field];
+  1647→    }
+  1648→    if (field in event.data) {
+  1649→      return event.data[field as any];
+  1650→    }
+  1651→    if (field in event.context) {
+  1652→      return event.context[field as any];
+  1653→    }
+  1654→    return undefined;
+  1655→  }
+  1656→
+  1657→  private getVelocityEntries(key: string, windowMs: number): Array<{ timestamp: number; data: any }> {
+  1658→    const entries = this.velocityStore.get(key) || [];
+  1659→    const cutoff = Date.now() - windowMs;
+  1660→    return entries.filter(e => e.timestamp > cutoff);
+  1661→  }
+  1662→
+  1663→  private addVelocityEntry(key: string, data: { timestamp: number; data: any }): void {
+  1664→    let entries = this.velocityStore.get(key);
+  1665→    if (!entries) {
+  1666→      entries = [];
+  1667→      this.velocityStore.set(key, entries);
+  1668→    }
+  1669→    entries.push(data);
+  1670→
+  1671→    // Clean old entries periodically
+  1672→    if (entries.length > 1000) {
+  1673→      const cutoff = Date.now() - 86400000; // Keep max 1 day
+  1674→      const filtered = entries.filter(e => e.timestamp > cutoff);
+  1675→      this.velocityStore.set(key, filtered);
+  1676→    }
+  1677→  }
+  1678→
+  1679→  private calculateDeviceRisk(device: Partial<DeviceFingerprint>): number {
+  1680→    let risk = 0;
+  1681→
+  1682→    if (device.isBot) risk += 50;
+  1683→    if (device.isEmulator) risk += 25;
+  1684→    if (device.isTor) risk += 20;
+  1685→    if (device.isVPN) risk += 10;
+  1686→    if (!device.cookiesEnabled) risk += 15;
+  1687→    if (!device.localStorage) risk += 10;
+  1688→
+  1689→    // Suspicious screen resolutions (common in VMs)
+  1690→    const commonVMResolutions = ['800x600', '1024x768', '1280x720', '1280x1024'];
+  1691→    const resolution = `${device.screenWidth}x${device.screenHeight}`;
+  1692→    if (commonVMResolutions.includes(resolution) && device.hardwareConcurrency === 2) {
+  1693→      risk += 15;
+  1694→    }
+  1695→
+  1696→    return Math.min(100, risk);
+  1697→  }
+  1698→
+  1699→  private analyzeDeviceCharacteristics(device: DeviceFingerprint): void {
+  1700→    // Detect emulator
+  1701→    const emulatorIndicators = [
+  1702→      /android.*emulator/i,
+  1703→      /iphone simulator/i,
+  1704→      /virtual/i,
+  1705→      /vmware/i,
+  1706→      /virtualbox/i,
+  1707→    ];
+  1708→    device.isEmulator = emulatorIndicators.some(p => p.test(device.userAgent));
+  1709→
+  1710→    // Detect bot
+  1711→    const botIndicators = [
+  1712→      /bot/i,
+  1713→      /crawler/i,
+  1714→      /spider/i,
+  1715→      /headless/i,
+  1716→      /phantom/i,
+  1717→      /selenium/i,
+  1718→      /puppeteer/i,
+  1719→    ];
+  1720→    device.isBot = botIndicators.some(p => p.test(device.userAgent));
+  1721→
+  1722→    // VPN/Tor would be set from external analysis
+  1723→    device.isVPN = false; // Would check IP against VPN databases
+  1724→    device.isTor = false; // Would check against Tor exit nodes
+  1725→  }
+  1726→
+  1727→  private calculateTrustScore(profile: UserProfile): number {
+  1728→    let score = 50; // Start neutral
+  1729→
+  1730→    // Age bonus
+  1731→    const ageDays = (Date.now() - new Date(profile.registrationDate).getTime()) / (1000 * 60 * 60 * 24);
+  1732→    score += Math.min(20, ageDays / 30); // Up to 20 points for age
+  1733→
+  1734→    // Verification level bonus
+  1735→    const verificationBonus: Record<string, number> = {
+  1736→      none: 0,
+  1737→      email: 10,
+  1738→      phone: 15,
+  1739→      identity: 25,
+  1740→      business: 30,
+  1741→    };
+  1742→    score += verificationBonus[profile.verificationLevel] || 0;
+  1743→
+  1744→    // Successful transactions bonus
+  1745→    const successfulTxs = profile.transactionHistory.filter(t => t.status === 'success').length;
+  1746→    score += Math.min(15, successfulTxs * 0.5);
+  1747→
+  1748→    // Consistent login locations
+  1749→    const uniqueCountries = new Set(profile.loginHistory.map(l => l.location.country)).size;
+  1750→    if (uniqueCountries <= 2) score += 5;
+  1751→
+  1752→    // No risk flags
+  1753→    if (profile.riskFlags.length === 0) score += 10;
+  1754→
+  1755→    // Penalize risk flags
+  1756→    score -= profile.riskFlags.length * 5;
+  1757→
+  1758→    return Math.max(0, Math.min(100, score));
+  1759→  }
+  1760→
+  1761→  private recalculateUserStats(profile: UserProfile): void {
+  1762→    if (profile.transactionHistory.length === 0) return;
+  1763→
+  1764→    const amounts = profile.transactionHistory
+  1765→      .filter(t => t.status === 'success')
+  1766→      .map(t => t.amount);
+  1767→
+  1768→    const sum = amounts.reduce((a, b) => a + b, 0);
+  1769→    profile.averageTransactionAmount = sum / amounts.length;
+  1770→
+  1771→    const squaredDiffs = amounts.map(a => Math.pow(a - profile.averageTransactionAmount, 2));
+  1772→    const variance = squaredDiffs.reduce((a, b) => a + b, 0) / amounts.length;
+  1773→    profile.transactionAmountStdDev = Math.sqrt(variance);
+  1774→  }
+  1775→
+  1776→  private approximateDistance(city1: string, city2: string): number {
+  1777→    // Simplified distance calculation
+  1778→    // In production, would use proper geocoding + haversine formula
+  1779→    if (city1 === city2) return 0;
+  1780→    return 5000; // Default large distance
+  1781→  }
+  1782→
+  1783→  private getTimezoneOffset(country: string): number {
+  1784→    // Simplified timezone offsets
+  1785→    const offsets: Record<string, number> = {
+  1786→      'DZ': 1, // Algeria UTC+1
+  1787→      'US': -5, // Rough US average
+  1788→      'GB': 0,
+  1789→      'FR': 1,
+  1790→      'CN': 8,
+  1791→      'JP': 9,
+  1792→    };
+  1793→    return offsets[country] || 0;
+  1794→  }
+  1795→
+  1796→  private parseTimezoneOffset(timezone: string): number {
+  1797→    try {
+  1798→      // Parse timezone like "UTC+1" or "America/New_York"
+  1799→      const match = timezone.match(/UTC([+-]\d+)/);
+  1800→      if (match) return parseInt(match[1], 10);
+  1801→      
+  1802→      // Common timezone mappings
+  1803→      const tzOffsets: Record<string, number> = {
+  1804→        'CET': 1, 'CEST': 2,
+  1805→        'EST': -5, 'EDT': -4,
+  1806→        'PST': -8, 'PDT': -7,
+  1807→        'JST': 9,
+  1808→        'AEST': 10,
+  1809→      };
+  1810→      return tzOffsets[timezone] || 0;
+  1811→    } catch {
+  1812→      return 0;
+  1813→    }
+  1814→  }
+  1815→
+  1816→  private simpleHash(str: string): string {
+  1817→    let hash = 0;
+  1818→    for (let i = 0; i < str.length; i++) {
+  1819→      const char = str.charCodeAt(i);
+  1820→      hash = ((hash << 5) - hash) + char;
+  1821→      hash = hash & hash; // Convert to 32bit integer
+  1822→    }
+  1823→    return Math.abs(hash).toString(36);
+  1824→  }
+  1825→
+  1826→  private trimOldEvents(): void {
+  1827→    const cutoff = Date.now() - (this.config.retention.eventRetentionDays * 24 * 60 * 60 * 1000);
+  1828→    while (this.events.length > 0 && new Date(this.events[0].timestamp).getTime() < cutoff) {
+  1829→      this.events.shift();
+  1830→    }
+  1831→  }
+  1832→
+  1833→  private initializeStatistics(): FraudStatistics {
+  1834→    return {
+  1835→      period: {
+  1836→        start: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+  1837→        end: new Date().toISOString(),
+  1838→      },
+  1839→      totalEvents: 0,
+  1840→      totalAssessments: 0,
+  1841→      blockedEvents: 0,
+  1842→      challengedEvents: 0,
+  1843→      reviewedEvents: 0,
+  1844→      approvedEvents: 0,
+  1845→      assessmentsByRiskLevel: { low: 0, medium: 0, high: 0, critical: 0 },
+  1846→      topFraudTypes: [],
+  1847→      topBlockedCountries: [],
+  1848→      averageFraudScore: 0,
+  1849→      falsePositiveRate: 0,
+  1850→      caseResolutionTime: { avg: 0, median: 0, p95: 0 },
+  1851→      financialImpact: {
+  1852→        preventedFraud: 0,
+  1853→        totalInvestigated: 0,
+  1854→        confirmedLosses: 0,
+  1855→      },
+  1856→    };
+  1857→  }
+  1858→
+  1859→  private updateStatistics(assessment: FraudAssessment): void {
+  1860→    this.statistics.totalAssessments++;
+  1861→
+  1862→    switch (assessment.decision) {
+  1863→      case 'block':
+  1864→        this.statistics.blockedEvents++;
+  1865→        break;
+  1866→      case 'challenge':
+  1867→        this.statistics.challengedEvents++;
+  1868→        break;
+  1869→      case 'review':
+  1870→        this.statistics.reviewedEvents++;
+  1871→        break;
+  1872→      case 'approve':
+  1873→        this.statistics.approvedEvents++;
+  1874→        break;
+  1875→    }
+  1876→
+  1877→    this.statistics.assessmentsByRiskLevel[assessment.riskLevel]++;
+  1878→  }
+  1879→
+  1880→  private triggerAlerts(_event: FraudEvent, assessment: FraudAssessment): void {
+  1881→    if (assessment.riskLevel === 'critical' && this.config.alerting.onCriticalScore) {
+  1882→      console.error(`[FRAUD ALERT] Critical fraud score detected! Event: ${_event.id}, Score: ${assessment.score}`);
+  1883→    }
+  1884→
+  1885→    if (assessment.decision === 'block' && this.config.alerting.onBlockedTransaction) {
+  1886→      console.warn(`[FRAUD ALERT] Transaction blocked! Event: ${_event.id}`);
+  1887→    }
+  1888→
+  1889→    if (assessment.decision === 'review' && this.config.alerting.onNewFraudCase) {
+  1890→      console.info(`[FRAUD ALERT] New fraud case created! Event: ${_event.id}`);
+  1891→    }
+  1892→  }
+  1893→
+  1894→  private createSafeAssessment(event: Partial<FraudEvent>): FraudAssessment {
+  1895→    return {
+  1896→      eventId: event.id || 'unknown',
+  1897→      score: 0,
+  1898→      riskLevel: 'low',
+  1899→      decision: 'approve',
+  1900→      reasons: [],
+  1901→      recommendations: [],
+  1902→      reviewRequired: false,
+  1903→    };
+  1904→  }
+  1905→
+  1906→  private loadBuiltInRules(): void {
+  1907→    // Velocity rules
+  1908→    this.addRule({
+  1909→      name: 'Brute Force Login Attempt',
+  1910→      description: 'Detect multiple failed logins followed by success',
+  1911→      enabled: true,
+  1912→      category: 'velocity',
+  1913→      severity: 'high',
+  1914→      scoreWeight: 40,
+  1915→      conditions: [
+  1916→        { field: 'eventType', operator: 'equals', value: 'login' },
+  1917→      ],
+  1918→      conditionLogic: 'AND',
+  1919→      action: 'block',
+  1920→      timeWindowMs: 900000, // 15 minutes
+  1921→      threshold: 5,
+  1922→      tags: ['brute-force', 'credential-stuffing'],
+  1923→      falsePositiveRate: 0.01,
+  1924→    });
+  1925→
+  1926→    // Location rules
+  1927→    this.addRule({
+  1928→      name: 'Cross-Border Transaction Anomaly',
+  1929→      description: 'Flag transactions crossing high-risk borders',
+  1930→      enabled: true,
+  1931→      category: 'location',
+  1932→      severity: 'medium',
+  1933→      scoreWeight: 25,
+  1934→      conditions: [
+  1935→        { field: 'eventType', operator: 'equals', value: 'transaction' },
+  1936→      ],
+  1937→      conditionLogic: 'AND',
+  1938→      action: 'review',
+  1939→      tags: ['cross-border', 'geographic'],
+  1940→      falsePositiveRate: 0.1,
+  1941→    });
+  1942→
+  1943→    // Device rules
+  1944→    this.addRule({
+  1945→      name: 'Device Fingerprint Change',
+  1946→      description: 'Alert when user changes device after registration',
+  1947→      enabled: true,
+  1948→      category: 'device',
+  1949→      severity: 'medium',
+  1950→      scoreWeight: 20,
+  1951→      conditions: [
+  1952→        { field: 'eventType', operator: 'in', value: ['login', 'transaction'] },
+  1953→      ],
+  1954→      conditionLogic: 'AND',
+  1955→      action: 'challenge',
+  1956→      tags: ['device-change', 'account-takeover'],
+  1957→      falsePositiveRate: 0.15,
+  1958→    });
+  1959→
+  1960→    // Payment rules
+  1961→    this.addRule({
+  1962→      name: 'High Velocity Small Transactions',
+  1963→      description: 'Detect potential card testing with many small amounts',
+  1964→      enabled: true,
+  1965→      category: 'payment',
+  1966→      severity: 'critical',
+  1967→      scoreWeight: 50,
+  1968→      conditions: [
+  1969→        { field: 'eventType', operator: 'equals', value: 'transaction' },
+  1970→        { field: 'data', operator: 'less_than', value: 10 }, // amount < 10
+  1971→      ],
+  1972→      conditionLogic: 'AND',
+  1973→      action: 'block',
+  1974→      timeWindowMs: 3600000,
+  1975→      threshold: 5,
+  1976→      tags: ['card-testing', 'payment-fraud'],
+  1977→      falsePositiveRate: 0.02,
+  1978→    });
+  1979→  }
+  1980→}
+  1981→
+  1982→// ===========================================
+  1983→// Singleton & Exports
+  1984→// ===========================================
+  1985→
+  1986→let fraudInstance: FraudDetectionSystem | null = null;
+  1987→
+  1988→export function getFraudDetection(config?: Partial<FraudDetectionConfig>): FraudDetectionSystem {
+  1989→  if (!fraudInstance) {
+  1990→    fraudInstance = new FraudDetectionSystem(config);
+  1991→  }
+  1992→  return fraudInstance;
+  1993→}
+  1994→
+  1995→// Convenience export
+  1996→export const fraudDetection = getFraudDetection();
+  1997→
+  1998→export default {
+  1999→  getFraudDetection,
+  2000→  FraudDetectionSystem,
+
+[showing lines 1-2000 of 2002; use offset=2001 with limit to continue reading]

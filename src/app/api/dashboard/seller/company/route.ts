@@ -1,15 +1,50 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 
-// GET /api/dashboard/seller/company - Get company profile
+// Helper to get authenticated user's company
+async function getAuthenticatedCompany(request: NextRequest) {
+  const session = await getServerSession(authOptions);
+  
+  if (!session?.user?.id) {
+    return { 
+      error: NextResponse.json(
+        { success: false, error: 'Authentication required' },
+        { status: 401 }
+      ), 
+      company: null 
+    };
+  }
+
+  const user = await db.user.findUnique({
+    where: { id: session.user.id },
+    include: { company: true }
+  });
+
+  if (!user?.company) {
+    return { 
+      error: NextResponse.json(
+        { success: false, error: 'No company associated with this account', needsSetup: true },
+        { status: 403 }
+      ), 
+      company: null 
+    };
+  }
+
+  return { error: null, company: user.company };
+}
+
+// GET /api/dashboard/seller/company - Get company profile (authenticated)
 export async function GET() {
-  try {
-    // In production, get company ID from auth session
-    const companyId = 'mock-company-id';
+  const auth = await getAuthenticatedCompany({} as NextRequest);
+  if (auth.error) return auth.error;
 
-    // For demo, create or get mock company
+  try {
+    const companyId = auth.company!.id;
+
     let company = await db.company.findUnique({
-      where: { companyId },
+      where: { id: companyId },
       include: {
         user: {
           select: {
@@ -51,8 +86,11 @@ export async function GET() {
   }
 }
 
-// PUT /api/dashboard/seller/company - Update company profile
+// PUT /api/dashboard/seller/company - Update company profile (authenticated)
 export async function PUT(request: NextRequest) {
+  const auth = await getAuthenticatedCompany(request);
+  if (auth.error) return auth.error;
+  
   try {
     const body = await request.json();
     
@@ -86,8 +124,7 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    // In production, get company ID from auth session
-    const companyId = 'mock-company-id';
+    const companyId = auth.company!.id;
 
     // Generate slug from name
     const slug = name
@@ -98,8 +135,8 @@ export async function PUT(request: NextRequest) {
       .trim();
 
     // Check if company exists
-    const existingCompany = await db.company.findFirst({
-      where: { companyId }
+    const existingCompany = await db.company.findUnique({
+      where: { id: companyId }
     });
 
     let updatedCompany;
@@ -107,7 +144,7 @@ export async function PUT(request: NextRequest) {
     if (existingCompany) {
       // Update existing company
       updatedCompany = await db.company.update({
-        where: { id: existingCompany.id },
+        where: { id: companyId },
         data: {
           name,
           slug,
@@ -130,36 +167,26 @@ export async function PUT(request: NextRequest) {
           contactPhone: contactPhone || null,
         },
       });
-    } else {
-      // Create new company (should not happen in normal flow)
-      updatedCompany = await db.company.create({
-        data: {
-          companyId,
-          name,
-          slug,
-          legalForm,
-          rcNumber: rcNumber || null,
-          nif: nif || null,
-          nis: nis || null,
-          website: website || null,
-          description: description || null,
-          logo: logo || null,
-          coverImage: coverImage || null,
-          yearEstablished: yearEstablished ? parseInt(yearEstablished) : null,
-          employeeCount: employeeCount ? parseInt(employeeCount) : null,
-          productionCapacity: productionCapacity || null,
-          exportCapability: exportCapability || false,
-          wilaya: wilaya || null,
-          commune: commune || null,
-          address: address || null,
-          contactEmail: contactEmail || null,
-          contactPhone: contactPhone || null,
-        },
-      });
-    }
 
-    // Note: Certifications would need a separate table in a real implementation
-    // For now, we can store them as JSON in a metadata field or create a separate table
+      // Audit log for company update
+      await db.auditLog.create({
+        data: {
+          userId: auth.company!.userId,
+          action: 'UPDATE_COMPANY',
+          resource: 'company',
+          resourceId: companyId,
+          oldValue: JSON.stringify(existingCompany),
+          newValue: JSON.stringify(body),
+          ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
+        }
+      }).catch(() => {});
+    } else {
+      // This should not happen normally
+      return NextResponse.json(
+        { success: false, error: 'Company not found' },
+        { status: 404 }
+      );
+    }
 
     return NextResponse.json({
       success: true,

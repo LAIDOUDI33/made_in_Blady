@@ -1,0 +1,974 @@
+     1→"use client";
+     2→
+     3→import React, { useState } from "react";
+     4→import Link from "next/link";
+     5→import { useRouter, useSearchParams } from "next/navigation";
+     6→import { Button } from "@/components/ui/button";
+     7→import {
+     8→  Card,
+     9→  CardContent,
+    10→  CardDescription,
+    11→  CardHeader,
+    12→  CardTitle,
+    13→} from "@/components/ui/card";
+    14→import { Input } from "@/components/ui/input";
+    15→import { Label } from "@/components/ui/label";
+    16→import { Checkbox } from "@/components/ui/checkbox";
+    17→import {
+    18→  Select,
+    19→  SelectContent,
+    20→  SelectItem,
+    21→  SelectTrigger,
+    22→  SelectValue,
+    23→} from "@/components/ui/select";
+    24→import { useToast } from "@/hooks/use-toast";
+    25→import {
+    26→  Eye,
+    27→  EyeOff,
+    28→  Mail,
+    29→  Lock,
+    30→  User,
+    31→  Building2,
+    32→  Phone,
+    33→  MapPin,
+    34→  FileText,
+    35→  AlertCircle,
+    36→  Loader2,
+    37→  CheckCircle2,
+    38→  ArrowRight,
+    39→  ArrowLeft,
+    40→} from "lucide-react";
+    41→
+    42→// Algerian legal forms
+    43→const legalForms = [
+    44→  { value: "SARL", label: "SARL (Société à Responsabilité Limitée)" },
+    45→  { value: "EURL", label: "EURL (Entreprise Unipersonnelle à Responsabilité Limitée)" },
+    46→  { value: "SPA", label: "SPA (Société par Actions)" },
+    47→  { value: "SNC", label: "SNC (Société en Nom Collectif)" },
+    48→  { value: "SCS", label: "SCS (Société en Commandite Simple)" },
+    49→  { value: "auto", label: "Auto-entrepreneur" },
+    50→];
+    51→
+    52→// All 58 Algerian wilayas with codes
+    53→const wilayas = [
+    54→  { code: "01", name: "Adrar", nameAr: "أدرار" },
+    55→  { code: "02", name: "Chlef", nameAr: "الشلف" },
+    56→  { code: "03", name: "Laghouat", nameAr: "الأغواط" },
+    57→  { code: "04", name: "Oum El Bouaghi", nameAr: "أم البواقي" },
+    58→  { code: "05", name: "Batna", nameAr: "باتنة" },
+    59→  { code: "06", name: "Béjaïa", nameAr: "بجاية" },
+    60→  { code: "07", name: "Biskra", nameAr: "بسكرة" },
+    61→  { code: "08", name: "Béchar", nameAr: "بشار" },
+    62→  { code: "09", name: "Blida", nameAr: "البليدة" },
+    63→  { code: "10", name: "Bouira", nameAr: "بويرة" },
+    64→  { code: "11", name: "Tamanrasset", nameAr: "تمنراست" },
+    65→  { code: "12", name: "Tébessa", nameAr: "تبسة" },
+    66→  { code: "13", name: "Tlemcen", nameAr: "تلمسان" },
+    67→  { code: "14", name: "Tiaret", nameAr: "تيارت" },
+    68→  { code: "15", name: "Tizi Ouzou", nameAr: "تيزي وزو" },
+    69→  { code: "16", name: "Alger", nameAr: "الجزائر" },
+    70→  { code: "17", name: "Djelfa", nameAr: "الجلفة" },
+    71→  { code: "18", name: "Jijel", nameAr: "جيجل" },
+    72→  { code: "19", name: "Sétif", nameAr: "سطيف" },
+    73→  { code: "20", name: "Saïda", nameAr: "سعيدة" },
+    74→  { code: "21", name: "Skikda", nameAr: "سكيكدة" },
+    75→  { code: "22", name: "Sidi Bel Abbès", nameAr: "سيدي بلعباس" },
+    76→  { code: "23", name: "Annaba", nameAr: "عنابة" },
+    77→  { code: "24", name: "Guelma", nameAr: "قالمية" },
+    78→  { code: "25", name: "Constantine", nameAr: "قسنطينة" },
+    79→  { code: "26", name: "Médéa", nameAr: "المدية" },
+    80→  { code: "27", name: "Mostaganem", nameAr: "مستغانم" },
+    81→  { code: "28", name: "M'Sila", nameAr: "المسيلة" },
+    82→  { code: "29", name: "Mascara", nameAr: "مascar" },
+    83→  { code: "30", name: "Ouargla", nameAr: "ورقلة" },
+    84→  { code: "31", name: "Oran", nameAr: "وهران" },
+    85→  { code: "32", name: "El Bayadh", nameAr: "البيض" },
+    86→  { code: "33", name: "Illizi", nameAr: "إيليزي" },
+    87→  { code: "34", name: "Bordj Bou Arréridj", nameAr: "برج بوعريريج" },
+    88→  { code: "35", name: "Boumerdès", nameAr: "بومرداس" },
+    89→  { code: "36", name: "El Tarf", nameAr: "الطارف" },
+    90→  { code: "37", name: "Tindouf", nameAr: "تندوف" },
+    91→  { code: "38", name: "Tissemsilt", nameAr: "تيسمسيلت" },
+    92→  { code: "39", name: "El Oued", nameAr: "الوادي" },
+    93→  { code: "40", name: "Khenchela", nameAr: "خنشلة" },
+    94→  { code: "41", name: "Souk Ahras", nameAr: "سوق أهراس" },
+    95→  { code: "42", name: "Tipaza", nameAr: "تيبازة" },
+    96→  { code: "43", name: "Mila", nameAr: "ميلة" },
+    97→  { code: "44", name: "Aïn Defla", nameAr: "عين الدفلى" },
+    98→  { code: "45", name: "Naâma", nameAr: "النعامة" },
+    99→  { code: "46", name: "Aïn Témouchent", nameAr: "عين تموشنت" },
+   100→  { code: "47", name: "Ghardaïa", nameAr: "غرداية" },
+   101→  { code: "48", name: "Relizane", nameAr: "غليزان" },
+   102→  { code: "49", name: "El M'Ghair", nameAr: "المغير" },
+   103→  { code: "50", name: "El Meniaa", nameAr: "المنيعة" },
+   104→  { code: "51", name: "Ouled Djellal", nameAr: "اولاد جلال" },
+   105→  { code: "52", name: "Bordj Baji Mokhtar", nameAr: "برج باجي مختار" },
+   106→  { code: "53", name: "Béni Abbès", nameAr: "بني عباس" },
+   107→  { code: "54", name: "Timimoun", nameAr: "تيميمون" },
+   108→  { code: "55", name: "Touggourt", nameAr: "تقرت" },
+   109→  { code: "56", name: "Djanet", nameAr: "جانيت" },
+   110→  { code: "57", name: "In Salah", nameAr: "إن سلام" },
+   111→  { code: "58", name: "In Guezzam", nameAr: "ان قزام" },
+   112→];
+   113→
+   114→interface FormErrors {
+   115→  [key: string]: string;
+   116→}
+   117→
+   118→export default function RegisterPage() {
+   119→  const router = useRouter();
+   120→  const searchParams = useSearchParams();
+   121→  const { toast } = useToast();
+   122→  
+   123→  const initialRole = searchParams.get("role") || "buyer";
+   124→  
+   125→  // Form state
+   126→  const [showPassword, setShowPassword] = useState(false);
+   127→  const [isLoading, setIsLoading] = useState(false);
+   128→  const [step, setStep] = useState(1);
+   129→  const [role, setRole] = useState<"BUYER" | "SUPPLIER">(initialRole.toUpperCase() as "BUYER" | "SUPPLIER");
+   130→  const [errors, setErrors] = useState<FormErrors>({});
+   131→  
+   132→  const [formData, setFormData] = useState({
+   133→    // Account Info
+   134→    firstName: "",
+   135→    lastName: "",
+   136→    email: "",
+   137→    phone: "",
+   138→    password: "",
+   139→    confirmPassword: "",
+   140→    acceptTerms: false,
+   141→    
+   142→    // Company Info (for suppliers)
+   143→    companyName: "",
+   144→    legalForm: "",
+   145→    rcNumber: "",
+   146→    nif: "",
+   147→    nis: "",
+   148→    wilaya: "",
+   149→    address: "",
+   150→    contactEmail: "",
+   151→    contactPhone: "",
+   152→    description: "",
+   153→  });
+   154→
+   155→  // Validate step 1 fields
+   156→  const validateStep1 = (): boolean => {
+   157→    const newErrors: FormErrors = {};
+   158→    
+   159→    if (!formData.firstName.trim() || formData.firstName.length < 2) {
+   160→      newErrors.firstName = "Le prénom doit contenir au moins 2 caractères";
+   161→    }
+   162→    
+   163→    if (!formData.lastName.trim() || formData.lastName.length < 2) {
+   164→      newErrors.lastName = "Le nom doit contenir au moins 2 caractères";
+   165→    }
+   166→    
+   167→    if (!formData.email.trim()) {
+   168→      newErrors.email = "L'email est requis";
+   169→    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+   170→      newErrors.email = "Format d'email invalide";
+   171→    }
+   172→    
+   173→    if (!formData.phone.trim()) {
+   174→      newErrors.phone = "Le téléphone est requis";
+   175→    } else {
+   176→      const cleanPhone = formData.phone.replace(/\s/g, "");
+   177→      if (!/^(\+213|0)[5-7]\d{8}$/.test(cleanPhone)) {
+   178→        newErrors.phone = "Format algérien requis (+213 ou 0 suivi de 9 chiffres)";
+   179→      }
+   180→    }
+   181→    
+   182→    if (!formData.password) {
+   183→      newErrors.password = "Le mot de passe est requis";
+   184→    } else if (formData.password.length < 8) {
+   185→      newErrors.password = "Minimum 8 caractères";
+   186→    } else if (!/[A-Z]/.test(formData.password)) {
+   187→      newErrors.password = "Au moins une majuscule requise";
+   188→    } else if (!/[0-9]/.test(formData.password)) {
+   189→      newErrors.password = "Au moins un chiffre requis";
+   190→    }
+   191→    
+   192→    if (formData.password !== formData.confirmPassword) {
+   193→      newErrors.confirmPassword = "Les mots de passe ne correspondent pas";
+   194→    }
+   195→    
+   196→    setErrors(newErrors);
+   197→    return Object.keys(newErrors).length === 0;
+   198→  };
+   199→
+   200→  // Validate company fields for suppliers
+   201→  const validateCompanyFields = (): boolean => {
+   202→    const newErrors: FormErrors = {};
+   203→    
+   204→    if (!formData.companyName.trim()) {
+   205→      newErrors.companyName = "Le nom de l'entreprise est requis";
+   206→    }
+   207→    
+   208→    if (!formData.legalForm) {
+   209→      newErrors.legalForm = "La forme juridique est requise";
+   210→    }
+   211→    
+   212→    if (!formData.rcNumber.trim()) {
+   213→      newErrors.rcNumber = "Le numéro RC est requis";
+   214→    } else if (!/^\d{2}\/\d{2}-\d{7}\/\d{2}$/.test(formData.rcNumber)) {
+   215→      newErrors.rcNumber = "Format: XX/XX-XXXXXXX/XX";
+   216→    }
+   217→    
+   218→    if (!formData.nif.trim()) {
+   219→      newErrors.nif = "Le NIF est requis";
+   220→    } else if (!/^\d{15}$/.test(formData.nif)) {
+   221→      newErrors.nif = "15 chiffres requis";
+   222→    }
+   223→    
+   224→    if (formData.nis && !/^\d{10}$/.test(formData.nis)) {
+   225→      newErrors.nis = "10 chiffres requis";
+   226→    }
+   227→    
+   228→    if (!formData.wilaya) {
+   229→      newErrors.wilaya = "La wilaya est requise";
+   230→    }
+   231→    
+   232→    setErrors((prev) => ({ ...prev, ...newErrors }));
+   233→    return Object.keys(newErrors).length === 0;
+   234→  };
+   235→
+   236→  const handleNextStep = () => {
+   237→    if (validateStep1()) {
+   238→      setStep(2);
+   239→      window.scrollTo({ top: 0, behavior: 'smooth' });
+   240→    } else {
+   241→      toast({
+   242→        title: "Erreur de validation",
+   243→        description: "Veuillez corriger les erreurs dans le formulaire",
+   244→        variant: "destructive",
+   245→      });
+   246→    }
+   247→  };
+   248→
+   249→  const handleSubmit = async (e: React.FormEvent) => {
+   250→    e.preventDefault();
+   251→    
+   252→    // Final validation
+   253→    let isValid = validateStep1();
+   254→    if (role === "SUPPLIER") {
+   255→      isValid = isValid && validateCompanyFields();
+   256→    }
+   257→    
+   258→    if (!formData.acceptTerms) {
+   259→      toast({
+   260→        title: "Conditions requises",
+   261→        description: "Vous devez accepter les conditions d'utilisation",
+   262→        variant: "destructive",
+   263→      });
+   264→      return;
+   265→    }
+   266→    
+   267→    if (!isValid) {
+   268→      toast({
+   269→        title: "Erreur de validation",
+   270→        description: "Veuillez corriger les erreurs dans le formulaire",
+   271→        variant: "destructive",
+   272→      });
+   273→      return;
+   274→    }
+   275→
+   276→    setIsLoading(true);
+   277→    setErrors({});
+   278→
+   279→    try {
+   280→      const payload = {
+   281→        firstName: formData.firstName,
+   282→        lastName: formData.lastName,
+   283→        email: formData.email.toLowerCase().trim(),
+   284→        phone: formData.phone,
+   285→        password: formData.password,
+   286→        confirmPassword: formData.confirmPassword,
+   287→        role,
+   288→        ...(role === "SUPPLIER" && {
+   289→          companyName: formData.companyName,
+   290→          legalForm: formData.legalForm,
+   291→          rcNumber: formData.rcNumber,
+   292→          nif: formData.nif,
+   293→          nis: formData.nis,
+   294→          wilaya: formData.wilaya,
+   295→          address: formData.address,
+   296→          description: formData.description,
+   297→        }),
+   298→      };
+   299→
+   300→      const response = await fetch("/api/auth/register", {
+   301→        method: "POST",
+   302→        headers: {
+   303→          "Content-Type": "application/json",
+   304→        },
+   305→        body: JSON.stringify(payload),
+   306→      });
+   307→
+   308→      const data = await response.json();
+   309→
+   310→      if (!response.ok) {
+   311→        // Handle validation errors
+   312→        if (data.details && Array.isArray(data.details)) {
+   313→          const serverErrors: FormErrors = {};
+   314→          data.details.forEach((err: string) => {
+   315→            if (err.includes("prénom")) serverErrors.firstName = err;
+   316→            else if (err.includes("nom")) serverErrors.lastName = err;
+   317→            else if (err.includes("email")) serverErrors.email = err;
+   318→            else if (err.includes("téléphone")) serverErrors.phone = err;
+   319→            else if (err.includes("mot de passe")) serverErrors.password = err;
+   320→            else if (err.includes("entreprise")) serverErrors.companyName = err;
+   321→            else if (err.includes("juridique")) serverErrors.legalForm = err;
+   322→            else if (err.includes("RC")) serverErrors.rcNumber = err;
+   323→            else if (err.includes("NIF")) serverErrors.nif = err;
+   324→            else if (err.includes("NIS")) serverErrors.nis = err;
+   325→            else if (err.includes("wilaya")) serverErrors.wilaya = err;
+   326→          });
+   327→          setErrors(serverErrors);
+   328→        }
+   329→        throw new Error(data.error || "Erreur lors de l'inscription");
+   330→      }
+   331→
+   332→      toast({
+   333→        title: "Compte créé avec succès !",
+   334→        description: "Bienvenue sur AlgeriaTrade.dz. Vous pouvez maintenant vous connecter.",
+   335→      });
+   336→
+   337→      // Redirect to login page with success message
+   338→      router.push("/login?registered=true");
+   339→    } catch (err: any) {
+   340→      const errorMessage = err.message || "Une erreur est survenue";
+   341→      
+   342→      if (!Object.keys(errors).length) {
+   343→        toast({
+   344→          title: "Erreur d'inscription",
+   345→          description: errorMessage,
+   346→          variant: "destructive",
+   347→        });
+   348→      }
+   349→    } finally {
+   350→      setIsLoading(false);
+   351→    }
+   352→  };
+   353→
+   354→  // Password strength indicator
+   355→  const getPasswordStrength = (password: string): { strength: number; text: string; color: string } => {
+   356→    if (!password) return { strength: 0, text: "", color: "" };
+   357→    
+   358→    let score = 0;
+   359→    if (password.length >= 8) score++;
+   360→    if (password.length >= 12) score++;
+   361→    if (/[A-Z]/.test(password)) score++;
+   362→    if (/[a-z]/.test(password)) score++;
+   363→    if (/[0-9]/.test(password)) score++;
+   364→    if (/[^A-Za-z0-9]/.test(password)) score++;
+   365→
+   366→    if (score <= 2) return { strength: 25, text: "Faible", color: "bg-red-500" };
+   367→    if (score <= 4) return { strength: 50, text: "Moyen", color: "bg-yellow-500" };
+   368→    if (score <= 5) return { strength: 75, text: "Bon", color: "bg-green-400" };
+   369→    return { strength: 100, text: "Excellent", color: "bg-green-600" };
+   370→  };
+   371→
+   372→  const passwordStrength = getPasswordStrength(formData.password);
+   373→
+   374→  return (
+   375→    <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-emerald-50 py-8 px-4">
+   376→      {/* Background Pattern */}
+   377→      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+   378→        <div className="absolute -top-40 -right-40 w-80 h-80 bg-green-100 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-pulse" />
+   379→        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-emerald-100 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-pulse" style={{ animationDelay: '2s' }} />
+   380→      </div>
+   381→
+   382→      <div className="max-w-4xl mx-auto relative z-10">
+   383→        {/* Header */}
+   384→        <div className="text-center mb-8 space-y-3">
+   385→          <Link href="/" className="inline-flex items-center gap-2 group">
+   386→            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-[#006233] to-[#004d28] text-white font-bold text-lg shadow-lg">
+   387→              <svg viewBox="0 0 24 24" fill="none" className="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
+   388→                <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+   389→                <path d="M2 17L12 22L22 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+   390→                <path d="M2 12L12 17L22 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+   391→              </svg>
+   392→            </div>
+   393→            <span className="text-xl font-bold text-[#006233]">AlgeriaTrade</span>
+   394→          </Link>
+   395→          <h1 className="text-3xl font-bold text-gray-900">Créer un Compte</h1>
+   396→          <p className="text-gray-500 max-w-md mx-auto">
+   397→            Rejoignez la plus grande plateforme B2B d&apos;Algérie et développez votre activité
+   398→          </p>
+   399→        </div>
+   400→
+   401→        {/* Progress Steps */}
+   402→        <div className="flex justify-center mb-8">
+   403→          <div className="flex items-center gap-2">
+   404→            <div className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-semibold transition-all ${
+   405→              step >= 1 ? 'bg-[#006233] text-white' : 'bg-gray-200 text-gray-500'
+   406→            }`}>
+   407→              {step > 1 ? <CheckCircle2 className="w-4 h-4" /> : '1'}
+   408→            </div>
+   409→            <div className={`w-16 sm:w-24 h-1 rounded ${step >= 2 ? 'bg-[#006233]' : 'bg-gray-200'}`} />
+   410→            <div className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-semibold transition-all ${
+   411→              step >= 2 ? 'bg-[#006233] text-white' : 'bg-gray-200 text-gray-500'
+   412→            }`}>
+   413→              2
+   414→            </div>
+   415→            {role === "SUPPLIER" && (
+   416→              <>
+   417→                <div className={`w-16 sm:w-24 h-1 rounded ${step >= 3 ? 'bg-[#006233]' : 'bg-gray-200'}`} />
+   418→                <div className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-semibold transition-all ${
+   419→                  step >= 3 ? 'bg-[#006233] text-white' : 'bg-gray-200 text-gray-500'
+   420→                }`}>
+   421→                  3
+   422→                </div>
+   423→              </>
+   424→            )}
+   425→          </div>
+   426→        </div>
+   427→
+   428→        {/* Role Selection Card */}
+   429→        <Card className="mb-6 shadow-md border-0 bg-white/90 backdrop-blur-sm">
+   430→          <CardContent className="pt-6">
+   431→            <p className="text-center text-sm text-gray-500 mb-4">Je souhaite m&apos;inscrire en tant que :</p>
+   432→            <div className="grid grid-cols-2 gap-4 max-w-lg mx-auto">
+   433→              <button
+   434→                type="button"
+   435→                onClick={() => setRole("BUYER")}
+   436→                className={`p-4 rounded-xl border-2 text-center transition-all group ${
+   437→                  role === "BUYER"
+   438→                    ? "border-[#006233] bg-green-50 shadow-md"
+   439→                    : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
+   440→                }`}
+   441→              >
+   442→                <User className={`h-10 w-10 mx-auto mb-2 transition-colors ${
+   443→                  role === "BUYER" ? "text-[#006233]" : "text-gray-400 group-hover:text-gray-600"
+   444→                }`} />
+   445→                <h3 className="font-semibold text-gray-900">Acheteur</h3>
+   446→                <p className="text-xs text-gray-500 mt-1">
+   447→                  Trouver des fournisseurs et produits
+   448→                </p>
+   449→              </button>
+   450→              
+   451→              <button
+   452→                type="button"
+   453→                onClick={() => setRole("SUPPLIER")}
+   454→                className={`p-4 rounded-xl border-2 text-center transition-all group ${
+   455→                  role === "SUPPLIER"
+   456→                    ? "border-[#006233] bg-green-50 shadow-md"
+   457→                    : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
+   458→                }`}
+   459→              >
+   460→                <Building2 className={`h-10 w-10 mx-auto mb-2 transition-colors ${
+   461→                  role === "SUPPLIER" ? "text-[#006233]" : "text-gray-400 group-hover:text-gray-600"
+   462→                }`} />
+   463→                <h3 className="font-semibold text-gray-900">Fournisseur</h3>
+   464→                <p className="text-xs text-gray-500 mt-1">
+   465→                  Vendre mes produits et services
+   466→                </p>
+   467→              </button>
+   468→            </div>
+   469→          </CardContent>
+   470→        </Card>
+   471→
+   472→        {/* Registration Form */}
+   473→        <form onSubmit={handleSubmit}>
+   474→          {/* Step 1: Personal Information */}
+   475→          <Card className={`mb-6 shadow-md border-0 bg-white/90 backdrop-blur-sm transition-all ${step !== 1 ? 'opacity-60' : ''}`}>
+   476→            <CardHeader>
+   477→              <CardTitle className="flex items-center gap-3 text-lg">
+   478→                <span className={`h-8 w-8 rounded-full flex items-center justify-center text-sm font-bold ${
+   479→                  step > 1 ? 'bg-[#006233] text-white' : 'bg-[#006233] text-white'
+   480→                }`}>
+   481→                  {step > 1 ? <CheckCircle2 className="w-4 h-4" /> : '1'}
+   482→                </span>
+   483→                Informations Personnelles
+   484→              </CardTitle>
+   485→              <CardDescription>Vos coordonnées de base</CardDescription>
+   486→            </CardHeader>
+   487→            <CardContent className="space-y-4">
+   488→              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+   489→                <div className="space-y-2">
+   490→                  <Label htmlFor="firstName" className="text-gray-700">Prénom *</Label>
+   491→                  <div className="relative">
+   492→                    <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+   493→                    <Input
+   494→                      id="firstName"
+   495→                      placeholder="Ahmed"
+   496→                      value={formData.firstName}
+   497→                      onChange={(e) => {
+   498→                        setFormData({ ...formData, firstName: e.target.value });
+   499→                        if (errors.firstName) setErrors(prev => ({ ...prev, firstName: '' }));
+   500→                      }}
+   501→                      className={`pl-10 h-11 ${errors.firstName ? 'border-red-300 focus:border-red-500' : 'border-gray-200 focus:border-[#006233]'}`}
+   502→                      disabled={isLoading}
+   503→                    />
+   504→                  </div>
+   505→                  {errors.firstName && (
+   506→                    <p className="text-xs text-red-500 flex items-center gap-1">
+   507→                      <AlertCircle className="h-3 w-3" />
+   508→                      {errors.firstName}
+   509→                    </p>
+   510→                  )}
+   511→                </div>
+   512→
+   513→                <div className="space-y-2">
+   514→                  <Label htmlFor="lastName" className="text-gray-700">Nom *</Label>
+   515→                  <div className="relative">
+   516→                    <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+   517→                    <Input
+   518→                      id="lastName"
+   519→                      placeholder="Benali"
+   520→                      value={formData.lastName}
+   521→                      onChange={(e) => {
+   522→                        setFormData({ ...formData, lastName: e.target.value });
+   523→                        if (errors.lastName) setErrors(prev => ({ ...prev, lastName: '' }));
+   524→                      }}
+   525→                      className={`pl-10 h-11 ${errors.lastName ? 'border-red-300 focus:border-red-500' : 'border-gray-200 focus:border-[#006233]'}`}
+   526→                      disabled={isLoading}
+   527→                    />
+   528→                  </div>
+   529→                  {errors.lastName && (
+   530→                    <p className="text-xs text-red-500 flex items-center gap-1">
+   531→                      <AlertCircle className="h-3 w-3" />
+   532→                      {errors.lastName}
+   533→                    </p>
+   534→                  )}
+   535→                </div>
+   536→              </div>
+   537→
+   538→              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+   539→                <div className="space-y-2">
+   540→                  <Label htmlFor="email" className="text-gray-700">Adresse Email *</Label>
+   541→                  <div className="relative">
+   542→                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+   543→                    <Input
+   544→                      id="email"
+   545→                      type="email"
+   546→                      placeholder="ahmed@entreprise.dz"
+   547→                      value={formData.email}
+   548→                      onChange={(e) => {
+   549→                        setFormData({ ...formData, email: e.target.value });
+   550→                        if (errors.email) setErrors(prev => ({ ...prev, email: '' }));
+   551→                      }}
+   552→                      className={`pl-10 h-11 ${errors.email ? 'border-red-300 focus:border-red-500' : 'border-gray-200 focus:border-[#006233]'}`}
+   553→                      disabled={isLoading}
+   554→                    />
+   555→                  </div>
+   556→                  {errors.email && (
+   557→                    <p className="text-xs text-red-500 flex items-center gap-1">
+   558→                      <AlertCircle className="h-3 w-3" />
+   559→                      {errors.email}
+   560→                    </p>
+   561→                  )}
+   562→                </div>
+   563→
+   564→                <div className="space-y-2">
+   565→                  <Label htmlFor="phone" className="text-gray-700">Téléphone *</Label>
+   566→                  <div className="relative">
+   567→                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+   568→                    <Input
+   569→                      id="phone"
+   570→                      type="tel"
+   571→                      placeholder="+213 5XX XX XX XX"
+   572→                      value={formData.phone}
+   573→                      onChange={(e) => {
+   574→                        setFormData({ ...formData, phone: e.target.value });
+   575→                        if (errors.phone) setErrors(prev => ({ ...prev, phone: '' }));
+   576→                      }}
+   577→                      className={`pl-10 h-11 ${errors.phone ? 'border-red-300 focus:border-red-500' : 'border-gray-200 focus:border-[#006233]'}`}
+   578→                      disabled={isLoading}
+   579→                    />
+   580→                  </div>
+   581→                  {errors.phone && (
+   582→                    <p className="text-xs text-red-500 flex items-center gap-1">
+   583→                      <AlertCircle className="h-3 w-3" />
+   584→                      {errors.phone}
+   585→                    </p>
+   586→                  )}
+   587→                </div>
+   588→              </div>
+   589→
+   590→              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+   591→                <div className="space-y-2">
+   592→                  <Label htmlFor="password" className="text-gray-700">Mot de Passe *</Label>
+   593→                  <div className="relative">
+   594→                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+   595→                    <Input
+   596→                      id="password"
+   597→                      type={showPassword ? "text" : "password"}
+   598→                      placeholder="••••••••"
+   599→                      value={formData.password}
+   600→                      onChange={(e) => {
+   601→                        setFormData({ ...formData, password: e.target.value });
+   602→                        if (errors.password) setErrors(prev => ({ ...prev, password: '' }));
+   603→                      }}
+   604→                      className={`pl-10 pr-10 h-11 ${errors.password ? 'border-red-300 focus:border-red-500' : 'border-gray-200 focus:border-[#006233]'}`}
+   605→                      disabled={isLoading}
+   606→                    />
+   607→                    <button
+   608→                      type="button"
+   609→                      onClick={() => setShowPassword(!showPassword)}
+   610→                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+   611→                      tabIndex={-1}
+   612→                    >
+   613→                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+   614→                    </button>
+   615→                  </div>
+   616→                  {/* Password Strength Indicator */}
+   617→                  {formData.password && (
+   618→                    <div className="space-y-1">
+   619→                      <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
+   620→                        <div 
+   621→                          className={`h-full ${passwordStrength.color} transition-all duration-300`}
+   622→                          style={{ width: `${passwordStrength.strength}%` }}
+   623→                        />
+   624→                      </div>
+   625→                      <p className="text-xs text-gray-500">
+   626→                        Force du mot de passe: <span className={`font-medium ${
+   627→                          passwordStrength.strength <= 25 ? 'text-red-500' :
+   628→                          passwordStrength.strength <= 50 ? 'text-yellow-600' :
+   629→                          passwordStrength.strength <= 75 ? 'text-green-500' : 'text-green-600'
+   630→                        }`}>{passwordStrength.text}</span>
+   631→                      </p>
+   632→                    </div>
+   633→                  )}
+   634→                  {errors.password && (
+   635→                    <p className="text-xs text-red-500 flex items-center gap-1">
+   636→                      <AlertCircle className="h-3 w-3" />
+   637→                      {errors.password}
+   638→                    </p>
+   639→                  )}
+   640→                </div>
+   641→
+   642→                <div className="space-y-2">
+   643→                  <Label htmlFor="confirmPassword" className="text-gray-700">Confirmer le Mot de Passe *</Label>
+   644→                  <div className="relative">
+   645→                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+   646→                    <Input
+   647→                      id="confirmPassword"
+   648→                      type="password"
+   649→                      placeholder="••••••••"
+   650→                      value={formData.confirmPassword}
+   651→                      onChange={(e) => {
+   652→                        setFormData({ ...formData, confirmPassword: e.target.value });
+   653→                        if (errors.confirmPassword) setErrors(prev => ({ ...prev, confirmPassword: '' }));
+   654→                      }}
+   655→                      className={`pl-10 h-11 ${errors.confirmPassword ? 'border-red-300 focus:border-red-500' : 'border-gray-200 focus:border-[#006233]'}`}
+   656→                      disabled={isLoading}
+   657→                    />
+   658→                  </div>
+   659→                  {errors.confirmPassword && (
+   660→                    <p className="text-xs text-red-500 flex items-center gap-1">
+   661→                      <AlertCircle className="h-3 w-3" />
+   662→                      {errors.confirmPassword}
+   663→                    </p>
+   664→                  )}
+   665→                </div>
+   666→              </div>
+   667→
+   668→              {/* Step Navigation */}
+   669→              {step === 1 && (
+   670→                <Button
+   671→                  type="button"
+   672→                  onClick={handleNextStep}
+   673→                  className="w-full h-11 bg-[#006233] hover:bg-[#004d28] text-white font-medium mt-4"
+   674→                >
+   675→                  Suivant
+   676→                  <ArrowRight className="ml-2 h-4 w-4" />
+   677→                </Button>
+   678→              )}
+   679→
+   680→              {step > 1 && (
+   681→                <Button
+   682→                  type="button"
+   683→                  onClick={() => setStep(1)}
+   684→                  variant="outline"
+   685→                  className="mt-4"
+   686→                >
+   687→                  <ArrowLeft className="mr-2 h-4 w-4" />
+   688→                  Modifier
+   689→                </Button>
+   690→              )}
+   691→            </CardContent>
+   692→          </Card>
+   693→
+   694→          {/* Step 2: Company Information (Suppliers Only) */}
+   695→          {role === "SUPPLIER" && (
+   696→            <Card className={`mb-6 shadow-md border-0 bg-white/90 backdrop-blur-sm transition-all ${step !== 2 ? 'opacity-60' : ''}`}>
+   697→              <CardHeader>
+   698→                <CardTitle className="flex items-center gap-3 text-lg">
+   699→                  <span className={`h-8 w-8 rounded-full flex items-center justify-center text-sm font-bold ${
+   700→                    step > 2 ? 'bg-[#006233] text-white' : 'bg-[#006233] text-white'
+   701→                  }`}>
+   702→                    2
+   703→                  </span>
+   704→                  Informations Entreprise
+   705→                </CardTitle>
+   706→                <CardDescription>Données légales de votre société</CardDescription>
+   707→              </CardHeader>
+   708→              <CardContent className="space-y-4">
+   709→                <div className="space-y-2">
+   710→                  <Label htmlFor="companyName" className="text-gray-700">Nom de l&apos;Entreprise *</Label>
+   711→                  <div className="relative">
+   712→                    <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+   713→                    <Input
+   714→                      id="companyName"
+   715→                      placeholder="Ex: SARL AlgeriaTrade Solutions"
+   716→                      value={formData.companyName}
+   717→                      onChange={(e) => {
+   718→                        setFormData({ ...formData, companyName: e.target.value });
+   719→                        if (errors.companyName) setErrors(prev => ({ ...prev, companyName: '' }));
+   720→                      }}
+   721→                      className={`pl-10 h-11 ${errors.companyName ? 'border-red-300 focus:border-red-500' : 'border-gray-200 focus:border-[#006233]'}`}
+   722→                      disabled={isLoading}
+   723→                    />
+   724→                  </div>
+   725→                  {errors.companyName && (
+   726→                    <p className="text-xs text-red-500 flex items-center gap-1">
+   727→                      <AlertCircle className="h-3 w-3" />
+   728→                      {errors.companyName}
+   729→                    </p>
+   730→                  )}
+   731→                </div>
+   732→
+   733→                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+   734→                  <div className="space-y-2">
+   735→                    <Label htmlFor="legalForm" className="text-gray-700">Forme Juridique *</Label>
+   736→                    <Select 
+   737→                      value={formData.legalForm} 
+   738→                      onValueChange={(value) => {
+   739→                        setFormData({ ...formData, legalForm: value });
+   740→                        if (errors.legalForm) setErrors(prev => ({ ...prev, legalForm: '' }));
+   741→                      }}
+   742→                      disabled={isLoading}
+   743→                    >
+   744→                      <SelectTrigger className={`h-11 ${errors.legalForm ? 'border-red-300' : 'border-gray-200 focus:border-[#006233]'}`}>
+   745→                        <SelectValue placeholder="Sélectionner" />
+   746→                      </SelectTrigger>
+   747→                      <SelectContent>
+   748→                        {legalForms.map((form) => (
+   749→                          <SelectItem key={form.value} value={form.value}>
+   750→                            {form.label}
+   751→                          </SelectItem>
+   752→                        ))}
+   753→                      </SelectContent>
+   754→                    </Select>
+   755→                    {errors.legalForm && (
+   756→                      <p className="text-xs text-red-500 flex items-center gap-1">
+   757→                        <AlertCircle className="h-3 w-3" />
+   758→                        {errors.legalForm}
+   759→                      </p>
+   760→                    )}
+   761→                  </div>
+   762→
+   763→                  <div className="space-y-2">
+   764→                    <Label htmlFor="rcNumber" className="text-gray-700">N° RC *</Label>
+   765→                    <Input
+   766→                      id="rcNumber"
+   767→                      placeholder="XX/XX-XXXXXXX/XX"
+   768→                      value={formData.rcNumber}
+   769→                      onChange={(e) => {
+   770→                        setFormData({ ...formData, rcNumber: e.target.value.toUpperCase() });
+   771→                        if (errors.rcNumber) setErrors(prev => ({ ...prev, rcNumber: '' }));
+   772→                      }}
+   773→                      className={`h-11 ${errors.rcNumber ? 'border-red-300 focus:border-red-500' : 'border-gray-200 focus:border-[#006233]'}`}
+   774→                      disabled={isLoading}
+   775→                    />
+   776→                    {errors.rcNumber && (
+   777→                      <p className="text-xs text-red-500 flex items-center gap-1">
+   778→                        <AlertCircle className="h-3 w-3" />
+   779→                        {errors.rcNumber}
+   780→                      </p>
+   781→                    )}
+   782→                  </div>
+   783→
+   784→                  <div className="space-y-2">
+   785→                    <Label htmlFor="nif" className="text-gray-700">NIF *</Label>
+   786→                    <Input
+   787→                      id="nif"
+   788→                      placeholder="15 chiffres"
+   789→                      value={formData.nif}
+   790→                      onChange={(e) => {
+   791→                        setFormData({ ...formData, nif: e.target.value.replace(/\D/g, '').slice(0, 15) });
+   792→                        if (errors.nif) setErrors(prev => ({ ...prev, nif: '' }));
+   793→                      }}
+   794→                      className={`h-11 ${errors.nif ? 'border-red-300 focus:border-red-500' : 'border-gray-200 focus:border-[#006233]'}`}
+   795→                      disabled={isLoading}
+   796→                      maxLength={15}
+   797→                    />
+   798→                    {errors.nif && (
+   799→                      <p className="text-xs text-red-500 flex items-center gap-1">
+   800→                        <AlertCircle className="h-3 w-3" />
+   801→                        {errors.nif}
+   802→                      </p>
+   803→                    )}
+   804→                  </div>
+   805→                </div>
+   806→
+   807→                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+   808→                  <div className="space-y-2">
+   809→                    <Label htmlFor="nis" className="text-gray-700">NIS</Label>
+   810→                    <Input
+   811→                      id="nis"
+   812→                      placeholder="10 chiffres (optionnel)"
+   813→                      value={formData.nis}
+   814→                      onChange={(e) => {
+   815→                        setFormData({ ...formData, nis: e.target.value.replace(/\D/g, '').slice(0, 10) });
+   816→                        if (errors.nis) setErrors(prev => ({ ...prev, nis: '' }));
+   817→                      }}
+   818→                      className={`h-11 ${errors.nis ? 'border-red-300 focus:border-red-500' : 'border-gray-200 focus:border-[#006233]'}`}
+   819→                      disabled={isLoading}
+   820→                      maxLength={10}
+   821→                    />
+   822→                    {errors.nis && (
+   823→                      <p className="text-xs text-red-500 flex items-center gap-1">
+   824→                        <AlertCircle className="h-3 w-3" />
+   825→                        {errors.nis}
+   826→                      </p>
+   827→                    )}
+   828→                  </div>
+   829→
+   830→                  <div className="space-y-2">
+   831→                    <Label htmlFor="wilaya" className="text-gray-700">Wilaya *</Label>
+   832→                    <div className="relative">
+   833→                      <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 z-10" />
+   834→                      <Select 
+   835→                        value={formData.wilaya} 
+   836→                        onValueChange={(value) => {
+   837→                          setFormData({ ...formData, wilaya: value });
+   838→                          if (errors.wilaya) setErrors(prev => ({ ...prev, wilaya: '' }));
+   839→                        }}
+   840→                        disabled={isLoading}
+   841→                      >
+   842→                        <SelectTrigger className={`pl-10 h-11 ${errors.wilaya ? 'border-red-300' : 'border-gray-200 focus:border-[#006233]'}`}>
+   843→                          <SelectValue placeholder="Sélectionner la wilaya" />
+   844→                        </SelectTrigger>
+   845→                        <SelectContent>
+   846→                          {wilayas.map((w) => (
+   847→                            <SelectItem key={w.code} value={w.name}>
+   848→                              {w.code} - {w.name}
+   849→                            </SelectItem>
+   850→                          ))}
+   851→                        </SelectContent>
+   852→                      </Select>
+   853→                    </div>
+   854→                    {errors.wilaya && (
+   855→                      <p className="text-xs text-red-500 flex items-center gap-1">
+   856→                        <AlertCircle className="h-3 w-3" />
+   857→                        {errors.wilaya}
+   858→                      </p>
+   859→                    )}
+   860→                  </div>
+   861→                </div>
+   862→
+   863→                <div className="space-y-2">
+   864→                  <Label htmlFor="address" className="text-gray-700">Adresse</Label>
+   865→                  <Input
+   866→                    id="address"
+   867→                    placeholder="Rue, Quartier, Commune..."
+   868→                    value={formData.address}
+   869→                    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+   870→                    className="h-11 border-gray-200 focus:border-[#006233]"
+   871→                    disabled={isLoading}
+   872→                  />
+   873→                </div>
+   874→
+   875→                <div className="space-y-2">
+   876→                  <Label htmlFor="description" className="text-gray-700">Description de l&apos;Entreprise</Label>
+   877→                  <textarea
+   878→                    id="description"
+   879→                    rows={3}
+   880→                    placeholder="Décrivez votre entreprise, vos produits, vos capacités de production..."
+   881→                    value={formData.description}
+   882→                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+   883→                    className="w-full rounded-md border border-gray-200 bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#006233]/20 focus:border-[#006233] resize-none"
+   884→                    disabled={isLoading}
+   885→                  />
+   886→                </div>
+   887→              </CardContent>
+   888→            </Card>
+   889→          )}
+   890→
+   891→          {/* Terms & Submit Section */}
+   892→          <Card className="mb-6 shadow-md border-0 bg-white/90 backdrop-blur-sm">
+   893→            <CardContent className="pt-6 space-y-4">
+   894→              <div className="flex items-start space-x-3 p-4 rounded-lg bg-gray-50 border border-gray-200">
+   895→                <Checkbox
+   896→                  id="terms"
+   897→                  checked={formData.acceptTerms}
+   898→                  onCheckedChange={(checked) =>
+   899→                    setFormData({ ...formData, acceptTerms: checked === true })
+   900→                  }
+   901→                  disabled={isLoading}
+   902→                  className="data-[state=checked]:bg-[#006233] data-[state=checked]:border-[#006233] mt-0.5"
+   903→                />
+   904→                <label htmlFor="terms" className="text-sm text-gray-600 cursor-pointer leading-relaxed">
+   905→                  J&apos;ai lu et j&apos;accepte les{" "}
+   906→                  <Link href="/terms" className="text-[#006233] hover:underline font-medium">
+   907→                    Conditions Générales d&apos;Utilisation
+   908→                  </Link>
+   909→                  , la{" "}
+   910→                  <Link href="/privacy" className="text-[#006233] hover:underline font-medium">
+   911→                    Politique de Confidentialité
+   912→                  </Link>
+   913→                  {" "}et les{" "}
+   914→                  <Link href="/cgv" className="text-[#006233] hover:underline font-medium">
+   915→                    CGV
+   916→                  </Link>
+   917→                  {" "}de la plateforme AlgeriaTrade.dz. *
+   918→                </label>
+   919→              </div>
+   920→
+   921→              <Button
+   922→                type="submit"
+   923→                className="w-full h-12 bg-[#006233] hover:bg-[#004d28] text-white font-semibold text-base shadow-md hover:shadow-lg transition-all"
+   924→                disabled={isLoading || !formData.acceptTerms}
+   925→              >
+   926→                {isLoading ? (
+   927→                  <>
+   928→                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+   929→                    Création du compte...
+   930→                  </>
+   931→                ) : (
+   932→                  <>
+   933→                    Créer mon Compte {role === "SUPPLIER" ? "Fournisseur" : "Acheteur"}
+   934→                    <ArrowRight className="ml-2 h-5 w-5" />
+   935→                  </>
+   936→                )}
+   937→              </Button>
+   938→
+   939→              <p className="text-center text-xs text-gray-400">
+   940→                En créant un compte, vous acceptez de recevoir des communications de notre part
+   941→              </p>
+   942→            </CardContent>
+   943→          </Card>
+   944→        </form>
+   945→
+   946→        {/* Login Link */}
+   947→        <Card className="shadow-sm border-0 bg-white/60 backdrop-blur-sm">
+   948→          <CardContent className="py-4">
+   949→            <p className="text-center text-sm text-gray-600">
+   950→              Vous avez déjà un compte ?{" "}
+   951→              <Link
+   952→                href="/login"
+   953→                className="text-[#006233] font-semibold hover:text-[#004d28] hover:underline transition-colors"
+   954→              >
+   955→                Connectez-vous ici
+   956→              </Link>
+   957→            </p>
+   958→          </CardContent>
+   959→        </Card>
+   960→
+   961→        {/* Back to Home */}
+   962→        <p className="text-center mt-4">
+   963→          <Link
+   964→            href="/"
+   965→            className="text-sm text-gray-400 hover:text-[#006233] transition-colors inline-flex items-center gap-1"
+   966→          >
+   967→            ← Retour à l&apos;accueil
+   968→          </Link>
+   969→        </p>
+   970→      </div>
+   971→    </div>
+   972→  );
+   973→}
+   974→

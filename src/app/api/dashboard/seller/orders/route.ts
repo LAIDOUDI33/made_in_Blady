@@ -1,16 +1,40 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 
-// GET /api/dashboard/seller/orders - List orders for current supplier
+// GET /api/dashboard/seller/orders - List orders for current supplier (authenticated)
 export async function GET(request: NextRequest) {
+  // Authenticate and get user's company
+  const session = await getServerSession(authOptions);
+  
+  if (!session?.user?.id) {
+    return NextResponse.json(
+      { success: false, error: 'Authentication required' },
+      { status: 401 }
+    );
+  }
+
+  // Get user's company ID
+  const user = await db.user.findUnique({
+    where: { id: session.user.id },
+    include: { company: true }
+  });
+
+  if (!user?.company) {
+    return NextResponse.json(
+      { success: false, error: 'No company associated with this account' },
+      { status: 403 }
+    );
+  }
+
+  const companyId = user.company.id;
+
   try {
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
     const status = searchParams.get('status');
-    
-    // In production, get company ID from auth session
-    const companyId = 'mock-company-id';
 
     const where: Record<string, unknown> = { companyId };
     
@@ -73,8 +97,31 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// PATCH /api/dashboard/seller/orders - Update order status
+// PATCH /api/dashboard/seller/orders - Update order status (authenticated)
 export async function PATCH(request: NextRequest) {
+  // Authenticate
+  const session = await getServerSession(authOptions);
+  
+  if (!session?.user?.id) {
+    return NextResponse.json(
+      { success: false, error: 'Authentication required' },
+      { status: 401 }
+    );
+  }
+
+  // Get user's company
+  const user = await db.user.findUnique({
+    where: { id: session.user.id },
+    include: { company: true }
+  });
+
+  if (!user?.company) {
+    return NextResponse.json(
+      { success: false, error: 'No company associated with this account' },
+      { status: 403 }
+    );
+  }
+
   try {
     const body = await request.json();
     const { id, status } = body;
@@ -109,8 +156,8 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    // Check if this supplier owns the order
-    if (currentOrder.companyId !== 'mock-company-id') { // In production, use auth session
+    // Verify this supplier owns the order
+    if (currentOrder.companyId !== user.company.id) {
       return NextResponse.json(
         { success: false, error: 'Non autorisé à modifier cette commande' },
         { status: 403 }
@@ -135,6 +182,19 @@ export async function PATCH(request: NextRequest) {
       where: { id },
       data: { status },
     });
+
+    // Audit log for status change
+    await db.auditLog.create({
+      data: {
+        userId: session.user.id,
+        action: 'UPDATE_ORDER_STATUS',
+        resource: 'order',
+        resourceId: id,
+        oldValue: JSON.stringify({ status: currentOrder.status }),
+        newValue: JSON.stringify({ status }),
+        ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
+      }
+    }).catch(() => {}); // Don't fail if audit logging fails
 
     return NextResponse.json({
       success: true,

@@ -1,0 +1,1561 @@
+     1→/**
+     2→ * AlgeriaTrade.dz - Web Application Firewall (WAF)
+     3→ * 
+     4→ * Enterprise-grade WAF implementation providing:
+     5→ * - SQL Injection detection and prevention
+     6→ * - XSS (Cross-Site Scripting) protection
+     7→ * - CSRF (Cross-Site Request Forgery) tokens
+     8→ * - Path Traversal prevention
+     9→ * - Command Injection detection
+    10→ * - Request size limiting
+    11→ * - IP-based access control
+    12→ * - Bot detection and mitigation
+    13→ * - Geographic blocking
+    14→ * - Rate limiting integration
+    15→ * - Custom rule engine
+    16→ * - Security logging and alerting
+    17→ */
+    18→
+    19→// ===========================================
+    20→// Types & Interfaces
+    21→// ===========================================
+    22→
+    23→export interface WAFRequest {
+    24→  id: string;
+    25→  timestamp: string;
+    26→  method: string;
+    27→  url: string;
+    28→  headers: Record<string, string>;
+    29→  query: Record<string, string>;
+    30→  body?: any;
+    31→  ip: string;
+    32→  userAgent: string;
+    33→  countryCode?: string;
+    34→  contentType?: string;
+    35→  contentLength?: number;
+    36→}
+    37→
+    38→export interface WAFResponse {
+    39→  allowed: boolean;
+    40→  blocked: boolean;
+    41→  statusCode: number;
+    42→  reason?: string;
+    43→  ruleId?: string;
+    44→  ruleName?: string;
+    45→  action: 'allow' | 'block' | 'challenge' | 'rate_limit' | 'captcha';
+    46→  severity: 'low' | 'medium' | 'high' | 'critical';
+    47→  metadata?: Record<string, any>;
+    48→}
+    49→
+    50→export interface WAFFirewallRule {
+    51→  id: string;
+    52→  name: string;
+    53→  description: string;
+    54→  enabled: boolean;
+    55→  priority: number; // Higher = checked first
+    56→  action: 'allow' | 'block' | 'challenge' | 'log' | 'captcha';
+    57→  
+    58→  // Conditions (AND logic)
+    59→  conditions: Array<{
+    60→    field: 'url' | 'headers' | 'query' | 'body' | 'ip' | 'userAgent' | 'country' | 'method' | 'contentType';
+    61→    operator: 'equals' | 'contains' | 'matches' | 'startsWith' | 'endsWith' | 'in' | 'notIn' | 'exists' | 'notExists' | 'sizeGreaterThan' | 'sizeLessThan';
+    62→    value: any;
+    63→    caseSensitive?: boolean;
+    64→  }>;
+    65→  
+    66→  // Metadata
+    67→  category: 'sqli' | 'xss' | 'csrf' | 'path_traversal' | 'cmd_injection' | 'ssrf' | 'bot' | 'rate_limit' | 'geo' | 'ip_access' | 'custom';
+    68→  severity: 'info' | 'low' | 'medium' | 'high' | 'critical';
+    69→  tags: string[];
+    70→  
+    71→  // Rate limiting (for rate_limit action)
+    72→  rateLimit?: {
+    73→    windowMs: number;
+    74→    maxRequests: number;
+    75→  };
+    76→  
+    77→  // Statistics
+    78→  hits: number;
+    79→  lastTriggered?: string;
+    80→  createdAt: string;
+    81→  updatedAt: string;
+    82→}
+    83→
+    84→export interface WAFStatistics {
+    85→  totalRequests: number;
+    86→  blockedRequests: number;
+    87→  challengedRequests: number;
+    88→  allowedRequests: number;
+    89→  topBlockedIPs: Array<{ ip: string; count: number; reason: string }>;
+    90→  topAttackedEndpoints: Array<{ endpoint: string; count: number }>;
+    91→  attackTypes: Record<string, number>;
+    92→  requestsByCountry: Record<string, number>;
+    93→  averageResponseTime: number;
+    94→  timestamp: string;
+    95→}
+    96→
+    97→export interface WAFConfig {
+    98→  enabled: boolean;
+    99→  mode: 'detect' | 'prevent' | 'learning'; // detect = log only, prevent = block, learning = learn patterns
+   100→  
+   101→  // Global settings
+   102→  maxRequestBodySize: number; // bytes
+   103→  maxUrlLength: number;
+   104→  maxHeaderSize: number;
+   105→  maxHeadersCount: number;
+   106→  
+   107→  // Protection toggles
+   108→  protections: {
+   109→    sqlInjection: boolean;
+   110→    xss: boolean;
+   111→    csrf: boolean;
+   112→    pathTraversal: boolean;
+   113→    commandInjection: boolean;
+   114→    ssrf: boolean;
+   115→    botDetection: boolean;
+   116→    rateLimiting: boolean;
+   117→    geoBlocking: boolean;
+   118→    ipReputation: boolean;
+   119→  };
+   120→  
+   121→  // CSRF settings
+   122→  csrf: {
+   123→    enabled: boolean;
+   124→    tokenLength: number;
+   125→    headerName: string;
+   126→    cookieName: string;
+   127→    cookieOptions: {
+   128→      httpOnly: boolean;
+   129→      secure: boolean;
+   130→      sameSite: 'strict' | 'lax' | 'none';
+   131→      domain?: string;
+   132→      path?: string;
+   133→    };
+   134→    exemptMethods: string[];
+   135→    exemptPaths: RegExp[];
+   136→  };
+   137→  
+   138→  // Rate limiting
+   139→  rateLimiting: {
+   140→    enabled: boolean;
+   141→    globalWindowMs: number;
+   142→    globalMaxRequests: number;
+   143→    perIPEWindowMs: number;
+   144→    perIPMaxRequests: number;
+   145→    perEndpointEnabled: boolean;
+   146→    perEndpointLimits: Array<{
+   147→      pattern: RegExp;
+   148→      windowMs: number;
+   149→      maxRequests: number;
+   150→    }>;
+   151→  };
+   152→  
+   153→  // Bot detection
+   154→  botDetection: {
+   155→    enabled: boolean;
+   156→    blockKnownBots: boolean;
+   157→    challengeSuspiciousBots: boolean;
+   158→    scoreThreshold: number; // 0-100, higher = more likely bot
+   159→    userAgentAnalysis: boolean;
+   160→    behaviorAnalysis: boolean;
+   161→  };
+   162→  
+   163→  // Geographic rules
+   164→  geoRules: Array<{
+   165→    countries: string[]; // ISO 3166-1 alpha-2 codes
+   166→    action: 'allow' | 'block' | 'challenge';
+   167→    excludePaths?: RegExp[];
+   168→  }>;
+   169→  
+   170→  // IP lists
+   171→  ipAllowlist: string[];
+   172→  ipBlocklist: string[];
+   173→  
+   174→  // Logging
+   175→  logging: {
+   176→    enabled: boolean;
+   177→    logAllowedRequests: boolean;
+   178→    logBlockedRequests: boolean;
+   179→    logRequestHeaders: boolean;
+   180→    logRequestBody: boolean;
+   181→    sensitiveFields: string[]; // Fields to mask in logs
+   182→  };
+   183→  
+   184→  // Alerting
+   185→  alerting: {
+   186→    enabled: boolean;
+   187→    onBlock: boolean;
+   188→    onCriticalAttack: boolean;
+   189→    onRateLimitExceeded: boolean;
+   190→    threshold: number; // Alert after N blocked requests in window
+   191→  };
+   192→}
+   193→
+   194→// ===========================================
+   195→// Default Configuration
+   196→// ===========================================
+   197→
+   198→const DEFAULT_CONFIG: WAFConfig = {
+   199→  enabled: true,
+   200→  mode: 'prevent',
+   201→  
+   202→  maxRequestBodySize: 10 * 1024 * 1024, // 10MB
+   203→  maxUrlLength: 2048,
+   204→  maxHeaderSize: 8192,
+   205→  maxHeadersCount: 100,
+   206→  
+   207→  protections: {
+   208→    sqlInjection: true,
+   209→    xss: true,
+   210→    csrf: true,
+   211→    pathTraversal: true,
+   212→    commandInjection: true,
+   213→    ssrf: true,
+   214→    botDetection: true,
+   215→    rateLimiting: true,
+   216→    geoBlocking: false, // Disabled by default
+   217→    ipReputation: true,
+   218→  },
+   219→  
+   220→  csrf: {
+   221→    enabled: true,
+   222→    tokenLength: 32,
+   223→    headerName: 'X-CSRF-Token',
+   224→    cookieName: '_csrf_token',
+   225→    cookieOptions: {
+   226→      httpOnly: false, // Need JS access for AJAX
+   227→      secure: process.env.NODE_ENV === 'production',
+   228→      sameSite: 'strict',
+   229→      path: '/',
+   230→    },
+   231→    exemptMethods: ['GET', 'HEAD', 'OPTIONS'],
+   232→    exemptPaths: [/^\/api\/public\//, /^\/webhook/],
+   233→  },
+   234→  
+   235→  rateLimiting: {
+   236→    enabled: true,
+   237→    globalWindowMs: 60 * 1000, // 1 minute
+   238→    globalMaxRequests: 1000, // Per IP
+   239→    perIPEWindowMs: 60 * 1000,
+   240→    perIPMaxRequests: 200,
+   241→    perEndpointEnabled: true,
+   242→    perEndpointLimits: [
+   243→      { pattern: /^\/api\/auth\/login/, windowMs: 15 * 60 * 1000, maxRequests: 10 }, // 10 login attempts per 15 min
+   244→      { pattern: /^\/api\/auth\/register/, windowMs: 60 * 60 * 1000, maxRequests: 5 }, // 5 registrations per hour
+   245→      { pattern: /^\/api\/(rfq|orders|payments)/, windowMs: 60 * 1000, maxRequests: 60 }, // 60 actions per minute
+   246→      { pattern: /^\/api\/search/, windowMs: 60 * 1000, maxRequests: 120 }, // 120 searches per minute
+   247→    ],
+   248→  },
+   249→  
+   250→  botDetection: {
+   251→    enabled: true,
+   252→    blockKnownBots: true,
+   253→    challengeSuspiciousBots: true,
+   254→    scoreThreshold: 70,
+   255→    userAgentAnalysis: true,
+   256→    behaviorAnalysis: true,
+   257→  },
+   258→  
+   259→  geoRules: [],
+   260→  ipAllowlist: [],
+   261→  ipBlocklist: [],
+   262→  
+   263→  logging: {
+   264→    enabled: true,
+   265→    logAllowedRequests: false,
+   266→    logBlockedRequests: true,
+   267→    logRequestHeaders: true,
+   268→    logRequestBody: false,
+   269→    sensitiveFields: ['password', 'token', 'secret', 'apiKey', 'creditCard', 'cvv'],
+   270→  },
+   271→  
+   272→  alerting: {
+   273→    enabled: true,
+   274→    onBlock: false,
+   275→    onCriticalAttack: true,
+   276→    onRateLimitExceeded: true,
+   277→    threshold: 50, // Alert after 50 blocks in 5 minutes
+   278→  },
+   279→};
+   280→
+   281→// ===========================================
+   282→// Attack Pattern Definitions
+   283→// ===========================================
+   284→
+   285→const SQL_INJECTION_PATTERNS = [
+   286→  /(\%27)|(\')|(\-\-)|(\%23)|(#)/i,
+   287→  /((\%3D)|(=))[^\n]*((\%27)|(\')|(\-\-)|(\%3B)|(;))/i,
+   288→  /\w*((\%27)|(\'))((\%6F)|o|(\%4F))((\%72)|r|(\%52))/i,
+   289→  /((\%27)|(\'))union/i,
+   290→  /exec(\s|\+)+(insert|update|delete|select|create|alter|drop|exec)/i,
+   291→  /((\%3C)|<)[^\n]+((\%3E)|>)/i, // Basic SQL injection in XML
+   292→];
+   293→
+   294→const XSS_PATTERNS = [
+   295→  /((\%3C)|<)[^\n]+((\%3E)|>)/i, // Basic script tag
+   296→  /javascript:/i,
+   297→  /on(error|load|click|mouseover|focus|blur|submit|change|key|mouse|touch)/i,
+   298→  /((\%3C)|<).*script/i,
+   299→  /eval\s*\(/i,
+   300→  /document\.cookie/i,
+   301→  /document\.write/i,
+   302→  /expression\s*\(/i,
+   303→  /vbscript:/i,
+   304→  /data:\s*text\/html/i,
+   305→];
+   306→
+   307→const PATH_TRAVERSAL_PATTERNS = [
+   308→  /\.\.\//,
+   309→  /\.\.\\/,
+   310→  /%2e%2e[\/\\]/i,
+   311→  /%252e%252e/i,
+   312→  /..%c0%af/i,
+   313→  /..%c1%9c/i,
+   314→  /\/etc\/passwd/i,
+   315→  /\/etc\/shadow/i,
+   316→  /\/proc\/self/i,
+   317→  /windows\\system32/i,
+   318→];
+   319→
+   320→const COMMAND_INJECTION_PATTERNS = [
+   321→  /;\s*(ls|cat|wget|curl|nc|netcat|bash|sh|python|perl|ruby|php|whoami|id|uname)/i,
+   322→  /\|(.*?)(ls|cat|wget|curl|nc|bash|sh|python|perl|ruby|php)/i,
+   323→  /`[^`]*`/,
+   324→  /\$\([^)]*\)/i,
+   325→  /&&\s*(rm|del|format|shutdown|reboot)/i,
+   326→  /\$\{.*\}/i,
+   327→];
+   328→
+   329→const SSRF_PATTERNS = [
+   330→  /localhost/i,
+   331→  /127\.0\.0\.1/i,
+   332→  /\[::1\]/i,
+   333→  /0177\.0\.0\.1/i,
+   334→  /2130706433/i,
+   335→  /0x7f000001/i,
+   336→  /169\.254\.\d+\.\d+/i, // Link-local
+   337→  /10\.\d+\.\d+\.\d+/, // Private RFC1918
+   338→  /172\.(1[6-9]|2\d|3[01])\.\d+\.\d+/, // Private RFC1918
+   339→  /192\.168\.\d+\.\d+/, // Private RFC1918
+   340→  /metadata\.google\.internal/i,
+   341→  /169\.254\.169\.254/i, // AWS/GCP/Azure metadata
+   342→];
+   343→
+   344→const KNOWN_BOT_USER_AGENTS = [
+   345→  /bot/i,
+   346→  /crawler/i,
+   347→  /spider/i,
+   348→  /scraper/i,
+   349→  /harvest/i,
+   350→  /fetch/i,
+   351→  /curl/i,
+   352→  /wget/i,
+   353→  /python-requests/i,
+   354→  /go-http-client/i,
+   355→  /java\/\d/i,
+   356→  /apache-httpclient/i,
+   357→  /httpclient/i,
+   358→  /scrapy/i,
+   359→  /selenium/i,
+   360→  /phantomjs/i,
+   361→  /headless/i,
+   362→  /chrome\/lighthouse/i,
+   363→];
+   364→
+   365→const SUSPICIOUS_USER_AGENTS = [
+   366→  /^\s*$/, // Empty user agent
+   367→  /^-$/, // Single dash
+   368→  /^<.*>$/, // HTML-like user agent
+   369→  /^[^a-zA-Z]/, // Doesn't start with letter
+   370→  /.{500,}/, // Very long user agent
+   371→];
+   372→
+   373→// ===========================================
+   374→// Main WAF Class
+   375→// ===========================================
+   376→
+   377→class WebApplicationFirewall {
+   378→  private config: WAFConfig;
+   379→  private customRules: Map<string, WAFFirewallRule> = new Map();
+   380→  private statistics: WAFStatistics;
+   381→  private rateLimitStore: Map<string, { count: number; resetTime: number }> = new Map();
+   382→  private blockedIPs: Map<string, { until: number; reason: string }> = new Map();
+   383→  private captchaChallenges: Map<string, { challenge: string; expires: number }> = new Map();
+   384→
+   385→  constructor(config?: Partial<WAFConfig>) {
+   386→    this.config = { ...DEFAULT_CONFIG, ...config };
+   387→    
+   388→    this.statistics = {
+   389→      totalRequests: 0,
+   390→      blockedRequests: 0,
+   391→      challengedRequests: 0,
+   392→      allowedRequests: 0,
+   393→      topBlockedIPs: [],
+   394→      topAttackedEndpoints: [],
+   395→      attackTypes: {},
+   396→      requestsByCountry: {},
+   397→      averageResponseTime: 0,
+   398→      timestamp: new Date().toISOString(),
+   399→    };
+   400→
+   401→    // Load built-in rules
+   402→    this.loadBuiltInRules();
+   403→  }
+   404→
+   405→  /**
+   406→   * Main request inspection method
+   407→   */
+   408→  async inspectRequest(request: Partial<WAFRequest>): Promise<WAFResponse> {
+   409→    const startTime = Date.now();
+   410→    
+   411→    // Build complete request object
+   412→    const wafRequest: WAFRequest = {
+   413→      id: this.generateRequestId(),
+   414→      timestamp: new Date().toISOString(),
+   415→      method: request.method || 'GET',
+   416→      url: request.url || '/',
+   417→      headers: request.headers || {},
+   418→      query: request.query || {},
+   419→      body: request.body,
+   420→      ip: request.ip || 'unknown',
+   421→      userAgent: request.userAgent || '',
+   422→      contentType: request.contentType,
+   423→      contentLength: request.contentLength,
+   424→    };
+   425→
+   426→    // Update statistics
+   427→    this.statistics.totalRequests++;
+   428→
+   429→    // Quick checks first (fastest to evaluate)
+   430→    
+   431→    // 1. Check if WAF is enabled
+   432→    if (!this.config.enabled) {
+   433→      return this.createResponse('allow', wafRequest, startTime);
+   434→    }
+   435→
+   436→    // 2. IP Allowlist/Blocklist check
+   437→    const ipCheck = this.checkIPAccess(wafRequest);
+   438→    if (!ipCheck.allowed) {
+   439→      return ipCheck.response!;
+   440→    }
+   441→
+   442→    // 3. Check if IP is temporarily blocked
+   443→    const tempBlockCheck = this.checkTemporaryBlock(wafRequest);
+   444→    if (!tempBlockCheck.allowed) {
+   445→      return tempBlockCheck.response!;
+   446→    }
+   447→
+   448→    // 4. Size validations
+   449→    const sizeCheck = this.checkRequestSizes(wafRequest);
+   450→    if (!sizeCheck.allowed) {
+   451→      return sizeCheck.response!;
+   452→    }
+   453→
+   454→    // 5. Geographic blocking
+   455→    if (this.config.protections.geoBlocking && this.config.geoRules.length > 0) {
+   456→      const geoCheck = this.checkGeoRules(wafRequest);
+   457→      if (!geoCheck.allowed) {
+   458→        return geoCheck.response!;
+   459→      }
+   460→    }
+   461→
+   462→    // 6. Bot detection
+   463→    if (this.config.protections.botDetection && this.config.botDetection.enabled) {
+   464→      const botCheck = this.checkBotDetection(wafRequest);
+   465→      if (!botCheck.allowed) {
+   466→        return botCheck.response!;
+   467→      }
+   468→    }
+   469→
+   470→    // 7. Rate limiting
+   471→    if (this.config.protections.rateLimiting && this.config.rateLimiting.enabled) {
+   472→      const rateLimitCheck = this.checkRateLimit(wafRequest);
+   473→      if (!rateLimitCheck.allowed) {
+   474→        return rateLimitCheck.response!;
+   475→      }
+   476→    }
+   477→
+   478→    // 8. Attack pattern detection (order matters for performance)
+   479→    
+   480→    // SQL Injection
+   481→    if (this.config.protections.sqlInjection) {
+   482→      const sqliCheck = this.checkSQLInjection(wafRequest);
+   483→      if (!sqliCheck.allowed) {
+   484→        return sqliCheck.response!;
+   485→      }
+   486→    }
+   487→
+   488→    // XSS
+   489→    if (this.config.protections.xss) {
+   490→      const xssCheck = this.checkXSS(wafRequest);
+   491→      if (!xssCheck.allowed) {
+   492→        return xssCheck.response!;
+   493→      }
+   494→    }
+   495→
+   496→    // Path Traversal
+   497→    if (this.config.protections.pathTraversal) {
+   498→      const pathCheck = this.checkPathTraversal(wafRequest);
+   499→      if (!pathCheck.allowed) {
+   500→        return pathCheck.response!;
+   501→      }
+   502→    }
+   503→
+   504→    // Command Injection
+   505→    if (this.config.protections.commandInjection) {
+   506→      const cmdCheck = this.checkCommandInjection(wafRequest);
+   507→      if (!cmdCheck.allowed) {
+   508→        return cmdCheck.response!;
+   509→      }
+   510→    }
+   511→
+   512→    // SSRF
+   513→    if (this.config.protections.ssrf) {
+   514→      const ssrfCheck = this.checkSSRF(wafRequest);
+   515→      if (!ssrfCheck.allowed) {
+   516→        return ssrfCheck.response!;
+   517→      }
+   518→    }
+   519→
+   520→    // 9. CSRF Token validation (for state-changing requests)
+   521→    if (this.config.protections.csrf && this.config.csrf.enabled) {
+   522→      const csrfCheck = this.checkCSRF(wafRequest);
+   523→      if (!csrfCheck.allowed) {
+   524→        return csrfCheck.response!;
+   525→      }
+   526→    }
+   527→
+   528→    // 10. Custom rules evaluation
+   529→    for (const [ruleId, rule] of this.customRules) {
+   530→      if (rule.enabled && this.evaluateRule(rule, wafRequest)) {
+   531→        return this.handleRuleMatch(rule, wafRequest, startTime);
+   532→      }
+   533→    }
+   534→
+   535→    // Request passed all checks
+   536→    return this.createResponse('allow', wafRequest, startTime);
+   537→  }
+   538→
+   539→  // ===========================================
+   540→  // CSRF Token Management
+   541→  // ===========================================
+   542→
+   543→  generateCSRFToken(): string {
+   544→    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+   545→    let token = '';
+   546→    for (let i = 0; i < this.config.csrf.tokenLength; i++) {
+   547→      token += chars.charAt(Math.floor(Math.random() * chars.length));
+   548→    }
+   549→    return token;
+   550→  }
+   551→
+   552→  validateCSRFToken(token: string, sessionToken?: string): boolean {
+   553→    if (!token) return false;
+   554→    
+   555→    // In production, compare against server-stored token
+   556→    // For now, validate format
+   557→    return token.length === this.config.csrf.tokenLength && /^[A-Za-z0-9]+$/.test(token);
+   558→  }
+   559→
+   560→  getCSRFCookieOptions(): CookieOptions {
+   561→    return this.config.csrf.cookieOptions;
+   562→  }
+   563→
+   564→  // ===========================================
+   565→  // CAPTCHA Challenge Management
+   566→  // ===========================================
+   567→
+   568→  generateCaptchaChallenge(ip: string): { challengeId: string; imageData: string } {
+   569→    const challengeId = `captcha_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
+   570→    const challenge = Math.random().toString(36).substring(2, 8); // Simple numeric captcha
+   571→    
+   572→    this.captchaChallenges.set(challengeId, {
+   573→      challenge,
+   574→      expires: Date.now() + 5 * 60 * 1000, // 5 minutes
+   575→    });
+   576→
+   577→    // In production, generate actual image
+   578→    return {
+   579→      challengeId,
+   580→      imageData: `data:image/svg+xml;base64,${Buffer.from(
+   581→        `<svg xmlns="http://www.w3.org/2000/svg" width="200" height="80">
+   582→          <text x="10" y="50" font-family="monospace" font-size="40" fill="#333">${challenge}</text>
+   583→        </svg>`
+   584→      ).toString('base64')}`,
+   585→    };
+   586→  }
+   587→
+   588→  validateCaptcha(challengeId: string, answer: string): boolean {
+   589→    const stored = this.captchaChallenges.get(challengeId);
+   590→    
+   591→    if (!stored || Date.now() > stored.expires) {
+   592→      this.captchaChallenges.delete(challengeId);
+   593→      return false;
+   594→    }
+   595→
+   596→    const valid = stored.challenge === answer.toLowerCase();
+   597→    this.captchaChallenges.delete(challengeId);
+   598→    
+   599→    return valid;
+   600→  }
+   601→
+   602→  // ===========================================
+   603→  // Rule Management
+   604→  // ===========================================
+   605→
+   606→  addRule(rule: Omit<WAFFirewallRule, 'id' | 'hits' | 'createdAt' | 'updatedAt'>): WAFFirewallRule {
+   607→    const newRule: WAFFirewallRule = {
+   608→      ...rule,
+   609→      id: `rule_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
+   610→      hits: 0,
+   611→      createdAt: new Date().toISOString(),
+   612→      updatedAt: new Date().toISOString(),
+   613→    };
+   614→
+   615→    this.customRules.set(newRule.id, newRule);
+   616→    return newRule;
+   617→  }
+   618→
+   619→  removeRule(ruleId: string): boolean {
+   620→    return this.customRules.delete(ruleId);
+   621→  }
+   622→
+   623→  updateRule(ruleId: string, updates: Partial<Omit<WAFFirewallRule, 'id' | 'createdAt'>>): WAFFirewallRule | null {
+   624→    const rule = this.customRules.get(ruleId);
+   625→    if (!rule) return null;
+   626→
+   627→    Object.assign(rule, updates, { updatedAt: new Date().toISOString() });
+   628→    return rule;
+   629→  }
+   630→
+   631→  getRules(): WAFFirewallRule[] {
+   632→    return Array.from(this.customRules.values()).sort((a, b) => b.priority - a.priority);
+   633→  }
+   634→
+   635→  getRule(ruleId: string): WAFFirewallRule | undefined {
+   636→    return this.customRules.get(ruleId);
+   637→  }
+   638→
+   639→  enableRule(ruleId: string): boolean {
+   640→    const rule = this.customRules.get(ruleId);
+   641→    if (rule) {
+   642→      rule.enabled = true;
+   643→      rule.updatedAt = new Date().toISOString();
+   644→      return true;
+   645→    }
+   646→    return false;
+   647→  }
+   648→
+   649→  disableRule(ruleId: string): boolean {
+   650→    const rule = this.customRules.get(ruleId);
+   651→    if (rule) {
+   652→      rule.enabled = false;
+   653→      rule.updatedAt = new Date().toISOString();
+   654→      return true;
+   655→    }
+   656→    return false;
+   657→  }
+   658→
+   659→  // ===========================================
+   660→  // IP Management
+   661→  // ===========================================
+   662→
+   663→  blockIP(ip: string, durationMinutes: number = 60, reason: string = 'Manual block'): void {
+   664→    this.blockedIPs.set(ip, {
+   665→      until: Date.now() + durationMinutes * 60 * 1000,
+   666→      reason,
+   667→    });
+   668→  }
+   669→
+   670→  unblockIP(ip: string): void {
+   671→    this.blockedIPs.delete(ip);
+   672→  }
+   673→
+   674→  isIPBlocked(ip: string): boolean {
+   675→    const blocked = this.blockedIPs.get(ip);
+   676→    return blocked !== undefined && blocked.until > Date.now();
+   677→  }
+   678→
+   679→  addToAllowlist(ip: string): void {
+   680→    if (!this.config.ipAllowlist.includes(ip)) {
+   681→      this.config.ipAllowlist.push(ip);
+   682→    }
+   683→  }
+   684→
+   685→  removeFromAllowlist(ip: string): void {
+   686→    const index = this.config.ipAllowlist.indexOf(ip);
+   687→    if (index > -1) {
+   688→      this.config.ipAllowlist.splice(index, 1);
+   689→    }
+   690→  }
+   691→
+   692→  addToBlocklist(ip: string): void {
+   693→    if (!this.config.ipBlocklist.includes(ip)) {
+   694→      this.config.ipBlocklist.push(ip);
+   695→    }
+   696→  }
+   697→
+   698→  removeFromBlocklist(ip: string): void {
+   699→    const index = this.config.ipBlocklist.indexOf(ip);
+   700→    if (index > -1) {
+   701→      this.config.ipBlocklist.splice(index, 1);
+   702→    }
+   703→  }
+   704→
+   705→  // ===========================================
+   706→  // Statistics & Reporting
+   707→  // ===========================================
+   708→
+   709→  getStatistics(): WAFStatistics {
+   710→    return { ...this.statistics };
+   711→  }
+   712→
+   713→  resetStatistics(): void {
+   714→    this.statistics = {
+   715→      totalRequests: 0,
+   716→      blockedRequests: 0,
+   717→      challengedRequests: 0,
+   718→      allowedRequests: 0,
+   719→      topBlockedIPs: [],
+   720→      topAttackedEndpoints: [],
+   721→      attackTypes: {},
+   722→      requestsByCountry: {},
+   723→      averageResponseTime: 0,
+   724→      timestamp: new Date().toISOString(),
+   725→    };
+   726→  }
+   727→
+   728→  getBlockedIPs(limit: number = 50): Array<{ ip: string; until: number; reason: string }> {
+   729→    const now = Date.now();
+   730→    return Array.from(this.blockedIPs.entries())
+   731→      .filter(([_, block]) => block.until > now)
+   732→      .map(([ip, block]) => ({ ip, ...block }))
+   733→      .sort((a, b) => a.until - b.until)
+   734→      .slice(0, limit);
+   735→  }
+   736→
+   737→  getActiveRateLimitEntries(): Array<{ key: string; count: number; resetTime: number; max: number }> {
+   738→    const now = Date.now();
+   739→    return Array.from(this.rateLimitStore.entries())
+   740→      .filter(([_, entry]) => entry.resetTime > now)
+   741→      .map(([key, entry]) => ({ key, ...entry }));
+   742→  }
+   743→
+   744→  exportLogs(since: Date): Array<{ request: WAFRequest; response: WAFResponse; duration: number }> {
+   745→    // In production, would query from database/log store
+   746→    console.warn('[WAF] Export logs not implemented - would need persistent storage');
+   747→    return [];
+   748→  }
+   749→
+   750→  // ===========================================
+   751→  // Configuration Management
+   752→  // ===========================================
+   753→
+   754→  getConfig(): WAFConfig {
+   755→    return { ...this.config };
+   756→  }
+   757→
+   758→  updateConfig(updates: Partial<WAFConfig>): void {
+   759→    this.config = { ...this.config, ...updates };
+   760→  }
+   761→
+   762→  setMode(mode: 'detect' | 'prevent' | 'learning'): void {
+   763→    this.config.mode = mode;
+   764→  }
+   765→
+   766→  enableProtection(protection: keyof WAFConfig['protections']): void {
+   767→    this.config.protections[protection] = true;
+   768→  }
+   769→
+   770→  disableProtection(protection: keyof WAFConfig['protections']): void {
+   771→    this.config.protections[protection] = false;
+   772→  }
+   773→
+   774→  // ===========================================
+   775→  // Private Methods - Checks
+   776→  // ===========================================
+   777→
+   778→  private checkIPAccess(request: WAFRequest): { allowed: boolean; response?: WAFResponse } {
+   779→    // Check allowlist first
+   780→    if (this.config.ipAllowlist.length > 0 && this.config.ipAllowlist.includes(request.ip)) {
+   781→      return { allowed: true };
+   782→    }
+   783→
+   784→    // Check blocklist
+   785→    if (this.config.ipBlocklist.includes(request.ip)) {
+   786→      return {
+   787→        allowed: false,
+   788→        response: this.createResponse('block', request, Date.now(), {
+   789→          reason: 'IP address is on blocklist',
+   790→          ruleId: 'ip_blocklist',
+   791→          ruleName: 'IP Blocklist',
+   792→          severity: 'high',
+   793→        }),
+   794→      };
+   795→    }
+   796→
+   797→    return { allowed: true };
+   798→  }
+   799→
+   800→  private checkTemporaryBlock(request: WAFRequest): { allowed: boolean; response?: WAFResponse } {
+   801→    if (this.isIPBlocked(request.ip)) {
+   802→      const blockInfo = this.blockedIPs.get(request.ip)!;
+   803→      return {
+   804→        allowed: false,
+   805→        response: this.createResponse('block', request, Date.now(), {
+   806→          reason: `Temporarily blocked: ${blockInfo.reason}`,
+   807→          ruleId: 'temp_block',
+   808→          ruleName: 'Temporary Block',
+   809→          severity: 'high',
+   810→        }),
+   811→      };
+   812→    }
+   813→
+   814→    return { allowed: true };
+   815→  }
+   816→
+   817→  private checkRequestSizes(request: WAFRequest): { allowed: boolean; response?: WAFResponse } {
+   818→    if (request.url.length > this.config.maxUrlLength) {
+   819→      return {
+   820→        allowed: false,
+   821→        response: this.createResponse('block', request, Date.now(), {
+   822→          reason: `URL exceeds maximum length (${this.config.maxUrlLength})`,
+   823→          ruleId: 'url_size',
+   824→          ruleName: 'URL Size Limit',
+   825→          severity: 'medium',
+   826→        }),
+   827→      };
+   828→    }
+   829→
+   830→    if (request.contentLength && request.contentLength > this.config.maxRequestBodySize) {
+   831→      return {
+   832→        allowed: false,
+   833→        response: this.createResponse('block', request, Date.now(), {
+   834→          reason: `Request body exceeds maximum size (${this.config.maxRequestBodySize} bytes)`,
+   835→          ruleId: 'body_size',
+   836→          ruleName: 'Body Size Limit',
+   837→          severity: 'medium',
+   838→        }),
+   839→      };
+   840→    }
+   841→
+   842→    const headerCount = Object.keys(request.headers).length;
+   843→    if (headerCount > this.config.maxHeadersCount) {
+   844→      return {
+   845→        allowed: false,
+   846→        response: this.createResponse('block', request, Date.now(), {
+   847→          reason: `Too many headers (${headerCount} > ${this.config.maxHeadersCount})`,
+   848→          ruleId: 'header_count',
+   849→          ruleName: 'Header Count Limit',
+   850→          severity: 'low',
+   851→        }),
+   852→      };
+   853→    }
+   854→
+   855→    return { allowed: true };
+   856→  }
+   857→
+   858→  private checkGeoRules(request: WAFRequest): { allowed: boolean; response?: WAFResponse } {
+   859→    if (!request.countryCode) {
+   860→      return { allowed: true }; // Can't determine country, allow
+   861→    }
+   862→
+   863→    for (const rule of this.config.geoRules) {
+   864→      if (rule.countries.includes(request.countryCode)) {
+   865→        // Check exclusions
+   866→        const isExcluded = rule.excludePaths?.some(pattern => pattern.test(request.url));
+   867→        
+   868→        if (!isExcluded) {
+   869→          return {
+   870→            allowed: false,
+   871→            response: this.createResponse(rule.action, request, Date.now(), {
+   872→              reason: `Geographic restriction: ${request.countryCode}`,
+   873→              ruleId: 'geo_rule',
+   874→              ruleName: 'Geographic Blocking',
+   875→              severity: 'medium',
+   876→              metadata: { country: request.countryCode, action: rule.action },
+   877→            }),
+   878→          };
+   879→        }
+   880→      }
+   881→    }
+   882→
+   883→    return { allowed: true };
+   884→  }
+   885→
+   886→  private checkBotDetection(request: WAFRequest): { allowed: boolean; response?: WAFResponse } {
+   887→    const ua = request.userAgent;
+   888→    let botScore = 0;
+   889→
+   890→    // User agent analysis
+   891→    if (this.config.botDetection.userAgentAnalysis) {
+   892→      // Known bots
+   893→      for (const pattern of KNOWN_BOT_USER_AGENTS) {
+   894→        if (pattern.test(ua)) {
+   895→          botScore += 90;
+   896→          break;
+   897→        }
+   898→      }
+   899→
+   900→      // Suspicious user agents
+   901→      for (const pattern of SUSPICIOUS_USER_AGENTS) {
+   902→        if (pattern.test(ua)) {
+   903→          botScore += 40;
+   904→        }
+   905→      }
+   906→    }
+   907→
+   908→    // Behavior analysis would go here (requires session history)
+   909→    // For now, just use UA analysis
+   910→
+   911→    if (botScore >= this.config.botDetection.scoreThreshold) {
+   912→      const action = botScore >= 90 ? 
+   913→        (this.config.blockKnownBots ? 'block' : 'challenge') :
+   914→        (this.config.challengeSuspiciousBots ? 'challenge' : 'allow');
+   915→
+   916→      if (action !== 'allow') {
+   917→        return {
+   918→          allowed: false,
+   919→          response: this.createResponse(action, request, Date.now(), {
+   920→            reason: `Bot detected (score: ${botScore})`,
+   921→            ruleId: 'bot_detection',
+   922→            ruleName: 'Bot Detection',
+   923→            severity: botScore >= 90 ? 'medium' : 'low',
+   924→            metadata: { botScore, userAgent: ua.substring(0, 100) },
+   925→          }),
+   926→        };
+   927→      }
+   928→    }
+   929→
+   930→    return { allowed: true };
+   931→  }
+   932→
+   933→  private checkRateLimit(request: WAFRequest): { allowed: boolean; response?: WAFResponse } {
+   934→    const now = Date.now();
+   935→    const ipKey = `ip:${request.ip}`;
+   936→    const globalKey = `global:${request.ip}`;
+   937→    const endpointKey = `endpoint:${request.method}:${request.ip}:${request.url.split('?')[0]}`;
+   938→
+   939→    // Check global IP limit
+   940→    const globalEntry = this.getOrCreateRateLimitEntry(
+   941→      globalKey,
+   942→      this.config.rateLimiting.perIPEWindowMs,
+   943→      this.config.rateLimiting.perIPMaxRequests
+   944→    );
+   945→
+   946→    if (globalEntry.count > globalEntry.max) {
+   947→      // Auto-block for repeated violations
+   948→      if (globalEntry.count > globalEntry.max * 2) {
+   949→        this.blockIP(request.ip, 30, 'Excessive rate limiting violations');
+   950→      }
+   951→
+   952→      return {
+   953→        allowed: false,
+   954→        response: this.createResponse('rate_limit', request, Date.now(), {
+   955→          reason: 'IP rate limit exceeded',
+   956→          ruleId: 'rate_limit_ip',
+   957→          ruleName: 'IP Rate Limiting',
+   958→          severity: 'low',
+   959→          metadata: { 
+   960→            current: globalEntry.count, 
+   961→            max: globalEntry.max, 
+   962→            resetIn: Math.ceil((globalEntry.resetTime - now) / 1000) 
+   963→          },
+   964→        }),
+   965→      };
+   966→    }
+   967→
+   968→    // Check per-endpoint limits
+   969→    if (this.config.rateLimiting.perEndpointEnabled) {
+   970→      for (const limit of this.config.rateLimiting.perEndpointLimits) {
+   971→        if (limit.pattern.test(request.url)) {
+   972→          const endpointEntry = this.getOrCreateRateLimitEntry(
+   973→            endpointKey,
+   974→            limit.windowMs,
+   975→            limit.maxRequests
+   976→          );
+   977→
+   978→          if (endpointEntry.count > endpointEntry.max) {
+   979→            return {
+   980→              allowed: false,
+   981→              response: this.createResponse('rate_limit', request, Date.now(), {
+   982→                reason: 'Endpoint rate limit exceeded',
+   983→                ruleId: 'rate_limit_endpoint',
+   984→                ruleName: 'Endpoint Rate Limiting',
+   985→                severity: 'low',
+   986→                metadata: {
+   987→                  current: endpointEntry.count,
+   988→                  max: endpointEntry.max,
+   989→                  resetIn: Math.ceil((endpointEntry.resetTime - now) / 1000),
+   990→                  endpoint: request.url.split('?')[0],
+   991→                },
+   992→              }),
+   993→            };
+   994→          }
+   995→          
+   996→          break;
+   997→        }
+   998→      }
+   999→    }
+  1000→
+  1001→    // Increment counters
+  1002→    globalEntry.count++;
+  1003→    endpointKey && this.incrementRateLimit(endpointKey);
+  1004→
+  1005→    return { allowed: true };
+  1006→  }
+  1007→
+  1008→  private checkSQLInjection(request: WAFRequest): { allowed: boolean; response?: WAFResponse } {
+  1009→    const targets = [
+  1010→      request.url,
+  1011→      ...Object.values(request.query),
+  1012→      ...(typeof request.body === 'string' ? [request.body] : 
+  1013→          typeof request.body === 'object' ? Object.values(request.body) : []),
+  1014→      JSON.stringify(request.headers),
+  1015→    ];
+  1016→
+  1017→    for (const target of targets) {
+  1018→      if (typeof target !== 'string') continue;
+  1019→      
+  1020→      for (const pattern of SQL_INJECTION_PATTERNS) {
+  1021→        if (pattern.test(target)) {
+  1022→          return {
+  1023→            allowed: false,
+  1024→            response: this.createResponse(
+  1025→              this.config.mode === 'prevent' ? 'block' : 'challenge',
+  1026→              request,
+  1027→              Date.now(),
+  1028→              {
+  1029→                reason: 'SQL Injection attempt detected',
+  1030→                ruleId: 'sqli_detection',
+  1031→                ruleName: 'SQL Injection Protection',
+  1032→                severity: 'critical',
+  1033→                metadata: { pattern: pattern.toString(), matchedIn: target.substring(0, 100) },
+  1034→              }
+  1035→            ),
+  1036→          };
+  1037→        }
+  1038→      }
+  1039→    }
+  1040→
+  1041→    return { allowed: true };
+  1042→  }
+  1043→
+  1044→  private checkXSS(request: WAFRequest): { allowed: boolean; response?: WAFResponse } {
+  1045→    const targets = [
+  1046→      request.url,
+  1047→      ...Object.values(request.query),
+  1048→      ...(typeof request.body === 'string' ? [request.body] : 
+  1049→          typeof request.body === 'object' ? Object.values(request.body) : []),
+  1050→    ];
+  1051→
+  1052→    for (const target of targets) {
+  1053→      if (typeof target !== 'string') continue;
+  1054→
+  1055→      for (const pattern of XSS_PATTERNS) {
+  1056→        if (pattern.test(target)) {
+  1057→          return {
+  1058→            allowed: false,
+  1059→            response: this.createResponse(
+  1060→              this.config.mode === 'prevent' ? 'block' : 'challenge',
+  1061→              request,
+  1062→              Date.now(),
+  1063→              {
+  1064→                reason: 'XSS attempt detected',
+  1065→                ruleId: 'xss_detection',
+  1066→                ruleName: 'XSS Protection',
+  1067→                severity: 'high',
+  1068→                metadata: { pattern: pattern.toString(), matchedIn: target.substring(0, 100) },
+  1069→              }
+  1070→            ),
+  1071→          };
+  1072→        }
+  1073→      }
+  1074→    }
+  1075→
+  1076→    return { allowed: true };
+  1077→  }
+  1078→
+  1079→  private checkPathTraversal(request: WAFRequest): { allowed: boolean; response?: WAFResponse } {
+  1080→    const targets = [request.url, ...Object.values(request.query)];
+  1081→
+  1082→    for (const target of targets) {
+  1083→      if (typeof target !== 'string') continue;
+  1084→
+  1085→      for (const pattern of PATH_TRAVERSAL_PATTERNS) {
+  1086→        if (pattern.test(target)) {
+  1087→          return {
+  1088→            allowed: false,
+  1089→            response: this.createResponse(
+  1090→              this.config.mode === 'prevent' ? 'block' : 'challenge',
+  1091→              request,
+  1092→              Date.now(),
+  1093→              {
+  1094→                reason: 'Path traversal attempt detected',
+  1095→                ruleId: 'path_traversal',
+  1096→                ruleName: 'Path Traversal Protection',
+  1097→                severity: 'high',
+  1098→                metadata: { pattern: pattern.toString() },
+  1099→              }
+  1100→            ),
+  1101→          };
+  1102→        }
+  1103→      }
+  1104→    }
+  1105→
+  1106→    return { allowed: true };
+  1107→  }
+  1108→
+  1109→  private checkCommandInjection(request: WAFRequest): { allowed: boolean; response?: WAFResponse } {
+  1110→    const targets = [
+  1111→      ...Object.values(request.query),
+  1112→      ...(typeof request.body === 'string' ? [request.body] : 
+  1113→          typeof request.body === 'object' ? Object.values(request.body) : []),
+  1114→    ];
+  1115→
+  1116→    for (const target of targets) {
+  1117→      if (typeof target !== 'string') continue;
+  1118→
+  1119→      for (const pattern of COMMAND_INJECTION_PATTERNS) {
+  1120→        if (pattern.test(target)) {
+  1121→          return {
+  1122→            allowed: false,
+  1123→            response: this.createResponse(
+  1124→              this.config.mode === 'prevent' ? 'block' : 'challenge',
+  1125→              request,
+  1126→              Date.now(),
+  1127→              {
+  1128→                reason: 'Command injection attempt detected',
+  1129→                ruleId: 'cmd_injection',
+  1130→                ruleName: 'Command Injection Protection',
+  1131→                severity: 'critical',
+  1132→                metadata: { pattern: pattern.toString() },
+  1133→              }
+  1134→            ),
+  1135→          };
+  1136→        }
+  1137→      }
+  1138→    }
+  1139→
+  1140→    return { allowed: true };
+  1141→  }
+  1142→
+  1143→  private checkSSRF(request: WAFRequest): { allowed: boolean; response?: WAFResponse } {
+  1144→    // Check URL parameters and body for SSRF patterns
+  1145→    const targets = [
+  1146→      ...Object.values(request.query),
+  1147→      ...(typeof request.body === 'object' ? Object.values(request.body).filter(v => 
+  1148→          typeof v === 'string' && (v.startsWith('http') || v.startsWith('https'))
+  1149→        ) : []),
+  1150→    ];
+  1151→
+  1152→    for (const target of targets) {
+  1153→      if (typeof target !== 'string') continue;
+  1154→
+  1155→      for (const pattern of SSRF_PATTERNS) {
+  1156→        if (pattern.test(target)) {
+  1157→          return {
+  1158→            allowed: false,
+  1159→            response: this.createResponse(
+  1160→              this.config.mode === 'prevent' ? 'block' : 'challenge',
+  1161→              request,
+  1162→              Date.now(),
+  1163→              {
+  1164→                reason: 'Server-Side Request Forgery attempt detected',
+  1165→                ruleId: 'ssrf_detection',
+  1166→                ruleName: 'SSRF Protection',
+  1167→                severity: 'critical',
+  1168→                metadata: { pattern: pattern.toString() },
+  1169→              }
+  1170→            ),
+  1171→          };
+  1172→        }
+  1173→      }
+  1174→    }
+  1175→
+  1176→    return { allowed: true };
+  1177→  }
+  1178→
+  1179→  private checkCSRF(request: WAFRequest): { allowed: boolean; response?: WAFResponse } {
+  1180→    // Only check state-changing methods
+  1181→    if (this.config.csrf.exemptMethods.includes(request.method.toUpperCase())) {
+  1182→      return { allowed: true };
+  1183→    }
+  1184→
+  1185→    // Check exempt paths
+  1186→    if (this.config.csrf.exemptPaths.some(pattern => pattern.test(request.url))) {
+  1187→      return { allowed: true };
+  1188→    }
+  1189→
+  1190→    // In a real implementation, we'd validate the token against the session
+  1191→    // For now, just check presence for non-exempt methods
+  1192→    const csrfToken = 
+  1193→      request.headers[this.config.csrf.headerName.toLowerCase()] ||
+  1194→      request.headers['x-csrf-token'] ||
+  1195→      request.query._csrf;
+  1196→
+  1197→    if (!csrfToken) {
+  1198→      return {
+  1199→        allowed: false,
+  1200→        response: this.createResponse('block', request, Date.now(), {
+  1201→          reason: 'Missing CSRF token',
+  1202→          ruleId: 'csrf_missing',
+  1203→          ruleName: 'CSRF Protection',
+  1204→          severity: 'medium',
+  1205→        }),
+  1206→      };
+  1207→    }
+  1208→
+  1209→    // Validate token format (actual validation would be session-based)
+  1210→    if (!this.validateCSRFToken(csrfToken)) {
+  1211→      return {
+  1212→        allowed: false,
+  1213→        response: this.createResponse('block', request, Date.now(), {
+  1214→          reason: 'Invalid CSRF token',
+  1215→          ruleId: 'csrf_invalid',
+  1216→          ruleName: 'CSRF Protection',
+  1217→          severity: 'medium',
+  1218→        }),
+  1219→      };
+  1220→    }
+  1221→
+  1222→    return { allowed: true };
+  1223→  }
+  1224→
+  1225→  // ===========================================
+  1226→  // Private Helpers
+  1227→  // ===========================================
+  1228→
+  1229→  private createResponse(
+  1230→    action: WAFResponse['action'],
+  1231→    request: WAFRequest,
+  1232→    startTime: number,
+  1233→    options?: Partial<WAFResponse>
+  1234→  ): WAFResponse {
+  1235→    const duration = Date.now() - startTime;
+  1236→    const blocked = action === 'block' || action === 'rate_limit';
+  1237→
+  1238→    // Update statistics
+  1239→    if (blocked) {
+  1240→      this.statistics.blockedRequests++;
+  1241→      
+  1242→      // Track blocked IPs
+  1243→      const existing = this.statistics.topBlockedIPs.find(entry => entry.ip === request.ip);
+  1244→      if (existing) {
+  1245→        existing.count++;
+  1246→      } else {
+  1247→        this.statistics.topBlockedIPs.push({ ip: request.ip, count: 1, reason: options?.reason || 'Unknown' });
+  1248→      }
+  1249→
+  1250→      // Track attack types
+  1251→      const attackType = options?.ruleName || 'Unknown';
+  1252→      this.statistics.attackTypes[attackType] = (this.statistics.attackTypes[attackType] || 0) + 1;
+  1253→
+  1254→      // Track attacked endpoints
+  1255→      const endpoint = `${request.method} ${request.url.split('?')[0]}`;
+  1256→      const existingEndpoint = this.statistics.topAttackedEndpoints.find(e => e.endpoint === endpoint);
+  1257→      if (existingEndpoint) {
+  1258→        existingEndpoint.count++;
+  1259→      } else {
+  1260→        this.statistics.topAttackedEndpoints.push({ endpoint, count: 1 });
+  1261→      }
+  1262→    } else if (action === 'challenge') {
+  1263→      this.statistics.challengedRequests++;
+  1264→    } else {
+  1265→      this.statistics.allowedRequests++;
+  1266→    }
+  1267→
+  1268→    // Track by country
+  1269→    if (request.countryCode) {
+  1270→      this.statistics.requestsByCountry[request.countryCode] = 
+  1271→        (this.statistics.requestsByCountry[request.countryCode] || 0) + 1;
+  1272→    }
+  1273→
+  1274→    // Update average response time
+  1275→    this.statistics.averageResponseTime = 
+  1276→      (this.statistics.averageResponseTime + duration) / 2;
+  1277→
+  1278→    // Log if configured
+  1279→    if (this.config.logging.enabled && ((blocked && this.config.logging.logBlockedRequests) || 
+  1280→        (!blocked && this.config.logging.logAllowedRequests))) {
+  1281→      this.logRequest(request, { ...options, action, duration } as WAFResponse);
+  1282→    }
+  1283→
+  1284→    // Trigger alerts if needed
+  1285→    if (this.config.alerting.enabled && blocked) {
+  1286→      this.checkAndTriggerAlert(options?.severity);
+  1287→    }
+  1288→
+  1289→    return {
+  1290→      allowed: !blocked,
+  1291→      blocked,
+  1292→      statusCode: this.getStatusCode(action),
+  1293→      reason: options?.reason,
+  1294→      ruleId: options?.ruleId,
+  1295→      ruleName: options?.ruleName,
+  1296→      action,
+  1297→      severity: options?.severity || 'low',
+  1298→      metadata: options?.metadata,
+  1299→    };
+  1300→  }
+  1301→
+  1302→  private getStatusCode(action: WAFResponse['action']): number {
+  1303→    switch (action) {
+  1304→      case 'block': return 403;
+  1305→      case 'challenge': return 429;
+  1306→      case 'rate_limit': return 429;
+  1307→      case 'captcha': return 403;
+  1308→      case 'allow': return 200;
+  1309→      default: return 200;
+  1310→    }
+  1311→  }
+  1312→
+  1313→  private handleRuleMatch(
+  1314→    rule: WAFFirewallRule,
+  1315→    request: WAFRequest,
+  1316→    startTime: number
+  1317→  ): WAFResponse {
+  1318→    // Update rule statistics
+  1319→    rule.hits++;
+  1320→    rule.lastTriggered = new Date().toISOString();
+  1321→
+  1322→    return this.createResponse(rule.action, request, startTime, {
+  1323→      reason: `Custom rule triggered: ${rule.description}`,
+  1324→      ruleId: rule.id,
+  1325→      ruleName: rule.name,
+  1326→      severity: rule.severity === 'info' ? 'low' : 
+  1327→               rule.severity === 'critical' ? 'critical' : rule.severity,
+  1328→    });
+  1329→  }
+  1330→
+  1331→  private evaluateRule(rule: WAFFirewallRule, request: WAFRequest): boolean {
+  1332→    // All conditions must match (AND logic)
+  1333→    return rule.conditions.every(condition => {
+  1334→      const value = this.getFieldValue(request, condition.field);
+  1335→      return this.evaluateCondition(value, condition);
+  1336→    });
+  1337→  }
+  1338→
+  1339→  private getFieldValue(request: WAFRequest, field: WAFFirewallRule['conditions'][0]['field']): any {
+  1340→    switch (field) {
+  1341→      case 'url': return request.url;
+  1342→      case 'headers': return JSON.stringify(request.headers);
+  1343→      case 'query': return JSON.stringify(request.query);
+  1344→      case 'body': return typeof request.body === 'string' ? request.body : JSON.stringify(request.body);
+  1345→      case 'ip': return request.ip;
+  1346→      case 'userAgent': return request.userAgent;
+  1347→      case 'country': return request.countryCode;
+  1348→      case 'method': return request.method;
+  1349→      case 'contentType': return request.contentType;
+  1350→      default: return undefined;
+  1351→    }
+  1352→  }
+  1353→
+  1354→  private evaluateCondition(value: any, condition: WAFFirewallRule['conditions'][0]): boolean {
+  1355→    const { operator, operand, caseSensitive = true } = condition;
+  1356→    let compareValue = value;
+  1357→    let conditionValue = operand;
+  1358→
+  1359→    if (!caseSensitive && typeof value === 'string' && typeof operand === 'string') {
+  1360→      compareValue = value.toLowerCase();
+  1361→      conditionValue = operand.toLowerCase();
+  1362→    }
+  1363→
+  1364→    switch (operator) {
+  1365→      case 'equals':
+  1366→        return compareValue === conditionValue;
+  1367→      case 'contains':
+  1368→        return typeof compareValue === 'string' && compareValue.includes(conditionValue as string);
+  1369→      case 'matches':
+  1370→        return typeof compareValue === 'string' && new RegExp(conditionValue as string).test(compareValue);
+  1371→      case 'startsWith':
+  1372→        return typeof compareValue === 'string' && compareValue.startsWith(conditionValue as string);
+  1373→      case 'endsWith':
+  1374→        return typeof compareValue === 'string' && compareValue.endsWith(conditionValue as string);
+  1375→      case 'in':
+  1376→        return Array.isArray(conditionValue) && conditionValue.includes(compareValue);
+  1377→      case 'notIn':
+  1378→        return !Array.isArray(conditionValue) || !conditionValue.includes(compareValue);
+  1379→      case 'exists':
+  1380→        return value !== undefined && value !== null;
+  1381→      case 'notExists':
+  1382→        return value === undefined || value === null;
+  1383→      case 'sizeGreaterThan':
+  1384→        return typeof value === 'number' && value > (conditionValue as number);
+  1385→      case 'sizeLessThan':
+  1386→        return typeof value === 'number' && value < (conditionValue as number);
+  1387→      default:
+  1388→        return false;
+  1389→    }
+  1390→  }
+  1391→
+  1392→  private getOrCreateRateLimitEntry(key: string, windowMs: number, max: number): { count: number; resetTime: number; max: number } {
+  1393→    let entry = this.rateLimitStore.get(key);
+  1394→    const now = Date.now();
+  1395→
+  1396→    if (!entry || entry.resetTime <= now) {
+  1397→      entry = {
+  1398→        count: 0,
+  1399→        resetTime: now + windowMs,
+  1400→        max,
+  1401→      };
+  1402→      this.rateLimitStore.set(key, entry);
+  1403→
+  1404→      // Clean up expired entries periodically
+  1405→      if (Math.random() < 0.01) { // 1% chance to clean
+  1406→        this.cleanExpiredRateLimitEntries();
+  1407→      }
+  1408→    }
+  1409→
+  1410→    return entry;
+  1411→  }
+  1412→
+  1413→  private incrementRateLimit(key: string): void {
+  1414→    const entry = this.rateLimitStore.get(key);
+  1415→    if (entry) {
+  1416→      entry.count++;
+  1417→    }
+  1418→  }
+  1419→
+  1420→  private cleanExpiredRateLimitEntries(): void {
+  1421→    const now = Date.now();
+  1422→    for (const [key, entry] of this.rateLimitStore.entries()) {
+  1423→      if (entry.resetTime <= now) {
+  1424→        this.rateLimitStore.delete(key);
+  1425→      }
+  1426→    }
+  1427→  }
+  1428→
+  1429→  private loadBuiltInRules(): void {
+  1430→    // Common attack patterns as built-in rules
+  1431→    
+  1432→    // Block common vulnerability scanners
+  1433→    this.addRule({
+  1434→      name: 'Block Vulnerability Scanners',
+  1435→      description: 'Blocks requests from known vulnerability scanning tools',
+  1436→      enabled: true,
+  1437→      priority: 100,
+  1438→      action: 'block',
+  1439→      conditions: [
+  1440→        {
+  1441→          field: 'userAgent',
+  1442→          operator: 'matches',
+  1443→          value: '(nikto|sqlmap|nmap|nessus|openvas|acunetix|burp|owasp|w3af)',
+  1444→        },
+  1445→      ],
+  1446→      category: 'bot',
+  1447→      severity: 'low',
+  1448→      tags: ['scanner', 'reconnaissance'],
+  1449→    });
+  1450→
+  1451→    // Block directory traversal attempts on sensitive files
+  1452→    this.addRule({
+  1453→      name: 'Sensitive File Access',
+  1454→      description: 'Blocks attempts to access sensitive files like /etc/passwd',
+  1455→      enabled: true,
+  1456→      priority: 90,
+  1457→      action: 'block',
+  1458→      conditions: [
+  1459→        {
+  1460→          field: 'url',
+  1461→          operator: 'matches',
+  1462→          value: '(\\/etc\\/(passwd|shadow|hosts)|\\/proc\\/self|\\.env|\\.git|wp-admin)',
+  1463→        },
+  1464→      ],
+  1465→      category: 'path_traversal',
+  1466→      severity: 'high',
+  1467→      tags: ['sensitive-files', 'reconnaissance'],
+  1468→    });
+  1469→
+  1470→    // Challenge suspicious POST requests without referer
+  1471→    this.addRule({
+  1472→      name: 'Suspicious POST Without Referer',
+  1473→      description: 'Challenges POST requests that lack a referer header',
+  1474→      enabled: true,
+  1475→      priority: 50,
+  1476→      action: 'challenge',
+  1477→      conditions: [
+  1478→        { field: 'method', operator: 'equals', value: 'POST' },
+  1479→        { field: 'headers', operator: 'notExists', value: 'referer' },
+  1480→        { field: 'url', operator: 'matches', value: '^\\/api\\/' },
+  1481→      ],
+  1482→      category: 'custom',
+  1483→      severity: 'low',
+  1484→      tags: ['suspicious-behavior'],
+  1485→    });
+  1486→  }
+  1487→
+  1488→  private logRequest(request: WAFRequest, response: WAFResponse): void {
+  1489→    // Mask sensitive fields
+  1490→    const maskedRequest = { ...request };
+  1491→    if (this.config.logging.sensitiveFields.length > 0 && maskedRequest.body) {
+  1492→      maskedRequest.body = this.maskSensitiveData(maskedRequest.body);
+  1493→    }
+  1494→
+  1495→    // In production, send to log aggregation service
+  1496→    console.log(`[WAF] ${response.action.toUpperCase()} | ${request.method} ${request.url} | IP: ${request.ip} | Reason: ${response.reason}`);
+  1497→  }
+  1498→
+  1499→  private maskSensitiveData(data: any): any {
+  1500→    if (typeof data !== 'object' || data === null) return data;
+  1501→
+  1502→    const masked = Array.isArray(data) ? [...data] : { ...data };
+  1503→
+  1504→    for (const key of Object.keys(masked)) {
+  1505→      if (this.config.logging.sensitiveFields.some(field => 
+  1506→          key.toLowerCase().includes(field.toLowerCase()))) {
+  1507→        (masked as any)[key] = '[MASKED]';
+  1508→      } else if (typeof (masked as any)[key] === 'object') {
+  1509→        (masked as any)[key] = this.maskSensitiveData((masked as any)[key]);
+  1510→      }
+  1511→    }
+  1512→
+  1513→    return masked;
+  1514→  }
+  1515→
+  1516→  private checkAndTriggerAlert(severity?: string): void {
+  1517→    // Implement alert triggering logic
+  1518→    // Would integrate with the alert manager from monitoring module
+  1519→    if (severity === 'critical' && this.config.alerting.onCriticalAttack) {
+  1520→      console.error('[WAF ALERT] Critical attack detected! Immediate attention required.');
+  1521→    }
+  1522→  }
+  1523→
+  1524→  private generateRequestId(): string {
+  1525→    return `waf_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 11)}`;
+  1526→  }
+  1527→}
+  1528→
+  1529→// ===========================================
+  1530→// Types for external use
+  1531→// ===========================================
+  1532→
+  1533→interface CookieOptions {
+  1534→  httpOnly: boolean;
+  1535→  secure: boolean;
+  1536→  sameSite: 'strict' | 'lax' | 'none';
+  1537→  domain?: string;
+  1538→  path?: string;
+  1539→}
+  1540→
+  1541→// ===========================================
+  1542→// Singleton & Exports
+  1543→// ===========================================
+  1544→
+  1545→let wafInstance: WebApplicationFirewall | null = null;
+  1546→
+  1547→export function getWAF(config?: Partial<WAFConfig>): WebApplicationFirewall {
+  1548→  if (!wafInstance) {
+  1549→    wafInstance = new WebApplicationFirewall(config);
+  1550→  }
+  1551→  return wafInstance;
+  1552→}
+  1553→
+  1554→// Convenience export
+  1555→export const waf = getWAF();
+  1556→
+  1557→export default {
+  1558→  getWAF,
+  1559→  WebApplicationFirewall,
+  1560→};
+  1561→

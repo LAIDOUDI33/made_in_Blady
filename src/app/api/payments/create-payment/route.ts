@@ -2,9 +2,24 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { generateReferenceNumber, getPaymentMethodInfo } from '@/lib/payments/utils'
 import type { PaymentMethodType } from '@/lib/payments/utils'
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 
 // POST: Create new payment for an order
+// SECURITY: Requires authentication and buyer ownership verification
 export async function POST(request: NextRequest) {
+  // ========================================
+  // AUTHENTICATION (CRITICAL)
+  // ========================================
+  const session = await getServerSession(authOptions);
+  
+  if (!session?.user?.id) {
+    return NextResponse.json(
+      { success: false, error: 'Authentication required. Please login to continue.' },
+      { status: 401 }
+    )
+  }
+
   try {
     const body = await request.json()
     const { orderId, method } = body as { orderId: string; method: PaymentMethodType }
@@ -12,7 +27,7 @@ export async function POST(request: NextRequest) {
     // Validate required fields
     if (!orderId || !method) {
       return NextResponse.json(
-        { error: 'orderId et méthode de paiement sont requis' },
+        { success: false, error: 'orderId et méthode de paiement sont requis' },
         { status: 400 }
       )
     }
@@ -21,7 +36,7 @@ export async function POST(request: NextRequest) {
     const validMethods: PaymentMethodType[] = ['CIB', 'CCP', 'BARIDIMOB', 'BANK_TRANSFER', 'COD']
     if (!validMethods.includes(method)) {
       return NextResponse.json(
-        { error: 'Méthode de paiement invalide' },
+        { success: false, error: 'Méthode de paiement invalide' },
         { status: 400 }
       )
     }
@@ -39,8 +54,33 @@ export async function POST(request: NextRequest) {
 
     if (!order) {
       return NextResponse.json(
-        { error: 'Commande non trouvée' },
+        { success: false, error: 'Commande non trouvée' },
         { status: 404 }
+      )
+    }
+
+    // ========================================
+    // AUTHORIZATION (CRITICAL)
+    // Verify authenticated user is the order's buyer
+    // ========================================
+    if (order.buyerId !== session.user.id) {
+      // Log unauthorized attempt for security monitoring
+      await db.securityEvent.create({
+        data: {
+          eventType: 'UNAUTHORIZED_PAYMENT_ATTEMPT',
+          severity: 'HIGH',
+          description: `User ${session.user.id} attempted payment for order belonging to ${order.buyerId}`,
+          ipAddress: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown',
+          userId: session.user.id,
+        }
+      }).catch(() => {}); // Don't fail if logging fails
+
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: 'Forbidden: You can only create payments for your own orders' 
+        },
+        { status: 403 }
       )
     }
 
@@ -52,6 +92,7 @@ export async function POST(request: NextRequest) {
     if (existingPayment && existingPayment.status !== 'FAILED' && existingPayment.status !== 'CANCELLED') {
       return NextResponse.json(
         { 
+          success: false, 
           error: 'Un paiement existe déjà pour cette commande',
           paymentId: existingPayment.id,
           status: existingPayment.status
@@ -90,7 +131,7 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Log transaction
+    // Log transaction for audit trail
     await db.transactionLog.create({
       data: {
         paymentId: payment.id,
@@ -100,6 +141,7 @@ export async function POST(request: NextRequest) {
           method,
           amount: order.totalAmount,
           referenceNumber,
+          userId: session.user.id, // Track who created this payment
         }),
         ipAddress: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown',
         userAgent: request.headers.get('user-agent') || 'unknown',
@@ -132,7 +174,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Create payment error:', error)
     return NextResponse.json(
-      { error: 'Erreur lors de la création du paiement' },
+      { success: false, error: 'Erreur lors de la création du paiement' },
       { status: 500 }
     )
   }

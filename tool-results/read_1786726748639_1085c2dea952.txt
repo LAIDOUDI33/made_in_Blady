@@ -1,0 +1,765 @@
+     1→"use client";
+     2→
+     3→import React, { useState, useEffect, useCallback, Suspense } from "react";
+     4→import Link from "next/link";
+     5→import Image from "next/image";
+     6→import { useParams } from "next/navigation";
+     7→import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
+     8→import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+     9→import { Button } from "@/components/ui/button";
+    10→import { Badge } from "@/components/ui/badge";
+    11→import { Separator } from "@/components/ui/separator";
+    12→import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+    13→import {
+    14→  Dialog,
+    15→  DialogContent,
+    16→  DialogHeader,
+    17→  DialogTitle,
+    18→  DialogTrigger,
+    19→} from "@/components/ui/dialog";
+    20→import { Textarea } from "@/components/ui/textarea";
+    21→import { Input } from "@/components/ui/input";
+    22→import { Label } from "@/components/ui/label";
+    23→import { ProductGallery } from "@/components/products/ProductGallery";
+    24→import { ProductCard } from "@/components/products/ProductCard";
+    25→import { ProductDetail as ProductDetailType, Product, AVAILABILITY_OPTIONS } from "@/types/product";
+    26→import {
+    27→  MapPin,
+    28→  Factory,
+    29→  Shield,
+    30→  Star,
+    31→  Clock,
+    32→  Package,
+    33→  Truck,
+    34→  CheckCircle,
+    35→  MessageSquare,
+    36→  Heart,
+    37→  Share2,
+    38→  ChevronRight,
+    39→  Phone,
+    40→  Mail,
+    41→  Globe,
+    42→  Calendar,
+    43→  User,
+    44→  ThumbsUp,
+    45→  AlertCircle,
+    46→  Loader2,
+    47→  X,
+    48→} from "lucide-react";
+    49→import { ReviewList, ReviewForm } from "@/components/reviews";
+    50→import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+    51→
+    52→function ProductDetailContent() {
+    53→  const params = useParams();
+    54→  const slug = params.slug as string;
+    55→  
+    56→  const [product, setProduct] = useState<ProductDetailType | null>(null);
+    57→  const [isLoading, setIsLoading] = useState(true);
+    58→  const [isFavorite, setIsFavorite] = useState(false);
+    59→  const [isContactModalOpen, setIsContactModalOpen] = useState(false);
+    60→  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+    61→  const [reviewSubmitted, setReviewSubmitted] = useState(false);
+    62→  const [contactForm, setContactForm] = useState({
+    63→    name: "",
+    64→    email: "",
+    65→    company: "",
+    66→    phone: "",
+    67→    message: "",
+    68→    quantity: "",
+    69→  });
+    70→  const [isSubmittingContact, setIsSubmittingContact] = useState(false);
+    71→
+    72→  // Fetch product data
+    73→  useEffect(() => {
+    74→    async function fetchProduct() {
+    75→      try {
+    76→        setIsLoading(true);
+    77→        const response = await fetch(`/api/products/${slug}`);
+    78→        const data = await response.json();
+    79→        
+    80→        if (data.success) {
+    81→          setProduct(data.data);
+    82→        }
+    83→      } catch (error) {
+    84→        console.error("Error fetching product:", error);
+    85→      } finally {
+    86→        setIsLoading(false);
+    87→      }
+    88→    }
+    89→
+    90→    if (slug) {
+    91→      fetchProduct();
+    92→    }
+    93→  }, [slug]);
+    94→
+    95→  // Handle contact form submit
+    96→  const handleContactSubmit = useCallback(async (e: React.FormEvent) => {
+    97→    e.preventDefault();
+    98→    if (!product) return;
+    99→
+   100→    setIsSubmittingContact(true);
+   101→    
+   102→    try {
+   103→      // TODO: Implement actual contact/message API
+   104→      await new Promise((resolve) => setTimeout(resolve, 1000));
+   105→      
+   106→      alert("Message envoyé avec succès! Le fournisseur vous contactera bientôt.");
+   107→      setIsContactModalOpen(false);
+   108→      setContactForm({
+   109→        name: "",
+   110→        email: "",
+   111→        company: "",
+   112→        phone: "",
+   113→        message: "",
+   114→        quantity: "",
+   115→      });
+   116→    } catch (error) {
+   117→      alert("Erreur lors de l'envoi du message. Veuillez réessayer.");
+   118→    } finally {
+   119→      setIsSubmittingContact(false);
+   120→    }
+   121→  }, [product]);
+   122→
+   123→  // Handle add to RFQ
+   124→  const handleAddToRFQ = useCallback(() => {
+   125→    if (!product) return;
+   126→    
+   127→    // TODO: Implement RFQ functionality
+   128→    alert(`Produit "${product.name}" ajouté à votre demande de devis!`);
+   129→  }, [product]);
+   130→
+   131→  // Format price helper
+   132→  const formatPrice = (price: number | null | undefined) => {
+   133→    if (!price) return null;
+   134→    return new Intl.NumberFormat("fr-DZ", {
+   135→      style: "decimal",
+   136→      minimumFractionDigits: 0,
+   137→      maximumFractionDigits: 2,
+   138→    }).format(price);
+   139→  };
+   140→
+   141→  // Get availability info
+   142→  const getAvailabilityInfo = () => {
+   143→    if (!product) return AVAILABILITY_OPTIONS[0];
+   144→    return AVAILABILITY_OPTIONS.find((opt) => opt.value === product.availability) || AVAILABILITY_OPTIONS[3];
+   145→  };
+   146→
+   147→  // Loading state
+   148→  if (isLoading) {
+   149→    return (
+   150→      <div className="min-h-screen bg-gray-50/50">
+   151→        <div className="container mx-auto px-4 py-8">
+   152→          <div className="animate-pulse space-y-8">
+   153→            <div className="h-6 w-48 bg-gray-200 rounded" />
+   154→            <div className="grid md:grid-cols-2 gap-8">
+   155→              <div className="aspect-square bg-gray-200 rounded-lg" />
+   156→              <div className="space-y-4">
+   157→                <div className="h-8 bg-gray-200 rounded w-3/4" />
+   158→                <div className="h-4 bg-gray-200 rounded w-full" />
+   159→                <div className="h-4 bg-gray-200 rounded w-1/2" />
+   160→              </div>
+   161→            </div>
+   162→          </div>
+   163→        </div>
+   164→      </div>
+   165→    );
+   166→  }
+   167→
+   168→  // Not found state
+   169→  if (!product) {
+   170→    return (
+   171→      <div className="min-h-screen bg-gray-50/50 flex items-center justify-center">
+   172→        <Card className="max-w-md mx-auto text-center p-8">
+   173→          <AlertCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
+   174→          <h2 className="text-xl font-semibold mb-2">Produit non trouvé</h2>
+   175→          <p className="text-muted-foreground mb-4">
+   176→            Le produit que vous recherchez n&apos;existe pas ou a été supprimé.
+   177→          </p>
+   178→          <Button asChild>
+   179→            <Link href="/products">Retour au catalogue</Link>
+   180→          </Button>
+   181→        </Card>
+   182→      </div>
+   183→    );
+   184→  }
+   185→
+   186→  const availabilityInfo = getAvailabilityInfo();
+   187→  const primaryImage = product.images.find((img) => img.isPrimary);
+   188→
+   189→  return (
+   190→    <div className="min-h-screen bg-gray-50/50">
+   191→      {/* Breadcrumb */}
+   192→      <div className="bg-white border-b">
+   193→        <div className="container mx-auto px-4 py-4">
+   194→          <Breadcrumb>
+   195→            <BreadcrumbList>
+   196→              <BreadcrumbItem>
+   197→                <BreadcrumbLink href="/">Accueil</BreadcrumbLink>
+   198→              </BreadcrumbItem>
+   199→              <BreadcrumbSeparator />
+   200→              <BreadcrumbItem>
+   201→                <BreadcrumbLink href="/products">Produits</BreadcrumbLink>
+   202→              </BreadcrumbItem>
+   203→              <BreadcrumbSeparator />
+   204→              {product.category.parent && (
+   205→                <>
+   206→                  <BreadcrumbItem>
+   207→                    <BreadcrumbLink href={`/categories/${product.category.parent.slug}`}>
+   208→                      {product.category.parent.name}
+   209→                    </BreadcrumbLink>
+   210→                  </BreadcrumbItem>
+   211→                  <BreadcrumbSeparator />
+   212→                </>
+   213→              )}
+   214→              <BreadcrumbItem>
+   215→                <BreadcrumbLink href={`/categories/${product.category.slug}`}>
+   216→                  {product.category.name}
+   217→                </BreadcrumbLink>
+   218→              </BreadcrumbItem>
+   219→              <BreadcrumbSeparator />
+   220→              <BreadcrumbItem>
+   221→                <BreadcrumbPage className="line-clamp-1">{product.name}</BreadcrumbPage>
+   222→              </BreadcrumbItem>
+   223→            </BreadcrumbList>
+   224→          </Breadcrumb>
+   225→        </div>
+   226→      </div>
+   227→
+   228→      {/* Main Product Section */}
+   229→      <div className="container mx-auto px-4 py-6">
+   230→        <div className="grid lg:grid-cols-2 gap-8">
+   231→          {/* Left Column - Gallery */}
+   232→          <div>
+   233→            <ProductGallery images={product.images} productName={product.name} />
+   234→            
+   235→            {/* Quick Actions - Mobile */}
+   236→            <div className="lg:hidden flex gap-2 mt-4">
+   237→              <Button
+   238→                variant="outline"
+   239→                className="flex-1"
+   240→                onClick={() => setIsFavorite(!isFavorite)}
+   241→              >
+   242→                <Heart className={`h-4 w-4 mr-2 ${isFavorite ? "fill-red-500 text-red-500" : ""}`} />
+   243→                {isFavorite ? "Sauvé" : "Sauvegarder"}
+   244→              </Button>
+   245→              <Button variant="outline" className="flex-1">
+   246→                <Share2 className="h-4 w-4 mr-2" />
+   247→                Partager
+   248→              </Button>
+   249→            </div>
+   250→          </div>
+   251→
+   252→          {/* Right Column - Product Info */}
+   253→          <div className="space-y-6">
+   254→            {/* Title & Badges */}
+   255→            <div>
+   256→              <div className="flex items-start justify-between gap-4">
+   257→                <h1 className="text-2xl md:text-3xl font-bold text-foreground">
+   258→                  {product.name}
+   259→                </h1>
+   260→                
+   261→                {/* Desktop Quick Actions */}
+   262→                <div className="hidden lg:flex items-center gap-2">
+   263→                  <Button
+   264→                    variant="ghost"
+   265→                    size="icon"
+   266→                    onClick={() => setIsFavorite(!isFavorite)}
+   267→                  >
+   268→                    <Heart className={`h-5 w-5 ${isFavorite ? "fill-red-500 text-red-500" : ""}`} />
+   269→                  </Button>
+   270→                  <Button variant="ghost" size="icon">
+   271→                    <Share2 className="h-5 w-5" />
+   272→                  </Button>
+   273→                </div>
+   274→              </div>
+   275→
+   276→              {/* SKU */}
+   277→              {product.sku && (
+   278→                <p className="text-sm text-muted-foreground mt-1">
+   279→                  Réf: {product.sku}
+   280→                </p>
+   281→              )}
+   282→
+   283→              {/* Status Badges */}
+   284→              <div className="flex flex-wrap items-center gap-2 mt-3">
+   285→                <Badge className={`${availabilityInfo.color} border-0`}>
+   286→                  {availabilityInfo.label}
+   287→                </Badge>
+   288→                {product.isFeatured && (
+   289→                  <Badge className="bg-orange-500 text-white">
+   290→                    ⭐ Produit Vedette
+   291→                  </Badge>
+   292→                )}
+   293→                {product.negotiablePrice && (
+   294→                  <Badge variant="outline" className="text-green-600 border-green-300">
+   295→                    Prix Négociable
+   296→                  </Badge>
+   297→                )}
+   298→              </div>
+   299→            </div>
+   300→
+   301→            {/* Price */}
+   302→            <Card className="border-green-200 bg-green-50/30">
+   303→              <CardContent className="p-4">
+   304→                {(product.price || product.priceRangeMin) ? (
+   305→                  <div className="space-y-1">
+   306→                    {product.priceRangeMin !== null && product.priceRangeMax !== null ? (
+   307→                      <div>
+   308→                        <span className="text-3xl font-bold text-green-600">
+   309→                          {formatPrice(product.priceRangeMin)} - {formatPrice(product.priceRangeMax)}{" "}
+   310→                          {product.currency}
+   311→                        </span>
+   312→                        {product.unit && (
+   313→                          <span className="text-muted-foreground ml-1">/ {product.unit}</span>
+   314→                        )}
+   315→                      </div>
+   316→                    ) : (
+   317→                      <div>
+   318→                        <span className="text-3xl font-bold text-green-600">
+   319→                          {formatPrice(product.price)} {product.currency}
+   320→                        </span>
+   321→                        {product.unit && (
+   322→                          <span className="text-muted-foreground ml-1">/ {product.unit}</span>
+   323→                        )}
+   324→                      </div>
+   325→                    )}
+   326→                  </div>
+   327→                ) : (
+   328→                  <div className="flex items-center gap-2">
+   329→                    <span className="text-2xl font-semibold text-green-600">
+   330→                      Sur Demande
+   331→                    </span>
+   332→                    <Badge variant="secondary" className="text-xs">
+   333→                      Contactez pour le prix
+   334→                    </Badge>
+   335→                  </div>
+   336→                )}
+   337→
+   338→                {/* MOQ */}
+   339→                {product.moq && (
+   340→                  <p className="text-sm text-muted-foreground mt-2">
+   341→                    <strong>MOQ:</strong> {product.moq} {product.unit || "unités"}
+   342→                  </p>
+   343→                )}
+   344→
+   345→                {/* Lead Time */}
+   346→                {product.leadTime && (
+   347→                  <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
+   348→                    <Clock className="h-4 w-4" />
+   349→                    <strong>Délai de livraison:</strong> {product.leadTime}
+   350→                  </p>
+   351→                )}
+   352→              </CardContent>
+   353→            </Card>
+   354→
+   355→            {/* Company Info Card */}
+   356→            <Card>
+   357→              <CardContent className="p-4">
+   358→                <div className="flex items-start gap-4">
+   359→                  {/* Company Logo */}
+   360→                  <div className="w-14 h-14 rounded-lg bg-gradient-to-br from-green-100 to-green-200 flex items-center justify-center shrink-0">
+   361→                    {product.company.logo ? (
+   362→                      <Image
+   363→                        src={product.company.logo}
+   364→                        alt={product.company.name}
+   365→                        width={56}
+   366→                        height={56}
+   367→                        className="rounded-lg object-cover"
+   368→                      />
+   369→                    ) : (
+   370→                      <span className="text-lg font-bold text-green-700">
+   371→                        {product.company.name.charAt(0)}
+   372→                      </span>
+   373→                    )}
+   374→                  </div>
+   375→
+   376→                  {/* Company Details */}
+   377→                  <div className="flex-1 min-w-0">
+   378→                    <div className="flex items-center gap-2">
+   379→                      <Link
+   380→                        href={`/suppliers/${product.company.slug}`}
+   381→                        className="font-semibold hover:text-green-600 transition-colors truncate"
+   382→                      >
+   383→                        {product.company.name}
+   384→                      </Link>
+   385→                      {product.company.isVerified && (
+   386→                        <Badge variant="secondary" className="bg-blue-100 text-blue-700 text-xs shrink-0">
+   387→                          <Shield className="h-3 w-3 mr-1" />
+   388→                          Vérifié
+   389→                        </Badge>
+   390→                      )}
+   391→                    </div>
+   392→
+   393→                    <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+   394→                      <span className="flex items-center gap-1">
+   395→                        <MapPin className="h-3 w-3" />
+   396→                        {product.company.wilaya}
+   397→                        {product.company.commune && `, ${product.company.commune}`}
+   398→                      </span>
+   399→                      <span className="flex items-center gap-1">
+   400→                        <Star className="h-3 w-3 text-yellow-500 fill-yellow-500" />
+   401→                        {product.company.rating.toFixed(1)}
+   402→                        <span className="text-muted-foreground/60">
+   403→                          ({product.company.reviewCount} avis)
+   404→                        </span>
+   405→                      </span>
+   406→                      <span className="flex items-center gap-1">
+   407→                        <ThumbsUp className="h-3 w-3" />
+   408→                        Taux de réponse: {product.company.responseRate}%
+   409→                      </span>
+   410→                    </div>
+   411→
+   412→                    {product.countryOfOrigin && (
+   413→                      <p className="text-xs text-muted-foreground mt-1">
+   414→                        🌍 Origine: {product.countryOfOrigin}
+   415→                      </p>
+   416→                    )}
+   417→                  </div>
+   418→                </div>
+   419→
+   420→                {/* Action Buttons */}
+   421→                <div className="grid grid-cols-2 gap-3 mt-4 pt-4 border-t">
+   422→                  <Dialog open={isContactModalOpen} onOpenChange={setIsContactModalOpen}>
+   423→                    <DialogTrigger asChild>
+   424→                      <Button className="w-full bg-green-600 hover:bg-green-700">
+   425→                        <MessageSquare className="h-4 w-4 mr-2" />
+   426→                        Contacter le Fournisseur
+   427→                      </Button>
+   428→                    </DialogTrigger>
+   429→                    <DialogContent className="sm:max-w-lg">
+   430→                      <DialogHeader>
+   431→                        <DialogTitle>Contacter le Fournisseur</DialogTitle>
+   432→                      </DialogHeader>
+   433→                      
+   434→                      <form onSubmit={handleContactSubmit} className="space-y-4 mt-4">
+   435→                        <div className="grid grid-cols-2 gap-4">
+   436→                          <div className="space-y-2">
+   437→                            <Label htmlFor="name">Nom complet *</Label>
+   438→                            <Input
+   439→                              id="name"
+   440→                              value={contactForm.name}
+   441→                              onChange={(e) =>
+   442→                                setContactForm({ ...contactForm, name: e.target.value })
+   443→                              }
+   444→                              required
+   445→                            />
+   446→                          </div>
+   447→                          <div className="space-y-2">
+   448→                            <Label htmlFor="email">Email *</Label>
+   449→                            <Input
+   450→                              id="email"
+   451→                              type="email"
+   452→                              value={contactForm.email}
+   453→                              onChange={(e) =>
+   454→                                setContactForm({ ...contactForm, email: e.target.value })
+   455→                              }
+   456→                              required
+   457→                            />
+   458→                          </div>
+   459→                        </div>
+   460→
+   461→                        <div className="grid grid-cols-2 gap-4">
+   462→                          <div className="space-y-2">
+   463→                            <Label htmlFor="company">Entreprise</Label>
+   464→                            <Input
+   465→                              id="company"
+   466→                              value={contactForm.company}
+   467→                              onChange={(e) =>
+   468→                                setContactForm({ ...contactForm, company: e.target.value })
+   469→                              }
+   470→                            />
+   471→                          </div>
+   472→                          <div className="space-y-2">
+   473→                            <Label htmlFor="phone">Téléphone</Label>
+   474→                            <Input
+   475→                              id="phone"
+   476→                              value={contactForm.phone}
+   477→                              onChange={(e) =>
+   478→                                setContactForm({ ...contactForm, phone: e.target.value })
+   479→                            }
+   480→                            placeholder="+213 XXX XXX XXX"
+   481→                            required
+   482→                            />
+   483→                          </div>
+   484→                        </div>
+   485→
+   486→                        <div className="space-y-2">
+   487→                          <Label htmlFor="quantity">Quantité souhaitée</Label>
+   488→                          <Input
+   489→                            id="quantity"
+   490→                            type="number"
+   491→                            value={contactForm.quantity}
+   492→                            onChange={(e) =>
+   493→                              setContactForm({ ...contactForm, quantity: e.target.value })
+   494→                            }
+   495→                            placeholder={`Minimum: ${product.moq || "N/A"} ${product.unit || ""}`}
+   496→                          />
+   497→                        </div>
+   498→
+   499→                        <div className="space-y-2">
+   500→                          <Label htmlFor="message">Message *</Label>
+   501→                          <Textarea
+   502→                            id="message"
+   503→                            rows={4}
+   504→                            value={contactForm.message}
+   505→                            onChange={(e) =>
+   506→                              setContactForm({ ...contactForm, message: e.target.value })
+   507→                            }
+   508→                            placeholder="Décrivez vos besoins en détail..."
+   509→                            required
+   510→                          />
+   511→                        </div>
+   512→
+   513→                        <div className="flex justify-end gap-3">
+   514→                          <Button
+   515→                            type="button"
+   516→                            variant="outline"
+   517→                            onClick={() => setIsContactModalOpen(false)}
+   518→                          >
+   519→                            Annuler
+   520→                          </Button>
+   521→                          <Button
+   522→                            type="submit"
+   523→                            disabled={isSubmittingContact}
+   524→                            className="bg-green-600 hover:bg-green-700"
+   525→                          >
+   526→                            {isSubmittingContact ? (
+   527→                              <>
+   528→                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+   529→                                Envoi...
+   530→                              </>
+   531→                            ) : (
+   532→                              "Envoyer le Message"
+   533→                            )}
+   534→                          </Button>
+   535→                        </div>
+   536→                      </form>
+   537→                    </DialogContent>
+   538→                  </Dialog>
+   539→
+   540→                  <Button variant="outline" className="w-full" onClick={handleAddToRFQ}>
+   541→                    <Package className="h-4 w-4 mr-2" />
+   542→                    Ajouter au Devis
+   543→                  </Button>
+   544→                </div>
+   545→              </CardContent>
+   546→            </Card>
+   547→
+   548→            {/* Short Description */}
+   549→            {product.shortDescription && (
+   550→              <Card>
+   551→                <CardContent className="p-4">
+   552→                  <h3 className="font-medium mb-2">Description courte</h3>
+   553→                  <p className="text-sm text-muted-foreground leading-relaxed">
+   554→                    {product.shortDescription}
+   555→                  </p>
+   556→                </CardContent>
+   557→              </Card>
+   558→            )}
+   559→
+   560→            {/* Stats */}
+   561→            <div className="grid grid-cols-3 gap-4">
+   562→              <div className="text-center p-3 bg-white rounded-lg border">
+   563→                <EyeIcon className="h-5 w-5 mx-auto text-muted-foreground mb-1" />
+   564→                <p className="text-lg font-semibold">{product.viewCount.toLocaleString()}</p>
+   565→                <p className="text-xs text-muted-foreground">Vues</p>
+   566→              </div>
+   567→              <div className="text-center p-3 bg-white rounded-lg border">
+   568→                <Star className="h-5 w-5 mx-auto text-yellow-500 mb-1" />
+   569→                <p className="text-lg font-semibold">{product._count.reviews}</p>
+   570→                <p className="text-xs text-muted-foreground">Avis</p>
+   571→              </div>
+   572→              <div className="text-center p-3 bg-white rounded-lg border">
+   573→                <Heart className="h-5 w-5 mx-auto text-red-400 mb-1" />
+   574→                <p className="text-lg font-semibold">{product._count.favorites}</p>
+   575→                <p className="text-xs text-muted-foreground">Favoris</p>
+   576→              </div>
+   577→            </div>
+   578→          </div>
+   579→        </div>
+   580→
+   581→        {/* Tabs for Description, Specs, Reviews */}
+   582→        <Tabs defaultValue="description" className="mt-12">
+   583→          <TabsList className="grid w-full max-w-md grid-cols-3">
+   584→            <TabsTrigger value="description">Description</TabsTrigger>
+   585→            <TabsTrigger value="specifications">Spécifications</TabsTrigger>
+   586→            <TabsTrigger value="reviews">
+   587→              Avis ({product.reviews?.length || 0})
+   588→            </TabsTrigger>
+   589→          </TabsList>
+   590→
+   591→          <TabsContent value="description" className="mt-6">
+   592→            <Card>
+   593→              <CardContent className="p-6">
+   594→                {product.description ? (
+   595→                  <div 
+   596→                    className="prose prose-sm max-w-none text-muted-foreground leading-relaxed"
+   597→                    dangerouslySetInnerHTML={{ __html: product.description }}
+   598→                  />
+   599→                ) : (
+   600→                  <p className="text-muted-foreground text-center py-8">
+   601→                    Aucune description détaillée disponible pour ce produit.
+   602→                  </p>
+   603→                )}
+   604→              </CardContent>
+   605→            </Card>
+   606→          </TabsContent>
+   607→
+   608→          <TabsContent value="specifications" className="mt-6">
+   609→            <Card>
+   610→              <CardContent className="p-6">
+   611→                <div className="overflow-x-auto">
+   612→                  <table className="w-full">
+   613→                    <tbody>
+   614→                      <tr className="border-b">
+   615→                        <td className="py-3 px-4 font-medium bg-gray-50 w-1/3">SKU / Référence</td>
+   616→                        <td className="py-3 px-4">{product.sku || "N/A"}</td>
+   617→                      </tr>
+   618→                      <tr className="border-b">
+   619→                        <td className="py-3 px-4 font-medium bg-gray-50">Catégorie</td>
+   620→                        <td className="py-3 px-4">
+   621→                          <Link href={`/categories/${product.category.slug}`} className="text-green-600 hover:underline">
+   622→                            {product.category.name}
+   623→                          </Link>
+   624→                        </td>
+   625→                      </tr>
+   626→                      <tr className="border-b">
+   627→                        <td className="py-3 px-4 font-medium bg-gray-50">Disponibilité</td>
+   628→                        <td className="py-3 px-4">
+   629→                          <Badge className={`${availabilityInfo.color} border-0`}>
+   630→                            {availabilityInfo.label}
+   631→                          </Badge>
+   632→                        </td>
+   633→                      </tr>
+   634→                      <tr className="border-b">
+   635→                        <td className="py-3 px-4 font-medium bg-gray-50">Quantité Minimale (MOQ)</td>
+   636→                        <td className="py-3 px-4">
+   637→                          {product.moq ? `${product.moq} ${product.unit || "unités"}` : "N/A"}
+   638→                        </td>
+   639→                      </tr>
+   640→                      <tr className="border-b">
+   641→                        <td className="py-3 px-4 font-medium bg-gray-50">Délai de Livraison</td>
+   642→                        <td className="py-3 px-4">{product.leadTime || "Sur demande"}</td>
+   643→                      </tr>
+   644→                      <tr className="border-b">
+   645→                        <td className="py-3 px-4 font-medium bg-gray-50">Pays d'Origine</td>
+   646→                        <td className="py-3 px-4">{product.countryOfOrigin || "N/A"}</td>
+   647→                      </tr>
+   648→                      <tr className="border-b">
+   649→                        <td className="py-3 px-4 font-medium bg-gray-50">Devise</td>
+   650→                        <td className="py-3 px-4">{product.currency}</td>
+   651→                      </tr>
+   652→                      <tr>
+   653→                        <td className="py-3 px-4 font-medium bg-gray-50">Prix Négociable</td>
+   654→                        <td className="py-3 px-4">
+   655→                          {product.negotiablePrice ? (
+   656→                            <Badge variant="secondary" className="bg-green-100 text-green-700">
+   657→                              Oui
+   658→                            </Badge>
+   659→                          ) : (
+   660→                            "Non"
+   661→                          )}
+   662→                        </td>
+   663→                      </tr>
+   664→                    </tbody>
+   665→                  </table>
+   666→                </div>
+   667→              </CardContent>
+   668→            </Card>
+   669→          </TabsContent>
+   670→
+   671→          <TabsContent value="reviews" className="mt-6">
+   672→            {/* Review Form Modal */}
+   673→            <Dialog open={isReviewModalOpen} onOpenChange={setIsReviewModalOpen}>
+   674→              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+   675→                <DialogHeader>
+   676→                  <DialogTitle>Rédiger un avis</DialogTitle>
+   677→                </DialogHeader>
+   678→                {product && (
+   679→                  <ReviewForm
+   680→                    targetId={product.id}
+   681→                    reviewType="product"
+   682→                    slug={slug}
+   683→                    onSuccess={() => {
+   684→                      setIsReviewModalOpen(false);
+   685→                      setReviewSubmitted(true);
+   686→                    }}
+   687→                    onCancel={() => setIsReviewModalOpen(false)}
+   688→                  />
+   689→                )}
+   690→              </DialogContent>
+   691→            </Dialog>
+   692→
+   693→            {/* Review List */}
+   694→            <ReviewList
+   695→              apiUrl={`/api/products/${slug}/reviews?XTransformPort=3000`}
+   696→              showStats={true}
+   697→              allowWriteReview={!reviewSubmitted}
+   698→              onWriteReview={() => setIsReviewModalOpen(true)}
+   699→            />
+   700→          </TabsContent>
+   701→        </Tabs>
+   702→
+   703→        {/* Similar Products */}
+   704→        {product.similarProducts && product.similarProducts.length > 0 && (
+   705→          <section className="mt-12">
+   706→            <div className="flex items-center justify-between mb-6">
+   707→              <h2 className="text-xl font-semibold">Produits Similaires</h2>
+   708→              <Link
+   709→                href={`/categories/${product.category.slug}`}
+   710→                className="text-green-600 hover:text-green-700 text-sm flex items-center gap-1"
+   711→              >
+   712→                Voir tous <ChevronRight className="h-4 w-4" />
+   713→              </Link>
+   714→            </div>
+   715→
+   716→            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+   717→              {product.similarProducts.map((similarProduct) => (
+   718→                <ProductCard
+   719→                  key={similarProduct.id}
+   720→                  product={similarProduct as unknown as Product}
+   721→                  onAddToRFQ={() => {}}
+   722→                  onToggleFavorite={() => {}}
+   723→                />
+   724→              ))}
+   725→            </div>
+   726→          </section>
+   727→        )}
+   728→      </div>
+   729→    </div>
+   730→  );
+   731→}
+   732→
+   733→// Eye icon component
+   734→function EyeIcon(props: React.SVGProps<SVGSVGElement>) {
+   735→  return (
+   736→    <svg
+   737→      xmlns="http://www.w3.org/2000/svg"
+   738→      width="24"
+   739→      height="24"
+   740→      viewBox="0 0 24 24"
+   741→      fill="none"
+   742→      stroke="currentColor"
+   743→      strokeWidth="2"
+   744→      strokeLinecap="round"
+   745→      strokeLinejoin="round"
+   746→      {...props}
+   747→    >
+   748→      <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+   749→      <circle cx="12" cy="12" r="3" />
+   750→    </svg>
+   751→  );
+   752→}
+   753→
+   754→export default function ProductDetailPage() {
+   755→  return (
+   756→    <Suspense fallback={
+   757→      <div className="min-h-screen bg-gray-50/50 flex items-center justify-center">
+   758→        <Loader2 className="h-8 w-8 text-green-600 animate-spin" />
+   759→      </div>
+   760→    }>
+   761→      <ProductDetailContent />
+   762→    </Suspense>
+   763→  );
+   764→}
+   765→

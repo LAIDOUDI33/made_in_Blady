@@ -1,8 +1,45 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 
-// GET /api/dashboard/seller/products - List products for current supplier
+// Helper to get authenticated user's company
+async function getAuthenticatedCompany() {
+  const session = await getServerSession(authOptions);
+  
+  if (!session?.user?.id) {
+    return { 
+      error: NextResponse.json(
+        { success: false, error: 'Authentication required' },
+        { status: 401 }
+      ), 
+      company: null 
+    };
+  }
+
+  const user = await db.user.findUnique({
+    where: { id: session.user.id },
+    include: { company: true }
+  });
+
+  if (!user?.company) {
+    return { 
+      error: NextResponse.json(
+        { success: false, error: 'No company associated with this account' },
+        { status: 403 }
+      ), 
+      company: null 
+    };
+  }
+
+  return { error: null, company: user.company };
+}
+
+// GET /api/dashboard/seller/products - List products for current supplier (authenticated)
 export async function GET(request: NextRequest) {
+  const auth = await getAuthenticatedCompany();
+  if (auth.error) return auth.error;
+  
   try {
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
@@ -10,11 +47,8 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status');
     const category = searchParams.get('category');
     const search = searchParams.get('search');
-    
-    // In production, get supplier ID from auth session
-    // For now, using a mock company ID
-    const companyId = 'mock-company-id';
 
+    const companyId = auth.company!.id;
     const where: Record<string, unknown> = { companyId };
     
     if (status && status !== 'all') {
@@ -22,9 +56,7 @@ export async function GET(request: NextRequest) {
     }
     
     if (category && category !== 'all') {
-      where.category = {
-        name: category
-      };
+      where.categoryId = category;
     }
     
     if (search) {
@@ -75,8 +107,11 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST /api/dashboard/seller/products - Create new product
+// POST /api/dashboard/seller/products - Create new product (authenticated)
 export async function POST(request: NextRequest) {
+  const auth = await getAuthenticatedCompany();
+  if (auth.error) return auth.error;
+  
   try {
     const body = await request.json();
     
@@ -133,8 +168,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // In production, get company ID from auth session
-    const companyId = 'mock-company-id';
+    const companyId = auth.company!.id;
 
     // Create product with images in transaction
     const product = await db.$transaction(async (tx) => {
@@ -176,6 +210,19 @@ export async function POST(request: NextRequest) {
       return newProduct;
     });
 
+    // Audit log for product creation
+    await db.auditLog.create({
+      data: {
+        userId: auth.company!.userId,
+        action: 'CREATE_PRODUCT',
+        resource: 'product',
+        resourceId: product.id,
+        oldValue: null,
+        newValue: JSON.stringify({ name, slug, companyId }),
+        ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
+      }
+    }).catch(() => {});
+
     return NextResponse.json(
       {
         success: true,
@@ -193,8 +240,11 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// PUT /api/dashboard/seller/products - Bulk update products
+// PUT /api/dashboard/seller/products - Bulk update products (authenticated)
 export async function PUT(request: NextRequest) {
+  const auth = await getAuthenticatedCompany();
+  if (auth.error) return auth.error;
+  
   try {
     const body = await request.json();
     const { ids, action } = body;
@@ -222,8 +272,12 @@ export async function PUT(request: NextRequest) {
         );
     }
 
+    // Only allow updating own company's products
     const result = await db.product.updateMany({
-      where: { id: { in: ids } },
+      where: { 
+        id: { in: ids },
+        companyId: auth.company!.id 
+      },
       data: updateData,
     });
 
@@ -241,8 +295,11 @@ export async function PUT(request: NextRequest) {
   }
 }
 
-// DELETE /api/dashboard/seller/products - Delete products
+// DELETE /api/dashboard/seller/products - Delete products (authenticated)
 export async function DELETE(request: NextRequest) {
+  const auth = await getAuthenticatedCompany();
+  if (auth.error) return auth.error;
+  
   try {
     const { searchParams } = new URL(request.url);
     const ids = searchParams.get('ids')?.split(',');
@@ -254,8 +311,12 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
+    // Only allow deleting own company's products
     await db.product.deleteMany({
-      where: { id: { in: ids } },
+      where: { 
+        id: { in: ids },
+        companyId: auth.company!.id 
+      },
     });
 
     return NextResponse.json({
