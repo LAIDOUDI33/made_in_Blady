@@ -7,12 +7,18 @@ import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbP
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ProductGrid } from "@/components/products/ProductGrid";
-import { ProductFilters, FilterState, defaultFilters } from "@/components/products/ProductFilters";
-import { SearchBar } from "@/components/products/SearchBar";
-import { SearchResponse as SearchResponseType, ProductListResponse, Product, SearchSuggestion } from "@/types/product";
+import {
+  AdvancedFilters,
+  defaultAdvancedFilters,
+  type AdvancedFilterState,
+} from "@/components/search/AdvancedFilters";
+import { SearchSuggestions } from "@/components/search/SearchSuggestions";
+import { ActiveFilters } from "@/components/search/ActiveFilters";
+import { SavedSearches } from "@/components/search/SavedSearches";
+import { SearchResultsMeta } from "@/components/search/SearchResultsMeta";
+import type { SearchResponse as SearchResponseType, ProductListResponse, Product, SearchSuggestion } from "@/types/product";
 import {
   Search,
   X,
@@ -24,9 +30,14 @@ import {
   Lightbulb,
   Loader2,
   AlertCircle,
+  FileText,
+  ChevronRight,
 } from "lucide-react";
 
-// Popular searches for Algeria B2B
+// ============================================
+// Popular Searches (Algerian B2B Focus)
+// ============================================
+
 const POPULAR_SEARCHES = [
   "Panneaux solaires",
   "Câble électrique",
@@ -38,69 +49,100 @@ const POPULAR_SEARCHES = [
   "Outils industriels",
 ];
 
+// ============================================
+// Main Search Content Component
+// ============================================
+
 function SearchContent() {
   const searchParams = useSearchParams();
   const initialQuery = searchParams.get("q") || "";
-  
+
   // State
   const [query, setQuery] = useState(initialQuery);
   const [searchData, setSearchData] = useState<SearchResponseType | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(!!initialQuery);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
-  const [savedSearches, setSavedSearches] = useState<string[]>([]);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
-  const [sortBy, setSortBy] = useState("newest");
-  const [filters, setFilters] = useState<FilterState>(defaultFilters);
+  const [sortBy, setSortBy] = useState("relevance");
+  const [filters, setFilters] = useState<AdvancedFilterState>(defaultAdvancedFilters);
+  const [activeTab, setActiveTab] = useState<"products" | "suppliers" | "rfqs">("products");
+  const [showMobileFilters, setShowMobileFilters] = useState(false);
 
-  // Load recent and saved searches from localStorage
+  // Load recent searches from localStorage
   useEffect(() => {
     try {
       const recent = localStorage.getItem("recent_searches");
       if (recent) setRecentSearches(JSON.parse(recent));
-      
-      const saved = localStorage.getItem("saved_searches");
-      if (saved) setSavedSearches(JSON.parse(saved));
     } catch {
       // Ignore errors
     }
   }, []);
 
+  // Build search URL with all filters
+  const buildSearchUrl = useCallback(
+    (searchQuery: string) => {
+      const params = new URLSearchParams();
+      params.set("q", searchQuery);
+      params.set("limit", "20");
+      params.set("sortBy", sortBy);
+
+      // Add filter parameters if they have values
+      if (filters.categories.length > 0) params.set("categories", filters.categories.join(","));
+      if (filters.wilayas.length > 0) params.set("wilaya", filters.wilayas.join(","));
+      if (filters.minPrice > 0) params.set("minPrice", String(filters.minPrice));
+      if (filters.maxPrice < 10000000) params.set("maxPrice", String(filters.maxPrice));
+      if (filters.minMoq > 0) params.set("minMoq", String(filters.minMoq));
+      if (filters.maxMoq < 100000) params.set("maxMoq", String(filters.maxMoq));
+      if (filters.verifiedOnly) params.set("verifiedOnly", "true");
+      if (filters.availability.length > 0) params.set("availability", filters.availability.join(","));
+      if (filters.countryOfOrigin) params.set("countryOfOrigin", filters.countryOfOrigin);
+      if (filters.minRating > 0) params.set("minRating", String(filters.minRating));
+      if (filters.datePosted) params.set("datePosted", filters.datePosted);
+      if (filters.leadTime) params.set("leadTime", filters.leadTime);
+
+      return `/api/search?${params.toString()}`;
+    },
+    [filters, sortBy]
+  );
+
   // Perform search
-  const performSearch = useCallback(async (searchQuery: string) => {
-    if (!searchQuery.trim()) return;
+  const performSearch = useCallback(
+    async (searchQuery: string) => {
+      if (!searchQuery.trim()) return;
 
-    setIsLoading(true);
-    setHasSearched(true);
+      setIsLoading(true);
+      setHasSearched(true);
 
-    try {
-      const response = await fetch(
-        `/api/search?q=${encodeURIComponent(searchQuery)}&limit=20`
-      );
-      const data = await response.json();
+      try {
+        const url = buildSearchUrl(searchQuery);
+        const response = await fetch(url);
+        const data = await response.json();
 
-      if (data.success) {
-        setSearchData(data.data);
-        
-        // Save to recent searches
-        const updatedRecent = [
-          searchQuery,
-          ...recentSearches.filter((s) => s !== searchQuery),
-        ].slice(0, 10);
-        setRecentSearches(updatedRecent);
-        
-        try {
-          localStorage.setItem("recent_searches", JSON.stringify(updatedRecent));
-        } catch {
-          // Ignore errors
+        if (data.success) {
+          setSearchData(data.data);
+
+          // Save to recent searches
+          const updatedRecent = [
+            searchQuery,
+            ...recentSearches.filter((s) => s !== searchQuery),
+          ].slice(0, 10);
+          setRecentSearches(updatedRecent);
+
+          try {
+            localStorage.setItem("recent_searches", JSON.stringify(updatedRecent));
+          } catch {
+            // Ignore errors
+          }
         }
+      } catch (error) {
+        console.error("Error searching:", error);
+      } finally {
+        setIsLoading(false);
       }
-    } catch (error) {
-      console.error("Error searching:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [recentSearches]);
+    },
+    [buildSearchUrl, recentSearches]
+  );
 
   // Initial search on mount
   useEffect(() => {
@@ -112,13 +154,12 @@ function SearchContent() {
   // Handle form submit
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (query.trim()) {
-      // Update URL
       const url = new URL(window.location.href);
       url.searchParams.set("q", query);
       window.history.pushState({}, "", url.toString());
-      
+
       performSearch(query);
     }
   };
@@ -126,22 +167,22 @@ function SearchContent() {
   // Handle suggestion click
   const handleSuggestionClick = (suggestion: SearchSuggestion) => {
     setQuery(suggestion.text);
-    
+
     const url = new URL(window.location.href);
     url.searchParams.set("q", suggestion.text);
     window.history.pushState({}, "", url.toString());
-    
+
     performSearch(suggestion.text);
   };
 
   // Handle popular search click
   const handlePopularClick = (term: string) => {
     setQuery(term);
-    
+
     const url = new URL(window.location.href);
     url.searchParams.set("q", term);
     window.history.pushState({}, "", url.toString());
-    
+
     performSearch(term);
   };
 
@@ -151,28 +192,13 @@ function SearchContent() {
     performSearch(term);
   };
 
-  // Save current search
-  const handleSaveSearch = () => {
-    if (query && !savedSearches.includes(query)) {
-      const updated = [query, ...savedSearches].slice(0, 10);
-      setSavedSearches(updated);
-      
-      try {
-        localStorage.setItem("saved_searches", JSON.stringify(updated));
-      } catch {
-        // Ignore errors
-      }
+  // Handle saved search apply
+  const handleApplySavedSearch = (savedSearch: any) => {
+    setQuery(savedSearch.query);
+    if (savedSearch.filters) {
+      setFilters({ ...defaultAdvancedFilters, ...savedSearch.filters });
     }
-  };
-
-  // Clear recent searches
-  const handleClearRecent = () => {
-    setRecentSearches([]);
-    try {
-      localStorage.removeItem("recent_searches");
-    } catch {
-      // Ignore errors
-    }
+    performSearch(savedSearch.query);
   };
 
   // Clear search
@@ -181,6 +207,74 @@ function SearchContent() {
     setSearchData(null);
     setHasSearched(false);
     window.history.pushState({}, "", "/search");
+  };
+
+  // Remove single filter
+  const handleRemoveFilter = (category: string, value?: string) => {
+    let updatedFilters = { ...filters };
+
+    switch (category) {
+      case "categories":
+      case "wilayas":
+      case "availability":
+      case "businessTypes":
+      case "supplierWilayas":
+      case "rfqStatus":
+        updatedFilters = {
+          ...updatedFilters,
+          [category]: (updatedFilters[category] as string[]).filter((v) => v !== value),
+        };
+        break;
+      case "priceRange":
+        updatedFilters = { ...updatedFilters, minPrice: 0, maxPrice: 10000000 };
+        break;
+      case "moqRange":
+        updatedFilters = { ...updatedFilters, minMoq: 0, maxMoq: 100000 };
+        break;
+      case "verifiedOnly":
+        updatedFilters = { ...updatedFilters, verifiedOnly: false };
+        break;
+      case "supplierVerifiedOnly":
+        updatedFilters = { ...updatedFilters, supplierVerifiedOnly: false };
+        break;
+      case "countryOfOrigin":
+        updatedFilters = { ...updatedFilters, countryOfOrigin: "" };
+        break;
+      case "minRating":
+        updatedFilters = { ...updatedFilters, minRating: 0 };
+        break;
+      case "datePosted":
+        updatedFilters = { ...updatedFilters, datePosted: "" };
+        break;
+      case "leadTime":
+        updatedFilters = { ...updatedFilters, leadTime: "" };
+        break;
+      case "yearsInBusiness":
+        updatedFilters = { ...updatedFilters, yearsInBusiness: "" };
+        break;
+      case "sortBy":
+        updatedFilters = { ...updatedFilters, sortBy: "relevance" };
+        setSortBy("relevance");
+        break;
+      default:
+        break;
+    }
+
+    setFilters(updatedFilters);
+    
+    // Re-search with updated filters
+    if (query) {
+      setTimeout(() => performSearch(query), 100);
+    }
+  };
+
+  // Clear all filters
+  const handleClearAllFilters = () => {
+    setFilters(defaultAdvancedFilters);
+    setSortBy("relevance");
+    if (query) {
+      setTimeout(() => performSearch(query), 100);
+    }
   };
 
   // Convert search results to product list format for ProductGrid
@@ -221,28 +315,19 @@ function SearchContent() {
 
           {/* Search Form */}
           <form onSubmit={handleSubmit} className="flex gap-3">
-            <div className="relative flex-1 max-w-2xl">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-              <Input
-                type="text"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
+            <div className="relative flex-1 max-w-3xl">
+              <SearchSuggestions
                 placeholder="Rechercher des produits, fournisseurs, catégories..."
-                className="pl-12 pr-12 h-12 text-base"
-                autoFocus
+                showShortcuts={false}
+                size="lg"
+                onSearch={(term) => {
+                  setQuery(term);
+                  performSearch(term);
+                }}
               />
-              {query && (
-                <button
-                  type="button"
-                  onClick={handleClearSearch}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-muted"
-                >
-                  <X className="h-5 w-5 text-muted-foreground" />
-                </button>
-              )}
             </div>
-            
-            <Button type="submit" size="lg" className="bg-green-600 hover:bg-green-700 px-8">
+
+            <Button type="submit" size="lg" className="bg-green-600 hover:bg-green-700 px-8 h-14">
               <Search className="h-5 w-5 mr-2" />
               Rechercher
             </Button>
@@ -278,11 +363,18 @@ function SearchContent() {
                       <Clock className="h-5 w-5 text-muted-foreground" />
                       Recherches Récentes
                     </h2>
-                    <Button variant="ghost" size="sm" onClick={handleClearRecent}>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setRecentSearches([]);
+                        localStorage.removeItem("recent_searches");
+                      }}
+                    >
                       Effacer tout
                     </Button>
                   </div>
-                  
+
                   <div className="flex flex-wrap gap-2">
                     {recentSearches.map((term) => (
                       <Badge
@@ -293,8 +385,8 @@ function SearchContent() {
                       >
                         <Search className="h-3 w-3 mr-1" />
                         {term}
-                        <X 
-                          className="h-3 w-3 ml-2 opacity-50 hover:opacity-100" 
+                        <X
+                          className="h-3 w-3 ml-2 opacity-50 hover:opacity-100"
                           onClick={(e) => {
                             e.stopPropagation();
                             setRecentSearches(recentSearches.filter((s) => s !== term));
@@ -308,37 +400,21 @@ function SearchContent() {
             )}
 
             {/* Saved Searches */}
-            {savedSearches.length > 0 && (
-              <Card className="mb-6">
-                <CardContent className="p-6">
-                  <h2 className="font-semibold flex items-center gap-2 mb-4">
-                    💾 Recherches Sauvegardées
-                  </h2>
-                  
-                  <div className="flex flex-wrap gap-2">
-                    {savedSearches.map((term) => (
-                      <Badge
-                        key={term}
-                        variant="outline"
-                        className="cursor-pointer hover:border-green-300 hover:bg-green-50 px-3 py-1.5 text-sm"
-                        onClick={() => handleRecentClick(term)}
-                      >
-                        {term}
-                      </Badge>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+            <SavedSearches
+              currentQuery={query}
+              currentFilters={filters}
+              onApplySavedSearch={handleApplySavedSearch}
+              compact={false}
+            />
 
             {/* Popular Searches */}
             <Card>
               <CardContent className="p-6">
                 <h2 className="font-semibold flex items-center gap-2 mb-4">
                   <TrendingUp className="h-5 w-5 text-orange-500" />
-                  Recherches Populaires
+                  Recherches Populaires en Algérie
                 </h2>
-                
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
                   {POPULAR_SEARCHES.map((term) => (
                     <button
@@ -405,169 +481,240 @@ function SearchContent() {
             <Loader2 className="h-12 w-12 text-green-600 animate-spin mx-auto mb-4" />
             <p className="text-lg font-medium">Recherche en cours...</p>
             <p className="text-muted-foreground mt-1">
-              Recherche de &quot;{query}&quot;
+              Recherche de &quot;{query}&quot; avec vos filtres
             </p>
           </div>
         ) : searchData ? (
           /* Results State */
           <div>
-            {/* Results Header */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-              <div>
-                <h1 className="text-xl font-semibold">
-                  Résultats pour &quot;{searchData.searchQuery}&quot;
-                </h1>
-                <p className="text-sm text-muted-foreground mt-1">
-                  {searchData.pagination.total} résultat(s) trouvé(s)
-                </p>
+            {/* Results Header with Meta Info */}
+            <div className="mb-6">
+              <SearchResultsMeta
+                totalResults={searchData.pagination.total}
+                searchQuery={searchData.searchQuery}
+                currentSort={sortBy}
+                viewMode={viewMode}
+                onSortChange={setSortBy}
+                onViewModeChange={setViewMode}
+                onToggleFilters={() => setShowMobileFilters(!showMobileFilters)}
+                isLoading={isLoading}
+              />
+
+              {/* Active Filters Display */}
+              <div className="mt-4">
+                <ActiveFilters
+                  filters={filters}
+                  onRemoveFilter={handleRemoveFilter}
+                  onClearAll={handleClearAllFilters}
+                />
               </div>
 
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleSaveSearch}
-                  disabled={savedSearches.includes(query)}
-                >
-                  💾 {savedSearches.includes(query) ? "Sauvegardé" : "Sauvegarder la recherche"}
-                </Button>
-                
-                {/* View Mode Toggle */}
-                <div className="hidden sm:flex border rounded-md overflow-hidden">
-                  <button
-                    onClick={() => setViewMode("grid")}
-                    className={`p-2 transition-colors ${
-                      viewMode === "grid"
-                        ? "bg-green-600 text-white"
-                        : "bg-background hover:bg-muted"
-                    }`}
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>
-                  </button>
-                  <button
-                    onClick={() => setViewMode("list")}
-                    className={`p-2 transition-colors ${
-                      viewMode === "list"
-                        ? "bg-green-600 text-white"
-                        : "bg-background hover:bg-muted"
-                    }`}
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" x2="21" y1="6" y2="6"/><line x1="8" x2="21" y1="12" y2="12"/><line x1="8" x2="21" y1="18" y2="18"/><line x1="3" x2="3.01" y1="6" y2="6"/><line x1="3" x2="3.01" y1="12" y2="12"/><line x1="3" x2="3.01" y1="18" y2="18"/></svg>
-                  </button>
-                </div>
+              {/* Save Current Search Button */}
+              <div className="mt-4 flex items-center gap-3">
+                <SavedSearches
+                  currentQuery={query}
+                  currentFilters={filters}
+                  onApplySavedSearch={handleApplySavedSearch}
+                  compact={true}
+                />
               </div>
             </div>
 
+            {/* Tab Navigation for different result types */}
+            {(searchData.rfqResults && searchData.rfqResults.length > 0 ||
+              searchData.suggestions.some((s) => s.type === "company")) && (
+              <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="mb-6">
+                <TabsList>
+                  <TabsTrigger value="products" className="gap-2">
+                    <Package className="h-4 w-4" />
+                    Produits ({searchData.pagination.total})
+                  </TabsTrigger>
+                  {searchData.suggestions.some((s) => s.type === "company") && (
+                    <TabsTrigger value="suppliers" className="gap-2">
+                      <Building2 className="h-4 w-4" />
+                      Fournisseurs
+                    </TabsTrigger>
+                  )}
+                  {searchData.rfqResults && searchData.rfqResults.length > 0 && (
+                    <TabsTrigger value="rfqs" className="gap-2">
+                      <FileText className="h-4 w-4" />
+                      RFQs ({searchData.rfqResults.length})
+                    </TabsTrigger>
+                  )}
+                </TabsList>
+              </Tabs>
+            )}
+
             <div className="flex gap-6">
               {/* Sidebar Filters - Desktop */}
-              <aside className="hidden lg:block w-72 shrink-0">
-                <ProductFilters
-                  onFiltersChange={(newFilters) => setFilters({ ...filters, ...newFilters })}
+              <aside className={`w-72 shrink-0 ${showMobileFilters ? "block" : "hidden lg:block"}`}>
+                <AdvancedFilters
+                  filterType="all"
+                  onFiltersChange={(newFilters) => {
+                    setFilters({ ...filters, ...newFilters });
+                    // Debounce re-search
+                    setTimeout(() => query && performSearch(query), 300);
+                  }}
                   currentFilters={filters}
                 />
               </aside>
 
               {/* Main Content */}
               <main className="flex-1 min-w-0">
-                {/* Mobile Filter Button */}
-                <div className="lg:hidden mb-4">
-                  <ProductFilters
-                    onFiltersChange={(newFilters) => setFilters({ ...filters, ...newFilters })}
-                    currentFilters={filters}
-                  />
-                </div>
+                {/* Products Results */}
+                {(activeTab === "products" || !searchData.rfqResults?.length) &&
+                  (searchData.results.length > 0 ? (
+                    <Suspense fallback={<ProductGrid isLoading />}>
+                      <ProductGrid
+                        data={convertToProductListResponse()}
+                        viewMode={viewMode}
+                        onViewModeChange={setViewMode}
+                        onSortChange={setSortBy}
+                        currentSort={sortBy}
+                        onAddToRFQ={() => {}}
+                        onToggleFavorite={() => {}}
+                      />
+                    </Suspense>
+                  ) : (
+                    /* Empty Products Results */
+                    <Card>
+                      <CardContent className="p-12 text-center">
+                        <AlertCircle className="h-16 w-16 text-muted-foreground/30 mx-auto mb-4" />
+                        <h2 className="text-xl font-semibold mb-2">
+                          Aucun produit trouvé
+                        </h2>
+                        <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+                          Nous n&apos;avons trouvé aucun produit correspondant à &quot;{searchData.searchQuery}&quot;.{" "}
+                          Essayez avec d&apos;autres termes ou modifiez vos filtres.
+                        </p>
 
-                {/* Products Grid/List */}
-                {searchData.results.length > 0 ? (
-                  <Suspense fallback={<ProductGrid isLoading />}>
-                    <ProductGrid
-                      data={convertToProductListResponse()}
-                      viewMode={viewMode}
-                      onViewModeChange={setViewMode}
-                      onSortChange={setSortBy}
-                      currentSort={sortBy}
-                      onAddToRFQ={() => {}}
-                      onToggleFavorite={() => {}}
-                    />
-                  </Suspense>
-                ) : (
-                  /* Empty Results */
-                  <Card>
-                    <CardContent className="p-12 text-center">
-                      <AlertCircle className="h-16 w-16 text-muted-foreground/30 mx-auto mb-4" />
-                      <h2 className="text-xl font-semibold mb-2">
-                        Aucun résultat trouvé
-                      </h2>
-                      <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-                        Nous n&apos;avons trouvé aucun produit correspondant à &quot;{searchData.searchQuery}&quot;. 
-                        Essayez avec d&apos;autres termes de recherche.
-                      </p>
+                        {/* Suggestions */}
+                        {searchData.suggestions.length > 0 && (
+                          <div className="mb-6">
+                            <p className="text-sm font-medium mb-3">Suggestions:</p>
+                            <div className="flex flex-wrap justify-center gap-2">
+                              {searchData.suggestions.slice(0, 5).map((suggestion) => (
+                                <Badge
+                                  key={suggestion.id}
+                                  variant="secondary"
+                                  className="cursor-pointer hover:bg-green-100 hover:text-green-700 px-3 py-1.5"
+                                  onClick={() => handleSuggestionClick(suggestion)}
+                                >
+                                  {suggestion.type === "product" && (
+                                    <Package className="h-3 w-3 mr-1" />
+                                  )}
+                                  {suggestion.type === "category" && (
+                                    <FolderOpen className="h-3 w-3 mr-1" />
+                                  )}
+                                  {suggestion.type === "company" && (
+                                    <Building2 className="h-3 w-3 mr-1" />
+                                  )}
+                                  {suggestion.text}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
 
-                      {/* Suggestions */}
-                      {searchData.suggestions.length > 0 && (
-                        <div className="mb-6">
-                          <p className="text-sm font-medium mb-3">Suggestions:</p>
+                        {/* Popular Searches */}
+                        <div>
+                          <p className="text-sm font-medium mb-3 flex items-center justify-center gap-1">
+                            <TrendingUp className="h-4 w-4" />
+                            Recherches populaires:
+                          </p>
                           <div className="flex flex-wrap justify-center gap-2">
-                            {searchData.suggestions.slice(0, 5).map((suggestion) => (
+                            {POPULAR_SEARCHES.slice(0, 4).map((term) => (
                               <Badge
-                                key={suggestion.id}
-                                variant="secondary"
-                                className="cursor-pointer hover:bg-green-100 hover:text-green-700 px-3 py-1.5"
-                                onClick={() => handleSuggestionClick(suggestion)}
+                                key={term}
+                                variant="outline"
+                                className="cursor-pointer hover:border-green-300 px-3 py-1.5"
+                                onClick={() => handlePopularClick(term)}
                               >
-                                {suggestion.type === "product" && <Package className="h-3 w-3 mr-1" />}
-                                {suggestion.type === "category" && <FolderOpen className="h-3 w-3 mr-1" />}
-                                {suggestion.type === "company" && <Building2 className="h-3 w-3 mr-1" />}
-                                {suggestion.text}
+                                {term}
                               </Badge>
                             ))}
                           </div>
                         </div>
-                      )}
+                      </CardContent>
+                    </Card>
+                  ))}
 
-                      {/* Popular Searches */}
-                      <div>
-                        <p className="text-sm font-medium mb-3 flex items-center justify-center gap-1">
-                          <TrendingUp className="h-4 w-4" />
-                          Recherches populaires:
-                        </p>
-                        <div className="flex flex-wrap justify-center gap-2">
-                          {POPULAR_SEARCHES.slice(0, 4).map((term) => (
-                            <Badge
-                              key={term}
-                              variant="outline"
-                              className="cursor-pointer hover:border-green-300 px-3 py-1.5"
-                              onClick={() => handlePopularClick(term)}
-                            >
-                              {term}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
+                {/* Supplier Suggestions */}
+                {activeTab === "suppliers" && (
+                  <div className="space-y-3">
+                    {searchData.suggestions
+                      .filter((s) => s.type === "company")
+                      .map((supplier) => (
+                        <Card key={supplier.id} className="hover:border-green-200 transition-colors cursor-pointer">
+                          <CardContent className="p-4 flex items-center gap-4">
+                            <Building2 className="h-10 w-10 text-purple-600 bg-purple-50 rounded-lg p-2" />
+                            <div className="flex-1 min-w-0">
+                              <h3 className="font-medium">{supplier.text}</h3>
+                              {supplier.count !== undefined && (
+                                <p className="text-sm text-muted-foreground">
+                                  {supplier.count} produits
+                                </p>
+                              )}
+                              {supplier.rating !== undefined && (
+                                <div className="flex items-center gap-1 mt-1">
+                                  <span className="text-yellow-500">⭐</span>
+                              <span className="text-sm">{supplier.rating}</span>
+                                </div>
+                              )}
+                            </div>
+                            <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                          </CardContent>
+                        </Card>
+                      ))}
+                  </div>
                 )}
 
-                {/* Search Suggestions */}
-                {searchData.suggestions.length > 0 && searchData.results.length > 0 && (
+                {/* RFQ Results */}
+                {activeTab === "rfqs" && searchData.rfqResults && (
+                  <div className="space-y-3">
+                    {searchData.rfqResults.map((rfq: any) => (
+                      <Card key={rfq.id} className="hover:border-orange-200 transition-colors cursor-pointer">
+                        <CardContent className="p-4">
+                          <div className="flex items-start gap-4">
+                            <FileText className="h-10 w-10 text-orange-600 bg-orange-50 rounded-lg p-2 shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <h3 className="font-medium">{rfq.title}</h3>
+                              <p className="text-sm text-muted-foreground line-clamp-2 mt-1">
+                                {rfq.description}
+                              </p>
+                              <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
+                                <span>Qté: {rfq.quantity.toLocaleString()} {rfq.unit}</span>
+                                {rfq.targetPrice && (
+                                  <span>Budget: {rfq.targetPrice.toLocaleString()} DZD</span>
+                                )}
+                                <span>{rfq._count?.quotations || 0} devis</span>
+                              </div>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+
+                {/* Related Searches / Popular Searches */}
+                {searchData.relatedSearches && searchData.relatedSearches.length > 0 && searchData.results.length > 0 && (
                   <Card className="mt-6">
                     <CardContent className="p-4">
                       <h3 className="text-sm font-medium mb-3 flex items-center gap-2">
                         <Lightbulb className="h-4 w-4 text-yellow-500" />
-                        Vous pourriez aussi chercher:
+                        Autres recherches populaires
                       </h3>
                       <div className="flex flex-wrap gap-2">
-                        {searchData.suggestions.map((suggestion) => (
+                        {searchData.relatedSearches.map((item, index) => (
                           <Badge
-                            key={suggestion.id}
+                            key={index}
                             variant="outline"
                             className="cursor-pointer hover:border-green-300 hover:bg-green-50"
-                            onClick={() => handleSuggestionClick(suggestion)}
+                            onClick={() => handlePopularClick(item.term)}
                           >
-                            {suggestion.type === "product" && <Package className="h-3 w-3 mr-1" />}
-                            {suggestion.type === "category" && <FolderOpen className="h-3 w-3 mr-1" />}
-                            {suggestion.type === "company" && <Building2 className="h-3 w-3 mr-1" />}
-                            {suggestion.text}
+                            <TrendingUp className="h-3 w-3 mr-1" />
+                            {item.term}
                           </Badge>
                         ))}
                       </div>
@@ -583,13 +730,19 @@ function SearchContent() {
   );
 }
 
+// ============================================
+// Export Page Component
+// ============================================
+
 export default function SearchPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-gray-50/50 flex items-center justify-center">
-        <Loader2 className="h-8 w-8 text-green-600 animate-spin" />
-      </div>
-    }>
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-gray-50/50 flex items-center justify-center">
+          <Loader2 className="h-8 w-8 text-green-600 animate-spin" />
+        </div>
+      }
+    >
       <SearchContent />
     </Suspense>
   );

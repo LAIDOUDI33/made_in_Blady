@@ -18,12 +18,14 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
+import { useTranslation, useLanguage } from "@/lib/i18n";
 import { Eye, EyeOff, Mail, Lock, AlertCircle, Loader2 } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
+  const { t, isRTL } = useTranslation();
   
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -34,29 +36,30 @@ export default function LoginPage() {
     rememberMe: false,
   });
 
+  // Error messages map
+  const errorMessages: Record<string, string> = {
+    Configuration: t('auth.errors.configurationError') || "Erreur de configuration du serveur",
+    AccessDenied: t('auth.errors.accessDenied') || "Accès refusé",
+    Verification: t('auth.errors.verificationRequired') || "Vérification requise",
+    Default: t('auth.errors.invalidCredentials') || "Email ou mot de passe incorrect",
+    Signin: t('auth.errors.invalidCredentials') || "Email ou mot de passe incorrect",
+    OAuthSignin: t('auth.errors.oauthError') || "Erreur lors de la connexion au fournisseur",
+    OAuthCallback: t('auth.errors.oauthCallback') || "Erreur lors du retour du fournisseur",
+    OAuthCreateAccount: t('auth.errors.oauthCreateAccount') || "Impossible de créer un compte avec ce fournisseur",
+    EmailCreateAccount: t('auth.errors.emailCreateAccount') || "Impossible de créer un compte email",
+    Callback: t('auth.errors.callbackError') || "Erreur lors de la connexion",
+    OAuthAccountNotLinked: t('auth.errors.accountNotLinked') || "Ce compte est déjà lié à une autre méthode de connexion",
+    SessionRequired: t('auth.errors.sessionRequired') || "Connexion requise",
+  };
+
   // Check for error message from NextAuth
   useEffect(() => {
     const errorParam = searchParams.get("error");
     if (errorParam) {
-      const errorMessages: Record<string, string> = {
-        Configuration: "Erreur de configuration du serveur",
-        AccessDenied: "Accès refusé",
-        Verification: "Vérification requise",
-        Default: "Email ou mot de passe incorrect",
-        Signin: "Email ou mot de passe incorrect",
-        OAuthSignin: "Erreur lors de la connexion au fournisseur",
-        OAuthCallback: "Erreur lors du retour du fournisseur",
-        OAuthCreateAccount: "Impossible de créer un compte avec ce fournisseur",
-        EmailCreateAccount: "Impossible de créer un compte email",
-        Callback: "Erreur lors de la connexion",
-        OAuthAccountNotLinked: "Ce compte est déjà lié à une autre méthode de connexion",
-        SessionRequired: "Connexion requise",
-      };
-      
-      const message = errorMessages[errorParam] || "Une erreur est survenue lors de la connexion";
+      const message = errorMessages[errorParam] || (t('auth.errors.serverError') || "Une erreur est survenue lors de la connexion");
       setError(message);
       toast({
-        title: "Erreur de connexion",
+        title: t('login.errorTitle') || 'Erreur de connexion',
         description: message,
         variant: "destructive",
       });
@@ -66,8 +69,8 @@ export default function LoginPage() {
     const registered = searchParams.get("registered");
     if (registered === "true") {
       toast({
-        title: "Compte créé !",
-        description: "Votre compte a été créé avec succès. Vous pouvez maintenant vous connecter.",
+        title: t('auth.successTitle') || 'Compte créé !',
+        description: t('auth.successMessage') || 'Votre compte a été créé avec succès. Vous pouvez maintenant vous connecter.',
       });
     }
   }, [searchParams, toast]);
@@ -80,13 +83,13 @@ export default function LoginPage() {
     try {
       // Validate form
       if (!formData.email || !formData.password) {
-        throw new Error("Veuillez remplir tous les champs");
+        throw new Error(t('validation.required') || "Veuillez remplir tous les champs");
       }
 
       // Simple email validation
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(formData.email)) {
-        throw new Error("Format d'email invalide");
+        throw new Error(t('auth.errors.invalidEmail') || "Format d'email invalide");
       }
 
       // Attempt sign in with NextAuth
@@ -101,13 +104,13 @@ export default function LoginPage() {
         let errorMessage = result.error;
         
         if (result.error.includes("requis")) {
-          errorMessage = "Email et mot de passe requis";
+          errorMessage = t('auth.errors.credentialsRequired') || "Email et mot de passe requis";
         } else if (result.error.includes("trouvé")) {
-          errorMessage = "Aucun compte trouvé avec cet email";
+          errorMessage = t('auth.errors.accountNotFound') || "Aucun compte trouvé avec cet email";
         } else if (result.error.includes("désactivé")) {
-          errorMessage = "Ce compte a été désactivé. Contactez le support.";
+          errorMessage = t('auth.errors.accountDisabled') || "Ce compte a été désactivé. Contactez le support.";
         } else if (result.error.includes("incorrect")) {
-          errorMessage = "Mot de passe incorrect";
+          errorMessage = t('auth.errors.wrongPassword') || "Mot de passe incorrect";
         }
         
         throw new Error(errorMessage);
@@ -130,18 +133,18 @@ export default function LoginPage() {
         const redirectPath = role ? roleRedirects[role] : "/dashboard";
         
         toast({
-          title: "Connexion réussie",
-          description: "Bienvenue sur AlgeriaTrade !",
+          title: t('login.successTitle') || 'Connexion réussie',
+          description: t('login.successMessage') || 'Bienvenue sur AlgeriaTrade !',
         });
         
         router.push(redirectPath);
         router.refresh();
       }
     } catch (err: any) {
-      const errorMessage = err.message || "Une erreur est survenue";
+      const errorMessage = err.message || (t('auth.errors.serverError') || "Une erreur est survenue");
       setError(errorMessage);
       toast({
-        title: "Erreur de connexion",
+        title: t('login.errorTitle') || 'Erreur de connexion',
         description: errorMessage,
         variant: "destructive",
       });
@@ -158,7 +161,7 @@ export default function LoginPage() {
         <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-emerald-100 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-pulse" style={{ animationDelay: '2s' }} />
       </div>
 
-      <div className="w-full max-w-md space-y-6 relative z-10">
+      <div className={`w-full max-w-md space-y-6 relative z-10 ${isRTL ? 'rtl' : ''}`}>
         {/* Logo & Header */}
         <div className="text-center space-y-3">
           <Link href="/" className="inline-flex items-center gap-2 group">
@@ -171,9 +174,9 @@ export default function LoginPage() {
             </div>
             <span className="text-2xl font-bold text-[#006233]">AlgeriaTrade</span>
           </Link>
-          <h1 className="text-2xl font-bold text-gray-900">Connexion</h1>
+          <h1 className="text-2xl font-bold text-gray-900">{t('auth.title') || 'Connexion'}</h1>
           <p className="text-gray-500 text-sm">
-            Accédez à votre espace professionnel AlgeriaTrade.dz
+            {t('auth.subtitle') || "Accédez à votre espace professionnel AlgeriaTrade.dz"}
           </p>
         </div>
 
@@ -183,19 +186,19 @@ export default function LoginPage() {
             <form onSubmit={handleSubmit} className="space-y-4">
               {/* Error Display */}
               {error && (
-                <div className="flex items-start gap-3 p-4 rounded-lg bg-red-50 border border-red-200 text-red-800">
+                <div className={`flex items-start gap-3 p-4 rounded-lg bg-red-50 border border-red-200 text-red-800 ${isRTL ? 'flex-row-reverse' : ''}`}>
                   <AlertCircle className="h-5 w-5 mt-0.5 flex-shrink-0" />
-                  <p className="text-sm">{error}</p>
+                  <p className={`text-sm ${isRTL ? 'text-right' : ''}`}>{error}</p>
                 </div>
               )}
 
               {/* Email */}
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-gray-700 font-medium">
-                  Adresse Email
+                <Label htmlFor="email" className={`text-gray-700 font-medium ${isRTL ? 'block text-right' : ''}`}>
+                  {t('auth.email') || 'Adresse Email'}
                 </Label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Mail className={`absolute ${isRTL ? 'right-3' : 'left-3'} top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400`} />
                   <Input
                     id="email"
                     type="email"
@@ -204,28 +207,29 @@ export default function LoginPage() {
                     onChange={(e) =>
                       setFormData({ ...formData, email: e.target.value })
                     }
-                    className="pl-10 h-11 border-gray-200 focus:border-[#006233] focus:ring-[#006233]/20"
+                    className={`${isRTL ? 'pr-10 pl-4' : 'pl-10 pr-10'} h-11 border-gray-200 focus:border-[#006233] focus:ring-[#006233]/20`}
                     required
                     disabled={isLoading}
+                    dir="ltr"
                   />
                 </div>
               </div>
 
               {/* Password */}
               <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="password" className="text-gray-700 font-medium">
-                    Mot de Passe
+                <div className={`flex items-center justify-between ${isRTL ? 'flex-row-reverse' : ''}`}>
+                  <Label htmlFor="password" className={`text-gray-700 font-medium ${isRTL ? '' : ''}`}>
+                    {t('auth.password') || 'Mot de Passe'}
                   </Label>
                   <Link
                     href="/forgot-password"
                     className="text-sm text-[#006233] hover:text-[#004d28] hover:underline transition-colors"
                   >
-                    Mot de passe oublié ?
+                    {t('auth.forgotPassword') || 'Mot de passe oublié ?'}
                   </Link>
                 </div>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Lock className={`absolute ${isRTL ? 'right-3' : 'left-3'} top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400`} />
                   <Input
                     id="password"
                     type={showPassword ? "text" : "password"}
@@ -234,14 +238,15 @@ export default function LoginPage() {
                     onChange={(e) =>
                       setFormData({ ...formData, password: e.target.value })
                     }
-                    className="pl-10 pr-10 h-11 border-gray-200 focus:border-[#006233] focus:ring-[#006233]/20"
+                    className={`${isRTL ? 'pr-10 pl-10' : 'pl-10 pr-10'} h-11 border-gray-200 focus:border-[#006233] focus:ring-[#006233]/20`}
                     required
                     disabled={isLoading}
+                    dir={isRTL ? 'rtl' : 'ltr'}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                    className={`absolute ${isRTL ? 'left-3' : 'right-3'} top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors`}
                     tabIndex={-1}
                   >
                     {showPassword ? (
@@ -254,7 +259,7 @@ export default function LoginPage() {
               </div>
 
               {/* Remember Me */}
-              <div className="flex items-center space-x-2">
+              <div className={`flex items-center space-x-2 ${isRTL ? 'flex-row-reverse space-x-reverse space-x-2' : ''}`}>
                 <Checkbox
                   id="remember"
                   checked={formData.rememberMe}
@@ -268,7 +273,7 @@ export default function LoginPage() {
                   htmlFor="remember"
                   className="text-sm text-gray-500 cursor-pointer select-none"
                 >
-                  Se souvenir de moi
+                  {t('auth.rememberMe') || 'Se souvenir de moi'}
                 </label>
               </div>
 
@@ -280,11 +285,11 @@ export default function LoginPage() {
               >
                 {isLoading ? (
                   <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Connexion en cours...
+                    <Loader2 className={`${isRTL ? 'ml-2' : 'mr-2'} h-4 w-4 animate-spin`} />
+                    {t('login.loading') || 'Connexion en cours...'}
                   </>
                 ) : (
-                  "Se Connecter"
+                  t('auth.loginBtn') || 'Se Connecter'
                 )}
               </Button>
             </form>
@@ -293,17 +298,17 @@ export default function LoginPage() {
 
             {/* Demo Credentials Info */}
             <div className="rounded-lg bg-gray-50 p-4 border border-gray-200">
-              <p className="text-xs text-gray-500 text-center mb-2">
-                Plateforme B2B pour le marché algérien
+              <p className={`text-xs text-gray-500 text-center mb-2 ${isRTL ? '' : ''}`}>
+                {t('login.platformInfo') || 'Plateforme B2B pour le marché algérien'}
               </p>
-              <div className="grid grid-cols-2 gap-2 text-xs text-gray-600">
+              <div className={`grid grid-cols-2 gap-2 text-xs text-gray-600`}>
                 <div className="flex items-center gap-1">
                   <div className="w-2 h-2 rounded-full bg-[#006233]" />
-                  Acheteurs
+                  {t('buyer.dashboard') || 'Acheteurs'}
                 </div>
                 <div className="flex items-center gap-1">
                   <div className="w-2 h-2 rounded-full bg-[#D52B1E]" />
-                  Fournisseurs
+                  {t('seller.dashboard') || 'Fournisseurs'}
                 </div>
               </div>
             </div>
@@ -313,13 +318,13 @@ export default function LoginPage() {
         {/* Register Link */}
         <Card className="shadow-sm border-0 bg-white/60 backdrop-blur-sm">
           <CardContent className="py-4">
-            <p className="text-center text-sm text-gray-600">
-              Pas encore de compte ?{" "}
+            <p className={`text-center text-sm text-gray-600 ${isRTL ? '' : ''}`}>
+              {t('auth.noAccount') || 'Pas encore de compte ?'}{" "}
               <Link
                 href="/register"
                 className="text-[#006233] font-semibold hover:text-[#004d28] hover:underline transition-colors"
               >
-                Inscrivez-vous gratuitement
+                {t('auth.createAccount') || 'Inscrivez-vous gratuitement'}
               </Link>
             </p>
           </CardContent>
@@ -329,9 +334,17 @@ export default function LoginPage() {
         <p className="text-center">
           <Link
             href="/"
-            className="text-sm text-gray-400 hover:text-[#006233] transition-colors inline-flex items-center gap-1"
+            className={`text-sm text-gray-400 hover:text-[#006233] transition-colors inline-flex items-center gap-1 ${isRTL ? 'flex-row-reverse' : ''}`}
           >
-            ← Retour à l&apos;accueil
+            {isRTL ? (
+              <>
+                {t('common.back') || 'Retour'} → {t('common.home') || 'accueil'}
+              </>
+            ) : (
+              <>
+                ← {t('common.back') || 'Retour'} {t('common.home') || 'à l\'accueil'}
+              </>
+            )}
           </Link>
         </p>
       </div>

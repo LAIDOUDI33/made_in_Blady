@@ -44,7 +44,10 @@ import {
   ThumbsUp,
   AlertCircle,
   Loader2,
+  X,
 } from "lucide-react";
+import { ReviewList, ReviewForm } from "@/components/reviews";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 function ProductDetailContent() {
   const params = useParams();
@@ -54,6 +57,8 @@ function ProductDetailContent() {
   const [isLoading, setIsLoading] = useState(true);
   const [isFavorite, setIsFavorite] = useState(false);
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+  const [reviewSubmitted, setReviewSubmitted] = useState(false);
   const [contactForm, setContactForm] = useState({
     name: "",
     email: "",
@@ -664,68 +669,34 @@ function ProductDetailContent() {
           </TabsContent>
 
           <TabsContent value="reviews" className="mt-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Star className="h-5 w-5 text-yellow-500" />
-                  Avis des Clients ({product.reviews?.length || 0})
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {product.reviews && product.reviews.length > 0 ? (
-                  <div className="space-y-4">
-                    {product.reviews.map((review) => (
-                      <div key={review.id} className="border-b pb-4 last:border-0">
-                        <div className="flex items-start justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-green-100 to-green-200 flex items-center justify-center">
-                              <User className="h-5 w-5 text-green-600" />
-                            </div>
-                            <div>
-                              <p className="font-medium">{review.reviewerName}</p>
-                              <div className="flex items-center gap-2 mt-1">
-                                <div className="flex">
-                                  {Array.from({ length: 5 }).map((_, i) => (
-                                    <Star
-                                      key={i}
-                                      className={`h-4 w-4 ${
-                                        i < review.rating
-                                          ? "text-yellow-500 fill-yellow-500"
-                                          : "text-gray-300"
-                                      }`}
-                                    />
-                                  ))}
-                                </div>
-                                <span className="text-xs text-muted-foreground">
-                                  {new Date(review.createdAt).toLocaleDateString("fr-FR")}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                        
-                        {review.title && (
-                          <h4 className="font-medium mt-3">{review.title}</h4>
-                        )}
-                        
-                        {review.comment && (
-                          <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
-                            {review.comment}
-                          </p>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-8">
-                    <MessageSquare className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
-                    <p className="text-muted-foreground">
-                      Aucun avis pour ce produit. Soyez le premier à donner votre avis!
-                    </p>
-                  </div>
+            {/* Review Form Modal */}
+            <Dialog open={isReviewModalOpen} onOpenChange={setIsReviewModalOpen}>
+              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>Rédiger un avis</DialogTitle>
+                </DialogHeader>
+                {product && (
+                  <ReviewForm
+                    targetId={product.id}
+                    reviewType="product"
+                    slug={slug}
+                    onSuccess={() => {
+                      setIsReviewModalOpen(false);
+                      setReviewSubmitted(true);
+                    }}
+                    onCancel={() => setIsReviewModalOpen(false)}
+                  />
                 )}
-              </CardContent>
-            </Card>
+              </DialogContent>
+            </Dialog>
+
+            {/* Review List */}
+            <ReviewList
+              apiUrl={`/api/products/${slug}/reviews?XTransformPort=3000`}
+              showStats={true}
+              allowWriteReview={!reviewSubmitted}
+              onWriteReview={() => setIsReviewModalOpen(true)}
+            />
           </TabsContent>
         </Tabs>
 

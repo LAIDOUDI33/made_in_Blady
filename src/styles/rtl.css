@@ -1,0 +1,399 @@
+/* RTL (Right-to-Left) Support Styles for AlgeriaTrade */
+
+/* ============================================
+   Base RTL Adjustments
+   ============================================ */
+[dir="rtl"] {
+  text-align: right;
+}
+
+[dir="rtl"] ul,
+[dir="rtl"] ol {
+  padding-right: 0;
+  padding-left: initial;
+}
+
+[dir="rtl"] blockquote {
+  border-left: none;
+  border-right: 4px solid hsl(var(--border));
+  padding-right: 1rem;
+  padding-left: initial;
+}
+
+/* ============================================
+   Spacing Utilities RTL
+   ============================================ */
+[dir="rtl"] .ms-auto {
+  margin-left: 0 !important;
+  margin-right: auto !important;
+}
+
+[dir="rtl"] .me-auto {
+  margin-right: 0 !important;
+  margin-left: auto !important;
+}
+
+[dir="rtl"] .ms-1 { margin-left: 0 !important; margin-right: 0.25rem !important; }
+[dir="rtl"] .ms-2 { margin-left: 0 !important; margin-right: 0.5rem !important; }
+[dir="rtl"] .ms-3 { margin-left: 0 !important; margin-right: 1rem !important; }
+[dir="rtl"] .ms-4 { margin-left: 0 !important; margin-right: 1.5rem !important; }
+
+[dir="rtl"] .me-1 { margin-right: 0 !important; margin-left: 0.25rem !important; }
+[dir="rtl"] .me-2 { margin-right: 0 !important; margin-left: 0.5rem !important; }
+[dir="rtl"] .me-3 { margin-right: 0 !important; margin-left: 1rem !important; }
+[dir="rtl"] .me-4 { margin-right: 0 !important; margin-left: 1.5rem !important; }
+
+[dir="rtl"] .ps-1 { padding-left: 0 !important; padding-right: 0.25rem !important; }
+[dir="rtl"] .ps-2 { padding-left: 0 !important; padding-right: 0.5rem !important; }
+[dir="rtl"] .ps-3 { padding-left: 0 !important; padding-right: 1rem !important; }
+[dir="rtl"] .ps-4 { padding-left: 0 !important; padding-right: 1.5rem !important; }
+
+[dir="rtl"] .pe-1 { padding-right: 0 !important; padding-left: 0.25rem !important; }
+[dir="rtl"] .pe-2 { padding-right: 0 !important; padding-left: 0.5rem !important; }
+[dir="rtl"] .pe-3 { padding-right: 0 !important; padding-left: 1rem !important; }
+[dir="rtl"] .pe-4 { padding-right: 0 !important; padding-left: 1.5rem !important; }
+
+/* ============================================
+   Header RTL
+   ============================================ */
+[dir="rtl"] header .container {
+  direction: rtl;
+}
+
+[dir="rtl"] header nav {
+  flex-direction: row-reverse;
+}
+
+[dir="rtl"] header .search-bar input {
+  text-align: right;
+}
+
+[dir="rtl"] header .user-menu {
+  left: 0;
+  right: auto;
+}
+
+/* ============================================
+   Sidebar RTL
+   ============================================ */
+[dir="rtl"] aside.sidebar,
+[dir="rtl"] [class*="fixed"][class*="left-0"] {
+  left: auto !important;
+  right: 0 !important;
+  border-left: 1px solid var(--sidebar-border, #374151);
+  border-right: none;
+}
+
+[dir="rtl"] aside.sidebar.collapsed {
+  transform: translateX(0);
+}
+
+[dir="rtl"] .sidebar-nav-item {
+  flex-direction: row-reverse;
+  text-align: right;
+}
+
+[dir="rtl"] .sidebar-tooltip {
+  left: auto !important;
+  right: 100% !important;
+  margin-left: 0 !important;
+  margin-right: 0.75rem !important;
+}
+
+[dir="rtl"] .sidebar-tooltip::before {
+  left: auto;
+  right: -8px;
+  border-left: 8px solid transparent;
+  border-right: 8px solid currentColor;
+}
+
+[dir="rtl"] .mobile-menu-btn {
+  left: auto !important;
+  right: 1rem !important;
+}
+
+/* ============================================
+   Tables RTL
+   ============================================ */
+[dir="rtl"] table {
+  direction: rtl;
+}
+
+[dir="rtl"] th,
+[dir="rtl"] td {
+  text-align: right;
+}
+
+[dir="rtl"] td[data-type="number"],
+[dir="rtl"] th[data-type="number"],
+[dir="rtl"] .text-end {
+  text-align: left !important;
+}
+
+[dir="rtl"] .table-actions {
+  flex-direction: row-reverse;
+}
+
+[dir="rtl"] .sort-icon {
+  transform: rotate(180deg);
+}
+
+/* ============================================
+   Forms RTL
+   ============================================ */
+[dir="rtl"] form label {
+  text-align: right;
+}
+
+[dir="rtl"] input[type="text"],
+[dir="rtl"] input[type="search"],
+[dir="rtl"] input[type="password"],
+[dir="rtl"] textarea {
+  text-align: right;
+}
+
+/* LTR content within RTL (emails, numbers, etc.) */
+[dir="rtl"] input[type="email"],
+[dir="rtl"] input[type="tel"],
+[dir="rtl"] input[type="url"],
+[dir="rtl"] input[type="number"],
+[dir="rtl"] input[ltr] {
+  direction: ltr;
+  text-align: left;
+}
+
+[dir="rtl"] .form-input-icon-left {
+  left: auto;
+  right: 0.75rem;
+}
+
+[dir="rtl"] .input-with-icon {
+  padding-right: 2.5rem !important;
+  padding-left: 0.75rem !important;
+}
+
+[dir="rtl"] .validation-message {
+  text-align: right;
+  padding-right: 0.5rem;
+}
+
+/* ============================================
+   Cards RTL
+   ============================================ */
+[dir="rtl"] .card-badge {
+  left: auto;
+  right: 0.75rem;
+}
+
+[dir="rtl"] .card-verified {
+  right: auto;
+  left: 0.75rem;
+}
+
+[dir="rtl"] .card-price {
+  text-align: right;
+}
+
+[dir="rtl"] .card-actions {
+  flex-direction: row-reverse;
+}
+
+/* ============================================
+   Modals & Dialogs RTL
+   ============================================ */
+[dir="rtl"] [role="dialog"] {
+  text-align: right;
+}
+
+[dir="rtl"] .modal-close-btn {
+  left: 1rem;
+  right: auto;
+}
+
+[dir="rtl"] .dialog-content {
+  direction: rtl;
+}
+
+/* ============================================
+   Dropdowns & Menus RTL
+   ============================================ */
+[dir="rtl"] .dropdown-menu {
+  text-align: right;
+  left: 0 !important;
+  right: auto !important;
+}
+
+[dir="rtl"] .dropdown-menu[data-side="top"],
+[dir="rtl"] .dropdown-menu[data-side="bottom"] {
+  left: auto !important;
+  right: 0 !important;
+}
+
+[dir="rtl"] .menu-item-icon {
+  margin-left: 0.5rem;
+  margin-right: 0;
+}
+
+/* ============================================
+   Pagination RTL
+   ============================================ */
+[dir="rtl"] .pagination {
+  flex-direction: row-reverse;
+}
+
+[dir="rtl"] .pagination-prev,
+[dir="rtl"] .pagination-next {
+  transform: scaleX(-1);
+}
+
+/* ============================================
+   Breadcrumbs RTL
+   ============================================ */
+[dir="rtl"] .breadcrumb {
+  flex-direction: row-reverse;
+}
+
+[dir="rtl"] .breadcrumb-separator {
+  transform: rotate(180deg);
+}
+
+/* ============================================
+   Footer RTL
+   ============================================ */
+[dir="rtl"] footer .footer-columns {
+  direction: rtl;
+}
+
+[dir="rtl"] footer .footer-links {
+  text-align: right;
+}
+
+[dir="rtl"] footer .social-links {
+  flex-direction: row-reverse;
+}
+
+/* ============================================
+   Icons that need flipping in RTL
+   ============================================ */
+[dir="rtl"] .icon-flip-horizontal {
+  transform: scaleX(-1);
+}
+
+/* Arrow icons */
+[dir="rtl"] .icon-arrow-right::before,
+[dir="rtl"] .icon-chevron-right::before {
+  content: '←';
+}
+
+[dir="rtl"] .icon-arrow-left::before,
+[dir="rtl"] .icon-chevron-left::before {
+  content: '→';
+}
+
+/* ============================================
+   Messages / Chat RTL
+   ============================================ */
+[dir="rtl"] .message-bubble-sent {
+  margin-left: 0;
+  margin-right: 2rem;
+}
+
+[dir="rtl"] .message-bubble-received {
+  margin-right: 0;
+  margin-left: 2rem;
+}
+
+[dir="rtl"] .message-input-wrapper {
+  flex-direction: row-reverse;
+}
+
+[dir="rtl"] .message-avatar {
+  order: -1;
+}
+
+/* ============================================
+   Arabic Typography Enhancements
+   ============================================ */
+.font-arabic {
+  font-family: 'Cairo', 'Noto Sans Arabic', 'Tahoma', 'Arial', sans-serif;
+  line-height: 1.7;
+  letter-spacing: 0;
+}
+
+[dir="rtl"].font-arabic,
+[dir="rtl"] .font-arabic {
+  font-feature-settings: 'kern' 1, 'liga' 1, 'calt' 1;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Arabic text justification for better readability */
+[dir="rtl"] p,
+[dir="rtl"] li,
+[dir="rtl"] span,
+[dir="rtl"] div {
+  word-break: break-word;
+}
+
+/* Improve Arabic line height */
+[dir="rtl"] body {
+  line-height: 1.6;
+}
+
+/* ============================================
+   Transitions for smooth language switching
+   ============================================ */
+.rtl-transition {
+  transition: all 0.3s ease-in-out;
+}
+
+/* Prevent horizontal scroll during RTL transition */
+html[dir="rtl"] {
+  overflow-x: hidden;
+}
+
+/* ============================================
+   Utility Classes
+   ============================================ */
+.ltr-force {
+  direction: ltr !important;
+  text-align: left !important;
+}
+
+.rtl-force {
+  direction: rtl !important;
+  text-align: right !important;
+}
+
+.text-dir-auto {
+  direction: auto;
+}
+
+/* For mixed content (Arabic + French/English product names) */
+[dir="rtl"] .mixed-content {
+  direction: auto;
+  unicode-bidi: plaintext;
+}
+
+/* ============================================
+   Scrollbar RTL
+   ============================================ */
+[dir="rtl"] ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+[dir="rtl"] ::-webkit-scrollbar-track {
+  background: hsl(var(--muted));
+  border-radius: 4px;
+}
+
+[dir="rtl"] ::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground));
+  border-radius: 4px;
+}
+
+[dir="rtl"] ::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--foreground));
+}

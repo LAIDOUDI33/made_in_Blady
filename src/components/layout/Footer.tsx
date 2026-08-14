@@ -1,6 +1,7 @@
 import React from "react";
 import Link from "next/link";
 import { Separator } from "@/components/ui/separator";
+import { useTranslation, useLanguage } from "@/lib/i18n";
 import {
   Package,
   Factory,
@@ -15,57 +16,67 @@ import {
 
 const footerCategories = [
   {
-    title: "Catégories Populaires",
+    titleKey: "footer.popularCategories",
     links: [
-      { name: "Agriculture & Alimentation", href: "/categories/agriculture-food" },
-      { name: "Matériaux de Construction", href: "/categories/construction" },
-      { name: "Équipement Industriel", href: "/categories/industrial-equipment" },
-      { name: "Énergie Solaire", href: "/categories/energy-solar" },
-      { name: "ICT & Télécoms", href: "/categories/ict-telecom" },
-      { name: "Automobile", href: "/categories/automotive" },
+      { nameKey: "categories.agriculture", href: "/categories/agriculture-food" },
+      { nameKey: "categories.construction", href: "/categories/construction" },
+      { nameKey: "categories.industrial", href: "/categories/industrial-equipment" },
+      { nameKey: "categories.energy", href: "/categories/energy-solar" },
+      { nameKey: "categories.ict", href: "/categories/ict-telecom" },
+      { nameKey: "categories.automobile", href: "/categories/automotive" },
     ],
   },
   {
-    title: "Pour les Acheteurs",
+    titleKey: "footer.forBuyers",
     links: [
-      { name: "Rechercher des Produits", href: "/products" },
-      { name: "Trouver des Fournisseurs", href: "/suppliers" },
-      { name: "Poster un Appel d'Offre", href: "/rfqs/new" },
-      { name: "Comment Acheter", href: "/help/buying-guide" },
+      { nameKey: "footer.searchProducts", href: "/products" },
+      { nameKey: "footer.findSuppliers", href: "/suppliers" },
+      { nameKey: "footer.postRFQ", href: "/rfqs/new" },
+      { nameKey: "footer.buyingGuide", href: "/help/buying-guide" },
     ],
   },
   {
-    title: "Pour les Fournisseurs",
+    titleKey: "footer.forSuppliers",
     links: [
-      { name: "Inscription Fournisseur", href: "/register?role=supplier" },
-      { name: "Tarifs & Abonnements", href: "/pricing" },
-      { name: "Guide du Vendeur", href: "/help/selling-guide" },
-      { name: "Centre de Sécurité", href: "/help/security" },
+      { nameKey: "footer.supplierRegistration", href: "/register?role=supplier" },
+      { nameKey: "footer.pricing", href: "/pricing" },
+      { nameKey: "footer.sellingGuide", href: "/help/selling-guide" },
+      { nameKey: "footer.securityCenter", href: "/help/security" },
     ],
   },
   {
-    title: "À Propos",
+    titleKey: "footer.aboutUs",
     links: [
-      { name: "Qui Sommes-Nous", href: "/about" },
-      { name: "Carrières", href: "/careers" },
-      { name: "Presse", href: "/press" },
-      { name: "Contactez-Nous", href: "/contact" },
-      { name: "Blog", href: "/blog" },
+      { nameKey: "footer.whoAreWe", href: "/about" },
+      { nameKey: "footer.careers", href: "/careers" },
+      { nameKey: "footer.press", href: "/press" },
+      { nameKey: "footer.contactUs", href: "/contact" },
+      { nameKey: "footer.blog", href: "/blog" },
     ],
   },
 ];
 
 const wilayas = [
-  "Alger", "Oran", "Constantine", "Annaba", "Blida", "Batna", "Sétif", 
-  "Sidi Bel Abbès", "Skikda", "Tlemcen"
+  { key: "Alger", arKey: "الجزائر" },
+  { key: "Oran", arKey: "وهران" },
+  { key: "Constantine", arKey: "قسنطينة" },
+  { key: "Annaba", arKey: "عنابة" },
+  { key: "Blida", arKey: "البليدة" },
+  { key: "Batna", arKey: "باتنة" },
+  { key: "Sétif", arKey: "سطيف" },
+  { key: "Sidi Bel Abbès", arKey: "سيدي بلعباس" },
+  { key: "Skikda", arKey: "سكيكدة" },
+  { key: "Tlemcen", arKey: "تلمسان" }
 ];
 
 export function Footer() {
+  const { t, isRTL } = useLanguage();
+
   return (
     <footer className="bg-muted/50 border-t">
       {/* Main Footer */}
       <div className="container mx-auto px-4 py-12">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-8">
+        <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-8 ${isRTL ? 'direction-rtl' : ''}`}>
           {/* Brand Column */}
           <div className="lg:col-span-2 space-y-4">
             <Link href="/" className="flex items-center gap-2">
@@ -80,13 +91,12 @@ export function Footer() {
               </div>
             </Link>
             <p className="text-sm text-muted-foreground max-w-sm">
-              La plateforme B2B numérique de l&apos;industrie algérienne et du commerce africain. 
-              Connectez-vous avec des fournisseurs vérifiés et développez votre entreprise.
+              {t('footer.description') || 'La plateforme B2B numérique de l\'industrie algérienne et du commerce africain. Connectez-vous avec des fournisseurs vérifiés et développez votre entreprise.'}
             </p>
             <div className="space-y-2 text-sm text-muted-foreground">
               <div className="flex items-center gap-2">
                 <MapPin className="h-4 w-4" />
-                <span>Alger, Algérie</span>
+                <span>{isRTL ? 'الجزائر، الجزائر' : 'Alger, Algérie'}</span>
               </div>
               <div className="flex items-center gap-2">
                 <Phone className="h-4 w-4" />
@@ -111,44 +121,50 @@ export function Footer() {
             </div>
           </div>
 
-          {/* Link Columns */}
-          {footerCategories.map((section) => (
-            <div key={section.title} className="space-y-3">
-              <h3 className="font-semibold text-foreground">{section.title}</h3>
-              <ul className="space-y-2">
-                {section.links.map((link) => (
-                  <li key={link.name}>
-                    <Link
-                      href={link.href}
-                      className="text-sm text-muted-foreground hover:text-green-600 transition-colors"
-                    >
-                      {link.name}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
+          {/* Link Columns - RTL reverses order visually */}
+          <div className={isRTL ? 'flex flex-row-reverse contents' : ''}>
+            {footerCategories.map((section) => (
+              <div key={section.titleKey} className="space-y-3">
+                <h3 className={`font-semibold text-foreground ${isRTL ? 'text-right' : ''}`}>
+                  {t(section.titleKey)}
+                </h3>
+                <ul className={`space-y-2 ${isRTL ? 'text-right' : ''}`}>
+                  {section.links.map((link) => (
+                    <li key={link.nameKey}>
+                      <Link
+                        href={link.href}
+                        className="text-sm text-muted-foreground hover:text-green-600 transition-colors"
+                      >
+                        {t(link.nameKey)}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Wilayas Section */}
         <div className="mt-8 pt-8 border-t">
-          <h3 className="font-semibold mb-4">Fournisseurs par Wilaya</h3>
-          <div className="flex flex-wrap gap-2">
+          <h3 className={`font-semibold mb-4 ${isRTL ? 'text-right' : ''}`}>
+            {t('footer.suppliersByWilaya') || 'Fournisseurs par Wilaya'}
+          </h3>
+          <div className={`flex flex-wrap gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
             {wilayas.map((wilaya) => (
               <Link
-                key={wilaya}
-                href={`/suppliers/wilaya/${wilaya.toLowerCase().replace(" ", "-")}`}
+                key={wilaya.key}
+                href={`/suppliers/wilaya/${wilaya.key.toLowerCase().replace(" ", "-")}`}
                 className="text-sm px-3 py-1 rounded-full bg-background border hover:border-green-500 hover:text-green-600 transition-colors"
               >
-                {wilaya}
+                {t(`wilayas.${wilaya.key}`) || wilaya.key}
               </Link>
             ))}
             <Link
               href="/suppliers#all-wilayas"
               className="text-sm px-3 py-1 rounded-full bg-background border text-green-600 hover:bg-green-50 transition-colors"
             >
-              Toutes les wilayas →
+              {t('footer.allWilayas') || 'Toutes les wilayas'} {isRTL ? '←' : '→'}
             </Link>
           </div>
         </div>
@@ -157,21 +173,21 @@ export function Footer() {
       {/* Bottom Bar */}
       <div className="border-t bg-background">
         <div className="container mx-auto px-4 py-4">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
+          <div className={`flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-muted-foreground ${isRTL ? 'md:flex-row-reverse' : ''}`}>
             <div className="flex items-center gap-4">
-              <span>© {new Date().getFullYear()} AlgeriaTrade. Tous droits réservés.</span>
+              <span>{t('footer.copyright', { year: new Date().getFullYear() }) || `© ${new Date().getFullYear()} AlgeriaTrade. Tous droits réservés.`}</span>
               <Separator orientation="vertical" className="h-4" />
               <Link href="/terms" className="hover:text-green-600">
-                Conditions d&apos;utilisation
+                {t('footer.termsOfUse') || "Conditions d'utilisation"}
               </Link>
               <Link href="/privacy" className="hover:text-green-600">
-                Politique de confidentialité
+                {t('footer.privacyPolicy') || 'Politique de confidentialité'}
               </Link>
             </div>
             <div className="flex items-center gap-4">
               <span className="flex items-center gap-1">
                 <Package className="h-4 w-4" />
-                Made with ❤️ in Algeria
+                {t('footer.madeInAlgeria') || 'Made with ❤️ in Algeria'}
               </span>
             </div>
           </div>

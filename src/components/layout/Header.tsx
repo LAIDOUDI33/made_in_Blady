@@ -12,10 +12,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { useTranslation, useLanguage } from "@/lib/i18n";
+import { CompactLanguageSwitcher } from "@/components/LanguageSwitcher";
 import {
   Menu,
   Search,
-  Globe,
   User,
   Building2,
   FileText,
@@ -31,70 +32,44 @@ import {
 } from "lucide-react";
 
 const categories = [
-  { name: "Agriculture & Food", href: "/categories/agriculture-food", icon: "🌾" },
-  { name: "Construction", href: "/categories/construction", icon: "🏗️" },
-  { name: "Industrial Equipment", href: "/categories/industrial-equipment", icon: "⚙️" },
-  { name: "Energy & Solar", href: "/categories/energy-solar", icon: "☀️" },
-  { name: "ICT & Telecom", href: "/categories/ict-telecom", icon: "💻" },
-  { name: "Automotive", href: "/categories/automotive", icon: "🚗" },
-  { name: "Textiles", href: "/categories/textiles", icon: "👕" },
-  { name: "Chemicals", href: "/categories/chemicals", icon: "🧪" },
-  { name: "Health & Medical", href: "/categories/health-medical", icon: "🏥" },
-  { name: "Furniture", href: "/categories/furniture", icon: "🪑" },
-  { name: "Packaging", href: "/categories/packaging", icon: "📦" },
-  { name: "Logistics", href: "/categories/logistics", icon: "🚚" },
-];
-
-const languages = [
-  { code: "fr", label: "Français", flag: "🇫🇷" },
-  { code: "ar", label: "العربية", flag: "🇩🇿" },
-  { code: "en", label: "English", flag: "🇬🇧" },
+  { name: "Agriculture & Food", href: "/categories/agriculture-food", icon: "🌾", key: "categories.agriculture" },
+  { name: "Construction", href: "/categories/construction", icon: "🏗️", key: "categories.construction" },
+  { name: "Industrial Equipment", href: "/categories/industrial-equipment", icon: "⚙️", key: "categories.industrial" },
+  { name: "Energy & Solar", href: "/categories/energy-solar", icon: "☀️", key: "categories.energy" },
+  { name: "ICT & Telecom", href: "/categories/ict-telecom", icon: "💻", key: "categories.ict" },
+  { name: "Automotive", href: "/categories/automotive", icon: "🚗", key: "categories.automobile" },
+  { name: "Textiles", href: "/categories/textiles", icon: "👕", key: "categories.textiles" },
+  { name: "Chemicals", href: "/categories/chemicals", icon: "🧪", key: "categories.chemicals" },
+  { name: "Health & Medical", href: "/categories/health-medical", icon: "🏥", key: "categories.health" },
+  { name: "Furniture", href: "/categories/furniture", icon: "🪑", key: "categories.furniture" },
+  { name: "Packaging", href: "/categories/packaging", icon: "📦", key: "categories.packaging" },
+  { name: "Logistics", href: "/categories/logistics", icon: "🚚", key: "categories.logistics" },
 ];
 
 export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [currentLang, setCurrentLang] = useState("fr");
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const { t, isRTL } = useTranslation();
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       {/* Top Bar */}
       <div className="border-b bg-primary text-primary-foreground">
-        <div className="container mx-auto flex h-10 items-center justify-between px-4 text-sm">
+        <div className={`container mx-auto flex h-10 items-center justify-between px-4 text-sm ${isRTL ? 'flex-row-reverse' : ''}`}>
           <div className="flex items-center gap-4">
             <span className="hidden md:flex items-center gap-1">
               <Package className="h-4 w-4" />
-              La plateforme B2B de l&apos;Algérie
+              {t('common.platform') || 'La plateforme B2B de l\'Algérie'}
             </span>
           </div>
           <div className="flex items-center gap-4">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="text-primary-foreground hover:bg-primary-foreground/20 gap-1">
-                  <Globe className="h-4 w-4" />
-                  {languages.find(l => l.code === currentLang)?.flag}
-                  <ChevronDown className="h-3 w-3" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                {languages.map((lang) => (
-                  <DropdownMenuItem
-                    key={lang.code}
-                    onClick={() => setCurrentLang(lang.code)}
-                    className="gap-2"
-                  >
-                    <span>{lang.flag}</span>
-                    <span>{lang.label}</span>
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <CompactLanguageSwitcher />
             <span className="hidden sm:inline">|</span>
             <Link href="/suppliers" className="hidden sm:inline hover:underline">
-              Devenir Fournisseur
+              {t('footer.becomeSupplier') || 'Devenir Fournisseur'}
             </Link>
             <Link href="/help" className="hidden md:inline hover:underline">
-              Aide
+              {t('nav.help') || 'Aide'}
             </Link>
           </div>
         </div>
@@ -102,7 +77,7 @@ export function Header() {
 
       {/* Main Header */}
       <div className="container mx-auto px-4">
-        <div className="flex h-16 items-center justify-between gap-4">
+        <div className={`flex h-16 items-center justify-between gap-4 ${isRTL ? 'flex-row-reverse' : ''}`}>
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-green-600 to-green-700 text-white font-bold text-xl">
@@ -119,14 +94,15 @@ export function Header() {
           {/* Search Bar - Desktop */}
           <div className="hidden lg:flex flex-1 max-w-2xl mx-4">
             <div className="relative w-full">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Search className={`absolute ${isRTL ? 'right-3' : 'left-3'} top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground`} />
               <input
                 type="text"
-                placeholder="Rechercher produits, fournisseurs, services..."
-                className="w-full pl-10 pr-4 py-2 border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-green-500"
+                placeholder={t('nav.searchProducts') || 'Rechercher produits, fournisseurs, services...'}
+                className={`w-full ${isRTL ? 'pr-10 pl-4' : 'pl-10 pr-4'} py-2 border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-green-500`}
+                dir={isRTL ? 'rtl' : 'ltr'}
               />
-              <Button size="sm" className="absolute right-1 top-1/2 -translate-y-1/2 bg-green-600 hover:bg-green-700">
-                Rechercher
+              <Button size="sm" className={`absolute ${isRTL ? 'left-1' : 'right-1'} top-1/2 -translate-y-1/2 bg-green-600 hover:bg-green-700`}>
+                {t('common.search') || 'Rechercher'}
               </Button>
             </div>
           </div>
@@ -137,7 +113,7 @@ export function Header() {
               <>
                 <Button variant="ghost" size="icon" className="relative">
                   <Bell className="h-5 w-5" />
-                  <Badge className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center bg-red-500 text-[10px]">
+                  <Badge className={`absolute ${isRTL ? '-left-1' : '-right-1'} h-4 w-4 p-0 flex items-center justify-center bg-red-500 text-[10px]`}>
                     3
                   </Badge>
                 </Button>
@@ -153,48 +129,48 @@ export function Header() {
                       <span className="hidden md:inline text-sm">John Doe</span>
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuContent align={isRTL ? 'start' : 'end'} className="w-56">
                     <DropdownMenuItem asChild>
                       <Link href="/dashboard" className="gap-2">
                         <User className="h-4 w-4" />
-                        Mon Tableau de Bord
+                        {t('nav.dashboard') || 'Mon Tableau de Bord'}
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
                       <Link href="/profile" className="gap-2">
                         <Building2 className="h-4 w-4" />
-                        Mon Entreprise
+                        {t('nav.profile') || 'Mon Entreprise'}
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
                       <Link href="/rfqs" className="gap-2">
                         <FileText className="h-4 w-4" />
-                        Mes Appels d&apos;Offre
+                        {t('nav.rfq') || 'Mes Appels d\'Offre'}
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
                       <Link href="/messages" className="gap-2">
                         <MessageSquare className="h-4 w-4" />
-                        Messages
+                        {t('nav.messages') || 'Messages'}
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
                       <Link href="/favorites" className="gap-2">
                         <Heart className="h-4 w-4" />
-                        Favoris
+                        {t('nav.favorites') || 'Favoris'}
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem asChild>
                       <Link href="/settings" className="gap-2">
                         <Settings className="h-4 w-4" />
-                        Paramètres
+                        {t('nav.settings') || 'Paramètres'}
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={() => setIsLoggedIn(false)} className="gap-2 text-red-600">
                       <LogOut className="h-4 w-4" />
-                      Déconnexion
+                      {t('common.logout') || 'Déconnexion'}
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -202,10 +178,10 @@ export function Header() {
             ) : (
               <div className="flex items-center gap-2">
                 <Button variant="ghost" asChild>
-                  <Link href="/login">Connexion</Link>
+                  <Link href="/login">{t('auth.loginBtn') || 'Connexion'}</Link>
                 </Button>
                 <Button className="bg-green-600 hover:bg-green-700" asChild>
-                  <Link href="/register">Inscription Gratuite</Link>
+                  <Link href="/register">{t('auth.registerBtn') || 'Inscription Gratuite'}</Link>
                 </Button>
               </div>
             )}
@@ -223,27 +199,27 @@ export function Header() {
         </div>
 
         {/* Categories Navigation */}
-        <nav className="hidden lg:flex items-center gap-6 py-2 border-t overflow-x-auto">
+        <nav className={`hidden lg:flex items-center gap-6 py-2 border-t overflow-x-auto ${isRTL ? 'flex-row-reverse' : ''}`}>
           <Link
             href="/products"
             className="flex items-center gap-1 text-sm font-medium whitespace-nowrap hover:text-green-600 transition-colors"
           >
             <Package className="h-4 w-4" />
-            Produits
+            {t('nav.products') || 'Produits'}
           </Link>
           <Link
             href="/suppliers"
             className="flex items-center gap-1 text-sm font-medium whitespace-nowrap hover:text-green-600 transition-colors"
           >
             <Factory className="h-4 w-4" />
-            Fournisseurs
+            {t('nav.suppliers') || 'Fournisseurs'}
           </Link>
           <Link
             href="/rfqs"
             className="flex items-center gap-1 text-sm font-medium whitespace-nowrap hover:text-green-600 transition-colors"
           >
             <Handshake className="h-4 w-4" />
-            Appels d&apos;Offre
+            {t('nav.rfq') || 'Appels d\'Offre'}
           </Link>
           <div className="h-4 w-px bg-border" />
           {categories.slice(0, 7).map((cat) => (
@@ -263,28 +239,29 @@ export function Header() {
         <div className="lg:hidden border-t bg-background p-4 space-y-4">
           {/* Mobile Search */}
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Search className={`absolute ${isRTL ? 'right-3' : 'left-3'} top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground`} />
             <input
               type="text"
-              placeholder="Rechercher..."
-              className="w-full pl-10 pr-4 py-2 border rounded-lg bg-background"
+              placeholder={t('common.search') || 'Rechercher...'}
+              className={`w-full ${isRTL ? 'pr-10 pl-4' : 'pl-10 pr-4'} py-2 border rounded-lg bg-background`}
+              dir={isRTL ? 'rtl' : 'ltr'}
             />
           </div>
 
           {/* Mobile Nav Links */}
           <nav className="space-y-2">
             <Link href="/products" className="block py-2 px-3 rounded hover:bg-accent">
-              📦 Tous les Produits
+              📦 {t('products.allProducts') || 'Tous les Produits'}
             </Link>
             <Link href="/suppliers" className="block py-2 px-3 rounded hover:bg-accent">
-              🏭 Fournisseurs Vérifiés
+              🏭 {t('suppliers.verifiedSuppliers') || 'Fournisseurs Vérifiés'}
             </Link>
             <Link href="/rfqs" className="block py-2 px-3 rounded hover:bg-accent">
-              🤝 Appels d&apos;Offre
+              🤝 {t('nav.rfq') || 'Appels d\'Offre'}
             </Link>
             <div className="border-t pt-2 mt-2">
-              <p className="px-3 text-xs text-muted-foreground uppercase tracking-wider mb-2">
-                Catégories
+              <p className={`px-3 text-xs text-muted-foreground uppercase tracking-wider mb-2 ${isRTL ? 'text-right' : ''}`}>
+                {t('nav.categories') || 'Catégories'}
               </p>
               <div className="grid grid-cols-2 gap-1">
                 {categories.map((cat) => (

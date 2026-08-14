@@ -40,12 +40,17 @@ model User {
   role          UserRole @default(BUYER)
   isActive      Boolean  @default(true)
   emailVerified Boolean  @default(false)
+  lastLoginAt   DateTime?
+  lastLoginIp   String?
   
   // Relations
   company       Company?
   reviews      Review[]
+  reviewVotes  ReviewVote[]
   favorites    Favorite[]
   notifications Notification[]
+  emailLogs    EmailLog[] @relation("UserEmailLogs")
+  emailPreference EmailPreference?
   messagesSent  Message[] @relation("MessageFrom")
   messagesReceived Message[] @relation("MessageTo")
   conversationParticipants ConversationParticipant[]
@@ -376,6 +381,7 @@ model Order {
   buyer           User       @relation("BuyerOrders", fields: [buyerId], references: [id])
   company         Company     @relation("SupplierOrders", fields: [companyId], references: [id])
   items           OrderItem[]
+  payment         Payment?
   
   status          OrderStatus @default(PENDING)
 
@@ -403,27 +409,80 @@ model OrderItem {
 }
 
 // ============================================
-// REVIEWS
+// REVIEWS & RATINGS SYSTEM
 // ============================================
 
 model Review {
-  id          String   @id @default(cuid())
-  productId   String?
-  companyId   String?
-  reviewerId  String
-  rating      Int
-  title       String?
-  comment     String?
-  status      String   @default("published")
-
-  product     Product? @relation("ProductReviews", fields: [productId], references: [id])
-  company     Company? @relation("CompanyReviews", fields: [companyId], references: [id])
-  reviewer    User     @relation(fields: [reviewerId], references: [id])
-
+  id            String   @id @default(cuid())
+  
+  // Relations
+  productId     String?  // For product reviews
+  companyId     String?  // For company reviews
+  orderId       String?  // If verified purchase
+  reviewerId    String
+  
+  // Content
+  rating        Int      // 1-5 (can be stored as int, display as half-stars)
+  title         String?
+  comment       String?
+  pros          String?  // JSON array ["Good quality", "Fast delivery"]
+  cons          String?  // JSON array ["Expensive", "Late shipping"]
+  
+  // Company review categories (JSON object)
+  categoryRatings String? // {"quality": 5, "communication": 4, "delivery": 3, "value": 4, "afterSales": 5}
+  
+  // Media
+  images        String?  // JSON array of image URLs
+  
+  // Metadata
+  isVerifiedPurchase Boolean @default(false)
+  isAnonymous   Boolean  @default(false)
+  isFeatured    Boolean  @default(false)
+  
+  // Voting
+  helpfulCount  Int      @default(0)
+  notHelpfulCount Int    @default(0)
+  
+  // Status & Moderation
+  status        String   @default("published") // published, pending, rejected, hidden, flagged
+  reportedAt    DateTime?
+  reportReason  String?
+  moderatedBy   String?
+  moderatedAt   DateTime?
+  
+  // Response (from supplier)
+  response      String?
+  respondedAt   DateTime?
+  respondedBy   String?  // Company userId
+  
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
+  
+  product       Product? @relation("ProductReviews", fields: [productId], references: [id])
+  company       Company? @relation("CompanyReviews", fields: [companyId], references: [id])
+  reviewer      User     @relation(fields: [reviewerId], references: [id])
+  votes         ReviewVote[]
+  
+  @@index([productId])
+  @@index([companyId])
+  @@index([reviewerId])
+  @@index([status])
   @@map("reviews")
+}
+
+model ReviewVote {
+  id          String   @id @default(cuid())
+  reviewId    String
+  userId      String
+  type        String   // "helpful" | "not_helpful"
+  
+  review      Review   @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
+  
+  @@unique([reviewId, userId, type])
+  @@map("review_votes")
 }
 
 // ============================================
@@ -450,32 +509,265 @@ model Favorite {
 }
 
 // ============================================
-// NOTIFICATIONS
+// NOTIFICATIONS (Enhanced)
 // ============================================
 
+enum NotificationCategory {
+  AUTH           // Email verify, password reset
+  RFQ            // New quotation, RFQ awarded
+  ORDER          // Order updates
+  MESSAGE        // New message
+  SYSTEM         // Platform announcements
+  MARKETING      // Promotions
+}
+
 enum NotificationType {
+  // Auth notifications
+  EMAIL_VERIFICATION_REQUIRED
+  EMAIL_VERIFIED
+  PASSWORD_RESET_REQUEST
+  PASSWORD_RESET_SUCCESS
+  LOGIN_ALERT
+  
+  // RFQ notifications
+  NEW_RFQ_RECEIVED
+  NEW_QUOTATION_RECEIVED
+  QUOTATION_ACCEPTED
+  QUOTATION_REJECTED
+  RFQ_AWARDED
+  RFQ_EXPIRED
+  
+  // Order notifications
+  ORDER_CONFIRMED
+  ORDER_PROCESSING
+  ORDER_SHIPPED
+  ORDER_DELIVERED
+  ORDER_CANCELLED
+  PAYMENT_RECEIVED
+  REFUND_PROCESSED
+  
+  // Message notifications
   NEW_MESSAGE
-  NEW_RFQ
-  NEW_QUOTATION
-  ORDER_UPDATE
+  MESSAGE_MENTIONED
+  
+  // System notifications
+  COMPANY_VERIFIED
+  COMPANY_VERIFICATION_REJECTED
+  ACCOUNT_INACTIVE_REMINDER
+  WELCOME
+  SYSTEM_ANNOUNCEMENT
+  
+  // Marketing notifications
+  FEATURED_PRODUCT
+  PROMOTION
+  WEEKLY_DIGEST
+  
+  // Review notifications
   NEW_REVIEW
 }
 
 model Notification {
-  id          String           @id @default(cuid())
-  userId      String
-  type        NotificationType
-  title       String
-  message     String
-  data        String?
-  isRead      Boolean          @default(false)
+  id              String               @id @default(cuid())
+  userId          String
+  type            NotificationType
+  category        NotificationCategory
+  title           String
+  message         String
+  data            String?              // JSON string for additional data
+  actionUrl       String?              // Link for CTA
+  actionText      String?              // Text for CTA button
+  isRead          Boolean              @default(false)
+  readAt          DateTime?
+  emailSent       Boolean              @default(false)
+  emailSentAt     DateTime?
 
-  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user            User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt       DateTime            @default(now())
+
+  @@index([userId, isRead])
+  @@index([userId, category])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+// ============================================
+// EMAIL LOGS & PREFERENCES
+// ============================================
+
+enum EmailType {
+  WELCOME_BUYER
+  WELCOME_SUPPLIER
+  WELCOME_ADMIN
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+  LOGIN_ALERT
+  NEW_RFQ_NOTIFICATION
+  QUOTATION_RECEIVED
+  QUOTATION_ACCEPTED
+  QUOTATION_REJECTED
+  RFQ_AWARDED
+  ORDER_CONFIRMED
+  ORDER_SHIPPED
+  ORDER_DELIVERED
+  ORDER_CANCELLED
+  PAYMENT_RECEIVED
+  COMPANY_VERIFICATION_APPROVED
+  COMPANY_VERIFICATION_REJECTED
+  WEEKLY_DIGEST
+  INACTIVE_REENGAGEMENT
+  FEATURED_PRODUCT_PROMO
+  PLATFORM_UPDATE
+}
+
+enum EmailStatus {
+  PENDING
+  SENT
+  DELIVERED
+  BOUNCED
+  COMPLAINT
+  FAILED
+}
+
+model EmailLog {
+  id              String       @id @default(cuid())
+  userId          String?
+  emailType       EmailType
+  toEmail         String
+  subject         String
+  status          EmailStatus   @default(PENDING)
+  providerId      String?       // External ID from Resend/SendGrid
+  errorMessage    String?
+  sentAt          DateTime?
+  deliveredAt     DateTime?
+  bouncedAt       DateTime?
+
+  user            User?        @relation("UserEmailLogs", fields: [userId], references: [id], onDelete: SetNull)
+
+  createdAt       DateTime      @default(now())
+
+  @@index([userId])
+  @@index([status])
+  @@index([emailType])
+  @@map("email_logs")
+}
+
+model EmailPreference {
+  id                  String   @id @default(cuid())
+  userId              String   @unique
+  
+  // Global preferences
+  emailEnabled        Boolean  @default(true)
+  marketingEmails     Boolean  @default(true)
+  
+  // Category-level preferences
+  authEmails          Boolean  @default(true)
+  rfqEmails           Boolean  @default(true)
+  orderEmails         Boolean  @default(true)
+  messageEmails       Boolean  @default(false)  // Default off - in-app only
+  systemEmails        Boolean  @default(true)
+  
+  // Digest frequency (for non-critical emails)
+  digestFrequency     String   @default("immediate")  // immediate, daily, weekly, off
+  
+  // Unsubscribe token for one-click unsubscribe
+  unsubscribeToken    String   @unique @default(cuid())
+  unsubscribedAt      DateTime?
+  
+  updatedAt           DateTime @updatedAt
+  
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("email_preferences")
+}
+
+// ============================================
+// PAYMENT SYSTEM - Algerian Payment Methods
+// ============================================
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  REFUNDED
+  PENDING_VERIFICATION
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CIB           // Carte Interbancaire (Visa/Mastercard)
+  CCP           // Chèque Postale
+  BARIDIMOB     // Mobile Payment Algeria
+  BANK_TRANSFER // Virement Bancaire
+  COD           // Cash on Delivery
+}
+
+model Payment {
+  id              String       @id @default(cuid())
+  orderId         String       @unique
+  amount          Float
+  currency        String       @default("DZD")
+  method          PaymentMethod
+  status          PaymentStatus @default(PENDING)
+  
+  // CIB fields
+  cardLast4       String?
+  cardType        String?      // "visa", "mastercard"
+  transactionId   String?
+  
+  // CCP fields
+  ccpReference    String?      // Format: CCP-YYYYMMDD-XXXXX
+  ccpAccount      String?
+  ccpHolderName   String?
+  
+  // BaridiMob fields
+  phoneNumber     String?
+  
+  // Bank Transfer fields
+  rib             String?
+  bankName        String?
+  receiptUrl      String?
+  
+  // COD fields
+  deliveryWilaya  String?
+  codFee          Float?       // Cash handling fee
+  
+  // Common fields
+  referenceNumber String?      @unique // Unique payment reference
+  notes           String?
+  paidAt          DateTime?
+  failureReason   String?
+  metadata        String?      // JSON string for additional data
+  
+  order           Order        @relation(fields: [orderId], references: [id])
+  logs            TransactionLog[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([orderId])
+  @@index([status])
+  @@index([method])
+  @@index([referenceNumber])
+  @@map("payments")
+}
+
+model TransactionLog {
+  id          String   @id @default(cuid())
+  paymentId   String?
+  action      String   // created, processing, success, failure, refund, verified, rejected
+  details     String?  // JSON string
+  ipAddress   String?
+  userAgent   String?
+  userId      String?
+
+  payment     Payment? @relation(fields: [paymentId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
 
-  @@index([userId, isRead])
-  @@map("notifications")
+  @@index([paymentId])
+  @@map("transaction_logs")
 }
 
 // ============================================

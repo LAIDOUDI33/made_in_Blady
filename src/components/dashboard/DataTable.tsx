@@ -26,11 +26,14 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, MoreHorizontal, Search, SlidersHorizontal } from 'lucide-react';
+import { useTranslation, useLanguage } from '@/lib/i18n';
 
 export interface Column<T> {
   key: string;
-  label: string;
+  labelKey?: string;
+  label?: string;
   sortable?: boolean;
+  type?: 'text' | 'number' | 'date' | 'action';
   render?: (value: unknown, row: T) => React.ReactNode;
 }
 
@@ -43,8 +46,9 @@ interface DataTableProps<T> {
   filterable?: boolean;
   filters?: {
     key: string;
-    label: string;
-    options: { value: string; label: string }[];
+    labelKey?: string;
+    label?: string;
+    options: { value: string; labelKey?: string; label?: string }[];
   };
   selectable?: boolean;
   selectedRows?: Set<string>;
@@ -53,7 +57,8 @@ interface DataTableProps<T> {
   actions?: (row: T) => React.ReactNode;
   bulkActions?: React.ReactNode;
   pageSize?: number;
-  emptyMessage?: string;
+  emptyMessage?: string | undefined;
+  emptyMessageKey?: string;
   isLoading?: boolean;
 }
 
@@ -61,7 +66,7 @@ export function DataTable<T extends Record<string, unknown>>({
   data,
   columns,
   searchable = true,
-  searchPlaceholder = 'Rechercher...',
+  searchPlaceholder,
   searchKeys,
   filterable = true,
   filters,
@@ -72,13 +77,16 @@ export function DataTable<T extends Record<string, unknown>>({
   actions,
   bulkActions,
   pageSize = 10,
-  emptyMessage = 'Aucune donnée trouvée',
+  emptyMessage,
+  emptyMessageKey = 'common.noData',
   isLoading = false,
 }: DataTableProps<T>) {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilters, setActiveFilters] = useState<Record<string, string>>({});
   const [currentPage, setCurrentPage] = useState(1);
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
+  
+  const { t, isRTL } = useTranslation();
 
   // Filter and search
   const filteredData = data.filter((row) => {
@@ -119,7 +127,12 @@ export function DataTable<T extends Record<string, unknown>>({
       comparison = aValue.toString().localeCompare(bValue.toString());
     }
 
-    return sortConfig.direction === 'asc' ? comparison : -comparison;
+    // In RTL, reverse sort direction for visual consistency
+    const direction = isRTL 
+      ? (sortConfig.direction === 'asc' ? 'desc' : 'asc')
+      : sortConfig.direction;
+
+    return direction === 'asc' ? comparison : -comparison;
   });
 
   // Pagination
@@ -173,20 +186,21 @@ export function DataTable<T extends Record<string, unknown>>({
     <div className="space-y-4">
       {/* Toolbar */}
       {(searchable || filterable || bulkActions) && (
-        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+        <div className={`flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between ${isRTL ? 'sm:flex-row-reverse' : ''}`}>
           <div className="flex flex-col sm:flex-row gap-3 flex-1 w-full sm:w-auto">
             {/* Search */}
             {searchable && (
               <div className="relative flex-1 max-w-sm">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                <Search className={`absolute ${isRTL ? 'right-3' : 'left-3'} top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400`} />
                 <Input
-                  placeholder={searchPlaceholder}
+                  placeholder={searchPlaceholder || t('common.search') || 'Rechercher...'}
                   value={searchQuery}
                   onChange={(e) => {
                     setSearchQuery(e.target.value);
                     setCurrentPage(1);
                   }}
-                  className="pl-10"
+                  className={`${isRTL ? 'pr-10 pl-4' : 'pl-10 pr-4'}`}
+                  dir={isRTL ? 'rtl' : 'ltr'}
                 />
               </div>
             )}
@@ -206,14 +220,14 @@ export function DataTable<T extends Record<string, unknown>>({
                   }}
                 >
                   <SelectTrigger className="w-[160px]">
-                    <SlidersHorizontal className="h-4 w-4 mr-2" />
-                    <SelectValue placeholder={filter.label} />
+                    <SlidersHorizontal className={`h-4 w-4 ${isRTL ? 'ml-2' : 'mr-2'}`} />
+                    <SelectValue placeholder={t(filter.labelKey) || filter.label} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Tous</SelectItem>
+                    <SelectItem value="all">{t('common.all') || 'Tous'}</SelectItem>
                     {filter.options.map((option) => (
                       <SelectItem key={option.value} value={option.value}>
-                        {option.label}
+                        {t(option.labelKey) || option.label}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -225,7 +239,7 @@ export function DataTable<T extends Record<string, unknown>>({
           {bulkActions && selectedRows.size > 0 && (
             <div className="flex items-center gap-2 bg-green-50 px-3 py-2 rounded-lg border border-green-200">
               <span className="text-sm text-green-700 font-medium">
-                {selectedRows.size} sélectionné(s)
+                {selectedRows.size} {t('dataTable.selected') || 'sélectionné(s)'}
               </span>
               {bulkActions}
             </div>
@@ -235,7 +249,7 @@ export function DataTable<T extends Record<string, unknown>>({
 
       {/* Table */}
       <div className="rounded-lg border bg-white overflow-hidden">
-        <Table>
+        <Table dir={isRTL ? 'rtl' : 'ltr'}>
           <TableHeader>
             <TableRow className="bg-gray-50 hover:bg-gray-50">
               {selectable && (
@@ -248,7 +262,7 @@ export function DataTable<T extends Record<string, unknown>>({
                       }
                     }}
                     onCheckedChange={handleSelectAll}
-                    aria-label="Tout sélectionner"
+                    aria-label={t('dataTable.selectAll') || 'Tout sélectionner'}
                   />
                 </TableHead>
               )}
@@ -259,18 +273,19 @@ export function DataTable<T extends Record<string, unknown>>({
                     column.sortable ? 'cursor-pointer select-none' : ''
                   }
                   onClick={() => column.sortable && handleSort(column.key)}
+                  data-type={column.type}
                 >
-                  <div className="flex items-center gap-1">
-                    {column.label}
+                  <div className={`flex items-center gap-1 ${column.type === 'number' ? (isRTL ? 'justify-start' : 'justify-end') : ''}`}>
+                    <span>{t(column.labelKey) || column.label}</span>
                     {column.sortable && sortConfig?.key === column.key && (
-                      <span className="text-xs text-gray-500">
+                      <span className={`text-xs text-gray-500 sort-icon ${isRTL ? 'inline-block transform rotate-180' : ''}`}>
                         {sortConfig.direction === 'asc' ? '↑' : '↓'}
                       </span>
                     )}
                   </div>
                 </TableHead>
               ))}
-              {actions && <TableHead className="w-12">Actions</TableHead>}
+              {actions && <TableHead className="w-12">{t('common.actions') || 'Actions'}</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -292,7 +307,7 @@ export function DataTable<T extends Record<string, unknown>>({
                 >
                   <div className="flex flex-col items-center gap-2">
                     <Search className="h-8 w-8 text-gray-300" />
-                    <p>{emptyMessage}</p>
+                    <p>{emptyMessage || t(emptyMessageKey)}</p>
                   </div>
                 </TableCell>
               </TableRow>
@@ -307,12 +322,18 @@ export function DataTable<T extends Record<string, unknown>>({
                       <Checkbox
                         checked={selectedRows.has(getRowId?.(row) || '')}
                         onCheckedChange={() => handleSelectRow(row)}
-                        aria-label={`Sélectionner la ligne ${index + 1}`}
+                        aria-label={`${t('dataTable.selectRow') || 'Sélectionner la ligne'} ${index + 1}`}
                       />
                     </TableCell>
                   )}
                   {columns.map((column) => (
-                    <TableCell key={column.key}>
+                    <TableCell 
+                      key={column.key}
+                      data-type={column.type}
+                      className={`
+                        ${column.type === 'number' ? (isRTL ? 'text-left' : 'text-right') : ''}
+                      `}
+                    >
                       {column.render
                         ? column.render(row[column.key], row)
                         : (row[column.key] as React.ReactNode)}
@@ -326,7 +347,7 @@ export function DataTable<T extends Record<string, unknown>>({
                             <MoreHorizontal className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
+                        <DropdownMenuContent align={isRTL ? 'start' : 'end'} className="table-actions">
                           {actions(row)}
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -341,13 +362,15 @@ export function DataTable<T extends Record<string, unknown>>({
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-between">
+        <div className={`flex items-center justify-between ${isRTL ? 'flex-row-reverse' : ''}`}>
           <p className="text-sm text-gray-600">
-            Affichage de {(currentPage - 1) * pageSize + 1} à{' '}
-            {Math.min(currentPage * pageSize, sortedData.length)} sur{' '}
-            {sortedData.length} résultats
+            {t('dataTable.showing', {
+              start: (currentPage - 1) * pageSize + 1,
+              end: Math.min(currentPage * pageSize, sortedData.length),
+              total: sortedData.length
+            }) || `Affichage de ${(currentPage - 1) * pageSize + 1} à ${Math.min(currentPage * pageSize, sortedData.length)} sur ${sortedData.length} résultats`}
           </p>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 pagination">
             <Button
               variant="outline"
               size="icon"
@@ -364,7 +387,7 @@ export function DataTable<T extends Record<string, unknown>>({
               onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
               disabled={currentPage === 1}
             >
-              <ChevronLeft className="h-4 w-4" />
+              <ChevronLeft className={`h-4 w-4 ${isRTL ? '' : 'pagination-prev'}`} />
             </Button>
             
             <div className="flex items-center gap-1">
@@ -401,7 +424,7 @@ export function DataTable<T extends Record<string, unknown>>({
               onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
               disabled={currentPage === totalPages}
             >
-              <ChevronRight className="h-4 w-4" />
+              <ChevronRight className={`h-4 w-4 ${isRTL ? '' : 'pagination-next'}`} />
             </Button>
             <Button
               variant="outline"
