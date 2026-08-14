@@ -132,6 +132,52 @@ export type {
   PlanType,
 } from './multi-tenant';
 
+// Infrastructure Monitoring
+export {
+  getInfrastructureMonitor,
+  InfrastructureMonitor,
+  infraMonitor,
+} from './infrastructure';
+
+export type {
+  CPUStats,
+  MemoryStats,
+  DiskStats,
+  NetworkStats,
+  ProcessStats,
+  DatabasePoolStats,
+  CacheStats,
+  InfrastructureMetrics,
+  InfrastructureAlert,
+  CapacityForecast,
+} from './infrastructure';
+
+// Business Metrics & Analytics
+export {
+  getBusinessMetricsTracker,
+  BusinessMetricsTracker,
+  businessMetrics,
+} from './business-metrics';
+
+export type {
+  FunnelStep,
+  ConversionFunnel,
+  UserBehaviorEvent,
+  SessionAnalytics,
+  ProductMetrics,
+  SupplierMetrics,
+  RevenueMetric,
+  CohortData,
+} from './business-metrics';
+
+// Error Boundary Components
+export {
+  SentryErrorBoundary,
+  withSentryErrorBoundary,
+  useErrorHandler,
+  DefaultFallback,
+} from './error-boundary';
+
 // Default exports
 export { default as sentry } from './sentry';
 export { default as logging } from './logger';
@@ -139,3 +185,5 @@ export { default as health } from './health';
 export { default as apm } from './apm';
 export { default as alerts } from './alerts';
 export { default as multiTenant } from './multi-tenant';
+export { default as infrastructure } from './infrastructure';
+export { default as businessMetricsTracker } from './business-metrics';

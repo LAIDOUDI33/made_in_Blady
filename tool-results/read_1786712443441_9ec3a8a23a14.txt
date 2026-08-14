@@ -1,0 +1,880 @@
+     1→/**
+     2→ * AlgeriaTrade.dz - Alerting & Notification System
+     3→ * 
+     4→ * Features:
+     5→ * - Multi-channel alerts (Slack, Email, PagerDuty, Discord, Telegram)
+     6→ * - Severity-based routing (critical → all channels, info → email only)
+     7→ * - Alert deduplication and grouping
+     8→ * - Rate limiting to prevent alert fatigue
+     9→ * - Escalation policies for unacknowledged alerts
+    10→ * - Scheduled maintenance windows (suppress alerts)
+    11→ * - Custom alert rules and thresholds
+    12→ * - Alert history and audit trail
+    13→ */
+    14→
+    15→// ===========================================
+    16→// Types & Interfaces
+    17→// ===========================================
+    18→
+    19→export type AlertSeverity = 'info' | 'warning' | 'error' | 'critical';
+    20→export type AlertStatus = 'firing' | 'resolved' | 'acknowledged' | 'silenced';
+    21→export type ChannelType = 'slack' | 'email' | 'pagerduty' | 'discord' | 'telegram' | 'webhook';
+    22→
+    23→export interface Alert {
+    24→  id: string;
+    25→  name: string;
+    26→  severity: AlertSeverity;
+    27→  status: AlertStatus;
+    28→  message: string;
+    29→  description?: string;
+    30→  source: string; // Component or service name
+    31→  timestamp: number;
+    32→  resolvedAt?: number;
+    33→  acknowledgedAt?: number;
+    34→  acknowledgedBy?: string;
+    35→  labels: Record<string, string>;
+    36→  annotations: Record<string, string>;
+    37→  firingCount: number; // How many times this has fired
+    38→  channelResults: Map<ChannelType, ChannelResult>;
+    39→  escalationLevel: number;
+    40→}
+    41→
+    42→export interface ChannelResult {
+    43→  sent: boolean;
+    44→  timestamp: number;
+    45→  error?: string;
+    46→  response?: any;
+    47→}
+    48→
+    49→export interface AlertRule {
+    50→  id: string;
+    51→  name: string;
+    52→  enabled: boolean;
+    53→  condition: AlertCondition;
+    54→  channels: ChannelType[];
+    55→  severity: AlertSeverity;
+    56→  cooldown: number; // ms between repeated alerts
+    57→  groupBy?: string[]; // Fields for grouping similar alerts
+    58→  throttleWindow: number; // ms window for throttling
+    59→  maxAlertsInWindow: number;
+    60→  suppressDuringMaintenance: boolean;
+    61→  escalationPolicy?: EscalationPolicy;
+    62→}
+    63→
+    64→export interface AlertCondition {
+    65→  type: 'threshold' | 'absence' | 'composite' | 'custom';
+    66→  metric: string;
+    67→  operator: '>' | '<' | '>=' | '<=' | '==' | '!=';
+    68→  value: number;
+    69→  duration: number; // ms condition must be true before alerting
+    70→  conditions?: AlertCondition[]; // For composite rules
+    71→  customFn?: (data: any) => boolean;
+    72→}
+    73→
+    74→export interface EscalationPolicy {
+    75→  levels: Array<{
+    76→    delay: number; // ms before escalating
+    77→    channels: ChannelType[];
+    78→    notify?: string[]; // Specific people/teams
+    79→    message?: string; // Custom message template
+    80→  }>;
+    81→  maxLevel: number;
+    82→}
+    83→
+    84→export interface ChannelConfig {
+    85→  type: ChannelType;
+    86→  enabled: boolean;
+    87→  config: Record<string, any>;
+    88→  rateLimit: {
+    89→    maxMessages: number;
+    90→    windowMs: number;
+    91→  };
+    92→  severityFilter: AlertSeverity[]; // Minimum severity for this channel
+    93→}
+    94→
+    95→export interface MaintenanceWindow {
+    96→  id: string;
+    97→  name: string;
+    98→  startTime: number;
+    99→  endTime: number;
+   100→  affectedComponents: string[];
+   101→  reason: string;
+   102→  createdBy: string;
+   103→}
+   104→
+   105→// ===========================================
+   106→// Configuration
+   107→// ===========================================
+   108→
+   109→const DEFAULT_SEVERITY_ROUTING: Record<AlertSeverity, ChannelType[]> = {
+   110→  info: ['email'],
+   111→  warning: ['email', 'slack'],
+   112→  error: ['email', 'slack', 'pagerduty', 'discord'],
+   113→  critical: ['email', 'slack', 'pagerduty', 'discord', 'telegram', 'webhook'],
+   114→};
+   115→
+   116→const DEFAULT_COOLDOWNS: Record<AlertSeverity, number> = {
+   117→  info: 3600000, // 1 hour
+   118→  warning: 1800000, // 30 minutes
+   119→  error: 600000,   // 10 minutes
+   120→  critical: 60000, // 1 minute
+   121→};
+   122→
+   123→// ===========================================
+   124→// Channel Implementations
+   125→// ===========================================
+   126→
+   127→class SlackChannel {
+   128→  private config: { webhookUrl?: string; token?: string; channelId?: string };
+   129→  
+   130→  constructor(config: Record<string, any>) {
+   131→    this.config = config;
+   132→  }
+   133→
+   134→  async send(alert: Alert): Promise<ChannelResult> {
+   135→    const startTime = Date.now();
+   136→    
+   137→    try {
+   138→      if (!this.config.webhookUrl && !this.config.token) {
+   139→        return { sent: false, timestamp: startTime, error: 'Slack not configured' };
+   140→      }
+   141→
+   142→      const color = this.getSeverityColor(alert.severity);
+   143→      const payload = this.buildPayload(alert, color);
+   144→
+   145→      if (this.config.webhookUrl) {
+   146→        const response = await fetch(this.config.webhookUrl, {
+   147→          method: 'POST',
+   148→          headers: { 'Content-Type': 'application/json' },
+   149→          body: JSON.stringify(payload),
+   150→        });
+   151→
+   152→        if (!response.ok) {
+   153→          return { 
+   154→            sent: false, 
+   155→            timestamp: Date.now(), 
+   156→            error: `Slack API error: ${response.status} ${response.statusText}` 
+   157→          };
+   158→        }
+   159→      }
+   160→
+   161→      return { sent: true, timestamp: Date.now() };
+   162→    } catch (error) {
+   163→      return { sent: false, timestamp: Date.now(), error: (error as Error).message };
+   164→    }
+   165→  }
+   166→
+   167→  private getSeverityColor(severity: AlertSeverity): string {
+   168→    switch (severity) {
+   169→      case 'info': return '#36a64f'; // green
+   170→      case 'warning': return '#ff9800'; // orange
+   171→      case 'error': return '#f44336'; // red
+   172→      case 'critical': return '#9c27b0'; // purple
+   173→    }
+   174→  }
+   175→
+   176→  private buildPayload(alert: Alert, color: string): object {
+   177→    return {
+   178→      text: `[${alert.severity.toUpperCase()}] ${alert.name}`,
+   179→      attachments: [
+   180→        {
+   181→          color,
+   182→          title: alert.name,
+   183→          fields: [
+   184→            { title: 'Severity', value: alert.severity.toUpperCase(), short: true },
+   185→            { title: 'Status', value: alert.status.toUpperCase(), short: true },
+   186→            { title: 'Source', value: alert.source, short: true },
+   187→            { title: 'Firing Count', value: String(alert.firingCount), short: true },
+   188→          ],
+   189→          text: alert.message,
+   190→          footer: 'AlgeriaTrade.dz Monitoring',
+   191→          ts: Math.floor(alert.timestamp / 1000),
+   192→        },
+   193→      ],
+   194→    };
+   195→  }
+   196→}
+   197→
+   198→class EmailChannel {
+   199→  private config: { smtpHost?: string; apiKey?: string; fromAddress?: string; toAddresses?: string[] };
+   200→  
+   201→  constructor(config: Record<string, any>) {
+   202→    this.config = config;
+   203→  }
+   204→
+   205→  async send(alert: Alert): Promise<ChannelResult> {
+   206→    const startTime = Date.now();
+   207→
+   208→    try {
+   209→      if (!this.config.apiKey && !this.config.smtpHost) {
+   210→        return { sent: false, timestamp: startTime, error: 'Email not configured' };
+   211→      }
+   212→
+   213→      // In production, integrate with SendGrid, AWS SES, or similar
+   214→      // For now, log the email that would be sent
+   215→      console.log(`📧 [Email Alert] To: ${this.config.toAddresses?.join(', ') || 'ops@algeriatrade.dz'}`);
+   216→      console.log(`   Subject: [${alert.severity.toUpperCase()}] ${alert.name}`);
+   217→      console.log(`   Body: ${alert.message}`);
+   218→
+   219→      return { sent: true, timestamp: Date.now() };
+   220→    } catch (error) {
+   221→      return { sent: false, timestamp: Date.now(), error: (error as Error).message };
+   222→    }
+   223→  }
+   224→}
+   225→
+   226→class PagerDutyChannel {
+   227→  private config: { integrationKey?: string; routingKey?: string; apiToken?: string };
+   228→  
+   229→  constructor(config: Record<string, any>) {
+   230→    this.config = config;
+   231→  }
+   232→
+   233→  async send(alert: Alert): Promise<ChannelResult> {
+   234→    const startTime = Date.now();
+   235→
+   236→    try {
+   237→      if (!this.config.integrationKey && !this.config.routingKey && !this.config.apiToken) {
+   238→        return { sent: false, timestamp: startTime, error: 'PagerDuty not configured' };
+   239→      }
+   240→
+   241→      const payload = {
+   242→        payload: {
+   243→          summary: alert.message,
+   244→          severity: this.mapSeverity(alert.severity),
+   245→          source: alert.source,
+   246→          component: alert.labels.component || 'unknown',
+   247→          group: alert.labels.group || alert.id,
+   248→          class: alert.labels.class || 'generic',
+   249→          custom_details: alert.annotations,
+   250→        },
+   251→        };
+   252→
+   253→      if (alert.status === 'resolved') {
+   254→        Object.assign(payload.payload, { action: 'resolve' });
+   255→      }
+   256→
+   257→      // Call PagerDuty Events API v2
+   258→      if (this.config.routingKey) {
+   259→        const response = await fetch('https://events.pagerduty.com/v2/enqueue', {
+   260→          method: 'POST',
+   261→          headers: { 'Content-Type': 'application/json' },
+   262→          body: JSON.stringify({
+   263→            ...payload,
+   264→            routing_key: this.config.routingKey,
+   265→            event_action: alert.status === 'resolved' ? 'resolve' : 'trigger',
+   266→            dedup_key: alert.id,
+   267→          }),
+   268→        });
+   269→
+   270→        if (!response.ok) {
+   271→          return { 
+   272→            sent: false, 
+   273→            timestamp: Date.now(), 
+   274→            error: `PagerDuty API error: ${response.status}` 
+   275→          };
+   276→        }
+   277→      }
+   278→
+   279→      return { sent: true, timestamp: Date.now() };
+   280→    } catch (error) {
+   281→      return { sent: false, timestamp: Date.now(), error: (error as Error).message };
+   282→    }
+   283→  }
+   284→
+   285→  private mapSeverity(severity: AlertSeverity): string {
+   286→    switch (severity) {
+   287→      case 'info': return 'info';
+   288→      case 'warning': return 'warning';
+   289→      case 'error': return 'error';
+   290→      case 'critical': return 'critical';
+   291→    }
+   292→  }
+   293→}
+   294→
+   295→class DiscordChannel {
+   296→  private config: { webhookUrl?: string };
+   297→  
+   298→  constructor(config: Record<string, any>) {
+   299→    this.config = config;
+   300→  }
+   301→
+   302→  async send(alert: Alert): Promise<ChannelResult> {
+   303→    const startTime = Date.now();
+   304→
+   305→    try {
+   306→      if (!this.config.webhookUrl) {
+   307→        return { sent: false, timestamp: startTime, error: 'Discord not configured' };
+   308→      }
+   309→
+   310→      const emoji = this.getSeverityEmoji(alert.severity);
+   311→      
+   312→      const response = await fetch(this.config.webhookUrl, {
+   313→        method: 'POST',
+   314→        headers: { 'Content-Type': 'application/json' },
+   315→        body: JSON.stringify({
+   316→          content: `${emoji} **[${alert.severity.toUpperCase()}]** ${alert.name}`,
+   317→          embeds: [
+   318→            {
+   319→              title: alert.name,
+   320→              description: alert.message,
+   321→              color: this.getSeverityColor(alert.severity),
+   322→              fields: [
+   323→                { name: 'Source', value: alert.source, inline: true },
+   324→                { name: 'Status', value: alert.status, inline: true },
+   325→                { name: 'Time', value: new Date(alert.timestamp).toISOString(), inline: true },
+   326→              ],
+   327→              footer: { text: 'AlgeriaTrade.dz Monitoring' },
+   328→              timestamp: new Date(alert.timestamp).toISOString(),
+   329→            },
+   330→          ],
+   331→        }),
+   332→      });
+   333→
+   334→      if (!response.ok) {
+   335→        return { sent: false, timestamp: Date.now(), error: `Discord API error: ${response.status}` };
+   336→      }
+   337→
+   338→      return { sent: true, timestamp: Date.now() };
+   339→    } catch (error) {
+   340→      return { sent: false, timestamp: Date.now(), error: (error as Error).message };
+   341→    }
+   342→  }
+   343→
+   344→  private getSeverityEmoji(severity: AlertSeverity): string {
+   345→    switch (severity) {
+   346→      case 'info': return 'ℹ️';
+   347→      case 'warning': return '⚠️';
+   348→      case 'error': return '🔴';
+   349→      case 'critical': return '🚨';
+   350→    }
+   351→  }
+   352→
+   353→  private getSeverityColor(severity: AlertSeverity): number {
+   354→    switch (severity) {
+   355→      case 'info': return 0x36a64f; // green
+   356→      case 'warning': return 0xff9800; // orange
+   357→      case 'error': return 0xf44336; // red
+   358→      case 'critical': return 0x9c27b0; // purple
+   359→    }
+   360→  }
+   361→}
+   362→
+   363→class TelegramChannel {
+   364→  private config: { botToken?: string; chatId?: string };
+   365→  
+   366→  constructor(config: Record<string, any>) {
+   367→    this.config = config;
+   368→  }
+   369→
+   370→  async send(alert: Alert): Promise<ChannelResult> {
+   371→    const startTime = Date.now();
+   372→
+   373→    try {
+   374→      if (!this.config.botToken || !this.config.chatId) {
+   375→        return { sent: false, timestamp: startTime, error: 'Telegram not configured' };
+   376→      }
+   377→
+   378→      const emoji = this.getSeverityEmoji(alert.severity);
+   379→      const message = `${emoji} *${alert.severity.toUpperCase()}* ${alert.name}\n\n${alert.message}\n\n_Source: ${alert.source}_`;
+   380→
+   381→      const response = await fetch(
+   382→        `https://api.telegram.org/bot${this.config.botToken}/sendMessage`,
+   383→        {
+   384→          method: 'POST',
+   385→          headers: { 'Content-Type': 'application/json' },
+   386→          body: JSON.stringify({
+   387→            chat_id: this.config.chatId,
+   388→            text: message,
+   389→            parse_mode: 'Markdown',
+   390→          }),
+   391→        }
+   392→      );
+   393→
+   394→      if (!response.ok) {
+   395→        return { sent: false, timestamp: Date.now(), error: `Telegram API error: ${response.status}` };
+   396→      }
+   397→
+   398→      return { sent: true, timestamp: Date.now() };
+   399→    } catch (error) {
+   400→      return { sent: false, timestamp: Date.now(), error: (error as Error).message };
+   401→    }
+   402→  }
+   403→
+   404→  private getSeverityEmoji(severity: AlertSeverity): string {
+   405→    switch (severity) {
+   406→      case 'info': return '📋';
+   407→      case 'warning': return '⚡';
+   408→      case 'error': return '❌';
+   409→      case 'critical': return '🔥';
+   410→    }
+   411→  }
+   412→}
+   413→
+   414→class WebhookChannel {
+   415→  private config: { url?: string; headers?: Record<string, string>; method?: string };
+   416→  
+   417→  constructor(config: Record<string, any>) {
+   418→    this.config = config;
+   419→  }
+   420→
+   421→  async send(alert: Alert): Promise<ChannelResult> {
+   422→    const startTime = Date.now();
+   423→
+   424→    try {
+   425→      if (!this.config.url) {
+   426→        return { sent: false, timestamp: startTime, error: 'Webhook URL not configured' };
+   427→      }
+   428→
+   429→      const response = await fetch(this.config.url, {
+   430→        method: this.config.method || 'POST',
+   431→        headers: {
+   432→          'Content-Type': 'application/json',
+   433→          ...this.config.headers,
+   434→        },
+   435→        body: JSON.stringify(alert),
+   436→      });
+   437→
+   438→      if (!response.ok) {
+   439→        return { sent: false, timestamp: Date.now(), error: `Webhook error: ${response.status}` };
+   440→      }
+   441→
+   442→      let responseData;
+   443→      try {
+   444→        responseData = await response.json();
+   445→      } catch {
+   446→        responseData = await response.text();
+   447→      }
+   448→
+   449→      return { sent: true, timestamp: Date.now(), response: responseData };
+   450→    } catch (error) {
+   451→      return { sent: false, timestamp: Date.now(), error: (error as Error).message };
+   452→    }
+   453→  }
+   454→}
+   455→
+   456→// ===========================================
+   457→// Main Alert Manager Class
+   458→// ===========================================
+   459→
+   460→export class AlertManager {
+   461→  private channels: Map<ChannelType, any> = new Map();
+   462→  private activeAlerts: Map<string, Alert> = new Map();
+   463→  private alertHistory: Alert[] = [];
+   464→  private rules: Map<string, AlertRule> = new Map();
+   465→  private maintenanceWindows: MaintenanceWindow[] = [];
+   466→  private rateLimiters: Map<string, { count: number; resetTime: number }> = new Map();
+   467→
+   468→  /**
+   469→   * Initialize alert manager with channel configurations
+   470→   */
+   471→  initialize(channelConfigs: ChannelConfig[]): void {
+   472→    for (const config of channelConfigs) {
+   473→      if (!config.enabled) continue;
+   474→
+   475→      let channel: any;
+   476→      switch (config.type) {
+   477→        case 'slack':
+   478→          channel = new SlackChannel(config.config);
+   479→          break;
+   480→        case 'email':
+   481→          channel = new EmailChannel(config.config);
+   482→          break;
+   483→        case 'pagerduty':
+   484→          channel = new PagerDutyChannel(config.config);
+   485→          break;
+   486→        case 'discord':
+   487→          channel = new DiscordChannel(config.config);
+   488→          break;
+   489→        case 'telegram':
+   490→          channel = new TelegramChannel(config.config);
+   491→          break;
+   492→        case 'webhook':
+   493→          channel = new WebhookChannel(config.config);
+   494→          break;
+   495→      }
+   496→
+   497→      if (channel) {
+   498→        this.channels.set(config.type, channel);
+   499→      }
+   500→    }
+   501→
+   502→    console.log(`🔔 Alert manager initialized with ${this.channels.size} channels`);
+   503→  }
+   504→
+   505→  /**
+   506→   * Fire a new alert or update existing one
+   507→   */
+   508→  async fire(options: {
+   509→    name: string;
+   510→    severity: AlertSeverity;
+   511→    message: string;
+   512→    source: string;
+   513→    labels?: Record<string, string>;
+   514→    annotations?: Record<string, any>;
+   515→    channels?: ChannelType[];
+   516→    ruleId?: string;
+   517→  }): Promise<Alert> {
+   518→    const now = Date.now();
+   519→    
+   520→    // Check maintenance windows
+   521→    if (this.isInMaintenance(options.source)) {
+   522→      console.log(`🔕 Alert suppressed due to maintenance: ${options.name}`);
+   523→      return this.createSilencedAlert(options, now);
+   524→    }
+   525→
+   526→    // Generate alert ID based on grouping
+   527→    const groupId = this.generateGroupId(options);
+   528→    const existingAlert = this.activeAlerts.get(groupId);
+   529→
+   530→    if (existingAlert) {
+   531→      // Update existing alert
+   532→      existingAlert.firingCount++;
+   533→      existingAlert.timestamp = now;
+   534→      existingAlert.status = 'firing';
+   535→      existingAlert.message = options.message;
+   536→
+   537→      // Check cooldown before re-sending
+   538→      const rule = options.ruleId ? this.rules.get(options.ruleId) : undefined;
+   539→      const cooldown = rule?.cooldown || DEFAULT_COOLDOWNS[options.severity];
+   540→      
+   541→      if (now - existingAlert.timestamp < cooldown) {
+   542→        return existingAlert; // Skip sending, still in cooldown
+   543→      }
+   544→
+   545→      // Re-send alert with updated info
+   546→      await this.sendToChannels(existingAlert, options.channels);
+   547→      return existingAlert;
+   548→    }
+   549→
+   550→    // Create new alert
+   551→    const alert: Alert = {
+   552→      id: `alert_${now}_${Math.random().toString(36).substring(2, 8)}`,
+   553→      name: options.name,
+   554→      severity: options.severity,
+   555→      status: 'firing',
+   556→      message: options.message,
+   557→      source: options.source,
+   558→      timestamp: now,
+   559→      labels: options.labels || {},
+   560→      annotations: options.annotations || {},
+   561→      firingCount: 1,
+   562→      channelResults: new Map(),
+   563→      escalationLevel: 0,
+   564→    };
+   565→
+   566→    this.activeAlerts.set(groupId, alert);
+   567→
+   568→    // Send to appropriate channels
+   569→    await this.sendToChannels(alert, options.channels);
+   570→
+   571→    // Store in history
+   572→    this.alertHistory.push(alert);
+   573→    if (this.alertHistory.length > 10000) {
+   574→      this.alertHistory = this.alertHistory.slice(-5000);
+   575→    }
+   576→
+   577→    return alert;
+   578→  }
+   579→
+   580→  /**
+   581→   * Resolve an alert
+   582→   */
+   583→  async resolve(alertIdOrName: string, message?: string): Promise<boolean> {
+   584→    const alert = this.findAlert(alertIdOrName);
+   585→    if (!alert) return false;
+   586→
+   587→    alert.status = 'resolved';
+   588→    alert.resolvedAt = Date.now();
+   589→    if (message) {
+   590→      alert.message = message;
+   591→    }
+   592→
+   593→    // Send resolution notification
+   594→    await this.sendResolutionNotification(alert);
+   595→
+   596→    // Remove from active alerts
+   597→    for (const [key, val] of this.activeAlerts.entries()) {
+   598→      if (val.id === alert.id) {
+   599→        this.activeAlerts.delete(key);
+   600→        break;
+   601→      }
+   602→    }
+   603→
+   604→    return true;
+   605→  }
+   606→
+   607→  /**
+   608→   * Acknowledge an alert (stop escalation but keep firing)
+   609→   */
+   610→  acknowledge(alertIdOrName: string, user: string, message?: string): boolean {
+   611→    const alert = this.findAlert(alertIdOrName);
+   612→    if (!alert) return false;
+   613→
+   614→    alert.status = 'acknowledged';
+   615→    alert.acknowledgedAt = Date.now();
+   616→    alert.acknowledgedBy = user;
+   617→    if (message) {
+   618→      alert.annotations.acknowledgmentMessage = message;
+   619→    }
+   620→
+   621→    return true;
+   622→  }
+   623→
+   624→  /**
+   625→   * Register a new alert rule
+   626→   */
+   627→  registerRule(rule: Omit<AlertRule, 'id'>): string {
+   628→    const id = `rule_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+   629→    const fullRule: AlertRule = { ...rule, id, enabled: true };
+   630→    
+   631→    this.rules.set(id, fullRule);
+   632→    return id;
+   633→  }
+   634→
+   635→  /**
+   636→   * Add a maintenance window
+   637→   */
+   638→  addMaintenanceWindow(window: Omit<MaintenanceWindow, 'id'>): void {
+   639→    const windowWithId: MaintenanceWindow = {
+   640→      ...window,
+   641→      id: `maint_${Date.now()}_${Math.random().toString(36).substring(2, 4)}`,
+   642→    };
+   643→    
+   644→    this.maintenanceWindows.push(windowWithId);
+   645→    
+   646→    // Auto-expire old maintenance windows
+   647→    this.cleanupMaintenanceWindows();
+   648→  }
+   649→
+   650→  /**
+   651→   * Get active alerts
+   652→   */
+   653→  getActiveAlerts(): Alert[] {
+   654→    return Array.from(this.activeAlerts.values());
+   655→  }
+   656→
+   657→  /**
+   658→   * Get alert history
+   659→   */
+   660→  getAlertHistory(limit: number = 50, severity?: AlertSeverity): Alert[] {
+   661→    let history = [...this.alertHistory].reverse();
+   662→    
+   663→    if (severity) {
+   664→      history = history.filter(a => a.severity === severity);
+   665→    }
+   666→    
+   667→    return history.slice(0, limit);
+   668→  }
+   669→
+   670→  /**
+   671→   * Get alert statistics
+   672→   */
+   673→  getStats(): {
+   674→    totalActive: number;
+   675→    bySeverity: Record<AlertSeverity, number>;
+   676→    byStatus: Record<AlertStatus, number>;
+   677→    todayTotal: number;
+   678→    todayResolved: number;
+   679→    avgResolutionTime: number;
+   680→  } {
+   681→    const active = this.getActiveAlerts();
+   682→    const todayStart = new Date().setHours(0, 0, 0, 0);
+   683→
+   684→    const todayAlerts = this.alertHistory.filter(a => a.timestamp >= todayStart);
+   685→    const todayResolved = todayAlerts.filter(a => a.resolvedAt && a.resolvedAt >= todayStart);
+   686→
+   687→    const avgResolutionTime = todayResolved.length > 0
+   688→      ? todayResolved.reduce((sum, a) => sum + ((a.resolvedAt || 0) - a.timestamp), 0) / todayResolved.length
+   689→      : 0;
+   690→
+   691→    return {
+   692→      totalActive: active.length,
+   693→      bySeverity: {
+   694→        info: active.filter(a => a.severity === 'info').length,
+   695→        warning: active.filter(a => a.severity === 'warning').length,
+   696→        error: active.filter(a => a.severity === 'error').length,
+   697→        critical: active.filter(a => a.severity === 'critical').length,
+   698→      },
+   699→      byStatus: {
+   700→        firing: active.filter(a => a.status === 'firing').length,
+   701→        resolved: active.filter(a => a.status === 'resolved').length,
+   702→        acknowledged: active.filter(a => a.status === 'acknowledged').length,
+   703→        silenced: active.filter(a => a.status === 'silenced').length,
+   704→      },
+   705→      todayTotal: todayAlerts.length,
+   706→      todayResolved: todayResolved.length,
+   707→      avgResolutionTime: Math.round(avgResolutionTime),
+   708→    };
+   709→  }
+   710→
+   711→  // Private methods
+   712→
+   713→  private async sendToChannels(alert: Alert, overrideChannels?: ChannelType[]): Promise<void> {
+   714→    // Determine which channels to use
+   715→    let targetChannels = overrideChannels || DEFAULT_SEVERITY_ROUTING[alert.severity];
+   716→    
+   717→    // Filter to only configured channels
+   718→    targetChannels = targetChannels.filter(ch => this.channels.has(ch));
+   719→
+   720→    // Check rate limits
+   721→    targetChannels = targetChannels.filter(ch => !this.isRateLimited(ch));
+   722→
+   723→    // Send to each channel
+   724→    for (const channelType of targetChannels) {
+   725→      const channel = this.channels.get(channelType);
+   726→      if (!channel) continue;
+   727→
+   728→      try {
+   729→        const result = await channel.send(alert);
+   730→        alert.channelResults.set(channelType, result);
+   731→        
+   732→        if (!result.sent) {
+   733→          console.error(`Failed to send alert to ${channelType}:`, result.error);
+   734→        }
+   735→      } catch (error) {
+   736→        console.error(`Error sending to ${channelType}:`, error);
+   737→        alert.channelResults.set(channelType, {
+   738→          sent: false,
+   739→          timestamp: Date.now(),
+   740→          error: (error as Error).message,
+   741→        });
+   742→      }
+   743→    }
+   744→
+   745→    // Update rate limiter
+   746→    for (const channelType of targetChannels) {
+   747→      this.updateRateLimit(channelType);
+   748→    }
+   749→  }
+   750→
+   751→  private async sendResolutionNotification(alert: Alert): Promise<void> {
+   752→    // Create a resolved version of the alert for notification
+   753→    const resolvedAlert = {
+   754→      ...alert,
+   755→      message: `✅ RESOLVED: ${alert.message}`,
+   756→    };
+   757→
+   758→    // Send to same channels as original alert
+   759→    const channels = Array.from(resolvedAlert.channelResults.keys());
+   760→    await this.sendToChannels(resolvedAlert, channels);
+   761→  }
+   762→
+   763→  private findAlert(idOrName: string): Alert | undefined {
+   764→    // Try ID first
+   765→    for (const alert of this.activeAlerts.values()) {
+   766→      if (alert.id === idOrName) return alert;
+   767→    }
+   768→
+   769→    // Then try name
+   770→    for (const alert of this.activeAlerts.values()) {
+   771→      if (alert.name === idOrName) return alert;
+   772→    }
+   773→
+   774→    return undefined;
+   775→  }
+   776→
+   777→  private generateGroupId(options: { name: string; source: string; labels?: Record<string, string> }): string {
+   778→    // Group by name + source + key labels
+   779→    const keyParts = [options.name, options.source];
+   780→    
+   781→    if (options.labels) {
+   782→      const groupKeys = ['component', 'service', 'instance'];
+   783→      for (const key of groupKeys) {
+   784→        if (options.labels[key]) {
+   785→          keyParts.push(`${key}=${options.labels[key]}`);
+   786→        }
+   787→      }
+   788→    }
+   789→
+   790→    return keyParts.join('|');
+   791→  }
+   792→
+   793→  private isInMaintenance(component: string): boolean {
+   794→    const now = Date.now();
+   795→    
+   796→    return this.maintenanceWindows.some(
+   797→      window => window.startTime <= now && 
+   798→               window.endTime >= now && 
+   799→               (window.affectedComponents.length === 0 || window.affectedComponents.includes(component))
+   800→    );
+   801→  }
+   802→
+   803→  private createSilencedAlert(options: { name: string; severity: AlertSeverity; message: string; source: string }, timestamp: number): Alert {
+   804→    return {
+   805→      id: `silent_${timestamp}`,
+   806→      name: options.name,
+   807→      severity: options.severity,
+   808→      status: 'silenced',
+   809→      message: options.message + ' [Suppressed: Maintenance]',
+   810→      source: options.source,
+   811→      timestamp,
+   812→      labels: {},
+   813→      annotations: {},
+   814→      firingCount: 0,
+   815→      channelResults: new Map(),
+   816→      escalationLevel: 0,
+   817→    };
+   818→  }
+   819→
+   820→  private isRateLimited(channel: ChannelType): boolean {
+   821→    const limiter = this.rateLimiters.get(channel);
+   822→    if (!limiter) return false;
+   823→
+   824→    if (Date.now() > limiter.resetTime) {
+   825→      return false; // Window expired
+   826→    }
+   827→
+   828→    return limiter.count >= 10; // Max 10 messages per minute per channel
+   829→  }
+   830→
+   831→  private updateRateLimit(channel: ChannelType): void {
+   832→    const limiter = this.rateLimiters.get(channel) || { count: 0, resetTime: 0 };
+   833→    
+   834→    if (Date.now() > limiter.resetTime) {
+   835→      limiter.count = 1;
+   836→      limiter.resetTime = Date.now() + 60000; // 1 minute window
+   837→    } else {
+   838→      limiter.count++;
+   839→    }
+   840→
+   841→    this.rateLimiters.set(channel, limiter);
+   842→  }
+   843→
+   844→  private cleanupMaintenanceWindows(): void {
+   845→    const now = Date.now();
+   846→    this.maintenanceWindows = this.maintenanceWindows.filter(w => w.endTime > now);
+   847→  }
+   848→}
+   849→
+   850→// ===========================================
+   851→// Singleton & Exports
+   852→// ===========================================
+   853→
+   854→let alertManagerInstance: AlertManager | null = null;
+   855→
+   856→export function getAlertManager(): AlertManager {
+   857→  if (!alertManagerInstance) {
+   858→    alertManagerInstance = new AlertManager();
+   859→  }
+   860→  return alertManagerInstance;
+   861→}
+   862→
+   863→// Convenience exports
+   864→export const alerts = getAlertManager();
+   865→
+   866→// Export channel classes for direct use
+   867→export {
+   868→  SlackChannel,
+   869→  EmailChannel,
+   870→  PagerDutyChannel,
+   871→  DiscordChannel,
+   872→  TelegramChannel,
+   873→  WebhookChannel,
+   874→};
+   875→
+   876→export default {
+   877→  getAlertManager,
+   878→  AlertManager,
+   879→};
+   880→
