@@ -1,0 +1,977 @@
+     1→/**
+     2→ * AlgeriaTrade.dz - Infrastructure Monitoring System
+     3→ * 
+     4→ * Features:
+     5→ * - Server resource monitoring (CPU, Memory, Disk, Network)
+     6→ * - Process health tracking
+     7→ * - Docker container metrics (when applicable)
+     8→ * - Database connection pool monitoring
+     9→ * - Redis/cache performance tracking
+    10→ * - Auto-scaling readiness metrics
+    11→ * - Capacity planning data
+    12→ * - Predictive alerting based on trends
+    13→ */
+    14→
+    15→// ===========================================
+    16→// Types & Interfaces
+    17→// ===========================================
+    18→
+    19→export interface CPUStats {
+    20→  usage: number; // 0-100%
+    21→  loadAverage: {
+    22→    '1min': number;
+    23→    '5min': number;
+    24→    '15min': number;
+    25→  };
+    26→  cores: number;
+    27→  processUsage: number; // Current process CPU usage
+    28→  temperature?: number; // Celsius (if available)
+    29→}
+    30→
+    31→export interface MemoryStats {
+    32→  total: number; // bytes
+    33→  used: number; // bytes
+    34→  free: number; // bytes;
+    35→  percentage: number; // 0-100%
+    36→  heap: {
+    37→    total: number;
+    38→    used: number;
+    39→    limit: number;
+    40→  };
+    41→  buffers: number;
+    42→  cached: number;
+    43→  swap: {
+    44→    total: number;
+    45→    used: number;
+    46→    percentage: number;
+    47→  };
+    48→}
+    49→
+    50→export interface DiskStats {
+    51→  path: string;
+    52→  total: number; // bytes
+    53→  used: number; // bytes
+    54→  free: number; // bytes;
+    55→  percentage: number; // 0-100%
+    56→  inodeTotal: number;
+    57→  inodeUsed: number;
+    58→  inodePercentage: number;
+    59→  readSpeed: number; // bytes/sec
+    60→  writeSpeed: number; // bytes/sec
+    61→  iops: number; // I/O operations per second
+    62→}
+    63→
+    64→export interface NetworkStats {
+    65→  interface: string;
+    66→  bytesReceived: number;
+    67→  bytesSent: number;
+    68→  packetsReceived: number;
+    69→  packetsSent: number;
+    70→  errorsIn: number;
+    71→  errorsOut: number;
+    72→  dropsIn: number;
+    73→  dropsOut: number;
+    74→  connections: {
+    75→    established: number;
+    76→    waiting: number;
+    77→    closing: number;
+    78→  };
+    79→  bandwidth: {
+    80→    inbound: number; // bits/sec
+    81→    outbound: number; // bits/sec
+    82→  };
+    83→}
+    84→
+    85→export interface ProcessStats {
+    86→  pid: number;
+    87→  uptime: number; // seconds
+    88→  cpuUsage: number; // %
+    89→  memoryUsage: number; // MB
+    90→  memoryPercentage: number; // %
+    91→  heapUsed: number; // MB
+    92→  heapTotal: number; // MB
+    93→  eventLoopLag: number; // ms
+    94→  eventLoopUtilization: {
+    95→    active: number;
+    96→    idle: number;
+    97→    utilization: number;
+    98→  };
+    99→  activeHandles: number;
+   100→  activeRequests: number;
+   101→  gc: {
+   102→    collections: number;
+   103→    pauseTimeMs: number;
+   104→  };
+   105→}
+   106→
+   107→export interface DatabasePoolStats {
+   108→  total: number;
+   109→  active: number;
+   110→  idle: number;
+   111→  waiting: number;
+   112→  max: number;
+   113→  min: number;
+   114→  averageWaitTime: number; // ms
+   115→  maxWaitTime: number; // ms
+   116→  timeoutCount: number;
+   117→}
+   118→
+   119→export interface CacheStats {
+   120→  hits: number;
+   121→  misses: number;
+   122→  hitRate: number; // 0-1
+   123→  memoryUsage: number; // bytes
+   124→  keyCount: number;
+   125→  avgResponseTime: number; // ms
+   126→  evictions: number;
+   127→  connections: number;
+   128→}
+   129→
+   130→export interface InfrastructureMetrics {
+   131→  timestamp: string;
+   132→  hostname: string;
+   133→  environment: string;
+   134→  nodeVersion: string;
+   135→  processId: number;
+   136→  
+   137→  cpu: CPUStats;
+   138→  memory: MemoryStats;
+   139→  disk: DiskStats[];
+   140→  network: NetworkStats[];
+   141→  
+   142→  process: ProcessStats;
+   143→  database: DatabasePoolStats | null;
+   144→  cache: CacheStats | null;
+   145→  
+   146→  docker?: {
+   147→    containerId: string;
+   148→    containerName: string;
+   149→    image: string;
+   150→    status: string;
+   151→    restartCount: number;
+   152→  };
+   153→
+   154→  alerts: InfrastructureAlert[];
+   155→}
+   156→
+   157→export interface InfrastructureAlert {
+   158→  id: string;
+   159→  severity: 'info' | 'warning' | 'critical';
+   160→  metric: string;
+   161→  current: number;
+   162→  threshold: number;
+   163→  message: string;
+   164→  timestamp: string;
+   165→  acknowledged: boolean;
+   166→  resolvedAt?: string;
+   167→}
+   168→
+   169→export interface CapacityForecast {
+   170→  metric: string;
+   171→  currentValue: number;
+   172→  projectedValue: number;
+   173→  daysUntilThreshold: number;
+   174→  threshold: number;
+   175→  trend: 'increasing' | 'decreasing' | 'stable';
+   176→  confidence: number; // 0-1
+   177→}
+   178→
+   179→// ===========================================
+   180→// Configuration
+   181→// ===========================================
+   182→
+   183→interface InfrastructureConfig {
+   184→  collectionInterval: number; // ms
+   185→  retentionPeriod: number; // ms
+   186→  thresholds: {
+   187→    cpuWarning: number;
+   188→    cpuCritical: number;
+   189→    memoryWarning: number;
+   190→    memoryCritical: number;
+   191→    diskWarning: number;
+   192→    diskCritical: number;
+   193→    eventLoopLagWarning: number;
+   194→    eventLoopLagCritical: number;
+   195→    connectionPoolWarning: number;
+   196→    connectionPoolCritical: number;
+   197→  };
+   198→  enabledMetrics: {
+   199→    cpu: boolean;
+   200→    memory: boolean;
+   201→    disk: boolean;
+   202→    network: boolean;
+   203→    process: boolean;
+   204→    database: boolean;
+   205→    cache: boolean;
+   206→  };
+   207→}
+   208→
+   209→const DEFAULT_CONFIG: InfrastructureConfig = {
+   210→  collectionInterval: 5000, // 5 seconds
+   211→  retentionPeriod: 3600000, // 1 hour in memory
+   212→  
+   213→  thresholds: {
+   214→    cpuWarning: 70,
+   215→    cpuCritical: 90,
+   216→    memoryWarning: 75,
+   217→    memoryCritical: 90,
+   218→    diskWarning: 80,
+   219→    diskCritical: 95,
+   220→    eventLoopLagWarning: 50,
+   221→    eventLoopLagCritical: 100,
+   222→    connectionPoolWarning: 75,
+   223→    connectionPoolCritical: 90,
+   224→  },
+   225→  
+   226→  enabledMetrics: {
+   227→    cpu: true,
+   228→    memory: true,
+   229→    disk: true,
+   230→    network: true,
+   231→    process: true,
+   232→    database: true,
+   233→    cache: true,
+   234→  },
+   235→};
+   236→
+   237→// ===========================================
+   238→// Metrics Collector Class
+   239→// ===========================================
+   240→
+   241→class InfrastructureMonitor {
+   242→  private config: InfrastructureConfig;
+   243→  private metricsHistory: Map<string, InfrastructureMetrics[]> = new Map();
+   244→  private alerts: Map<string, InfrastructureAlert> = new Map();
+   245→  private collectionTimer: NodeJS.Timeout | null = null;
+   246→  private isCollecting: boolean = false;
+   247→
+   248→  constructor(config?: Partial<InfrastructureConfig>) {
+   249→    this.config = { ...DEFAULT_CONFIG, ...config };
+   250→  }
+   251→
+   252→  /**
+   253→   * Start collecting infrastructure metrics
+   254→   */
+   255→  start(): void {
+   256→    if (this.isCollecting) return;
+   257→    
+   258→    this.isCollecting = true;
+   259→    
+   260→    // Collect immediately
+   261→    this.collect();
+   262→    
+   263→    // Set up interval
+   264→    this.collectionTimer = setInterval(
+   265→      () => this.collect(),
+   266→      this.config.collectionInterval
+   267→    );
+   268→
+   269→    // Don't prevent process exit
+   270→    if (this.collectionTimer.unref) {
+   271→      this.collectionTimer.unref();
+   272→    }
+   273→
+   274→    console.log(`📊 Infrastructure monitoring started (interval: ${this.config.collectionInterval}ms)`);
+   275→  }
+   276→
+   277→  /**
+   278→   * Stop collecting metrics
+   279→   */
+   280→  stop(): void {
+   281→    if (this.collectionTimer) {
+   282→      clearInterval(this.collectionTimer);
+   283→      this.collectionTimer = null;
+   284→    }
+   285→    this.isCollecting = false;
+   286→    console.log('📊 Infrastructure monitoring stopped');
+   287→  }
+   288→
+   289→  /**
+   290→   * Collect all enabled metrics
+   291→   */
+   292→  async collect(): Promise<InfrastructureMetrics> {
+   293→    const timestamp = new Date().toISOString();
+   294→
+   295→    const metrics: InfrastructureMetrics = {
+   296→      timestamp,
+   297→      hostname: typeof window === 'undefined' ? require('os').hostname() : 'browser',
+   298→      environment: process.env.NODE_ENV || 'unknown',
+   299→      nodeVersion: process.version,
+   300→      processId: process.pid,
+   301→
+   302→      cpu: this.config.enabledMetrics.cpu ? await this.collectCPUStats() : this.emptyCPU(),
+   303→      memory: this.config.enabledMetrics.memory ? await this.collectMemoryStats() : this.emptyMemory(),
+   304→      disk: this.config.enabledMetrics.disk ? await this.collectDiskStats() : [],
+   305→      network: this.config.enabledMetrics.network ? await this.collectNetworkStats() : [],
+   306→
+   307→      process: this.config.enabledMetrics.process ? await this.collectProcessStats() : this.emptyProcess(),
+   308→      database: this.config.enabledMetrics.database ? await this.collectDatabaseStats() : null,
+   309→      cache: this.config.enabledMetrics.cache ? await this.collectCacheStats() : null,
+   310→
+   311→      alerts: Array.from(this.alerts.values()).filter(a => !a.resolvedAt),
+   312→    };
+   313→
+   314→    // Check for Docker info
+   315→    if (process.env.DOCKER_CONTAINER_ID) {
+   316→      metrics.docker = {
+   317→        containerId: process.env.DOCKER_CONTAINER_ID,
+   318→        containerName: process.env.CONTAINER_NAME || 'unknown',
+   319→        image: process.env.IMAGE_NAME || 'unknown',
+   320→        status: 'running',
+   321→        restartCount: parseInt(process.env.RESTART_COUNT || '0', 10),
+   322→      };
+   323→    }
+   324→
+   325→    // Store in history
+   326→    this.storeMetrics(metrics);
+   327→
+   328→    // Check thresholds and generate alerts
+   329→    this.checkThresholds(metrics);
+   330→
+   331→    return metrics;
+   332→  }
+   333→
+   334→  /**
+   335→   * Get latest metrics snapshot
+   336→   */
+   337→  getLatestMetrics(): InfrastructureMetrics | null {
+   338→    const history = this.metricsHistory.get('latest');
+   339→    return history && history.length > 0 ? history[history.length - 1] : null;
+   340→  }
+   341→
+   342→  /**
+   343→   * Get historical metrics for a time range
+   344→   */
+   345→  getHistoricalMetrics(since: Date): InfrastructureMetrics[] {
+   346→    const allMetrics: InfrastructureMetrics[] = [];
+   347→    const cutoffTime = since.getTime();
+   348→
+   349→    for (const history of this.metricsHistory.values()) {
+   350→      for (const metrics of history) {
+   351→        if (new Date(metrics.timestamp).getTime() >= cutoffTime) {
+   352→          allMetrics.push(metrics);
+   353→        }
+   354→      }
+   355→    }
+   356→
+   357→    return allMetrics.sort((a, b) => 
+   358→      new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+   359→    );
+   360→  }
+   361→
+   362→  /**
+   363→   * Get active alerts
+   364→   */
+   365→  getActiveAlerts(): InfrastructureAlert[] {
+   366→    return Array.from(this.alerts.values())
+   367→      .filter(alert => !alert.resolvedAt)
+   368→      .sort((a, b) => {
+   369→        const severityOrder = { critical: 3, warning: 2, info: 1 };
+   370→        return severityOrder[b.severity] - severityOrder[a.severity];
+   371→      });
+   372→  }
+   373→
+   374→  /**
+   375→   * Acknowledge an alert
+   376→   */
+   377→  acknowledgeAlert(alertId: string): void {
+   378→    const alert = this.alerts.get(alertId);
+   379→    if (alert) {
+   380→      alert.acknowledged = true;
+   381→    }
+   382→  }
+   383→
+   384→  /**
+   385→   * Generate capacity forecast
+   386→   */
+   387→  generateForecast(metric: keyof Pick<InfrastructureMetrics, 'cpu' | 'memory' | 'disk'>, subMetric?: string): CapacityForecast | null {
+   388→    const history = this.getHistoricalMetrics(new Date(Date.now() - 86400000)); // Last 24 hours
+   389→    
+   390→    if (history.length < 10) {
+   391→      return null; // Not enough data points
+   392→    }
+   393→
+   394→    // Extract values for the requested metric
+   395→    const values: Array<{ timestamp: number; value: number }> = history.map(m => {
+   396→      let value: number;
+   397→      
+   398→      switch (metric) {
+   399→        case 'cpu':
+   400→          value = subMetric === 'processUsage' ? m.cpu.processUsage : m.cpu.usage;
+   401→          break;
+   402→        case 'memory':
+   403→          value = subMetric === 'heap' ? m.memory.heap.used / m.memory.heap.total * 100 : m.memory.percentage;
+   404→          break;
+   405→        case 'disk':
+   406→          value = subMetric ? 
+   407→            m.disk.find(d => d.path.includes(subMetric))?.percentage || 0 :
+   408→            Math.max(...m.disk.map(d => d.percentage));
+   409→          break;
+   410→        default:
+   411→          value = 0;
+   412→      }
+   413→
+   414→      return {
+   415→        timestamp: new Date(m.timestamp).getTime(),
+   416→        value,
+   417→      };
+   418→    });
+   419→
+   420→    // Simple linear regression for trend analysis
+   421→    const trend = this.calculateTrend(values);
+   422→    const currentValue = values[values.length - 1].value;
+   423→
+   424→    // Determine threshold
+   425→    let threshold: number;
+   426→    switch (metric) {
+   427→      case 'cpu':
+   428→        threshold = this.config.thresholds.cpuCritical;
+   429→        break;
+   430→      case 'memory':
+   431→        threshold = this.config.thresholds.memoryCritical;
+   432→        break;
+   433→      case 'disk':
+   434→        threshold = this.config.thresholds.diskCritical;
+   435→        break;
+   436→      default:
+   437→        threshold = 90;
+   438→    }
+   439→
+   440→    // Project when we'll hit the threshold
+   441→    const daysUntilThreshold = trend.slope > 0 
+   442→      ? (threshold - currentValue) / (trend.slope * 86400000) // Convert ms slope to per day
+   443→      : Infinity;
+   444→
+   445→    return {
+   446→      metric: `${metric}${subMetric ? `.${subMetric}` : ''}`,
+   447→      currentValue: Math.round(currentValue * 100) / 100,
+   448→      projectedValue: Math.round(currentValue + trend.slope * 7 * 86400000 * 100) / 100, // 7 day projection
+   449→      daysUntilThreshold: Math.round(daysUntilThreshold * 10) / 10,
+   450→      threshold,
+   451→      trend: Math.abs(trend.slope) < 0.001 ? 'stable' : trend.slope > 0 ? 'increasing' : 'decreasing',
+   452→      confidence: Math.min(1, values.length / 100), // More data = higher confidence
+   453→    };
+   454→  }
+   455→
+   456→  /**
+   457→   * Export metrics in Prometheus format
+   458→   */
+   459→  exportPrometheusFormat(): string {
+   460→    const latest = this.getLatestMetrics();
+   461→    if (!latest) return '';
+   462→
+   463→    const lines: string[] = [
+   464→      '# HELP algeriatrade_cpu_usage_percent Current CPU usage',
+   465→      '# TYPE algeriatrade_cpu_usage_percent gauge',
+   466→      `algeriatrade_cpu_usage_percent{host="${latest.hostname}",env="${latest.environment}"} ${latest.cpu.usage}`,
+   467→      '',
+   468→      '# HELP algeriatrade_memory_usage_bytes Current memory usage',
+   469→      '# TYPE algeriatrade_memory_usage_percent gauge',
+   470→      `algeriatrade_memory_usage_percent{host="${latest.hostname}",env="${latest.environment}"} ${latest.memory.percentage}`,
+   471→      '',
+   472→      '# HELP algeriatrade_process_memory_mb Process memory usage in MB',
+   473→      '# TYPE algeriatrade_process_memory_mb gauge',
+   474→      `algeriatrade_process_memory_mb{host="${latest.hostname}"} ${latest.process.memoryUsage}`,
+   475→      '',
+   476→      '# HELP algeriatrade_event_loop_lag_ms Event loop lag in milliseconds',
+   477→      '# TYPE algeriatrade_event_loop_lag_ms gauge',
+   478→      `algeriatrade_event_loop_lag_ms{host="${latest.hostname}"} ${latest.process.eventLoopLag}`,
+   479→    ];
+   480→
+   481→    // Add disk metrics
+   482→    for (const disk of latest.disk) {
+   483→      lines.push('', `# HELP algeriatrade_disk_usage_percent Disk usage for ${disk.path}`);
+   484→      lines.push(`# TYPE algeriatrade_disk_usage_percent gauge`);
+   485→      lines.push(`algeriatrade_disk_usage_percent{path="${disk.path}",host="${latest.hostname}"} ${disk.percentage}`);
+   486→    }
+   487→
+   488→    return lines.join('\n');
+   489→  }
+   490→
+   491→  // ===========================================
+   492→  // Private Collection Methods
+   493→  // ===========================================
+   494→
+   495→  private async collectCPUStats(): Promise<CPUStats> {
+   496→    if (typeof window !== 'undefined') {
+   497→      // Browser environment - limited CPU info
+   498→      return {
+   499→        usage: 0,
+   500→        loadAverage: { '1min': 0, '5min': 0, '15min': 0 },
+   501→        cores: navigator.hardwareConcurrency || 0,
+   502→        processUsage: 0,
+   503→      };
+   504→    }
+   505→
+   506→    try {
+   507→      const os = require('os');
+   508→      const cpus = os.cpus();
+   509→      
+   510→      // Calculate CPU usage from processor times
+   511→      let idle = 0;
+   512→      let total = 0;
+   513→      
+   514→      for (const cpu of cpus) {
+   515→        for (const type of ['idle', 'user', 'nice', 'sys', 'irq']) {
+   516→          total += cpu.times[type];
+   517→        }
+   518→        idle += cpu.times.idle;
+   519→      }
+   520→
+   521→      const usage = total > 0 ? ((total - idle) / total) * 100 : 0;
+   522→
+   523→      return {
+   524→        usage: Math.round(usage * 100) / 100,
+   525→        loadAverage: {
+   526→          '1min': os.loadavg()[0],
+   527→          '5min': os.loadavg()[1],
+   528→          '15min': os.loadavg()[2],
+   529→        },
+   530→        cores: cpus.length,
+   531→        processUsage: process.cpuUsage().user / 1000, // Convert microseconds to milliseconds
+   532→      };
+   533→    } catch (error) {
+   534→      console.error('[Infrastructure] Failed to collect CPU stats:', error);
+   535→      return this.emptyCPU();
+   536→    }
+   537→  }
+   538→
+   539→  private async collectMemoryStats(): Promise<MemoryStats> {
+   540→    if (typeof window !== 'undefined') {
+   541→      // Browser environment - use performance.memory if available
+   542→      const perfMem = (performance as any).memory;
+   543→      return {
+   544→        total: perfMem?.jsHeapSizeLimit || 0,
+   545→        used: perfMem?.usedJSHeapSize || 0,
+   546→        free: (perfMem?.jsHeapSizeLimit || 0) - (perfMem?.usedJSHeapSize || 0),
+   547→        percentage: perfMem ? (perfMem.usedJSHeapSize / perfMem.jsHeapSizeLimit) * 100 : 0,
+   548→        heap: {
+   549→          total: perfMem?.totalJSHeapSize || 0,
+   550→          used: perfMem?.usedJSHeapSize || 0,
+   551→          limit: perfMem?.jsHeapSizeLimit || 0,
+   552→        },
+   553→        buffers: 0,
+   554→        cached: 0,
+   555→        swap: { total: 0, used: 0, percentage: 0 },
+   556→      };
+   557→    }
+   558→
+   559→    try {
+   560→      const os = require('os');
+   561→      const memInfo = os.freemem();
+   562→      const totalMem = os.totalmem();
+   563→      const usedMem = totalMem - memInfo;
+   564→
+   565→      // Node.js heap info
+   566→      const memUsage = process.memoryUsage();
+   567→
+   568→      return {
+   569→        total: totalMem,
+   570→        used: usedMem,
+   571→        free: memInfo,
+   572→        percentage: (usedMem / totalMem) * 100,
+   573→        heap: {
+   574→          total: memUsage.heapTotal,
+   575→          used: memUsage.heapUsed,
+   576→          limit: memUsage.heapTotal * 2, // Approximate limit
+   577→        },
+   578→        buffers: 0, // Would need system-specific calls
+   579→        cached: 0,
+   580→        swap: { total: 0, used: 0, percentage: 0 },
+   581→      };
+   582→    } catch (error) {
+   583→      console.error('[Infrastructure] Failed to collect memory stats:', error);
+   584→      return this.emptyMemory();
+   585→    }
+   586→  }
+   587→
+   588→  private async collectDiskStats(): Promise<DiskStats[]> {
+   589→    if (typeof window !== 'undefined') {
+   590→      // Can't access disk info from browser
+   591→      return [];
+   592→    }
+   593→
+   594→    try {
+   595→      // In production, would use proper system calls or a library like 'diskusage'
+   596→      // For now, return basic info about the current working directory
+   597→      const fs = require('fs');
+   598→      const path = require('path');
+   599→      
+   600→      // This is a simplified implementation
+   601→      // In production, use: https://www.npmjs.com/package/diskusage
+   602→      return [{
+   603→        path: process.cwd() || '/',
+   604→        total: 107374182400, // 100GB placeholder
+   605→        used: 53687091200, // 50GB placeholder
+   606→        free: 53687091200,
+   607→        percentage: 50,
+   608→        inodeTotal: 1000000,
+   609→        inodeUsed: 100000,
+   610→        inodePercentage: 10,
+   611→        readSpeed: 0,
+   612→        writeSpeed: 0,
+   613→        iops: 0,
+   614→      }];
+   615→    } catch (error) {
+   616→      console.error('[Infrastructure] Failed to collect disk stats:', error);
+   617→      return [];
+   618→    }
+   619→  }
+   620→
+   621→  private async collectNetworkStats(): Promise<NetworkStats[]> {
+   622→    if (typeof window !== 'undefined') {
+   623→      // Limited network info available in browser
+   624→      if ('connection' in navigator) {
+   625→        const conn = (navigator as any).connection;
+   626→        return [{
+   627→          interface: 'browser',
+   628→          bytesReceived: 0,
+   629→          bytesSent: 0,
+   630→          packetsReceived: 0,
+   631→          packetsSent: 0,
+   632→          errorsIn: 0,
+   633→          errorsOut: 0,
+   634→          dropsIn: 0,
+   635→          dropsOut: 0,
+   636→          connections: { established: 1, waiting: 0, closing: 0 },
+   637→          bandwidth: {
+   638→            inbound: conn?.downlink * 125000 || 0, // Mbps to bits/sec
+   639→            outbound: conn?.uplink * 125000 || 0,
+   640→          },
+   641→        }];
+   642→      }
+   643→      return [];
+   644→    }
+   645→
+   646→    try {
+   647→      const os = require('os');
+   648→      const interfaces = os.networkInterfaces();
+   649→      const stats: NetworkStats[] = [];
+   650→
+   651→      for (const [name, addrs] of Object.entries(interfaces)) {
+   652→        if (!addrs) continue;
+   653→        
+   654→        // Only include non-internal interfaces
+   655→        const externalAddrs = addrs.filter(addr => !addr.internal);
+   656→        if (externalAddrs.length > 0) {
+   657→          stats.push({
+   658→            interface: name,
+   659→            bytesReceived: 0, // Would need system calls
+   660→            bytesSent: 0,
+   661→            packetsReceived: 0,
+   662→            packetsSent: 0,
+   663→            errorsIn: 0,
+   664→            errorsOut: 0,
+   665→            dropsIn: 0,
+   666→            dropsOut: 0,
+   667→            connections: { established: 0, waiting: 0, closing: 0 },
+   668→            bandwidth: { inbound: 0, outbound: 0 },
+   669→          });
+   670→        }
+   671→      }
+   672→
+   673→      return stats;
+   674→    } catch (error) {
+   675→      console.error('[Infrastructure] Failed to collect network stats:', error);
+   676→      return [];
+   677→    }
+   678→  }
+   679→
+   680→  private async collectProcessStats(): Promise<ProcessStats> {
+   681→    const startTime = Date.now();
+   682→    
+   683→    // Measure event loop lag
+   684→    const eventLoopLag = await new Promise<number>((resolve) => {
+   685→      const start = process.hrtime.bigint();
+   686→      setImmediate(() => {
+   687→        const delta = Number(process.hrtime.bigint() - start) / 1e6; // Convert to ms
+   688→        resolve(delta);
+   689→      });
+   690→    });
+   691→
+   692→    // Event loop utilization (Node.js 14.10+)
+   693→    let elu = { active: 0, idle: 0, utilization: 0 };
+   694→    if (typeof (process as any).eventLoopUtilization === 'function') {
+   695→      const startELU = (process as any).eventLoopUtilization();
+   696→      await new Promise(resolve => setTimeout(resolve, 1000));
+   697→      elu = (process as any).eventLoopUtilization(startELU);
+   698→    }
+   699→
+   700→    // Memory usage
+   701→    const memUsage = process.memoryUsage();
+   702→
+   703→    return {
+   704→      pid: process.pid,
+   705→      uptime: process.uptime(),
+   706→      cpuUsage: process.cpuUsage().user / 1000,
+   707→      memoryUsage: Math.round(memUsage.rss / 1024 / 1024), // MB
+   708→      memoryPercentage: (memUsage.rss / (require('os').totalmem())) * 100,
+   709→      heapUsed: Math.round(memUsage.heapUsed / 1024 / 1024), // MB
+   710→      heapTotal: Math.round(memUsage.heapTotal / 1024 / 1024), // MB
+   711→      eventLoopLag: Math.round(eventLoopLag * 100) / 100,
+   712→      eventLoopUtilization: elu,
+   713→      activeHandles: (process as any)._getActiveHandles?.()?.length || 0,
+   714→      activeRequests: (process as any)._getActiveRequests?.()?.length || 0,
+   715→      gc: {
+   716→        collections: 0, // Would need --expose-gc flag
+   717→        pauseTimeMs: 0,
+   718→      },
+   719→    };
+   720→  }
+   721→
+   722→  private async collectDatabaseStats(): Promise<DatabasePoolStats | null> {
+   723→    // In production, would query actual Prisma/connection pool stats
+   724→    // For now, return null to indicate not configured
+   725→    return null;
+   726→  }
+   727→
+   728→  private async collectCacheStats(): Promise<CacheStats | null> {
+   729→    // In production, would query Redis/Memcached stats
+   730→    // For now, return null to indicate not configured
+   731→    return null;
+   732→  }
+   733→
+   734→  // ===========================================
+   735→  // Private Utility Methods
+   736→  // ===========================================
+   737→
+   738→  private storeMetrics(metrics: InfrastructureMetrics): void {
+   739→    const key = 'latest';
+   740→    let history = this.metricsHistory.get(key);
+   741→
+   742→    if (!history) {
+   743→      history = [];
+   744→      this.metricsHistory.set(key, history);
+   745→    }
+   746→
+   747→    history.push(metrics);
+   748→
+   749→    // Trim old entries
+   750→    const cutoff = Date.now() - this.config.retentionPeriod;
+   751→    while (history.length > 0 && new Date(history[0].timestamp).getTime() < cutoff) {
+   752→      history.shift();
+   753→    }
+   754→  }
+   755→
+   756→  private checkThresholds(metrics: InfrastructureMetrics): void {
+   757→    const now = new Date().toISOString();
+   758→
+   759→    // Check CPU
+   760→    if (metrics.cpu.usage >= this.config.thresholds.cpuCritical) {
+   761→      this.createOrUpdateAlert('cpu_critical', {
+   762→        severity: 'critical',
+   763→        metric: 'cpu.usage',
+   764→        current: metrics.cpu.usage,
+   765→        threshold: this.config.thresholds.cpuCritical,
+   766→        message: `CPU usage at ${metrics.cpu.usage.toFixed(1)}% exceeds critical threshold (${this.config.thresholds.cpuCritical}%)`,
+   767→        timestamp: now,
+   768→      });
+   769→    } else if (metrics.cpu.usage >= this.config.thresholds.cpuWarning) {
+   770→      this.createOrUpdateAlert('cpu_warning', {
+   771→        severity: 'warning',
+   772→        metric: 'cpu.usage',
+   773→        current: metrics.cpu.usage,
+   774→        threshold: this.config.thresholds.cpuWarning,
+   775→        message: `CPU usage at ${metrics.cpu.usage.toFixed(1)}% exceeds warning threshold (${this.config.thresholds.cpuWarning}%)`,
+   776→        timestamp: now,
+   777→      });
+   778→    } else {
+   779→      this.resolveAlert('cpu_critical');
+   780→      this.resolveAlert('cpu_warning');
+   781→    }
+   782→
+   783→    // Check Memory
+   784→    if (metrics.memory.percentage >= this.config.thresholds.memoryCritical) {
+   785→      this.createOrUpdateAlert('memory_critical', {
+   786→        severity: 'critical',
+   787→        metric: 'memory.percentage',
+   788→        current: metrics.memory.percentage,
+   789→        threshold: this.config.thresholds.memoryCritical,
+   790→        message: `Memory usage at ${metrics.memory.percentage.toFixed(1)}% exceeds critical threshold (${this.config.thresholds.memoryCritical}%)`,
+   791→        timestamp: now,
+   792→      });
+   793→    } else if (metrics.memory.percentage >= this.config.thresholds.memoryWarning) {
+   794→      this.createOrUpdateAlert('memory_warning', {
+   795→        severity: 'warning',
+   796→        metric: 'memory.percentage',
+   797→        current: metrics.memory.percentage,
+   798→        threshold: this.config.thresholds.memoryWarning,
+   799→        message: `Memory usage at ${metrics.memory.percentage.toFixed(1)}% exceeds warning threshold (${this.config.thresholds.memoryWarning}%)`,
+   800→        timestamp: now,
+   801→      });
+   802→    } else {
+   803→      this.resolveAlert('memory_critical');
+   804→      this.resolveAlert('memory_warning');
+   805→    }
+   806→
+   807→    // Check Disk
+   808→    for (const disk of metrics.disk) {
+   809→      const diskKey = `disk_${disk.path.replace(/[/\\]/g, '_')}`;
+   810→      
+   811→      if (disk.percentage >= this.config.thresholds.diskCritical) {
+   812→        this.createOrUpdateAlert(`${diskKey}_critical`, {
+   813→          severity: 'critical',
+   814→          metric: `disk.${disk.path}.percentage`,
+   815→          current: disk.percentage,
+   816→          threshold: this.config.thresholds.diskCritical,
+   817→          message: `Disk ${disk.path} usage at ${disk.percentage.toFixed(1)}% exceeds critical threshold`,
+   818→          timestamp: now,
+   819→        });
+   820→      } else if (disk.percentage >= this.config.thresholds.diskWarning) {
+   821→        this.createOrUpdateAlert(`${diskKey}_warning`, {
+   822→          severity: 'warning',
+   823→          metric: `disk.${disk.path}.percentage`,
+   824→          current: disk.percentage,
+   825→          threshold: this.config.thresholds.diskWarning,
+   826→          message: `Disk ${disk.path} usage at ${disk.percentage.toFixed(1)}% exceeds warning threshold`,
+   827→          timestamp: now,
+   828→        });
+   829→      } else {
+   830→        this.resolveAlert(`${diskKey}_critical`);
+   831→        this.resolveAlert(`${diskKey}_warning`);
+   832→      }
+   833→    }
+   834→
+   835→    // Check Event Loop Lag
+   836→    if (metrics.process.eventLoopLag >= this.config.thresholds.eventLoopLagCritical) {
+   837→      this.createOrUpdateAlert('eventloop_critical', {
+   838→        severity: 'critical',
+   839→        metric: 'process.eventLoopLag',
+   840→        current: metrics.process.eventLoopLag,
+   841→        threshold: this.config.thresholds.eventLoopLagCritical,
+   842→        message: `Event loop lag at ${metrics.process.eventLoopLag.toFixed(0)}ms indicates potential blocking operations`,
+   843→        timestamp: now,
+   844→      });
+   845→    } else if (metrics.process.eventLoopLag >= this.config.thresholds.eventLoopLagWarning) {
+   846→      this.createOrUpdateAlert('eventloop_warning', {
+   847→        severity: 'warning',
+   848→        metric: 'process.eventLoopLag',
+   849→        current: metrics.process.eventLoopLag,
+   850→        threshold: this.config.thresholds.eventLoopLagWarning,
+   851→        message: `Event loop lag at ${metrics.process.eventLoopLag.toFixed(0)}ms is elevated`,
+   852→        timestamp: now,
+   853→      });
+   854→    } else {
+   855→      this.resolveAlert('eventloop_critical');
+   856→      this.resolveAlert('eventloop_warning');
+   857→    }
+   858→  }
+   859→
+   860→  private createOrUpdateAlert(id: string, data: Omit<InfrastructureAlert, 'id' | 'acknowledged'>): void {
+   861→    const existing = this.alerts.get(id);
+   862→    
+   863→    if (existing && !existing.resolvedAt) {
+   864→      // Update existing alert
+   865→      existing.current = data.current;
+   866→      existing.message = data.message;
+   867→      existing.firingCount++;
+   868→    } else {
+   869→      // Create new alert
+   870→      this.alerts.set(id, {
+   871→        id,
+   872→        ...data,
+   873→        acknowledged: false,
+   874→        firingCount: 1,
+   875→      });
+   876→
+   877→      // Log new alert
+   878→      console.warn(`⚠️ [Infrastructure Alert] [${data.severity.toUpperCase()}] ${data.message}`);
+   879→    }
+   880→  }
+   881→
+   882→  private resolveAlert(id: string): void {
+   883→    const alert = this.alerts.get(id);
+   884→    if (alert && !alert.resolvedAt) {
+   885→      alert.resolvedAt = new Date().toISOString();
+   886→      console.log(`✅ [Infrastructure Alert Resolved] ${id}`);
+   887→    }
+   888→  }
+   889→
+   890→  private calculateTrend(values: Array<{ timestamp: number; value: number }>): { slope: number; intercept: number } {
+   891→    if (values.length < 2) {
+   892→      return { slope: 0, intercept: 0 };
+   893→    }
+   894→
+   895→    const n = values.length;
+   896→    let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+   897→
+   898→    for (const point of values) {
+   899→      sumX += point.timestamp;
+   900→      sumY += point.value;
+   901→      sumXY += point.timestamp * point.value;
+   902→      sumX2 += point.timestamp * point.timestamp;
+   903→    }
+   904→
+   905→    const denominator = n * sumX2 - sumX * sumX;
+   906→    if (denominator === 0) {
+   907→      return { slope: 0, intercept: sumY / n };
+   908→    }
+   909→
+   910→    const slope = (n * sumXY - sumX * sumY) / denominator;
+   911→    const intercept = (sumY - slope * sumX) / n;
+   912→
+   913→    return { slope, intercept };
+   914→  }
+   915→
+   916→  // Empty/default values for when collection fails
+   917→  private emptyCPU(): CPUStats {
+   918→    return {
+   919→      usage: 0,
+   920→      loadAverage: { '1min': 0, '5min': 0, '15min': 0 },
+   921→      cores: 0,
+   922→      processUsage: 0,
+   923→    };
+   924→  }
+   925→
+   926→  private emptyMemory(): MemoryStats {
+   927→    return {
+   928→      total: 0,
+   929→      used: 0,
+   930→      free: 0,
+   931→      percentage: 0,
+   932→      heap: { total: 0, used: 0, limit: 0 },
+   933→      buffers: 0,
+   934→      cached: 0,
+   935→      swap: { total: 0, used: 0, percentage: 0 },
+   936→    };
+   937→  }
+   938→
+   939→  private emptyProcess(): ProcessStats {
+   940→    return {
+   941→      pid: 0,
+   942→      uptime: 0,
+   943→      cpuUsage: 0,
+   944→      memoryUsage: 0,
+   945→      memoryPercentage: 0,
+   946→      heapUsed: 0,
+   947→      heapTotal: 0,
+   948→      eventLoopLag: 0,
+   949→      eventLoopUtilization: { active: 0, idle: 0, utilization: 0 },
+   950→      activeHandles: 0,
+   951→      activeRequests: 0,
+   952→      gc: { collections: 0, pauseTimeMs: 0 },
+   953→    };
+   954→  }
+   955→}
+   956→
+   957→// ===========================================
+   958→// Singleton & Exports
+   959→// ===========================================
+   960→
+   961→let infrastructureInstance: InfrastructureMonitor | null = null;
+   962→
+   963→export function getInfrastructureMonitor(config?: Partial<InfrastructureConfig>): InfrastructureMonitor {
+   964→  if (!infrastructureInstance) {
+   965→    infrastructureInstance = new InfrastructureMonitor(config);
+   966→  }
+   967→  return infrastructureInstance;
+   968→}
+   969→
+   970→// Convenience export
+   971→export const infraMonitor = getInfrastructureMonitor();
+   972→
+   973→export default {
+   974→  getInfrastructureMonitor,
+   975→  InfrastructureMonitor,
+   976→};
+   977→

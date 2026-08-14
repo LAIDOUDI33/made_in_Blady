@@ -2,17 +2,18 @@
 // Tests pour l'API de vérification de santé
 
 import { GET } from '@/app/api/health/route';
+import { NextRequest } from 'next/server';
 
 describe('GET /api/health', () => {
   it('should return 200 status', async () => {
-    const request = new Request('http://localhost:3000/api/health');
+    const request = new NextRequest('http://localhost:3000/api/health');
     const response = await GET(request);
     
     expect(response.status).toBe(200);
   });
 
   it('should return JSON response', async () => {
-    const request = new Request('http://localhost:3000/api/health');
+    const request = new NextRequest('http://localhost:3000/api/health');
     const response = await GET(request);
     
     const data = await response.json();
@@ -21,7 +22,7 @@ describe('GET /api/health', () => {
   });
 
   it('should include status field', async () => {
-    const request = new Request('http://localhost:3000/api/health');
+    const request = new NextRequest('http://localhost:3000/api/health');
     const response = await GET(request);
     
     const data = await response.json();
@@ -29,7 +30,7 @@ describe('GET /api/health', () => {
   });
 
   it('should include timestamp', async () => {
-    const request = new Request('http://localhost:3000/api/health');
+    const request = new NextRequest('http://localhost:3000/api/health');
     const response = await GET(request);
     
     const data = await response.json();

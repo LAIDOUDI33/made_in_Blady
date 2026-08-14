@@ -4,6 +4,65 @@
 import '@testing-library/jest-dom';
 import { TextEncoder, TextDecoder } from 'util';
 
+// Mock Next.js server APIs
+const mockHeaders = {
+  get: jest.fn(),
+  set: jest.fn(),
+  has: jest.fn(),
+  delete: jest.fn(),
+  entries: jest.fn().mockReturnValue([]),
+  forEach: jest.fn(),
+};
+
+// Simple mock for NextRequest
+class MockNextRequest {
+  url: string;
+  nextUrl: URL;
+  method: string;
+  headers: typeof mockHeaders;
+  body: any;
+  
+  constructor(urlOrRequest: string | URL | any, init?: RequestInit) {
+    const urlStr = typeof urlOrRequest === 'string' ? urlOrRequest : 
+                    urlOrRequest instanceof URL ? urlOrRequest.toString() : 
+                    urlOrRequest?.url || '/';
+    this.url = urlStr;
+    this.nextUrl = new URL(urlStr, 'https://algeriatrade.dz');
+    this.method = init?.method || 'GET';
+    this.headers = mockHeaders;
+    this.body = init?.body;
+  }
+  
+  json() {
+    return Promise.resolve(typeof this.body === 'string' ? JSON.parse(this.body) : this.body);
+  }
+  
+  text() {
+    return Promise.resolve(typeof this.body === 'string' ? this.body : JSON.stringify(this.body));
+  }
+}
+
+// Mock NextResponse
+const MockNextResponse = {
+  json: jest.fn((data: any, init?: ResponseInit) => ({
+    status: (init as any)?.status || 200,
+    json: () => Promise.resolve(data),
+    headers: new Map([['Content-Type', 'application/json']]),
+  })),
+  redirect: jest.fn((url: string, init?: number | ResponseInit) => ({
+    status: typeof init === 'number' ? init : 302,
+    headers: new Map([['Location', url]]),
+  })),
+  next: jest.fn(() => ({
+    status: 200,
+    headers: new Map([['x-middleware-next', '1']]),
+  })),
+};
+
+// Mock Next.js globals
+(global as any).NextRequest = MockNextRequest as any;
+(global as any).NextResponse = MockNextResponse;
+
 // Mock fetch globally
 global.fetch = jest.fn();
 

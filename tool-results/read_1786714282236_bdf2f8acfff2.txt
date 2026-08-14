@@ -1,0 +1,963 @@
+     1→/**
+     2→ * AlgeriaTrade.dz - Business Metrics & Analytics System
+     3→ * 
+     4→ * Features:
+     5→ * - Conversion funnel tracking (Visitor → Buyer → Order)
+     6→ * - User behavior analytics
+     7→ * - Revenue metrics and forecasting
+     8→ * - Product performance tracking
+     9→ * - Supplier effectiveness metrics
+    10→ * - RFQ/Quotation funnel analysis
+    11→ * - Cohort analysis support
+    12→ * - Custom event tracking for business intelligence
+    13→ */
+    14→
+    15→// ===========================================
+    16→// Types & Interfaces
+    17→// ===========================================
+    18→
+    19→export interface FunnelStep {
+    20→  name: string;
+    21→  count: number;
+    22→  percentage: number; // Of previous step
+    23→  overallPercentage: number; // Of first step
+    24→  dropoffRate: number;
+    25→  avgTimeToComplete: number; // ms from previous step
+    26→}
+    27→
+    28→export interface ConversionFunnel {
+    29→  id: string;
+    30→  name: string;
+    31→  period: {
+    32→    start: string;
+    33→    end: string;
+    34→  };
+    35→  steps: FunnelStep[];
+    36→  totalConversions: number;
+    37→  conversionRate: number;
+    38→  revenueAttributed: number;
+    39→}
+    40→
+    41→export interface UserBehaviorEvent {
+    42→  id: string;
+    43→  userId?: string;
+    44→  sessionId: string;
+    45→  eventType: 'page_view' | 'click' | 'search' | 'filter' | 'product_view' | 
+    46→              'add_to_cart' | 'rfq_create' | 'quote_send' | 'order_place' | 
+    47→              'login' | 'register' | 'message_send' | 'review_submit' |
+    48→              'favorite_add' | 'share' | 'export' | 'download';
+    49→  timestamp: string;
+    50→  data: Record<string, any>;
+    51→  context: {
+    52→    url: string;
+    53→    referrer: string;
+    54→    userAgent: string;
+    55→    ip?: string;
+    56→    country?: string;
+    57→    deviceType: 'mobile' | 'tablet' | 'desktop';
+    58→    tenantId?: string;
+    59→  };
+    60→}
+    61→
+    62→export interface SessionAnalytics {
+    63→  sessionId: string;
+    64→  userId?: string;
+    65→  startTime: string;
+    66→  endTime?: string;
+    67→  duration: number; // seconds
+    68→  pageViews: number;
+    69→  events: number;
+    70→  bounce: boolean;
+    71→  exitPage: string;
+    72→  entryPage: string;
+    73→  pagesVisited: string[];
+    74→  conversions: string[];
+    75→  deviceType: string;
+    76→  country?: string;
+    77→  source?: string;
+    78→  medium?: string;
+    79→  campaign?: string;
+    80→}
+    81→
+    82→export interface ProductMetrics {
+    83→  productId: string;
+    84→  period: {
+    85→    start: string;
+    86→    end: string;
+    87→  };
+    88→  
+    89→  // Views & Engagement
+    90→  views: number;
+    91→  uniqueViewers: number;
+    92→  avgTimeOnPage: number; // seconds
+    93→  addToCartCount: number;
+    94→  favoriteCount: number;
+    95→  shares: number;
+    96→  
+    97→  // Conversion
+    98→  rfqsReceived: number;
+    99→  quotationsSent: number;
+   100→  ordersPlaced: number;
+   101→  conversionRate: number;
+   102→  
+   103→  // Search & Discovery
+   104→  searchAppearances: number;
+   105→  clickThroughRate: number;
+   106→  positionInSearch: {
+   107→    avg: number;
+   108→    median: number;
+   109→    p90: number;
+   110→  };
+   111→  
+   112→  // Reviews & Trust
+   113→  reviewCount: number;
+   114→  avgRating: number;
+   115→  responseRate: number;
+   116→  avgResponseTime: number; // hours
+   117→  
+   118→  // Revenue
+   119→  revenueGenerated: number;
+   120→  revenuePerView: number;
+   121→}
+   122→
+   123→export interface SupplierMetrics {
+   124→  supplierId: string;
+   125→  supplierName: string;
+   126→  period: {
+   127→    start: string;
+   128→    end: string;
+   129→  };
+   130→  
+   131→  // Profile Performance
+   132→  profileViews: number;
+   133→  contactClicks: number;
+   134→  websiteVisits: number;
+   135→  
+   136→  // Products
+   137→  totalProducts: number;
+   138→  activeProducts: number;
+   139→  totalProductViews: number;
+   140→  avgViewsPerProduct: number;
+   141→  
+   142→  // RFQ Management
+   143→  rfqsReceived: number;
+   144→  rfqsResponded: number;
+   145→  responseRate: number;
+   146→  avgResponseTime: number; // hours
+   147→  
+   148→  // Orders & Revenue
+   149→  ordersReceived: number;
+   150→  orderValueTotal: number;
+   151→  avgOrderValue: number;
+   152→  completionRate: number; // % of orders completed successfully
+   153→  
+   154→  // Quality Metrics
+   155→  avgRating: number;
+   156→  reviewCount: number;
+   157→  disputeRate: number;
+   158→  onTimeDeliveryRate: number;
+   159→  
+   160→  // Response Quality
+   161→  quotationAcceptanceRate: number;
+   162→  messageResponseRate: number;
+   163→  avgMessageResponseTime: number; // minutes
+   164→}
+   165→
+   166→export interface RevenueMetric {
+   167→  timestamp: string;
+   168→  period: 'daily' | 'weekly' | 'monthly';
+   169→  
+   170→  // Totals
+   171→  grossRevenue: number;
+   172→  netRevenue: number;
+   173→  taxCollected: number;
+   174→  discountsGiven: number;
+   175→  
+   176→  // Breakdown
+   177→  byPaymentMethod: Record<string, number>;
+   178→  byCategory: Record<string, number>;
+   179→  byCountry: Record<string, number>;
+   180→  byPlan: Record<string, number>; // Subscription plans
+   181→  
+   182→  // Counts
+   183→  transactionCount: number;
+   184→  avgTransactionValue: number;
+   185→  recurringRevenue: number;
+   186→  newCustomerRevenue: number;
+   187→  returningCustomerRevenue: number;
+   188→  
+   189→  // Forecasts
+   190→  projectedMonthEnd: number;
+   191→  growthRate: number; // vs previous period
+   192→}
+   193→
+   194→export interface CohortData {
+   195→  cohortId: string;
+   196→  cohortDate: string;
+   197→  cohortSize: number;
+   198→  type: 'acquisition' | 'activation' | 'retention' | 'revenue';
+   199→  metrics: Array<{
+   200→    period: number; // Week/month number since cohort
+   201→    value: number;
+   202→    percentage: number; // Of original cohort size
+   203→  }>;
+   204→}
+   205→
+   206→// ===========================================
+   207→// Configuration
+   208→// ===========================================
+   209→
+   210→interface BusinessMetricsConfig {
+   211→  sessionTimeout: number; // ms
+   212→  maxEventsPerSession: number;
+   213→  retentionDays: number;
+   214→  anonymizeIp: boolean;
+   215→  sampleRate: number; // 0-1, for sampling events
+   216→  enableRealtime: boolean;
+   217→}
+   218→
+   219→const DEFAULT_CONFIG: BusinessMetricsConfig = {
+   220→  sessionTimeout: 1800000, // 30 minutes
+   221→  maxEventsPerSession: 1000,
+   222→  retentionDays: 90,
+   223→  anonymizeIp: true,
+   224→  sampleRate: 1.0,
+   225→  enableRealtime: true,
+   226→};
+   227→
+   228→// ===========================================
+   229→// Main Business Metrics Class
+   230→// ===========================================
+   231→
+   232→class BusinessMetricsTracker {
+   233→  private config: BusinessMetricsConfig;
+   234→  private sessions: Map<string, SessionAnalytics> = new Map();
+   235→  private events: UserBehaviorEvent[] = [];
+   236→  private funnels: Map<string, ConversionFunnel> = new Map();
+   237→  private productMetrics: Map<string, ProductMetrics> = new Map();
+   238→  private supplierMetrics: Map<string, SupplierMetrics> = new Map();
+   239→  private revenueHistory: RevenueMetric[] = [];
+   240→
+   241→  constructor(config?: Partial<BusinessMetricsConfig>) {
+   242→    this.config = { ...DEFAULT_CONFIG, ...config };
+   243→  }
+   244→
+   245→  // ===========================================
+   246→  // Session Management
+   247→  // ===========================================
+   248→
+   249→  /**
+   250→   * Get or create a user session
+   251→   */
+   252→  getOrCreateSession(sessionId: string, context?: Partial<SessionAnalytics['context']>): SessionAnalytics {
+   253→    let session = this.sessions.get(sessionId);
+   254→    
+   255→    if (!session || this.isSessionExpired(session)) {
+   256→      session = {
+   257→        sessionId,
+   258→        userId: undefined,
+   259→        startTime: new Date().toISOString(),
+   260→        endTime: undefined,
+   261→        duration: 0,
+   262→        pageViews: 0,
+   263→        events: 0,
+   264→        bounce: true,
+   265→        exitPage: '',
+   266→        entryPage: context?.url || '',
+   267→        pagesVisited: [],
+   268→        conversions: [],
+   269→        deviceType: context?.deviceType || this.detectDeviceType(),
+   270→        country: context?.country,
+   271→        source: context?.source,
+   272→        medium: context?.medium,
+   273→        campaign: context?.campaign,
+   274→      };
+   275→      
+   276→      this.sessions.set(sessionId, session);
+   277→    }
+   278→
+   279→    return session;
+   280→  }
+   281→
+   282→  /**
+   283→   * Update session with page view
+   284→   */
+   285→  recordPageView(sessionId: string, url: string): void {
+   286→    const session = this.getOrCreateSession(sessionId, { url });
+   287→    
+   288→    session.pageViews++;
+   289→    session.pagesVisited.push(url);
+   290→    session.exitPage = url;
+   291→    session.bounce = session.pageViews === 1;
+   292→    session.events++;
+   293→    
+   294→    if (session.pageViews === 1) {
+   295→      session.entryPage = url;
+   296→    }
+   297→  }
+   298→
+   299→  /**
+   300→   * End a session
+   301→   */
+   302→  endSession(sessionId: string): void {
+   303→    const session = this.sessions.get(sessionId);
+   304→    if (session) {
+   305→      session.endTime = new Date().toISOString();
+   306→      session.duration = Math.round(
+   307→        (new Date(session.endTime).getTime() - new Date(session.startTime).getTime()) / 1000
+   308→      );
+   309→    }
+   310→  }
+   311→
+   312→  // ===========================================
+   313→  // Event Tracking
+   314→  // ===========================================
+   315→
+   316→  /**
+   317→   * Track a business event
+   318→   */
+   319→  trackEvent(
+   320→    eventType: UserBehaviorEvent['eventType'],
+   321→    data: Record<string, any>,
+   322→    context: Partial<UserBehaviorEvent['context']> = {}
+   323→  ): void {
+   324→    // Apply sampling
+   325→    if (Math.random() > this.config.sampleRate) {
+   326→      return;
+   327→    }
+   328→
+   329→    const sessionId = data.sessionId || this.generateSessionId();
+   330→    const session = this.getOrCreateSession(sessionId, context);
+   331→
+   332→    const event: UserBehaviorEvent = {
+   333→      id: `evt_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
+   334→      userId: data.userId,
+   335→      sessionId,
+   336→      eventType,
+   337→      timestamp: new Date().toISOString(),
+   338→      data,
+   339→      context: {
+   340→        url: context.url || typeof window !== 'undefined' ? window.location.href : '',
+   341→        referrer: context.referrer || (typeof document !== 'undefined' ? document.referrer : ''),
+   342→        userAgent: context.userAgent || (typeof navigator !== 'undefined' ? navigator.userAgent : ''),
+   343→        ip: this.config.anonymizeIp ? undefined : context.ip,
+   344→        country: context.country,
+   345→        deviceType: context.deviceType || this.detectDeviceType(),
+   346→        tenantId: context.tenantId,
+   347→      },
+   348→    };
+   349→
+   350→    // Store event
+   351→    this.events.push(event);
+   352→    session.events++;
+   353→
+   354→    // Update specific metrics based on event type
+   355→    this.updateMetricsFromEvent(event);
+   356→
+   357→    // Trim old events
+   358→    this.trimOldEvents();
+   359→  }
+   360→
+   361→  /**
+   362→   * Track multiple events in batch
+   363→   */
+   364→  trackBatch(events: Array<{
+   365→    eventType: UserBehaviorEvent['eventType'];
+   366→    data: Record<string, any>;
+   367→    context?: Partial<UserBehaviorEvent['context']>;
+   368→  }>): void {
+   369→    for (const event of events) {
+   370→      this.trackEvent(event.eventType, event.data, event.context || {});
+   371→    }
+   372→  }
+   373→
+   374→  // ===========================================
+   375→  // Conversion Funnels
+   376→  // ===========================================
+   377→
+   378→  /**
+   379→   * Define or update a conversion funnel
+   380→   */
+   381→  defineFunnel(funnelId: string, name: string, steps: string[]): ConversionFunnel {
+   382→    const now = new Date();
+   383→    const periodStart = new Date(now.getTime() - 24 * 60 * 60 * 1000); // Last 24 hours
+   384→
+   385→    const funnelSteps: FunnelStep[] = steps.map((stepName, index) => {
+   386→      // Count users who completed this step
+   387→      const count = this.countUsersInFunnelStep(funnelId, stepName, periodStart, now);
+   388→      
+   389→      // Calculate percentages
+   390→      const prevCount = index > 0 ? 
+   391→        this.countUsersInFunnelStep(funnelId, steps[index - 1], periodStart, now) :
+   392→        count;
+   393→      
+   394→      const firstStepCount = this.countUsersInFunnelStep(funnelId, steps[0], periodStart, now);
+   395→
+   396→      return {
+   397→        name: stepName,
+   398→        count,
+   399→        percentage: prevCount > 0 ? (count / prevCount) * 100 : 100,
+   400→        overallPercentage: firstStepCount > 0 ? (count / firstStepCount) * 100 : 100,
+   401→        dropoffRate: prevCount > 0 ? ((prevCount - count) / prevCount) * 100 : 0,
+   402→        avgTimeToComplete: this.calculateAvgTimeToComplete(funnelId, steps[index - 1], stepName),
+   403→      };
+   404→    });
+   405→
+   406→    const totalConversions = funnelSteps[funnelSteps.length - 1]?.count || 0;
+   407→    const firstStepUsers = funnelSteps[0]?.count || 1;
+   408→
+   409→    const funnel: ConversionFunnel = {
+   410→      id: funnelId,
+   411→      name,
+   412→      period: {
+   413→        start: periodStart.toISOString(),
+   414→        end: now.toISOString(),
+   415→      },
+   416→      steps: funnelSteps,
+   417→      totalConversions,
+   418→      conversionRate: (totalConversions / firstStepUsers) * 100,
+   419→      revenueAttributed: this.calculateFunnelRevenue(funnelId, periodStart, now),
+   420→    };
+   421→
+   422→    this.funnels.set(funnelId, funnel);
+   423→    return funnel;
+   424→  }
+   425→
+   426→  /**
+   427→   * Get predefined e-commerce funnel
+   428→   */ 
+   429→  getEcommerceFunnel(): ConversionFunnel {
+   430→    return this.defineFunnel('ecommerce_main', 'E-Commerce Conversion', [
+   431→      'product_view',
+   432→      'add_to_cart', // or rfq_create for B2B
+   433→      'checkout_start',
+   434→      'payment_initiated',
+   435→      'order_placed',
+   436→    ]);
+   437→  }
+   438→
+   439→  /**
+   440→   * Get RFQ funnel (B2B specific)
+   441→   */
+   442→  getRfqFunnel(): ConversionFunnel {
+   443→    return this.defineFunnel('rfq_main', 'RFQ Conversion', [
+   444→      'product_view',
+   445→      'supplier_profile_view',
+   446→      'rfq_create',
+   447→      'quotation_received',
+   448→      'order_placed',
+   449→    ]);
+   450→  }
+   451→
+   452→  /**
+   453→   * Get registration/activation funnel
+   454→   */
+   455→  getActivationFunnel(): ConversionFunnel {
+   456→    return this.defineFunnel('activation', 'User Activation', [
+   457→      'page_view',
+   458→      'register',
+   459→      'email_verified',
+   460→      'profile_completed',
+   461→      'first_action',
+   462→    ]);
+   463→  }
+   464→
+   465→  // ===========================================
+   466→  // Product Analytics
+   467→  // ===========================================
+   468→
+   469→  /**
+   470→   * Get metrics for a specific product
+   471→   */
+   472→  getProductMetrics(productId: string, days: number = 30): ProductMetrics {
+   473→    const cached = this.productMetrics.get(productId);
+   474→    
+   475→    if (cached && !this.isCacheStale(cached.period.end, days)) {
+   476→      return cached;
+   477→    }
+   478→
+   479→    const now = new Date();
+   480→    const periodStart = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+   481→
+   482→    // Filter product-related events
+   483→    const productEvents = this.events.filter(e => 
+   484→      e.data.productId === productId &&
+   485→      new Date(e.timestamp) >= periodStart
+   486→    );
+   487→
+   488→    // Calculate metrics
+   489→    const metrics: ProductMetrics = {
+   490→      productId,
+   491→      period: {
+   492→        start: periodStart.toISOString(),
+   493→        end: now.toISOString(),
+   494→      },
+   495→      
+   496→      // Views & Engagement
+   497→      views: productEvents.filter(e => e.eventType === 'product_view').length,
+   498→      uniqueViewers: new Set(productEvents.filter(e => e.eventType === 'product_view').map(e => e.userId)).size,
+   499→      avgTimeOnPage: this.calculateAvgTimeOnPage(productId, productEvents),
+   500→      addToCartCount: productEvents.filter(e => e.eventType === 'add_to_cart').length,
+   501→      favoriteCount: productEvents.filter(e => e.eventType === 'favorite_add').length,
+   502→      shares: productEvents.filter(e => e.eventType === 'share').length,
+   503→      
+   504→      // Conversion
+   505→      rfqsReceived: productEvents.filter(e => e.eventType === 'rfq_create').length,
+   506→      quotationsSent: productEvents.filter(e => e.eventType === 'quote_send').length,
+   507→      ordersPlaced: productEvents.filter(e => e.eventType === 'order_place').length,
+   508→      conversionRate: 0, // Calculated below
+   509→      
+   510→      // Search & Discovery
+   511→      searchAppearances: 0, // Would need search log integration
+   512→      clickThroughRate: 0,
+   513→      positionInSearch: { avg: 0, median: 0, p90: 0 },
+   514→      
+   515→      // Reviews & Trust
+   516→      reviewCount: productEvents.filter(e => e.eventType === 'review_submit').length,
+   517→      avgRating: this.calculateAvgRating(productId),
+   518→      responseRate: 0, // Would need supplier data
+   519→      avgResponseTime: 0,
+   520→      
+   521→      // Revenue
+   522→      revenueGenerated: this.calculateProductRevenue(productId, productEvents),
+   523→      revenuePerView: 0, // Calculated below
+   524→    };
+   525→
+   526→    // Calculate derived metrics
+   527→    metrics.conversionRate = metrics.views > 0 ? (metrics.ordersPlaced / metrics.views) * 100 : 0;
+   528→    metrics.revenuePerView = metrics.views > 0 ? metrics.revenueGenerated / metrics.views : 0;
+   529→
+   530→    // Cache result
+   531→    this.productMetrics.set(productId, metrics);
+   532→    return metrics;
+   533→  }
+   534→
+   535→  /**
+   536→   * Get top performing products
+   537→   */
+   538→  getTopProducts(metric: keyof Pick<ProductMetrics, 'views' | 'conversionRate' | 'revenueGenerated'>, limit: number = 10): ProductMetrics[] {
+   539→    const allProducts = Array.from(this.productMetrics.values());
+   540→    
+   541→    return allProducts
+   542→      .sort((a, b) => (b[metric] as number) - (a[metric] as number))
+   543→      .slice(0, limit);
+   544→  }
+   545→
+   546→  // ===========================================
+   547→  // Supplier Analytics
+   548→  // ===========================================
+   549→
+   550→  /**
+   551→   * Get metrics for a supplier
+   552→   */
+   553→  getSupplierMetrics(supplierId: string, days: number = 30): SupplierMetrics {
+   554→    const cached = this.supplierMetrics.get(supplierId);
+   555→    
+   556→    if (cached && !this.isCacheStale(cached.period.end, days)) {
+   557→      return cached;
+   558→    }
+   559→
+   560→    const now = new Date();
+   561→    const periodStart = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+   562→
+   563→    // Filter supplier-related events
+   564→    const supplierEvents = this.events.filter(e => 
+   565→      e.data.supplierId === supplierId &&
+   566→      new Date(e.timestamp) >= periodStart
+   567→    );
+   568→
+   569→    const metrics: SupplierMetrics = {
+   570→      supplierId,
+   571→      supplierName: e.data.supplierName || 'Unknown',
+   572→      period: {
+   573→        start: periodStart.toISOString(),
+   574→        end: now.toISOString(),
+   575→      },
+   576→      
+   577→      profileViews: supplierEvents.filter(e => e.eventType === 'click' && e.data.target === 'profile').length,
+   578→      contactClicks: supplierEvents.filter(e => e.eventType === 'click' && e.data.target === 'contact').length,
+   579→      websiteVisits: supplierEvents.filter(e => e.eventType === 'click' && e.data.target === 'website').length,
+   580→      
+   581→      totalProducts: 0, // Would need DB query
+   582→      activeProducts: 0,
+   583→      totalProductViews: supplierEvents.filter(e => e.eventType === 'product_view' && e.data.supplierId === supplierId).length,
+   584→      avgViewsPerProduct: 0,
+   585→      
+   586→      rfqsReceived: supplierEvents.filter(e => e.eventType === 'rfq_create').length,
+   587→      rfqsResponded: supplierEvents.filter(e => e.eventType === 'quote_send').length,
+   588→      responseRate: 0,
+   589→      avgResponseTime: 0,
+   590→      
+   591→      ordersReceived: supplierEvents.filter(e => e.eventType === 'order_place').length,
+   592→      orderValueTotal: 0,
+   593→      avgOrderValue: 0,
+   594→      completionRate: 0,
+   595→      
+   596→      avgRating: 0,
+   597→      reviewCount: supplierEvents.filter(e => e.eventType === 'review_submit').length,
+   598→      disputeRate: 0,
+   599→      onTimeDeliveryRate: 0,
+   600→      
+   601→      quotationAcceptanceRate: 0,
+   602→      messageResponseRate: 0,
+   603→      avgMessageResponseTime: 0,
+   604→    };
+   605→
+   606→    // Calculate derived metrics
+   607→    metrics.responseRate = metrics.rfqsReceived > 0 ? (metrics.rfqsResponded / metrics.rfqsReceived) * 100 : 0;
+   608→    metrics.avgOrderValue = metrics.ordersReceived > 0 ? metrics.orderValueTotal / metrics.ordersReceived : 0;
+   609→    metrics.avgViewsPerProduct = metrics.activeProducts > 0 ? metrics.totalProductViews / metrics.activeProducts : 0;
+   610→
+   611→    this.supplierMetrics.set(supplierId, metrics);
+   612→    return metrics;
+   613→  }
+   614→
+   615→  // ===========================================
+   616→  // Revenue Analytics
+   617→  // ===========================================
+   618→
+   619→  /**
+   620→   * Record a revenue event
+   621→   */
+   622→  recordRevenue(data: {
+   623→    amount: number;
+   624→    currency: string;
+   625→    paymentMethod: string;
+   626→    orderId: string;
+   627→    userId: string;
+   628→    category?: string;
+   629→    isRecurring?: boolean;
+   630→    isNewCustomer?: boolean;
+   631→    couponCode?: string;
+   632→  }): void {
+   633→    const today = new Date().toISOString().split('T')[0];
+   634→    
+   635→    let dayMetric = this.revenueHistory.find(r => r.timestamp.startsWith(today));
+   636→    
+   637→    if (!dayMetric) {
+   638→      dayMetric = {
+   639→        timestamp: today,
+   640→        period: 'daily',
+   641→        grossRevenue: 0,
+   642→        netRevenue: 0,
+   643→        taxCollected: 0,
+   644→        discountsGiven: 0,
+   645→        byPaymentMethod: {},
+   646→        byCategory: {},
+   647→        byCountry: {},
+   648→        byPlan: {},
+   649→        transactionCount: 0,
+   650→        avgTransactionValue: 0,
+   651→        recurringRevenue: 0,
+   652→        newCustomerRevenue: 0,
+   653→        returningCustomerRevenue: 0,
+   654→        projectedMonthEnd: 0,
+   655→        growthRate: 0,
+   656→      };
+   657→      this.revenueHistory.push(dayMetric);
+   658→    }
+   659→
+   660→    // Update totals
+   661→    dayMetric.grossRevenue += data.amount;
+   662→    dayMetric.transactionCount++;
+   663→    
+   664→    if (data.isRecurring) {
+   665→      dayMetric.recurringRevenue += data.amount;
+   666→    } else if (data.isNewCustomer) {
+   667→      dayMetric.newCustomerRevenue += data.amount;
+   668→    } else {
+   669→      dayMetric.returningCustomerRevenue += data.amount;
+   670→    }
+   671→
+   672→    // Update breakdowns
+   673→    dayMetric.byPaymentMethod[data.paymentMethod] = 
+   674→      (dayMetric.byPaymentMethod[data.paymentMethod] || 0) + data.amount;
+   675→    
+   676→    if (data.category) {
+   677→      dayMetric.byCategory[data.category] = 
+   678→        (dayMetric.byCategory[data.category] || 0) + data.amount;
+   679→    }
+   680→
+   681→    // Recalculate averages
+   682→    dayMetric.avgTransactionValue = dayMetric.grossRevenue / dayMetric.transactionCount;
+   683→  }
+   684→
+   685→  /**
+   686→   * Get revenue metrics for a period
+   687→   */
+   688→  getRevenueMetrics(period: 'daily' | 'weekly' | 'monthly', periods: number = 7): RevenueMetric[] {
+   689→    const sorted = [...this.revenueHistory]
+   690→      .sort((a, b) => b.timestamp.localeCompare(a.timestamp))
+   691→      .slice(0, periods)
+   692→      .reverse();
+   693→
+   694→    // Calculate growth rates and projections
+   695→    return sorted.map((metric, index) => {
+   696→      if (index > 0) {
+   697→        const prevMetric = sorted[index - 1];
+   698→        metric.growthRate = prevMetric.grossRevenue > 0 
+   699→          ? ((metric.grossRevenue - prevMetric.grossRevenue) / prevMetric.grossRevenue) * 100 
+   700→          : 0;
+   701→        
+   702→        // Simple linear projection for month end
+   703→        const daysPassed = index + 1;
+   704→        const daysInMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
+   705→        metric.projectedMonthEnd = metric.grossRevenue * (daysInMonth / daysPassed);
+   706→      }
+   707→
+   708→      return metric;
+   709→    });
+   710→  }
+   711→
+   712→  // ===========================================
+   713→  // Export & Reporting
+   714→  // ===========================================
+   715→
+   716→  /**
+   717→   * Generate comprehensive dashboard data
+   718→   */
+   719→  generateDashboard(): {
+   720→    overview: {
+   721→      totalSessions: number;
+   722→      activeUsers: number;
+   723→      totalEvents: number;
+   724→      bounceRate: number;
+   725→      avgSessionDuration: number;
+   726→      conversionRate: number;
+   727→    };
+   728→    funnels: ConversionFunnel[];
+   729→    topProducts: ProductMetrics[];
+   730→    revenue: RevenueMetric[];
+   731→    recentTrends: {
+   732→      eventsOverTime: Array<{ date: string; count: number }>;
+   733→      conversionsOverTime: Array<{ date: string; count: number }>;
+   734→    };
+   735→  } {
+   736→    const now = new Date();
+   737→    const sessionsArray = Array.from(this.sessions.values());
+   738→    
+   739→    // Active sessions (last 30 minutes)
+   740→    const thirtyMinAgo = now.getTime() - 1800000;
+   741→    const activeSessions = sessionsArray.filter(s => {
+   742→      const lastActivity = s.endTime ? new Date(s.endTime).getTime() : now.getTime();
+   743→      return lastActivity > thirtyMinAgo;
+   744→    });
+   745→
+   746→    // Bounce rate
+   747→    const bouncedSessions = sessionsArray.filter(s => s.bounce && s.pageViews === 1);
+   748→    const bounceRate = sessionsArray.length > 0 ? (bouncedSessions.length / sessionsArray.length) * 100 : 0;
+   749→
+   750→    // Average session duration
+   751→    const totalDuration = sessionsArray.reduce((sum, s) => sum + s.duration, 0);
+   752→    const avgDuration = sessionsArray.length > 0 ? totalDuration / sessionsArray.length : 0;
+   753→
+   754→    // Get funnels
+   755→    const ecommerceFunnel = this.getEcommerceFunnel();
+   756→    const rfqFunnel = this.getRfqFunnel();
+   757→    const activationFunnel = this.getActivationFunnel();
+   758→
+   759→    return {
+   760→      overview: {
+   761→        totalSessions: sessionsArray.length,
+   762→        activeUsers: activeSessions.length,
+   763→        totalEvents: this.events.length,
+   764→        bounceRate: Math.round(bounceRate * 100) / 100,
+   765→        avgSessionDuration: Math.round(avgDuration),
+   766→        conversionRate: ecommerceFunnel.conversionRate,
+   767→      },
+   768→      funnels: [ecommerceFunnel, rfqFunnel, activationFunnel],
+   769→      topProducts: this.getTopProducts('revenueGenerated', 5),
+   770→      revenue: this.getRevenueMetrics('daily', 7),
+   771→      recentTrends: {
+   772→        eventsOverTime: this.aggregateEventsByDay(7),
+   773→        conversionsOverTime: this.aggregateConversionsByDay(7),
+   774→      },
+   775→    };
+   776→  }
+   777→
+   778→  /**
+   779→   * Export all data for external BI tools
+   780→   */
+   781→  exportForBI(): {
+   782→    events: UserBehaviorEvent[];
+   783→    sessions: SessionAnalytics[];
+   784→    funnels: ConversionFunnel[];
+   785→    products: ProductMetrics[];
+   786→    suppliers: SupplierMetrics[];
+   787→    revenue: RevenueMetric[];
+   788→  } {
+   789→    return {
+   790→      events: this.events,
+   791→      sessions: Array.from(this.sessions.values()),
+   792→      funnels: Array.from(this.funnels.values()),
+   793→      products: Array.from(this.productMetrics.values()),
+   794→      suppliers: Array.from(this.supplierMetrics.values()),
+   795→      revenue: this.revenueHistory,
+   796→    };
+   797→  }
+   798→
+   799→  // ===========================================
+   800→  // Private Helper Methods
+   801→  // ===========================================
+   802→
+   803→  private detectDeviceType(): 'mobile' | 'tablet' | 'desktop' {
+   804→    if (typeof window === 'undefined') return 'desktop';
+   805→
+   806→    const ua = navigator.userAgent.toLowerCase();
+   807→    if (/mobile|android|iphone|ipod|blackberry|opera mini|iemobile/i.test(ua)) {
+   808→      return 'mobile';
+   809→    }
+   810→    if (/tablet|ipad|playbook|silk/i.test(ua)) {
+   811→      return 'tablet';
+   812→    }
+   813→    return 'desktop';
+   814→  }
+   815→
+   816→  private generateSessionId(): string {
+   817→    return `sess_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
+   818→  }
+   819→
+   820→  private isSessionExpired(session: SessionAnalytics): boolean {
+   821→    const lastActivity = session.endTime ? 
+   822→      new Date(session.endTime).getTime() : 
+   823→      Date.now();
+   824→    
+   825→    return (Date.now() - lastActivity) > this.config.sessionTimeout;
+   826→  }
+   827→
+   828→  private isCacheStale(timestamp: string, retentionDays: number): boolean {
+   829→    const cacheAge = Date.now() - new Date(timestamp).getTime();
+   830→    return cacheAge > retentionDays * 24 * 60 * 60 * 1000;
+   831→  }
+   832→
+   833→  private trimOldEvents(): void {
+   834→    const cutoff = Date.now() - this.config.retentionDays * 24 * 60 * 60 * 1000;
+   835→    
+   836→    while (this.events.length > 0 && new Date(this.events[0].timestamp).getTime() < cutoff) {
+   837→      this.events.shift();
+   838→    }
+   839→
+   840→    // Also limit to max events per session
+   841→    if (this.events.length > 100000) {
+   842→      this.events = this.events.slice(-50000);
+   843→    }
+   844→  }
+   845→
+   846→  private updateMetricsFromEvent(event: UserBehaviorEvent): void {
+   847→    // This would trigger real-time updates to various metrics
+   848→    // For now, we'll just ensure the event is stored
+   849→  }
+   850→
+   851→  private countUsersInFunnelStep(
+   852→    funnelId: string, 
+   853→    stepName: string, 
+   854→    start: Date, 
+   855→    end: Date
+   856→  ): number {
+   857→    const uniqueUsers = new Set<string>();
+   858→    
+   859→    for (const event of this.events) {
+   860→      if (
+   861→        event.eventType === stepName as UserBehaviorEvent['eventType'] &&
+   862→        new Date(event.timestamp) >= start &&
+   863→        new Date(event.timestamp) <= end &&
+   864→        event.userId
+   865→      ) {
+   866→        uniqueUsers.add(event.userId);
+   867→      }
+   868→    }
+   869→
+   870→    return uniqueUsers.size;
+   871→  }
+   872→
+   873→  private calculateAvgTimeToComplete(
+   874→    _funnelId: string, 
+   875→    _fromStep: string, 
+   876→    _toStep: string
+   877→  ): number {
+   878→    // Simplified implementation
+   879→    // In production, would track time between steps per user
+   880→    return 0;
+   881→  }
+   882→
+   883→  private calculateFunnelRevenue(_funnelId: string, _start: Date, _end: Date): number {
+   884→    // Would sum up revenue attributed to funnel completions
+   885→    return 0;
+   886→  }
+   887→
+   888→  private calculateAvgTimeOnPage(_productId: string, _events: UserBehaviorEvent[]): number {
+   889→    // Would calculate average time spent on product page
+   890→    return 0;
+   891→  }
+   892→
+   893→  private calculateAvgRating(_productId: string): number {
+   894→    // Would fetch from reviews database
+   895→    return 0;
+   896→  }
+   897→
+   898→  private calculateProductRevenue(_productId: string, _events: UserBehaviorEvent[]): number {
+   899→    // Would sum up order values for this product
+   900→    return 0;
+   901→  }
+   902→
+   903→  private aggregateEventsByDay(days: number): Array<{ date: string; count: number }> {
+   904→    const result: Array<{ date: string; count: number }> = [];
+   905→    const now = new Date();
+   906→
+   907→    for (let i = days - 1; i >= 0; i--) {
+   908→      const date = new Date(now);
+   909→      date.setDate(date.getDate() - i);
+   910→      const dateStr = date.toISOString().split('T')[0];
+   911→
+   912→      const count = this.events.filter(e => 
+   913→        e.timestamp.startsWith(dateStr)
+   914→      ).length;
+   915→
+   916→      result.push({ date: dateStr, count });
+   917→    }
+   918→
+   919→    return result;
+   920→  }
+   921→
+   922→  private aggregateConversionsByDay(days: number): Array<{ date: string; count: number }> {
+   923→    const result: Array<{ date: string; count: number }> = [];
+   924→    const now = new Date();
+   925→
+   926→    for (let i = days - 1; i >= 0; i--) {
+   927→      const date = new Date(now);
+   928→      date.setDate(date.getDate() - i);
+   929→      const dateStr = date.toISOString().split('T')[0];
+   930→
+   931→      const count = this.events.filter(e => 
+   932→        e.timestamp.startsWith(dateStr) &&
+   933→        (e.eventType === 'order_place' || e.eventType === 'rfq_create')
+   934→      ).length;
+   935→
+   936→      result.push({ date: dateStr, count });
+   937→    }
+   938→
+   939→    return result;
+   940→  }
+   941→}
+   942→
+   943→// ===========================================
+   944→// Singleton & Exports
+   945→// ===========================================
+   946→
+   947→let businessMetricsInstance: BusinessMetricsTracker | null = null;
+   948→
+   949→export function getBusinessMetricsTracker(config?: Partial<BusinessMetricsConfig>): BusinessMetricsTracker {
+   950→  if (!businessMetricsInstance) {
+   951→    businessMetricsInstance = new BusinessMetricsTracker(config);
+   952→  }
+   953→  return businessMetricsInstance;
+   954→}
+   955→
+   956→// Convenience export
+   957→export const businessMetrics = getBusinessMetricsTracker();
+   958→
+   959→export default {
+   960→  getBusinessMetricsTracker,
+   961→  BusinessMetricsTracker,
+   962→};
+   963→

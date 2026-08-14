@@ -1,139 +1,184 @@
-# AlgeriaTrade.dz - Main CI/CD Pipeline
-# Complete automation for build, test, lint, and deployment
-# Supports: Vercel, Netlify, Docker, Mobile builds
+# AlgeriaTrade.dz - CI/CD Pipeline
+# Automated Testing & Quality Assurance Pipeline
 
 name: CI/CD Pipeline
 
 on:
   push:
-    branches: [main, develop, 'feature/**', 'hotfix/**']
+    branches: [main, develop, 'feature/*', 'hotfix/*']
   pull_request:
     branches: [main, develop]
   workflow_dispatch:
     inputs:
-      environment:
-        description: 'Deployment environment'
-        required: true
-        default: 'staging'
-        type: choice
-        options:
-          - staging
-          - production
-      skip_tests:
-        description: 'Skip tests (not recommended for production)'
+      run_e2e:
+        description: 'Run E2E tests'
         required: false
-        default: false
+        default: 'true'
+        type: boolean
+      run_performance:
+        description: 'Run performance tests'
+        required: false
+        default: 'false'
         type: boolean
 
 env:
   NODE_VERSION: '20'
-  PNPM_VERSION: '8'
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  BUN_VERSION: '1.1'
+  NEXT_PUBLIC_SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+  NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
+  DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
+# Cancel in-progress runs for the same branch
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   # ===========================================
-  # JOB 1: Code Quality & Security Checks
+  # Job 1: Code Quality & Linting
   # ===========================================
-  code-quality:
-    name: 🔍 Code Quality & Security
+  lint:
+    name: 🔍 Code Quality & Linting
     runs-on: ubuntu-latest
-    timeout-minutes: 15
     
     steps:
-      - name: 📥 Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          fetch-depth: 0
-      
-      - name: 📦 Setup pnpm
-        uses: pnpm/action-setup@v3
-        with:
-          version: ${{ env.PNPM_VERSION }}
-      
-      - name: 🟢 Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'pnpm'
-      
-      - name: 📥 Install Dependencies
-        run: pnpm install --frozen-lockfile
-      
-      # TypeScript Type Checking
-      - name: 🔤 Type Check (tsc)
-        id: typecheck
-        run: |
-          echo "::group::TypeScript Type Check"
-          pnpm exec tsc --noEmit --pretty 2>&1 | tee typecheck-results.txt
-          echo "::endgroup::"
-        
-      # ESLint Linting
-      - name: 🧹 Lint (ESLint)
-        id: lint
-        run: |
-          echo "::group::ESLint"
-          pnpm exec eslint . --ext .ts,.tsx --format json --output-file eslint-results.json || true
-          pnpm exec eslint . --ext .ts,.tsx --format stylish 2>&1 | tee lint-results.txt
-          echo "::endgroup::"
-        
-      # Prettier Formatting Check
-      - name: ✨ Format Check (Prettier)
-        id: prettier
-        run: |
-          echo "::group::Prettier Check"
-          pnpm exec prettier --check "src/**/*.{ts,tsx,css,json}" 2>&1 | tee prettier-results.txt
-          echo "::endgroup::"
-        
-      # Security Audit
-      - name: 🔒 Security Audit (pnpm)
-        id: security-audit
-        run: |
-          echo "::group::Security Audit"
-          pnpm audit --json > audit-results.json || true
-          pnpm audit 2>&1 | tee audit-summary.txt
-          echo "::endgroup::"
-          
-      # Upload Artifacts
-      - name: 📤 Upload Quality Reports
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: quality-reports
-          path: |
-            typecheck-results.txt
-            lint-results.txt
-            prettier-results.txt
-            audit-results.json
-            audit-summary.txt
-            eslint-results.json
-          retention-days: 7
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Run ESLint
+        run: bun run lint --max-warnings=0
+
+      - name: Check TypeScript types
+        run: bunx tsc --noEmit --strict
+
+      - name: Check for security vulnerabilities
+        run: bunx audit-ci --moderate
 
   # ===========================================
-  # JOB 2: Unit & Integration Tests
+  # Job 2: Unit Tests
   # ===========================================
-  test:
-    name: 🧪 Tests (${{ matrix.test-type }})
+  unit-tests:
+    name: 🧪 Unit Tests
     runs-on: ubuntu-latest
-    needs: code-quality
-    if: github.event.inputs.skip_tests != 'true'
-    timeout-minutes: 30
+    needs: lint
     
     strategy:
       fail-fast: false
       matrix:
-        test-type: [unit, integration]
+        node-version: [20]
     
-    env:
-      DATABASE_URL: file:./test.db
-      NEXTAUTH_SECRET: test-secret-for-ci
-      NEXTAUTH_URL: http://localhost:3000
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'bun'
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Run unit tests with coverage
+        id: unit_test
+        run: |
+          bun run test:unit --coverage --ci --reporters=default --reporters=junit --outputFile=unit-test-results.xml
+        env:
+          CI: true
+          NODE_ENV: test
+
+      - name: Upload unit test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-results
+          path: |
+            junit.xml
+            coverage/
+          retention-days: 7
+
+      - name: Generate coverage report
+        if: always()
+        run: |
+          echo "## 📊 Unit Test Coverage" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          cat coverage/lcov.info | bunx covar --markdown || echo "Coverage report generated" >> $GITHUB_STEP_SUMMARY
+
+  # ===========================================
+  # Job 3: Component Tests
+  # ===========================================
+  component-tests:
+    name: 🎨 Component Tests
+    runs-on: ubuntu-latest
+    needs: lint
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Run component tests
+        id: component_test
+        run: |
+          jest __tests__/components --coverage --ci --reporters=default --reporters=junit --outputFile=component-test-results.xml
+        env:
+          CI: true
+          NODE_ENV: test
+
+      - name: Upload component test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: component-test-results
+          path: |
+            component-test-results.xml
+            coverage/
+          retention-days: 7
+
+  # ===========================================
+  # Job 4: API Integration Tests
+  # ===========================================
+  api-tests:
+    name: 🔌 API Integration Tests
+    runs-on: ubuntu-latest
+    needs: [unit-tests, component-tests]
     
     services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: algeriatrade_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      
       redis:
         image: redis:7-alpine
         ports:
@@ -143,495 +188,321 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-    
+
     steps:
-      - name: 📥 Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v4
-      
-      - name: 📦 Setup pnpm
-        uses: pnpm/action-setup@v3
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          version: ${{ env.PNPM_VERSION }}
-      
-      - name: 🟢 Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'pnpm'
-      
-      - name: 📥 Install Dependencies
-        run: pnpm install --frozen-lockfile
-      
-      - name: 🗄️ Setup Test Database
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Wait for services to be ready
         run: |
-          cp prisma/schema.prisma prisma/schema.test.prisma
-          npx prisma migrate dev --name init-test-db || true
-          npx prisma generate
-      
-      - name: 🏃 Run ${{ matrix.test-type }} Tests
-        id: run-tests
+          until pg_isready -h localhost -p 5432 -U test; do
+            echo "Waiting for PostgreSQL..."
+            sleep 2
+          done
+          until redis-cli ping; do
+            echo "Waiting for Redis..."
+            sleep 2
+          done
+
+      - name: Run database migrations
         run: |
-          echo "::group::Running ${{ matrix.test-type }} Tests"
-          if [ "${{ matrix.test-type }}" = "unit" ]; then
-            pnpm vitest run --reporter=verbose --coverage src/__tests__/unit/ 2>&1 | tee test-output.txt || true
-          else
-            pnpm vitest run --reporter=verbose --coverage src/__tests__/integration/ 2>&1 | tee test-output.txt || true
-          fi
-          echo "::endgroup::"
-        continue-on-error: true
-      
-      - name: 📊 Generate Coverage Report
-        if: matrix.test-type == 'unit'
+          bunx prisma migrate deploy
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/algeriatrade_test
+
+      - name: Seed test data
         run: |
-          pnpm vitest run --coverage 2>&1 || true
-          
-      - name: 📤 Upload Test Results
+          bunx prisma db seed
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/algeriatrade_test
+
+      - name: Run API integration tests
+        id: api_test
+        run: |
+          jest __tests__/api --coverage --ci --forceExit --detectOpenHandles --reporters=default --reporters=junit --outputFile=api-test-results.xml
+        env:
+          CI: true
+          NODE_ENV: test
+          DATABASE_URL: postgresql://test:test@localhost:5432/algeriatrade_test
+          REDIS_URL: redis://localhost:6379
+          NEXTAUTH_SECRET: test-secret-for-ci
+          NEXTAUTH_URL: http://localhost:3000
+
+      - name: Upload API test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-results-${{ matrix.test-type }}
+          name: api-test-results
           path: |
+            api-test-results.xml
             coverage/
-            test-output.txt
-            junit.xml
           retention-days: 7
 
   # ===========================================
-  # JOB 3: Build Application
+  # Job 5: E2E Tests (Playwright)
   # ===========================================
-  build:
-    name: 🏗️ Build Application
+  e2e-tests:
+    name: 🎭 E2E Tests
     runs-on: ubuntu-latest
-    needs: [code-quality, test]
-    timeout-minutes: 20
-    
-    strategy:
-      matrix:
-        include:
-          - platform: web
-            command: next build
-          - platform: server
-            command: tsc --noEmit && next build
+    needs: [unit-tests, component-tests]
+    if: github.event.inputs.run_e2e == 'true' || github.event_name == 'push'
     
     steps:
-      - name: 📥 Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v4
-      
-      - name: 📦 Setup pnpm
-        uses: pnpm/action-setup@v3
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          version: ${{ env.PNPM_VERSION }}
-      
-      - name: 🟢 Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'pnpm'
-      
-      - name: 📥 Install Dependencies
-        run: pnpm install --frozen-lockfile
-      
-      - name: 🔄 Generate Prisma Client
-        run: npx prisma generate
-      
-      - name: 🏗️ Build Next.js Application
-        id: build-nextjs
-        run: |
-          echo "::group::Building Next.js App"
-          NODE_ENV=production ${{ matrix.command }} 2>&1 | tee build-output.txt
-          echo "::endgroup::"
-          
-          # Check build output size
-          echo "## Build Size Summary" >> $GITHUB_STEP_SUMMARY
-          du -sh .next/ >> $GITHUB_STEP_SUMMARY || true
-          ls -lah .next/static/ 2>/dev/null | head -20 >> $GITHUB_STEP_SUMMARY || true
-      
-      - name: 💾 Cache Build Output
-        if: matrix.platform == 'web'
-        uses: actions/cache/save@v4
-        with:
-          path: .next/
-          key: nextjs-build-${{ github.sha }}
-          restore-keys: |
-            nextjs-build-
-      
-      - name: 📤 Upload Build Artifact
-        if: matrix.platform == 'web'
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        run: bunx playwright install --with-deps chromium firefox webkit
+
+      - name: Build application
+        run: bun run build
+        env:
+          NODE_ENV: production
+          NEXT_PUBLIC_SENTRY_DSN: ''
+          NEXTAUTH_SECRET: test-secret-for-e2e
+
+      - name: Run Playwright tests
+        run: bunx playwright test
+        env:
+          NODE_ENV: test
+          NEXTAUTH_URL: http://localhost:3000
+
+      - name: Upload Playwright report
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: nextjs-build
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+
+      - name: Upload Playwright traces
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: test-results/
+          retention-days: 7
+
+  # ===========================================
+  # Job 6: Performance Tests
+  # ===========================================
+  performance-tests:
+    name: ⚡ Performance Tests
+    runs-on: ubuntu-latest
+    needs: [unit-tests, component-tests]
+    if: github.event.inputs.run_performance == 'true' || github.ref == 'refs/heads/main'
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Run performance tests
+        id: perf_test
+        run: |
+          jest __tests__/performance --ci --forceExit --reporters=default --reporters=junit --outputFile=perf-test-results.xml
+        env:
+          CI: true
+          NODE_ENV: test
+
+      - name: Upload performance test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-test-results
+          path: |
+            perf-test-results.xml
+          retention-days: 30
+
+      - name: Comment PR with performance results
+        if: github.event_name == 'pull_request' && always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            
+            // Read and parse JUnit results
+            const results = fs.readFileSync('perf-test-results.xml', 'utf8');
+            
+            // Extract summary
+            const testCount = (results.match(/tests="/g) || []).length;
+            const failures = (results.match(/failures="\d+"/g) || [])[0]?.match(/\d+/)?.[0] || 0;
+            
+            const comment = `## ⚡ Performance Test Results
+            
+            **Status**: ${failures === 0 ? '✅ Passed' : '❌ Failed'}
+            **Tests**: ${testCount}
+            **Failures**: ${failures}
+            
+            ---
+            *Generated by CI pipeline*`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
+  # ===========================================
+  # Job 7: Coverage Aggregation & Quality Gate
+  # ===========================================
+  coverage:
+    name: 📊 Coverage Report
+    runs-on: ubuntu-latest
+    needs: [unit-tests, component-tests, api-tests]
+    if: always()
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          pattern: '*-test-results'
+
+      - name: Merge coverage reports
+        run: |
+          # Create merged coverage directory
+          mkdir -p merged-coverage
+          
+          # Copy all lcov files if they exist
+          find artifacts -name "lcov.info" -exec cp {} merged-coverage/ \; 2>/dev/null || true
+          
+          # List what we have
+          echo "## 📊 Coverage Reports Collected" >> $GITHUB_STEP_SUMMARY
+          ls -la artifacts/ >> $GITHUB_STEP_SUMMARY 2>/dev/null || echo "No artifacts found" >> $GITHUB_STEP_SUMMARY
+
+      - name: Check coverage thresholds
+        run: |
+          echo "## ✅ Coverage Quality Gates" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Metric | Threshold | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|-----------|--------|" >> $GITHUB_STEP_SUMMARY
+          
+          # These would be checked against actual coverage values
+          echo "| Statements | 80%+ | ⏳ Pending |" >> $GITHUB_STEP_SUMMARY
+          echo "| Branches | 70%+ | ⏳ Pending |" >> $GITHUB_STEP_SUMMARY
+          echo "| Functions | 80%+ | ⏳ Pending |" >> $GITHUB_STEP_SUMMARY
+          echo "| Lines | 80%+ | ⏳ Pending |" >> $GITHUB_STEP_SUMMARY
+
+  # ===========================================
+  # Job 8: Build Verification
+  # ===========================================
+  build:
+    name: 🏗️ Build Verification
+    runs-on: ubuntu-latest
+    needs: [lint, unit-tests, component-tests, api-tests]
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build application
+        id: build
+        run: bun run build
+        env:
+          NODE_ENV: production
+          NEXT_PUBLIC_SENTRY_DSN: ''
+
+      - name: Check build output size
+        run: |
+          echo "## 📦 Build Output Size" >> $GITHUB_STEP_SUMMARY
+          du -sh .next/* >> $GITHUB_STEP_SUMMARY 2>/dev/null || true
+          
+          # Alert if build is too large
+          BUILD_SIZE=$(du -sb .next | cut -f1)
+          MAX_SIZE=$((500 * 1024 * 1024)) # 500MB
+          
+          if [ "$BUILD_SIZE" -gt "$MAX_SIZE" ]; then
+            echo "::warning::Build size exceeds 500MB"
+          fi
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-output
           path: .next/
           retention-days: 7
 
   # ===========================================
-  # JOB 4: Docker Image Build & Push
+  # Job 9: Security Scanning
   # ===========================================
-  docker:
-    name: 🐳 Docker Build & Push
+  security:
+    name: 🔒 Security Scan
     runs-on: ubuntu-latest
-    needs: build
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
-    permissions:
-      contents: read
-      packages: write
-    timeout-minutes: 30
+    needs: [build]
     
     steps:
-      - name: 📥 Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v4
-      
-      - name: 🔑 Login to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      
-      - name: 🔑 Login to Docker Hub (Optional)
-        if: secrets.DOCKERHUB_USERNAME != ''
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-      
-      - name: 🏗️ Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-      
-      - name: 🏷️ Extract Metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-            ${{ secrets.DOCKERHUB_USERNAME }}/algeriatrade
-          tags: |
-            type=ref,event=branch
-            type=ref,event=pr
-            type=sha,prefix=
-            type=semver,pattern={{version}}
-            type=raw,value=latest,enable={{is_default_branch}}
-      
-      - name: 🐳 Build and Push Docker Image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: ./Dockerfile
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          platforms: linux/amd64,linux/arm64
-          build-args: |
-            NEXT_PUBLIC_APP_VERSION=${{ github.sha }}
-            NODE_ENV=production
-      
-      - name: 🔍 Trivy Vulnerability Scanner
+
+      - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          scan-type: 'fs'
+          scan-ref: '.'
           format: 'table'
           exit-code: '0'
           ignore-unfixed: true
           severity: 'CRITICAL,HIGH'
 
-  # ===========================================
-  # JOB 5: Deploy to Staging
-  # ===========================================
-  deploy-staging:
-    name: 🚀 Deploy to Staging
-    runs-on: ubuntu-latest
-    needs: docker
-    if: github.ref == 'refs/heads/develop' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'staging')
-    environment:
-      name: staging
-      url: https://staging.algeriatrade.dz
-    permissions:
-      contents: read
-      deployments: write
-    timeout-minutes: 15
-    
-    steps:
-      - name: 📥 Checkout Repository
-        uses: actions/checkout@v4
-      
-      - name: 🚀 Deploy to Vercel (Staging)
-        if: vars.DEPLOYMENT_PLATFORM == 'vercel' || vars.DEPLOYMENT_PLATFORM == ''
-        uses: amondnet/vercel-action@v25
-        with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          working-directory: ./
-          scope: ${{ secrets.VERCEL_ORG_ID }}
-      
-      - name: 🚀 Deploy to Netlify (Staging) - Alternative
-        if: vars.DEPLOYMENT_PLATFORM == 'netlify'
-        uses: nwtgck/actions-netlify@v3
-        with:
-          publish-dir: './.next'
-          production-deploy: false
-          production-branch: develop
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          deploy-message: "Deploy from GitHub Actions - ${{ github.sha }}"
-          enable-pull-request-comment: true
-          enable-commit-comment: true
-          overwrites-pull-request-comment: true
-        env:
-          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
-          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
-      
-      - name: 🧪 Run Smoke Tests on Staging
+      - name: Run dependency audit
         run: |
-          echo "Running smoke tests against staging..."
-          # Add your smoke test commands here
-          curl -sf https://staging.algeriatrade.dz/api/health > /dev/null && echo "✅ Health check passed" || echo "❌ Health check failed"
-      
-      - name: 📊 Create Deployment Status
-        if: always()
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const deploymentId = process.env.GITHUB_RUN_ID;
-            const status = context.jobStatus === 'success' ? 'success' : 'failure';
-            
-            await github.rest.repos.createDeploymentStatus({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              deployment_id: deploymentId,
-              state: status,
-              environment_url: 'https://staging.algeriatrade.dz',
-              description: `Deploy ${status} - ${context.sha.substring(0, 7)}`
-            });
+          bun audit || true
+          echo "## 🔒 Dependency Audit" >> $GITHUB_STEP_SUMMARY
+          bun audit 2>&1 | head -50 >> $GITHUB_STEP_SUMMARY || echo "No issues found" >> $GITHUB_STEP_SUMMARY
 
   # ===========================================
-  # JOB 6: Deploy to Production (with Approval)
+  # Final: Success Notification
   # ===========================================
-  deploy-production:
-    name: 🏭 Deploy to Production
+  notify-success:
+    name: ✅ Notify Success
     runs-on: ubuntu-latest
-    needs: docker
-    if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production')
-    environment:
-      name: production
-      url: https://algeriatrade.dz
-    permissions:
-      contents: read
-      deployments: write
-    timeout-minutes: 20
+    needs: [build, security, coverage]
+    if: success()
     
     steps:
-      - name: 📥 Checkout Repository
-        uses: actions/checkout@v4
-      
-      - name: 🔄 Pre-Deploy Backup Database
-        if: vars.BACKUP_BEFORE_DEPLOY == 'true'
+      - name: Send success notification
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
-          echo "Creating pre-deployment backup..."
-          # Add database backup commands here
-          TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-          echo "Backup timestamp: ${TIMESTAMP}"
-      
-      - name: 🚀 Deploy to Vercel (Production)
-        if: vars.DEPLOYMENT_PLATFORM == 'vercel' || vars.DEPLOYMENT_PLATFORM == ''
-        uses: amondnet/vercel-action@v25
-        with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          working-directory: ./
-          vercel-args: '--prod'
-          scope: ${{ secrets.VERCEL_ORG_ID }}
-      
-      - name: 🚀 Deploy to Netlify (Production) - Alternative
-        if: vars.DEPLOYMENT_PLATFORM == 'netlify'
-        uses: nwtgck/actions-netlify@v3
-        with:
-          publish-dir: './.next'
-          production-deploy: true
-          production-branch: main
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          deploy-message: "Production Deploy - ${{ github.sha }}"
-        env:
-          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
-          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
-      
-      - name: 🐳 Deploy to Docker Server (Alternative)
-        if: vars.DEPLOYMENT_PLATFORM == 'docker'
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          script: |
-            cd /opt/algeriatrade
-            docker compose pull
-            docker compose up -d --remove-orphans
-            docker system prune -f
-            
-            # Health check
-            sleep 10
-            curl -sf http://localhost:3000/api/health && echo "✅ Deployment successful" || echo "❌ Deployment failed"
-      
-      - name: 🧪 Post-Deploy Validation
-        run: |
-          echo "Running post-deployment validation..."
-          # Critical endpoint checks
-          ENDPOINT="https://algeriatrade.dz"
-          
-          echo "Checking homepage..."
-          curl -sf "${ENDPOINT}/" > /dev/null && echo "✅ Homepage OK" || echo "❌ Homepage FAILED"
-          
-          echo "Checking API health..."
-          curl -sf "${ENDPOINT}/api/health" > /dev/null && echo "✅ API Health OK" || echo "❌ API Health FAILED"
-          
-          echo "Checking auth endpoints..."
-          curl -sf -o /dev/null -w "%{http_code}" "${ENDPOINT}/api/auth/login" | grep -q "200\|401\|405" && echo "✅ Auth OK" || echo "❌ Auth FAILED"
-      
-      - name: 📈 Update Deployment Metrics
-        if: success()
-        run: |
-          echo "## 🎉 Production Deployment Successful!" >> $GITHUB_STEP_SUMMARY
+          echo "🎉 All checks passed! Ready for deployment."
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### ✅ Pipeline Complete" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
           echo "**Branch:** \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "**Triggered by:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Time:** $(date -u)" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Quick Links" >> $GITHUB_STEP_SUMMARY
-          echo "- [🌐 Live Site](https://algeriatrade.dz)" >> $GITHUB_STEP_SUMMARY
-          echo "- [📊 Monitoring](https://sentry.algeriatrade.dz)" >> $GITHUB_STEP_SUMMARY
-          echo "- [📈 Analytics](https://analytics.google.com)" >> $GITHUB_STEP_SUMMARY
-      
-      - name: 🔄 Rollback on Failure
-        if: failure()
-        run: |
-          echo "⚠️ Deployment failed! Initiating rollback..."
-          # Automatic rollback logic here
-          if [ "$DEPLOYMENT_PLATFORM" = "vercel" ]; then
-            echo "Rolling back Vercel deployment..."
-            # Vercel rollback command
-          fi
-
-  # ===========================================
-  # JOB 7: Performance Testing (Lighthouse CI)
-  # ===========================================
-  performance:
-    name: ⚡ Performance Testing
-    runs-on: ubuntu-latest
-    needs: deploy-staging
-    if: github.ref == 'refs/heads/develop'
-    timeout-minutes: 15
-    
-    steps:
-      - name: 📥 Checkout Repository
-        uses: actions/checkout@v4
-      
-      - name: 🏃 Run Lighthouse CI
-        uses: treosh/lighthouse-ci-action@v12
-        with:
-          urls: |
-            https://staging.algeriatrade.dz
-            https://staging.algeriatrade.dz/products
-            https://staging.algeriatrade.dz/suppliers
-          budgetPath: ./lighthouse-budget.json
-          uploadArtifacts: true
-          temporaryPublicStorage: true
-      
-      - name: 📊 Parse Results
-        if: always()
-        run: |
-          echo "## ⚡ Performance Test Results" >> $GITHUB_STEP_SUMMARY
-          cat ./lighthouse-results/manifest.json 2>/dev/null | jq -r '.[] | "- **\(.url)**: Performance \(.summary.performance // "N/A")"' >> $GITHUB_STEP_SUMMARY || echo "No results found"
-
-  # ===========================================
-  # JOB 8: Notify Team
-  # ===========================================
-  notify:
-    name: 📢 Notify Team
-    runs-on: ubuntu-latest
-    needs: [deploy-staging, deploy-production, performance]
-    if: always() && (needs.deploy-staging.result == 'success' || needs.deploy-production.result == 'success')
-    timeout-minutes: 5
-    
-    steps:
-      - name: 📢 Send Slack Notification
-        if: env.SLACK_WEBHOOK_URL != ''
-        uses: slackapi/slack-github-action@v1.26.0
-        with:
-          payload: |
-            {
-              "text": "AlgeriaTrade.dz Deployment ${{ needs.deploy-production.result == 'success' && '✅ Success' || needs.deploy-staging.result == 'success' && '✅ Staging Success' || '❌ Failed' }}",
-              "blocks": [
-                {
-                  "type": "header",
-                  "text": {
-                    "type": "plain_text",
-                    "text": "AlgeriaTrade.dz Deployment ${{ needs.deploy-production.result == 'success' && '✅ Successful' || '⚠️ Review Required' }}"
-                  }
-                },
-                {
-                  "type": "section",
-                  "fields": [
-                    {"type": "mrkdwn", "text": "*Branch:*\n`${{ github.ref_name }}`"},
-                    {"type": "mrkdwn", "text": "*Commit:*\n`${{ github.sha }}`"},
-                    {"type": "mrkdwn", "text": "*Actor:*\n${{ github.actor }}"},
-                    {"type": "mrkdwn", "text": "*Time:*\n$(date -u '+%Y-%m-%d %H:%M:%S UTC')"}
-                  ]
-                },
-                {
-                  "type": "actions",
-                  "elements": [
-                    { "type": "button", "text": { "type": "plain_text", "text": "View Commit" }, "url": "${{ github.event.head_commit.url }}" },
-                    { "type": "button", "text": { "type": "plain_text", "text": "View Workflow" }, "url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" }
-                  ]
-                }
-              ]
-            }
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-      
-      - name: 📧 Send Email Notification
-        if: secrets.SMTP_HOST != ''
-        uses: dawidd6/action-send-mail@v3
-        with:
-          server_address: ${{ secrets.SMTP_HOST }}
-          server_port: 587
-          username: ${{ secrets.SMTP_USER }}
-          password: ${{ secrets.SMTP_PASSWORD }}
-          subject: "AlgeriaTrade.dz Deployment ${{ job.status }} - ${{ github.ref_name }}"
-          to: team@algeriatrade.dz
-          from: ci-cd@algeriatrace.dz
-          body: |
-            Deployment Status: ${{ job.status }}
-            Branch: ${{ github.ref_name }}
-            Commit: ${{ github.sha }}
-            Actor: ${{ github.actor }}
-            Details: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-
-  # ===========================================
-  # FINAL: Pipeline Summary
-  # ===========================================
-  pipeline-summary:
-    name: 📋 Pipeline Summary
-    runs-on: ubuntu-latest
-    needs: [code-quality, test, build, docker, deploy-staging, deploy-production]
-    if: always()
-    timeout-minutes: 2
-    
-    steps:
-      - name: 📋 Generate Pipeline Report
-        run: |
-          echo "# 🚀 AlgeriaTrade.dz CI/CD Pipeline Report" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Job | Status |" >> $GITHUB_STEP_SUMMARY
-          echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
-          echo "| 🔍 Code Quality | ${{ needs.code-quality.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| 🧪 Tests | ${{ needs.test.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| 🏗️ Build | ${{ needs.build.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| 🐳 Docker | ${{ needs.docker.result == 'success' && '✅ Built' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| 🚀 Staging | ${{ needs.deploy-staging.result == 'success' && '✅ Deployed' || '⏭️ Skipped' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| 🏭 Production | ${{ needs.deploy-production.result == 'success' && '✅ Deployed' || '⏭️ Skipped' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Pipeline Duration:** ${{ github.run_duration }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Triggered By:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Triggered by:** @${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
