@@ -139,6 +139,110 @@ export type {
   AssetPipelineConfig,
 } from './compression-config';
 
-// Default export - main cache manager instance
+// Web Vitals monitoring
+export {
+  getWebVitalsTracker,
+  WebVitalsTracker,
+} from './web-vitals';
+
+export type {
+  Metric,
+  WebVitalsReport,
+} from './web-vitals';
+
+// Service Worker strategies
+export {
+  handleRequest,
+  getStrategyForUrl,
+  clearAllCaches,
+  precacheResources,
+  getCacheStats,
+  getOfflineFallbackPage,
+  getOfflineImage,
+  ROUTE_STRATEGIES,
+  cacheFirst,
+  networkFirst,
+  staleWhileRevalidate,
+  networkOnly,
+  cacheOnly,
+  raceNetworkAndCache,
+} from './sw-strategies';
+
+export type {
+  CacheStrategy,
+  CacheStrategyConfig,
+  RouteStrategy,
+} from './sw-strategies';
+
+// Resource hints
+export {
+  getHintsForPath,
+  generateResourceHints,
+  generateLinkHeader,
+  getDynamicHintManager,
+  EXTERNAL_DOMAINS,
+  PAGE_HINTS,
+} from './resource-hints';
+
+export type {
+  DomainConfig,
+  CriticalResource,
+  PageHints,
+} from './resource-hints';
+
+// Font optimization
+export {
+  generateFontFaceDeclarations,
+  generateFontCSS,
+  initializePageFonts,
+  getFontsForLocale,
+  generateFontCSSVariables,
+  getFontMonitor,
+  loadFontSwap,
+  loadFontCritical,
+  loadFontAsync,
+  loadFontOnDemand,
+  FONT_CONFIGS,
+} from './font-optimization';
+
+export type {
+  FontConfig,
+  FontFaceDeclaration,
+} from './font-optimization';
+
+// ISR configuration
+export {
+  getISRConfig,
+  shouldGenerateStatic,
+  getStaticPaths,
+  getInvalidationManager,
+  createRevalidationHandler,
+  generateRevalidationConfig,
+  ROUTE_ISR_CONFIGS,
+  DEFAULT_INTERVALS,
+} from './isr-config';
+
+export type {
+  ISRConfig,
+  RouteISRConfig,
+} from './isr-config';
+
+// Performance budgets
+export {
+  getBudgetChecker,
+  generateCIAnnotation,
+  shouldBuildFail,
+  ROUTE_BUDGETS,
+  PerformanceBudgetChecker,
+} from './budgets';
+
+export type {
+  SizeBudget,
+  RouteBudget,
+  BudgetReport,
+  BudgetViolation,
+} from './budgets';
+
+// Default export - main instances
 export { default as cache } from './advanced-cache';
 export { default as database } from './database-optimizer';
