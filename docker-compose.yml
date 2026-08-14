@@ -1,0 +1,154 @@
+# =============================================================================
+# Docker Compose - AlgeriaTrade.dz
+# =============================================================================
+# Configuration principale pour le développement et les tests locaux
+# Utilise SQLite pour la base de données (simple)
+# =============================================================================
+
+version: '3.8'
+
+# =============================================================================
+# Services
+# =============================================================================
+services:
+
+  # ---------------------------------------------------------------------------
+  # Application Next.js principale
+  # ---------------------------------------------------------------------------
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runner
+    container_name: algeriatrade-app
+    ports:
+      - "3000:3000"
+    environment:
+      # Application
+      - NODE_ENV=production
+      - NEXT_PUBLIC_APP_URL=http://localhost:3000
+      - NEXT_PUBLIC_APP_NAME=AlgeriaTrade
+      
+      # Base de données (SQLite pour développement)
+      - DATABASE_URL=file:./data/production.db
+      
+      # Authentification
+      - NEXTAUTH_URL=http://localhost:3000
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-change-me-in-production-secret-key}
+      
+      # Email (désactivé en dev par défaut)
+      - EMAIL_PROVIDER=smtp
+      - EMAIL_FROM=noreply@localhost
+      
+      # Redis (optionnel en dev)
+      - REDIS_URL=redis://redis:6379
+      
+      # Socket.IO pour la messagerie
+      - SOCKET_IO_PORT=3003
+      - NEXT_PUBLIC_SOCKET_URL=ws://localhost:3003
+      
+      # Logging
+      - LOG_LEVEL=debug
+      - LOG_FORMAT=pretty
+    volumes:
+      # Persister les données de la base de données
+      - ./data:/app/data
+      # Persister les fichiers uploadés
+      - ./uploads:/app/public/uploads
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - algeriatrade-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # ---------------------------------------------------------------------------
+  # Redis - Cache et sessions
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: algeriatrade-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+    networks:
+      - algeriatrade-network
+    command: >
+      redis-server
+      --appendonly yes
+      --appendfsync everysec
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ---------------------------------------------------------------------------
+  # Service de messagerie (Socket.IO)
+  # ---------------------------------------------------------------------------
+  message-service:
+    build:
+      context: ./mini-services/message-service
+      dockerfile: Dockerfile
+    container_name: algeriatrade-messages
+    ports:
+      - "3003:3003"
+    environment:
+      - PORT=3003
+      - REDIS_URL=redis://redis:6379
+      - NODE_ENV=production
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - algeriatrade-network
+
+  # ---------------------------------------------------------------------------
+  # Nginx - Reverse proxy (optionnel, pour la production locale)
+  # ---------------------------------------------------------------------------
+  nginx:
+    image: nginx:alpine
+    container_name: algeriatrade-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./certs:/etc/nginx/certs:ro
+      - ./uploads:/var/www/uploads:ro
+    depends_on:
+      app:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - algeriatrade-network
+    profiles:
+      - production
+
+# =============================================================================
+# Volumes persistants
+# =============================================================================
+volumes:
+  redis-data:
+    driver: local
+
+# =============================================================================
+# Réseaux
+# =============================================================================
+networks:
+  algeriatrade-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16

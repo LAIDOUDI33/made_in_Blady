@@ -1,0 +1,197 @@
+# =============================================================================
+# Docker Compose Development - AlgeriaTrade.dz
+# =============================================================================
+# Configuration DÉVELOPPEMENT avec :
+# - Hot reload activé
+# - Ports de debug exposés
+# - Sécurité relaxée
+# - Variables de développement
+# - Outils de dev (mailhog, etc.)
+# =============================================================================
+
+version: '3.8'
+
+services:
+
+  # ---------------------------------------------------------------------------
+  # Application Next.js (Développement)
+  # ---------------------------------------------------------------------------
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    container_name: algeriatrade-app-dev
+    
+    # Exposer les ports pour le développement
+    ports:
+      - "3000:3000"       # Application principale
+      - "9229:9229"       # Debug Node.js (si --inspect est utilisé)
+    
+    environment:
+      # --- Application en mode dev ---
+      - NODE_ENV=development
+      - NEXT_PUBLIC_APP_URL=http://localhost:3000
+      - NEXT_PUBLIC_APP_NAME=AlgeriaTrade [Dev]
+      
+      # --- Base de données SQLite (simple pour le dev) ---
+      - DATABASE_URL=file:./data/development.db
+      
+      # --- Authentification ---
+      - NEXTAUTH_URL=http://localhost:3000
+      - NEXTAUTH_SECRET=dev-secret-key-change-in-production-not-secure
+      
+      # --- Email (MailHog pour intercepter les emails) ---
+      - EMAIL_PROVIDER=smtp
+      - SMTP_HOST=mailhog
+      - SMTP_PORT=1025
+      - EMAIL_FROM=noreply@localhost
+      
+      # --- Paiements (mode test) ---
+      - CIB_API_KEY=test_key
+      - CIB_MERCHANT_ID=test_merchant
+      - CCP_MERCHANT_ID=test_ccp
+      - BARIDIMOB_API_KEY=test_baridimob
+      
+      # --- Redis ---
+      - REDIS_URL=redis://redis:6379
+      
+      # --- Socket.IO ---
+      - SOCKET_IO_PORT=3003
+      - NEXT_PUBLIC_SOCKET_URL=ws://localhost:3003
+      
+      # --- Logging verbose ---
+      - LOG_LEVEL=debug
+      - LOG_FORMAT=pretty
+      
+      # --- Feature flags pour le dev ---
+      - ENABLE_EMAIL_VERIFICATION=false
+      - ENABLE_COMPANY_VERIFICATION=false
+    
+    volumes:
+      # Monter le code source pour le hot-reload
+      - .:/app
+      - /app/node_modules
+      - ./data:/app/data
+      - ./uploads:/app/public/uploads
+    
+    depends_on:
+      redis:
+        condition: service_healthy
+      mailhog:
+        condition: service_started
+    
+    networks:
+      - algeriatrade-dev-network
+    
+    # Pas de restart automatique en dev (pour voir les erreurs)
+    restart: "no"
+
+  # ---------------------------------------------------------------------------
+  # Redis (Développement)
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: algeriatrade-redis-dev
+    ports:
+      - "6379:6379"
+    
+    # Configuration plus légère pour le dev
+    command: >
+      redis-server
+      --appendonly no
+      --maxmemory 128mb
+      --maxmemory-policy allkeys-lru
+    
+    volumes:
+      - redis-dev-data:/data
+    
+    networks:
+      - algeriatrade-dev-network
+    
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    
+    restart: "no"
+
+  # ---------------------------------------------------------------------------
+  # MailHog - Email testing (intercepte tous les emails)
+  # ---------------------------------------------------------------------------
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: algeriatrade-mailhog
+    ports:
+      - "1025:1025"   # SMTP server
+      - "8025:8025"   # Web UI
+    
+    networks:
+      - algeriatrade-dev-network
+    
+    restart: "no"
+    
+    profiles:
+      - email-tools
+
+  # ---------------------------------------------------------------------------
+  # Service de messagerie (Développement)
+  # ---------------------------------------------------------------------------
+  message-service:
+    build:
+      context: ./mini-services/message-service
+      dockerfile: Dockerfile
+    container_name: algeriatrade-messages-dev
+    ports:
+      - "3003:3003"
+    
+    environment:
+      - NODE_ENV=development
+      - PORT=3003
+      - REDIS_URL=redis://redis:6379
+      - LOG_LEVEL=debug
+    
+    volumes:
+      - ./mini-services/message-service:/app
+      - /app/node_modules
+    
+    depends_on:
+      redis:
+        condition: service_healthy
+    
+    networks:
+      - algeriatrade-dev-network
+    
+    restart: "no"
+
+  # ---------------------------------------------------------------------------
+  # Adminer - Administration base de données (alternative à pgAdmin)
+  # ---------------------------------------------------------------------------
+  adminer:
+    image: adminer:latest
+    container_name: algeriatrade-adminer
+    ports:
+      - "8080:8080"
+    
+    networks:
+      - algeriatrade-dev-network
+    
+    restart: "no"
+    
+    profiles:
+      - db-tools
+
+# =============================================================================
+# Volumes Développement
+# =============================================================================
+volumes:
+  redis-dev-data:
+    driver: local
+
+# =============================================================================
+# Réseau Développement
+# =============================================================================
+networks:
+  algeriatrade-dev-network:
+    driver: bridge

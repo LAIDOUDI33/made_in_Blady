@@ -1,0 +1,685 @@
+     1→"use client";
+     2→
+     3→import React from "react";
+     4→import Link from "next/link";
+     5→import { Button } from "@/components/ui/button";
+     6→import { Card, CardContent } from "@/components/ui/card";
+     7→import { Badge } from "@/components/ui/badge";
+     8→import { Input } from "@/components/ui/input";
+     9→import { useTranslation, useLanguage } from "@/lib/i18n";
+    10→import {
+    11→  Search,
+    12→  ArrowRight,
+    13→  Users,
+    14→  Package,
+    15→  Factory,
+    16→  Handshake,
+    17→  Star,
+    18→  Shield,
+    19→  TrendingUp,
+    20→  MapPin,
+    21→  CheckCircle,
+    22→  ChevronRight,
+    23→  ShieldCheck,
+    24→  Lock,
+    25→  Key,
+    26→  Eye,
+    27→  Fingerprint,
+    28→} from "lucide-react";
+    29→
+    30→export default function HomePage() {
+    31→  const { t, isRTL } = useTranslation();
+    32→
+    33→  const stats = [
+    34→    { labelKey: "home.stats.suppliers", value: "2,500+", icon: Factory },
+    35→    { labelKey: "home.stats.products", value: "50,000+", icon: Package },
+    36→    { labelKey: "home.stats.rfqs", value: "1,200+", icon: Handshake },
+    37→    { labelKey: "home.stats.transactions", value: "15M+ DZD", icon: TrendingUp },
+    38→  ];
+    39→
+    40→  const categories = [
+    41→    {
+    42→      nameKey: "categories.agriculture",
+    43→      nameFr: "Agriculture & Alimentation",
+    44→      descriptionKey: "categories.agricultureDesc",
+    45→      descriptionFr: "Machines agricoles, engrais, produits alimentaires",
+    46→      icon: "🌾",
+    47→      count: "3,400+",
+    48→      href: "/categories/agriculture-food",
+    49→      color: "bg-green-50 border-green-200 hover:border-green-400",
+    50→    },
+    51→    {
+    52→      nameKey: "categories.construction",
+    53→      nameFr: "Construction & BTP",
+    54→      descriptionKey: "categories.constructionDesc",
+    55→      descriptionFr: "Ciment, acier, matériaux de construction",
+    56→      icon: "🏗️",
+    57→      count: "5,200+",
+    58→      href: "/categories/construction",
+    59→      color: "bg-orange-50 border-orange-200 hover:border-orange-400",
+    60→    },
+    61→    {
+    62→      nameKey: "categories.industrial",
+    63→      nameFr: "Équipement Industriel",
+    64→      descriptionKey: "categories.industrialDesc",
+    65→      descriptionFr: "CNC, compresseurs, pompes, machines",
+    66→      icon: "⚙️",
+    67→      count: "4,100+",
+    68→      href: "/categories/industrial-equipment",
+    69→      color: "bg-blue-50 border-blue-200 hover:border-blue-400",
+    70→    },
+    71→    {
+    72→      nameKey: "categories.energy",
+    73→      nameFr: "Énergie Solaire",
+    74→      descriptionKey: "categories.energyDesc",
+    75→      descriptionFr: "Panneaux solaires, batteries, onduleurs",
+    76→      icon: "☀️",
+    77→      count: "1,800+",
+    78→      href: "/categories/energy-solar",
+    79→      color: "bg-yellow-50 border-yellow-200 hover:border-yellow-400",
+    80→    },
+    81→    {
+    82→      nameKey: "categories.ict",
+    83→      nameFr: "ICT & Télécoms",
+    84→      descriptionKey: "categories.ictDesc",
+    85→      descriptionFr: "Réseaux, serveurs, fibre optique",
+    86→      icon: "💻",
+    87→      count: "2,600+",
+    88→      href: "/categories/ict-telecom",
+    89→      color: "bg-purple-50 border-purple-200 hover:border-purple-400",
+    90→    },
+    91→    {
+    92→      nameKey: "categories.automobile",
+    93→      nameFr: "Automobile",
+    94→      descriptionKey: "categories.automobileDesc",
+    95→      descriptionFr: "Véhicules, pièces détachées, pneus",
+    96→      icon: "🚗",
+    97→      count: "3,900+",
+    98→      href: "/categories/automotive",
+    99→      color: "bg-red-50 border-red-200 hover:border-red-400",
+   100→    },
+   101→    {
+   102→      nameKey: "categories.textiles",
+   103→      nameFr: "Textiles & Habillement",
+   104→      descriptionKey: "categories.textilesDesc",
+   105→      descriptionFr: "Tissus, vêtements de travail",
+   106→      icon: "👕",
+   107→      count: "1,500+",
+   108→      href: "/categories/textiles",
+   109→      color: "bg-pink-50 border-pink-200 hover:border-pink-400",
+   110→    },
+   111→    {
+   112→      nameKey: "categories.chemicals",
+   113→      nameFr: "Produits Chimiques",
+   114→      descriptionKey: "categories.chemicalsDesc",
+   115→      descriptionFr: "Peintures, plastiques, engrais",
+   116→      icon: "🧪",
+   117→      count: "980+",
+   118→      href: "/categories/chemicals",
+   119→      color: "bg-cyan-50 border-cyan-200 hover:border-cyan-400",
+   120→    },
+   121→  ];
+   122→
+   123→  const featuredProducts = [
+   124→    {
+   125→      id: 1,
+   126→      nameKey: "home.featured.product1.name",
+   127→      nameFr: "Panneaux Solaires Monocristallins 550W",
+   128→      company: "SolarTech Algeria",
+   129→      location: "Alger",
+   130→      price: "45,000 DZD",
+   131→      moq: "10 unités",
+   132→      image: "https://images.unsplash.com/photo-1509391366600-2e10622a1a11?w=300&h=200&fit=crop",
+   133→      verified: true,
+   134→      badgeKey: "products.bestSeller",
+   135→      badgeFr: "Meilleure vente",
+   136→    },
+   137→    {
+   138→      id: 2,
+   139→      nameKey: "home.featured.product2.name",
+   140→      nameFr: "Câble Industriel Cuivre 16mm²",
+   141→      company: "CableAlger",
+   142→      location: "Oran",
+   143→      price: "850 DZD/m",
+   144→      moq: "100m",
+   145→      image: "https://images.unsplash.com/photo-1558618666-fcd25c85f82e?w=300&h=200&fit=crop",
+   146→      verified: true,
+   147→      badgeKey: "products.certified",
+   148→      badgeFr: "Certifié ISO",
+   149→    },
+   150→    {
+   151→      id: 3,
+   152→      nameKey: "home.featured.product3.name",
+   153→      nameFr: "Pompes Submersibles pour Irrigation",
+   154→      company: "HydroEquip",
+   155→      location: "Sétif",
+   156→      price: "125,000 DZD",
+   157→      moq: "1 unité",
+   158→      image: "https://images.unsplash.com/photo-1581092918056-0c4c3acd3789?w=300&h=200&fit=crop",
+   159→      verified: true,
+   160→      badgeKey: "common.new",
+   161→      badgeFr: "Nouveau",
+   162→    },
+   163→    {
+   164→      id: 4,
+   165→      nameKey: "home.featured.product4.name",
+   166→      nameFr: "Acier de Construction Fe500",
+   167→      company: "MetalPro",
+   168→      location: "Constantine",
+   169→      price: "285,000 DZD/t",
+   170→      moq: "5 tonnes",
+   171→      image: "https://images.unsplash.com/photo-1504917595217-d2dc543e1627?w=300&h=200&fit=crop",
+   172→      verified: false,
+   173→      badgeKey: null,
+   174→      badgeFr: null,
+   175→    },
+   176→  ];
+   177→
+   178→  const featuredSuppliers = [
+   179→    {
+   180→      id: 1,
+   181→      name: "Groupe Industriel Algérien (GIA)",
+   182→      categoryKey: "categories.industrial",
+   183→      categoryFr: "Équipement Industriel",
+   184→      location: "Alger",
+   185→      products: 245,
+   186→      rating: 4.8,
+   187→      responseRate: 95,
+   188→      verified: true,
+   189→      premium: true,
+   190→    },
+   191→    {
+   192→      id: 2,
+   193→      name: "AgriTech Solutions",
+   194→      categoryKey: "categories.agriculture",
+   195→      categoryFr: "Agriculture",
+   196→      location: "Sidi Bel Abbès",
+   197→      products: 128,
+   198→      rating: 4.6,
+   199→      responseRate: 89,
+   200→      verified: true,
+   201→      premium: true,
+   202→    },
+   203→    {
+   204→      id: 3,
+   205→      name: "SolarEnergy Algeria",
+   206→      categoryKey: "categories.energy",
+   207→      categoryFr: "Énergie Renouvelable",
+   208→      location: "Oran",
+   209→      products: 87,
+   210→      rating: 4.9,
+   211→      responseRate: 98,
+   212→      verified: true,
+   213→      premium: false,
+   214→    },
+   215→  ];
+   216→
+   217→  const howItWorks = [
+   218→    {
+   219→      step: "01",
+   220→      titleKey: "home.howItWorks.step1.title",
+   221→      titleFr: "Créez Votre Compte",
+   222→      descriptionKey: "home.howItWorks.step1.desc",
+   223→      descriptionFr: "Inscription gratuite en quelques minutes. Complétez votre profil entreprise.",
+   224→      icon: Users,
+   225→    },
+   226→    {
+   227→      step: "02",
+   228→      titleKey: "home.howItWorks.step2.title",
+   229→      titleFr: "Recherchez ou Publiez un AO",
+   230→      descriptionKey: "home.howItWorks.step2.desc",
+   231→      descriptionFr: "Parcourez des milliers de produits ou publiez votre appel d'offres.",
+   232→      icon: Search,
+   233→    },
+   234→    {
+   235→      step: "03",
+   236→      titleKey: "home.howItWorks.step3.title",
+   237→      titleFr: "Connectez & Négociez",
+   238→      descriptionKey: "home.howItWorks.step3.desc",
+   239→      descriptionFr: "Contactez les fournisseurs, comparez les devis et négociez.",
+   240→      icon: Handshake,
+   241→    },
+   242→    {
+   243→      step: "04",
+   244→      titleKey: "home.howItWorks.step4.title",
+   245→      titleFr: "Finalisez la Transaction",
+   246→      descriptionKey: "home.howItWorks.step4.desc",
+   247→      descriptionFr: "Acceptez le meilleur offre et finalisez en toute sécurité.",
+   248→      icon: Package,
+   249→    },
+   250→  ];
+   251→
+   252→  return (
+   253→    <div className="flex flex-col">
+   254→      {/* Hero Section */}
+   255→      <section className="relative bg-gradient-to-br from-green-700 via-green-600 to-emerald-600 text-white overflow-hidden">
+   256→        {/* Background Pattern */}
+   257→        <div className="absolute inset-0 opacity-10">
+   258→          <div className="absolute inset-0" style={{
+   259→            backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+   260→          }} />
+   261→        </div>
+   262→
+   263→        <div className="container mx-auto px-4 py-20 lg:py-28 relative z-10">
+   264→          <div className={`max-w-4xl mx-auto text-center space-y-8 ${isRTL ? 'rtl' : ''}`}>
+   265→            {/* Badge */}
+   266→            <Badge variant="secondary" className="bg-white/20 text-white border-white/30 px-4 py-1">
+   267→              🇩🇿 {t('home.hero.badge') || 'La #1 Plateforme B2B en Algérie'}
+   268→            </Badge>
+   269→
+   270→            {/* Main Heading */}
+   271→            <div className="space-y-4">
+   272→              <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight">
+   273→                {t('home.hero.title') || 'Sourcez depuis l\'Algérie.'}
+   274→                <br />
+   275→                {t('home.hero.subtitle') || 'Achetez auprès de fournisseurs'}
+   276→                <br />
+   277→                <span className="text-yellow-300">{t('home.hero.highlight') || 'de confiance.'}</span>
+   278→              </h1>
+   279→              <p className="text-lg md:text-xl text-green-100 max-w-2xl mx-auto">
+   280→                {t('home.hero.description') || 'Connectez-vous avec plus de 2,500 fournisseurs algériens vérifiés. Trouvez des produits, comparez les prix et développez votre entreprise.'}
+   281→              </p>
+   282→            </div>
+   283→
+   284→            {/* Search Box */}
+   285→            <div className="max-w-3xl mx-auto">
+   286→              <Card className="bg-white shadow-2xl border-0 overflow-hidden">
+   287→                <CardContent className="p-2">
+   288→                  <div className={`flex flex-col md:flex-row gap-2 ${isRTL ? 'md:flex-row-reverse' : ''}`}>
+   289→                    <div className="relative flex-1">
+   290→                      <Search className={`absolute ${isRTL ? 'right-4' : 'left-4'} top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground`} />
+   291→                      <Input
+   292→                        placeholder={t('home.hero.searchPlaceholder') || 'Que recherchez-vous? Ex: Panneaux solaires, câbles industriels...'}
+   293→                        className={`${isRTL ? 'pr-12 pl-4' : 'pl-12 pr-4'} h-14 text-base border-0 focus-visible:ring-0`}
+   294→                        dir={isRTL ? 'rtl' : 'ltr'}
+   295→                      />
+   296→                    </div>
+   297→                    <select className={`px-4 h-14 border rounded-lg bg-background text-sm min-w-[140px] ${isRTL ? 'text-right' : ''}`}>
+   298→                      <option value="">{t('products.filters.allCategories') || 'Toutes catégories'}</option>
+   299→                      <option value="agriculture">{t('categories.agriculture') || 'Agriculture'}</option>
+   300→                      <option value="construction">{t('categories.construction') || 'Construction'}</option>
+   301→                      <option value="industrial">{t('categories.industrial') || 'Industrie'}</option>
+   302→                      <option value="energy">{t('categories.energy') || 'Énergie'}</option>
+   303→                      <option value="ict">{t('categories.ict') || 'ICT'}</option>
+   304→                    </select>
+   305→                    <Button size="lg" className="h-14 px-8 bg-green-600 hover:bg-green-700 text-base font-semibold">
+   306→                      {t('common.search') || 'Rechercher'}
+   307→                    </Button>
+   308→                  </div>
+   309→                  <div className={`flex flex-wrap gap-2 mt-3 px-2 pb-1 ${isRTL ? 'flex-row-reverse' : ''}`}>
+   310→                    <span className="text-xs text-muted-foreground">{t('home.hero.popular') || 'Populaire:'}</span>
+   311→                    {(isRTL ? ['الطاقة الشمسية', 'كابل كهربائي', 'حديد', 'مضخات'] : ["Panneaux solaires", "Câble électrique", "Acier", "Pompes"]).map((term) => (
+   312→                      <Link
+   313→                        key={term}
+   314→                        href={`/search?q=${encodeURIComponent(term)}`}
+   315→                        className="text-xs px-2 py-1 rounded-full bg-muted hover:bg-green-100 hover:text-green-700 transition-colors"
+   316→                      >
+   317→                        {term}
+   318→                      </Link>
+   319→                    ))}
+   320→                  </div>
+   321→                </CardContent>
+   322→              </Card>
+   323→            </div>
+   324→
+   325→            {/* CTA Buttons */}
+   326→            <div className={`flex flex-col sm:flex-row items-center justify-center gap-4 ${isRTL ? 'sm:flex-row-reverse' : ''}`}>
+   327→              <Button size="lg" variant="secondary" className="bg-white text-green-700 hover:bg-gray-100 px-8" asChild>
+   328→                <Link href="/products">
+   329→                  <Package className={`${isRTL ? 'ml-2' : 'mr-2'} h-5 w-5`} />
+   330→                  {t('home.cta.browseProducts') || 'Explorer les Produits'}
+   331→                </Link>
+   332→              </Button>
+   333→              <Button size="lg" variant="outline" className="border-white/30 text-white hover:bg-white/10 px-8" asChild>
+   334→                <Link href="/rfqs/new">
+   335→                  <Handshake className={`${isRTL ? 'ml-2' : 'mr-2'} h-5 w-5`} />
+   336→                  {t('home.cta.postRFQ') || 'Poster un Appel d\'Offre'}
+   337→                </Link>
+   338→              </Button>
+   339→            </div>
+   340→          </div>
+   341→        </div>
+   342→
+   343→        {/* Wave Divider */}
+   344→        <div className="absolute bottom-0 left-0 right-0">
+   345→          <svg viewBox="0 0 1440 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+   346→            <path d="M0 120L60 105C120 90 240 60 360 45C480 30 600 30 720 37.5C840 45 960 60 1080 67.5C1200 75 1320 75 1380 75L1440 75V120H1380C1320 120 1200 120 1080 120C960 120 840 120 720 120C600 120 480 120 360 120C240 120 120 120 60 120H0Z" fill="currentColor" className="text-background" />
+   347→          </svg>
+   348→        </div>
+   349→      </section>
+   350→
+   351→      {/* Stats Section */}
+   352→      <section className="py-12 border-b bg-background">
+   353→        <div className="container mx-auto px-4">
+   354→          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+   355→            {stats.map((stat) => (
+   356→              <div key={stat.labelKey} className="text-center space-y-2">
+   357→                <div className="inline-flex h-12 w-12 items-center justify-center rounded-lg bg-green-100 text-green-600">
+   358→                  <stat.icon className="h-6 w-6" />
+   359→                </div>
+   360→                <p className="text-2xl md:text-3xl font-bold text-foreground">{stat.value}</p>
+   361→                <p className="text-sm text-muted-foreground">{t(stat.labelKey)}</p>
+   362→              </div>
+   363→            ))}
+   364→          </div>
+   365→        </div>
+   366→      </section>
+   367→
+   368→      {/* Categories Section */}
+   369→      <section className="py-16 bg-background">
+   370→        <div className="container mx-auto px-4">
+   371→          <div className="text-center mb-12 space-y-3">
+   372→            <h2 className="text-3xl font-bold text-foreground">
+   373→              {t('home.categories.title') || 'Catégories de Produits'}
+   374→            </h2>
+   375→            <p className="text-muted-foreground max-w-2xl mx-auto">
+   376→              {t('home.categories.description') || 'Explorez nos principales catégories et trouvez exactement ce dont vous avez besoin parmi des milliers de produits algériens.'}
+   377→            </p>
+   378→          </div>
+   379→
+   380→          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+   381→            {categories.map((category) => (
+   382→              <Link key={category.nameKey} href={category.href}>
+   383→                <Card className={`group transition-all duration-300 hover:shadow-lg ${category.color}`}>
+   384→                  <CardContent className="p-6">
+   385→                    <div className={`flex items-start justify-between mb-3 ${isRTL ? 'flex-row-reverse' : ''}`}>
+   386→                      <span className="text-4xl">{category.icon}</span>
+   387→                      <Badge variant="secondary" className="text-xs">
+   388→                        {category.count}
+   389→                      </Badge>
+   390→                    </div>
+   391→                    <h3 className={`font-semibold text-foreground group-hover:text-green-600 transition-colors mb-1 ${isRTL ? 'text-right' : ''}`}>
+   392→                      {t(category.nameKey) || category.nameFr}
+   393→                    </h3>
+   394→                    <p className={`text-sm text-muted-foreground ${isRTL ? 'text-right' : ''}`}>
+   395→                      {t(category.descriptionKey) || category.descriptionFr}
+   396→                    </p>
+   397→                    <div className={`mt-3 flex items-center text-sm text-green-600 opacity-0 group-hover:opacity-100 transition-opacity ${isRTL ? 'flex-row-reverse' : ''}`}>
+   398→                      {t('common.explore') || 'Explorer'} 
+   399→                      <ChevronRight className={`h-4 w-4 ${isRTL ? 'mr-1 rotate-180' : 'ml-1'}`} />
+   400→                    </div>
+   401→                  </CardContent>
+   402→                </Card>
+   403→              </Link>
+   404→            ))}
+   405→          </div>
+   406→
+   407→          <div className="text-center mt-8">
+   408→            <Button variant="outline" size="lg" asChild>
+   409→              <Link href="/categories">
+   410→                {t('home.categories.viewAll') || 'Voir toutes les catégories'}
+   411→                <ArrowRight className={`ml-2 h-4 w-4 ${isRTL ? 'rotate-180' : ''}`} />
+   412→              </Link>
+   413→            </Button>
+   414→          </div>
+   415→        </div>
+   416→      </section>
+   417→
+   418→      {/* Featured Products Section */}
+   419→      <section className="py-16 bg-muted/50">
+   420→        <div className="container mx-auto px-4">
+   421→          <div className={`flex items-center justify-between mb-8 ${isRTL ? 'flex-row-reverse' : ''}`}>
+   422→            <div className={`space-y-1 ${isRTL ? 'text-right' : ''}`}>
+   423→              <h2 className="text-2xl font-bold text-foreground">
+   424→                {t('home.products.title') || 'Produits Vedettes'}
+   425→              </h2>
+   426→              <p className="text-muted-foreground">
+   427→                {t('home.products.description') || 'Découvrez les produits les plus demandés par les acheteurs'}
+   428→              </p>
+   429→            </div>
+   430→            <Button variant="ghost" asChild>
+   431→              <Link href="/products">
+   432→                {t('home.products.viewAll') || 'Voir tous'} 
+   433→                <ArrowRight className={`ml-1 h-4 w-4 ${isRTL ? 'rotate-180' : ''}`} />
+   434→              </Link>
+   435→            </Button>
+   436→          </div>
+   437→
+   438→          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+   439→            {featuredProducts.map((product) => (
+   440→              <Card key={product.id} className="group overflow-hidden hover:shadow-lg transition-all duration-300">
+   441→                <div className="relative aspect-[4/3] overflow-hidden bg-gray-100">
+   442→                  <img
+   443→                    src={product.image}
+   444→                    alt={t(product.nameKey) || product.nameFr}
+   445→                    className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-300"
+   446→                  />
+   447→                  {product.badgeKey && (
+   448→                    <Badge className={`absolute top-3 ${isRTL ? 'right-3' : 'left-3'} bg-green-600 card-badge`}>
+   449→                      {t(product.badgeKey) || product.badgeFr}
+   450→                    </Badge>
+   451→                  )}
+   452→                  {product.verified && (
+   453→                    <div className={`absolute top-3 ${isRTL ? 'left-3' : 'right-3'} bg-white rounded-full p-1 shadow card-verified`}>
+   454→                      <Shield className="h-4 w-4 text-blue-600" />
+   455→                    </div>
+   456→                  )}
+   457→                </div>
+   458→                <CardContent className="p-4 space-y-3">
+   459→                  <h3 className={`font-medium text-sm line-clamp-2 group-hover:text-green-600 transition-colors ${isRTL ? 'text-right' : ''}`}>
+   460→                    {t(product.nameKey) || product.nameFr}
+   461→                  </h3>
+   462→                  <div className="space-y-1 text-xs text-muted-foreground">
+   463→                    <div className={`flex items-center gap-1 ${isRTL ? 'flex-row-reverse' : ''}`}>
+   464→                      <Factory className="h-3 w-3" />
+   465→                      <span>{product.company}</span>
+   466→                    </div>
+   467→                    <div className={`flex items-center gap-1 ${isRTL ? 'flex-row-reverse' : ''}`}>
+   468→                      <MapPin className="h-3 w-3" />
+   469→                      <span>{product.location}</span>
+   470→                    </div>
+   471→                  </div>
+   472→                  <div className={`flex items-center justify-between pt-2 border-t ${isRTL ? 'flex-row-reverse' : ''}`}>
+   473→                    <div className={isRTL ? 'text-left' : ''}>
+   474→                      <p className="font-bold text-green-600">{product.price}</p>
+   475→                      <p className="text-xs text-muted-foreground">MOQ: {product.moq}</p>
+   476→                    </div>
+   477→                    <Button size="sm" variant="outline" className="text-xs">
+   478→                      {t('products.contactSupplier') || 'Contact'}
+   479→                    </Button>
+   480→                  </div>
+   481→                </CardContent>
+   482→              </Card>
+   483→            ))}
+   484→          </div>
+   485→        </div>
+   486→      </section>
+   487→
+   488→      {/* Featured Suppliers Section */}
+   489→      <section className="py-16 bg-background">
+   490→        <div className="container mx-auto px-4">
+   491→          <div className={`flex items-center justify-between mb-8 ${isRTL ? 'flex-row-reverse' : ''}`}>
+   492→            <div className={`space-y-1 ${isRTL ? 'text-right' : ''}`}>
+   493→              <h2 className="text-2xl font-bold text-foreground">
+   494→                {t('home.suppliers.title') || 'Fournisseurs Vedettes'}
+   495→              </h2>
+   496→              <p className="text-muted-foreground">
+   497→                {t('home.suppliers.description') || 'Des entreprises algériennes vérifiées et fiables'}
+   498→              </p>
+   499→            </div>
+   500→            <Button variant="ghost" asChild>
+   501→              <Link href="/suppliers">
+   502→                {t('suppliers.allSuppliers') || 'Tous les fournisseurs'} 
+   503→                <ArrowRight className={`ml-1 h-4 w-4 ${isRTL ? 'rotate-180' : ''}`} />
+   504→              </Link>
+   505→            </Button>
+   506→          </div>
+   507→
+   508→          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+   509→            {featuredSuppliers.map((supplier) => (
+   510→              <Card key={supplier.id} className="hover:shadow-lg transition-shadow">
+   511→                <CardContent className="p-6">
+   512→                  <div className={`flex items-start gap-4 ${isRTL ? 'flex-row-reverse' : ''}`}>
+   513→                    <div className="h-14 w-14 rounded-lg bg-gradient-to-br from-green-100 to-green-200 flex items-center justify-center text-xl font-bold text-green-700 shrink-0">
+   514→                      {supplier.name.charAt(0)}
+   515→                    </div>
+   516→                    <div className="flex-1 min-w-0">
+   517→                      <div className={`flex items-center gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
+   518→                        <h3 className={`font-semibold truncate ${isRTL ? 'text-right' : ''}`}>{supplier.name}</h3>
+   519→                        {supplier.verified && (
+   520→                          <Shield className="h-4 w-4 text-blue-500 shrink-0" />
+   521→                        )}
+   522→                        {supplier.premium && (
+   523→                          <Badge className="bg-yellow-100 text-yellow-700 text-[10px] shrink-0">Premium</Badge>
+   524→                        )}
+   525→                      </div>
+   526→                      <p className="text-sm text-muted-foreground">{t(supplier.categoryKey) || supplier.categoryFr}</p>
+   527→                    </div>
+   528→                  </div>
+   529→                  
+   530→                  <div className={`mt-4 grid grid-cols-3 gap-4 text-center`}>
+   531→                    <div>
+   532→                      <p className="font-semibold text-foreground">{supplier.products}</p>
+   533→                      <p className="text-xs text-muted-foreground">{t('suppliers.productsCount') || 'Produits'}</p>
+   534→                    </div>
+   535→                    <div>
+   536→                      <div className="flex items-center justify-center gap-1">
+   537→                        <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
+   538→                        <span className="font-semibold">{supplier.rating}</span>
+   539→                      </div>
+   540→                      <p className="text-xs text-muted-foreground">{t('dashboard.stats.rating') || 'Note'}</p>
+   541→                    </div>
+   542→                    <div>
+   543→                      <p className="font-semibold text-foreground">{supplier.responseRate}%</p>
+   544→                      <p className="text-xs text-muted-foreground">{t('dashboard.stats.responseRate') || 'Réponse'}</p>
+   545→                    </div>
+   546→                  </div>
+   547→
+   548→                  <div className={`mt-4 pt-4 border-t flex items-center justify-between ${isRTL ? 'flex-row-reverse' : ''}`}>
+   549→                    <div className="flex items-center gap-1 text-sm text-muted-foreground">
+   550→                      <MapPin className="h-4 w-4" />
+   551→                      <span>{supplier.location}</span>
+   552→                    </div>
+   553→                    <Button size="sm" variant="outline">
+   554→                      {t('suppliers.viewProfile') || 'Voir Profil'}
+   555→                    </Button>
+   556→                  </div>
+   557→                </CardContent>
+   558→              </Card>
+   559→            ))}
+   560→          </div>
+   561→        </div>
+   562→      </section>
+   563→
+   564→      {/* How It Works Section */}
+   565→      <section className="py-16 bg-muted/50">
+   566→        <div className="container mx-auto px-4">
+   567→          <div className="text-center mb-12 space-y-3">
+   568→            <h2 className="text-3xl font-bold text-foreground">
+   569→              {t('home.howItWorks.title') || 'Comment Ça Marche'}
+   570→            </h2>
+   571→            <p className="text-muted-foreground max-w-2xl mx-auto">
+   572→              {t('home.howItWorks.description') || 'Rejoignez des milliers d\'entreprises qui utilisent AlgeriaTrade pour développer leur activité'}
+   573→            </p>
+   574→          </div>
+   575→
+   576→          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+   577→            {howItWorks.map((step) => (
+   578→              <div key={step.step} className="text-center space-y-4">
+   579→                <div className="relative inline-flex">
+   580→                  <div className="h-20 w-20 rounded-2xl bg-green-100 flex items-center justify-center">
+   581→                    <step.icon className="h-10 w-10 text-green-600" />
+   582→                  </div>
+   583→                  <Badge className={`absolute -top-2 -${isRTL ? 'left' : 'right'}-2 h-8 w-8 rounded-full bg-green-600 text-white flex items-center justify-center p-0`}>
+   584→                    {step.step}
+   585→                  </Badge>
+   586→                </div>
+   587→                <h3 className="font-semibold text-lg">{t(step.titleKey) || step.titleFr}</h3>
+   588→                <p className="text-sm text-muted-foreground">{t(step.descriptionKey) || step.descriptionFr}</p>
+   589→              </div>
+   590→            ))}
+   591→          </div>
+   592→        </div>
+   593→      </section>
+   594→
+   595→      {/* Payment System Showcase - NEW SECTION */}
+   596→      <section className="py-20 px-4 bg-gradient-to-b from-gray-50 to-white">
+   597→        <div className="container mx-auto">
+   598→          <div className="text-center mb-12">
+   599→            <Badge variant="outline" className="mb-4 px-4 py-1.5 border-[#006233] text-[#006233]">
+   600→              💳 Système de Paiement Intégré
+   601→            </Badge>
+   602→            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+   603→              Paiements Sécurisés pour l&apos;Algérie
+   604→            </h2>
+   605→            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+   606→              Acceptez tous les modes de paiement locaux : CIB, CCP, BaridiMob, Virement Bancaire
+   607→            </p>
+   608→          </div>
+   609→
+   610→          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 max-w-4xl mx-auto mb-10">
+   611→            {[
+   612→              { name: 'Carte CIB', icon: '💳', color: 'bg-blue-50 hover:bg-blue-100' },
+   613→              { name: 'CCP', icon: '🏦', color: 'bg-green-50 hover:bg-green-100' },
+   614→              { name: 'BaridiMob', icon: '📱', color: 'bg-purple-50 hover:bg-purple-100' },
+   615→              { name: 'Virement', icon: '🏛️', color: 'bg-orange-50 hover:bg-orange-100' },
+   616→              { name: 'COD', icon: '💵', color: 'bg-gray-50 hover:bg-gray-100' },
+   617→            ].map((method) => (
+   618→              <div key={method.name} className={`${method.color} p-4 rounded-xl text-center transition-colors cursor-pointer`}>
+   619→                <span className="text-2xl">{method.icon}</span>
+   620→                <p className="text-sm font-medium mt-2">{method.name}</p>
+   621→              </div>
+   622→            ))}
+   623→          </div>
+   624→
+   625→          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+   626→            <Button size="lg" className="bg-[#006233] hover:bg-[#004d28] text-white px-8" asChild>
+   627→              <Link href="/checkout">
+   628→                Essayer la Démo de Paiement
+   629→                <ArrowRight className={`ml-2 h-5 w-5 ${isRTL ? 'rotate-180' : ''}`} />
+   630→              </Link>
+   631→            </Button>
+   632→            <Button size="lg" variant="outline" className="px-8" asChild>
+   633→              <Link href="/payments">
+   634→                En savoir plus
+   635→              </Link>
+   636→            </Button>
+   637→          </div>
+   638→        </div>
+   639→      </section>
+   640→
+   641→      {/* CTA Section */}
+   642→      <section className="py-20 bg-gradient-to-r from-green-600 to-emerald-600 text-white">
+   643→        <div className="container mx-auto px-4 text-center space-y-8">
+   644→          <div className="space-y-4">
+   645→            <h2 className="text-3xl md:text-4xl font-bold">
+   646→              {t('home.cta.title') || 'Prêt à Développer Votre Entreprise?'}
+   647→            </h2>
+   648→            <p className="text-lg text-green-100 max-w-2xl mx-auto">
+   649→              {t('home.cta.description') || 'Rejoignez la plus grande plateforme B2B d\'Algérie. Inscrivez-vous gratuitement et commencez à trouver de nouveaux clients dès aujourd\'hui.'}
+   650→            </p>
+   651→          </div>
+   652→          
+   653→          <div className={`flex flex-col sm:flex-row items-center justify-center gap-4 ${isRTL ? 'sm:flex-row-reverse' : ''}`}>
+   654→            <Button size="lg" variant="secondary" className="bg-white text-green-700 hover:bg-gray-100 px-8 text-lg" asChild>
+   655→              <Link href="/register?role=buyer">
+   656→                {t('home.cta.buyerBtn') || 'Je Veux Acheter'}
+   657→              </Link>
+   658→            </Button>
+   659→            <Button size="lg" variant="outline" className="border-white text-white hover:bg-white/10 px-8 text-lg" asChild>
+   660→              <Link href="/register?role=supplier">
+   661→                {t('home.cta.sellerBtn') || 'Je Veux Vendre'}
+   662→              </Link>
+   663→            </Button>
+   664→          </div>
+   665→
+   666→          <div className={`flex items-center justify-center gap-6 text-sm text-green-100 ${isRTL ? 'flex-row-reverse' : ''}`}>
+   667→            <span className="flex items-center gap-1">
+   668→              <CheckCircle className="h-4 w-4" />
+   669→              {t('home.cta.freeRegistration') || 'Inscription Gratuite'}
+   670→            </span>
+   671→            <span className="flex items-center gap-1">
+   672→              <CheckCircle className="h-4 w-4" />
+   673→              {t('home.cta.noCreditCard') || 'Pas de Carte Bancaire'}
+   674→            </span>
+   675→            <span className="flex items-center gap-1">
+   676→              <CheckCircle className="h-4 w-4" />
+   677→              {t('home.cta.support247') || 'Support 24/7'}
+   678→            </span>
+   679→          </div>
+   680→        </div>
+   681→      </section>
+   682→    </div>
+   683→  );
+   684→}
+   685→

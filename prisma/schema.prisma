@@ -1,4 +1,5 @@
 // AlgeriaTrade B2B Marketplace - Database Schema
+// Multi-Tenant White-Label System
 // Designed for Algerian market with multilingual support
 
 generator client {
@@ -8,6 +9,69 @@ generator client {
 datasource db {
   provider = "sqlite"
   url      = env("DATABASE_URL")
+}
+
+// ============================================
+// MULTI-TENANT SYSTEM
+// ============================================
+
+model Tenant {
+  id                String   @id @default(cuid())
+  slug              String   @unique  // algeriatrade, tunisiatrade, moroccotrade
+  name              String   // Display name
+  domain            String?  // Custom domain (optional)
+  
+  // Branding
+  primaryColor      String   @default("#006233")
+  secondaryColor    String   @default("#D52B1E")
+  logoUrl           String?
+  faviconUrl        String?
+  backgroundImage   String?
+  
+  // Localization
+  defaultLanguage   String   @default("fr")
+  currency          String   @default("DZD")
+  currencySymbol    String   @default("د.ج")
+  locale            String   @default("fr-DZ")
+  timezone          String   @default("Africa/Algiers")
+  
+  // Country config
+  countryName       String   @default("Algérie")
+  countryCode       String   @default("DZ")
+  phonePrefix       String   @default("+213")
+  
+  // Features (license)
+  features          String   @default("[\"catalog\",\"rfq\",\"messaging\",\"payments\",\"reviews\"]") // JSON array of enabled features
+  
+  // Status
+  isActive          Boolean  @default(true)
+  isPublic          Boolean  @default(true) // Visible in marketplace listing
+  
+  // Owner (if white-label client)
+  ownerId           String?
+  planType          String   @default("free") // free, professional, enterprise
+  subscriptionEnd   DateTime?
+  
+  // Customization
+  customCSS         String?
+  customJS          String?
+  footerText        String?
+  contactEmail      String?
+  contactPhone      String?
+  
+  // Social links
+  websiteUrl        String?
+  facebookUrl       String?
+  linkedinUrl       String?
+  twitterUrl        String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  users             User[]
+  companies         Company[]
+  
+  @@map("tenants")
 }
 
 // ============================================
@@ -43,7 +107,11 @@ model User {
   lastLoginAt   DateTime?
   lastLoginIp   String?
   
+  // Multi-tenant
+  tenantId      String
+  
   // Relations
+  tenant        Tenant   @relation(fields: [tenantId], references: [id])
   company       Company?
   reviews      Review[]
   reviewVotes  ReviewVote[]
@@ -57,9 +125,21 @@ model User {
   ordersPlaced Order[] @relation("BuyerOrders")
   rfqsCreated  RFQ[] @relation("BuyerRFQs")
   
+  // AI Features
+  interactions UserInteraction[]
+  recommendations Recommendation[]
+  chatSessions  ChatSession[]
+  
+  // Security Relations
+  twoFactorSecret TwoFactorSecret?
+  twoFactorVerifications TwoFactorVerification[]
+  userSessions UserSession[]
+  passwordHistory PasswordHistory[]
+  
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([tenantId])
   @@map("users")
 }
 
@@ -96,7 +176,11 @@ model Company {
   isVerified          Boolean            @default(false)
   isActive            Boolean            @default(true)
   
+  // Multi-tenant
+  tenantId            String
+  
   // Relations
+  tenant              Tenant             @relation(fields: [tenantId], references: [id])
   userId              String             @unique
   user                User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   products            Product[]
@@ -107,6 +191,7 @@ model Company {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([tenantId])
   @@map("companies")
 }
 
@@ -783,4 +868,380 @@ model Wilaya {
   createdAt DateTime @default(now())
 
   @@map("wilayas")
+}
+
+// ============================================
+// ANALYTICS SYSTEM
+// ============================================
+
+model AnalyticsEvent {
+  id          String   @id @default(cuid())
+  eventType   String   // page_view, event, transaction, error, engagement, rfq, ecommerce
+  eventName   String   // view_product, search, signup, add_to_cart, etc.
+  
+  // User info (anonymized where needed)
+  userId      String?
+  sessionId   String
+  userAgent   String?
+  ipAddress   String?  // Hashed for privacy
+  
+  // Event data (JSON)
+  eventData   String?  // JSON object with event params
+  url         String?
+  referrer    String?
+  
+  // Ecommerce data
+  orderId     String?
+  revenue     Float?
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  
+  @@index([eventType, eventName])
+  @@index([createdAt])
+  @@index([userId])
+  @@map("analytics_events")
+}
+
+model DailyStats {
+  id            String   @id @default(cuid())
+  date          DateTime @unique
+  
+  // Users
+  newUsers      Int      @default(0)
+  activeUsers   Int      @default(0)
+  returningUsers Int     @default(0)
+  
+  // Content
+  pageViews     Int      @default(0)
+  uniquePageViews Int    @default(0)
+  
+  // Actions
+  searches      Int      @default(0)
+  rfqsPosted    Int      @default(0)
+  quotationsSent Int     @default(0)
+  ordersCreated Int      @default(0)
+  
+  // Revenue
+  totalRevenue  Float    @default(0)
+  avgOrderValue Float    @default(0)
+  
+  // By Source
+  organicTraffic  Int    @default(0)
+  directTraffic   Int    @default(0)
+  referralTraffic Int    @default(0)
+  
+  createdAt DateTime @default(now())
+  
+  @@index([date])
+  @@map("daily_stats")
+}
+
+model FunnelStage {
+  id              String   @id @default(cuid())
+  funnelName      String   // "buyer_journey", "supplier_onboarding"
+  stageName       String   // "visit", "signup", "first_rfq", "first_order"
+  stageOrder      Int
+  usersCount      Int      @default(0)
+  conversionRate  Float    @default(0)  // Percentage from previous stage
+  dropOffRate     Float    @default(0)  // Percentage drop from previous stage
+  date            DateTime
+  
+  @@index([funnelName, date])
+  @@map("funnel_stages")
+}
+
+model SearchTerm {
+  id            String   @id @default(cuid())
+  term          String
+  searchCount   Int      @default(1)
+  resultCount   Int      @default(0)
+  clickThroughRate Float @default(0)
+  lastSearchedAt DateTime @default(now())
+  
+  @@index([term])
+  @@index([searchCount])
+  @@map("search_terms")
+}
+
+model PageView {
+  id            String   @id @default(cuid())
+  path          String
+  title         String
+  viewCount     Int      @default(1)
+  uniqueViews   Int      @default(1)
+  avgTimeOnPage Float    @default(0)  // In seconds
+  bounceRate    Float    @default(0)  // Percentage
+  exitRate      Float    @default(0)  // Percentage
+  
+  @@index([path])
+  @@index([viewCount])
+  @@map("page_views")
+}
+
+// ============================================
+// SECURITY - TWO-FACTOR AUTHENTICATION (2FA)
+// ============================================
+
+model TwoFactorSecret {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  secret      String   // TOTP secret (encrypted)
+  backupCodes String?  // JSON array of encrypted backup codes
+  enabled     Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("two_factor_secrets")
+}
+
+model TwoFactorVerification {
+  id        String   @id @default(cuid())
+  userId    String
+  code      String   // The OTP code (hashed for comparison)
+  type      String   // "setup", "login", "backup"
+  expiresAt DateTime
+  usedAt    DateTime?
+  ipAddress String?
+  
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
+  
+  @@index([userId])
+  @@map("two_factor_verifications")
+}
+
+// ============================================
+// SECURITY - AUDIT LOGS
+// ============================================
+
+model AuditLog {
+  id            String   @id @default(cuid())
+  
+  // Who
+  userId        String?
+  userRole      String?
+  ipAddress     String?
+  userAgent     String?
+  
+  // What
+  action        String   // "user.login", "product.create", "order.update", etc.
+  resource      String?  // Resource type affected
+  resourceId    String?  // Resource ID
+  
+  // Details
+  oldValue      String?  // JSON of previous state (for updates)
+  newValue      String?  // JSON of new state
+  metadata      String?  // Additional context
+  
+  // Result
+  success       Boolean  @default(true)
+  errorMessage  String?
+  
+  // Timestamps
+  createdAt     DateTime @default(now()) @map("created_at")
+  
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+  @@index([resource, resourceId])
+  @@map("audit_logs")
+}
+
+// ============================================
+// SECURITY - SESSION MANAGEMENT
+// ============================================
+
+model UserSession {
+  id            String   @id @default(cuid())
+  userId        String
+  token         String   @unique
+  deviceType    String?  // "desktop", "mobile", "tablet"
+  deviceName    String?  // Browser/OS name
+  ipAddress     String?
+  userAgent     String?
+  lastActiveAt  DateTime @default(now())
+  expiresAt     DateTime
+  isCurrent     Boolean  @default(false)
+  
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  createdAt     DateTime @default(now())
+  
+  @@index([userId])
+  @@index([token])
+  @@map("user_sessions")
+}
+
+// ============================================
+// SECURITY - PASSWORD HISTORY
+// ============================================
+
+model PasswordHistory {
+  id        String   @id @default(cuid())
+  userId    String
+  passwordHash String // Hashed old password
+  
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
+  
+  @@index([userId])
+  @@map("password_history")
+}
+
+// ============================================
+// SECURITY - BLOCKED IPS / RATE LIMITING LOGS
+// ============================================
+
+model SecurityEvent {
+  id          String   @id @default(cuid())
+  eventType   String   // "brute_force", "rate_limit_exceeded", "suspicious_activity", "2fa_failure"
+  ipAddress   String?
+  userId      String?
+  details     String?  // JSON with event details
+  severity    String   @default("low") // "low", "medium", "high", "critical"
+  resolved    Boolean  @default(false)
+  resolvedAt  DateTime?
+  resolvedBy  String?  // Admin ID who resolved it
+  
+  createdAt   DateTime @default(now())
+  
+  @@index([ipAddress])
+  @@index([eventType])
+  @@index([createdAt])
+  @@map("security_events")
+}
+
+// ============================================
+// AI RECOMMENDATION SYSTEM
+// ============================================
+
+model UserInteraction {
+  id          String   @id @default(cuid())
+  userId      String?
+  type        String   // "view", "search", "contact", "favorite", "rfq", "order"
+  
+  // What they interacted with
+  productId   String?
+  categoryId  String?
+  companyId   String?
+  searchTerm  String?
+  
+  // Context
+  referrer    String?
+  deviceType  String?  // mobile, desktop, tablet
+  position    Int?     // Position in list (for click tracking)
+  
+  // Metadata
+  duration    Int?     // How long they viewed (seconds)
+  sessionId   String?
+  
+  createdAt DateTime @default(now())
+  
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  
+  @@index([userId, type])
+  @@index([userId, createdAt])
+  @@index([productId])
+  @@index([createdAt])
+  @@map("user_interactions")
+}
+
+model Recommendation {
+  id          String   @id @default(cuid())
+  userId      String?
+  type        String   // "product", "supplier", "category"
+  itemId      String   // Recommended item ID
+  score       Float    // Relevance score 0-1
+  reason      String?  // "Because you viewed X", "Popular in your category"
+  source      String   // "collaborative_filtering", "content_based", "popular", "trending"
+  clicked     Boolean  @default(false)
+  converted   Boolean  @default(false)
+  dismissed   Boolean  @default(false)
+  createdAt DateTime @default(now())
+  expiresAt  DateTime?
+  
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  
+  @@index([userId])
+  @@index([userId, type])
+  @@index([source])
+  @@map("recommendations")
+}
+
+// ============================================
+// AI CHATBOT SYSTEM
+// ============================================
+
+model ChatSession {
+  id          String   @id @default(cuid())
+  userId      String?
+  sessionId   String   @unique  // Public session ID for anonymous users
+  
+  // Session metadata
+  startedAt   DateTime @default(now())
+  lastActiveAt DateTime @default(now())
+  messageCount Int     @default(0)
+  isResolved  Boolean  @default(false)
+  handedOffToHuman Boolean @default(false)
+  
+  // Context data (JSON strings for flexibility)
+  context     String?  // JSON object with conversation context
+  userInfo    String?  // JSON object with user info collected
+  
+  messages    ChatMessage[]
+  
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  
+  @@index([sessionId])
+  @@index([userId])
+  @@map("chat_sessions")
+}
+
+model ChatMessage {
+  id          String   @id @default(cuid())
+  sessionId   String
+  content     String
+  
+  // Message metadata
+  role        String   // "user", "bot", "system"
+  intent      String?  // Detected intent for bot messages
+  confidence  Float?   // Intent detection confidence 0-1
+  
+  // Response data (JSON)
+  suggestions String?  // JSON array of suggestion chips
+  cards       String?  // JSON array of product cards
+  
+  // Feedback
+  feedback    String?  // "helpful", "not_helpful", null
+  feedbackAt  DateTime?
+  
+  createdAt DateTime @default(now())
+  
+  session     ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  
+  @@index([sessionId])
+  @@index([role])
+  @@map("chat_messages")
+}
+
+model ChatFeedback {
+  id          String   @id @default(cuid())
+  messageId   String
+  sessionId   String
+  userId      String?
+  
+  rating      String   // "positive", "negative", "neutral"
+  comment     String?
+  category    String?  // "accuracy", "helpfulness", "clarity", "relevance"
+  
+  createdAt DateTime @default(now())
+  
+  @@index([messageId])
+  @@index([sessionId])
+  @@map("chat_feedback")
 }

@@ -1,0 +1,226 @@
+# =============================================================================
+# GitHub Actions - Docker Image Build & Publish
+# =============================================================================
+# Pipeline pour builder et publier les images Docker sur :
+# - GitHub Container Registry (ghcr.io)
+# - Docker Hub (optionnel)
+# =============================================================================
+
+name: Docker Image CI/CD
+
+# -----------------------------------------------------------------------------
+# Triggers
+# -----------------------------------------------------------------------------
+on:
+  # Push sur main ou tags
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+      - 'docker-*'
+  
+  # Pull request vers main (build test uniquement)
+  pull_request:
+    branches:
+      - main
+
+  # Déclenchement manuel
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: 'Publier l\'image'
+        required: false
+        type: boolean
+        default: false
+
+# =============================================================================
+# Jobs
+# =============================================================================
+jobs:
+
+  # ---------------------------------------------------------------------------
+  # Job 1 : Build et Test de l'image
+  # ---------------------------------------------------------------------------
+  build-and-test:
+    name: "Build & Test Image"
+    runs-on: ubuntu-latest
+    
+    outputs:
+      image_tag: ${{ steps.meta.outputs.tags }}
+      image_digest: ${{ steps.build.outputs.digest }}
+    
+    steps:
+      # Checkout du code
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Setup QEMU (pour multi-architecture)
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      # Setup Docker Buildx
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Connexion à GitHub Container Registry
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Extraire les metadata (tags, labels)
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ghcr.io/${{ github.repository }}/algeriatrade
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix=
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      # Builder l'image (sans push en PR)
+      - name: Build image
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          target: runner
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64,linux/arm64
+          build-args: |
+            NODE_ENV=production
+
+      # Scanner de vulnérabilités (Trivy)
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ghcr.io/${{ github.repository }}/algeriatrade:${{ github.sha }}
+          format: 'table'
+          exit-code: '0'
+          ignore-unfixed: true
+          severity: 'CRITICAL,HIGH'
+
+  # ---------------------------------------------------------------------------
+  # Job 2 : Push vers Docker Hub (optionnel)
+  # ---------------------------------------------------------------------------
+  push-docker-hub:
+    name: "Push to Docker Hub"
+    needs: build-and-test
+    if: github.event_name == 'push' && contains(fromJSON('["refs/heads/main"]'), github.ref)
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Connexion à Docker Hub
+      - name: Login to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # Metadata pour Docker Hub
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/algeriatrade
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest
+
+      # Build et Push
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          target: runner
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64,linux/arm64
+
+  # ---------------------------------------------------------------------------
+  # Job 3 : Notification de Release
+  # ---------------------------------------------------------------------------
+  notify-release:
+    name: "Notify Release"
+    needs: build-and-test
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          generate_release_notes: true
+          body: |
+            ## 🚀 AlgeriaTrade.dz Release ${{ github.ref_name }}
+            
+            ### Images Docker disponibles :
+            
+            **GitHub Container Registry:**
+            ```bash
+            docker pull ghcr.io/${{ github.repository }}/algeriatrade:${{ github.ref_name }}
+            ```
+            
+            **Docker Hub:**
+            ```bash
+            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/algeriatrade:${{ github.ref_name }}
+            ```
+            
+            ### Changelog
+            Voir les notes ci-dessous 👇
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ---------------------------------------------------------------------------
+  # Job 4 : SBOM (Software Bill of Materials)
+  # ---------------------------------------------------------------------------
+  sbom:
+    name: "Generate SBOM"
+    needs: build-and-test
+    if: success()
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Generate SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          image: ghcr.io/${{ github.repository }}/algeriatrade:${{ github.sha }}
+          format: spdx-json
+          output-file: sbom.spdx.json
+      
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-${{ github.sha }}
+          path: sbom.spdx.json
+          retention-days: 90

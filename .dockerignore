@@ -1,0 +1,93 @@
+# =============================================================================
+# .dockerignore - AlgeriaTrade.dz
+# =============================================================================
+# Exclure les fichiers inutiles du contexte Docker pour accélérer le build
+# =============================================================================
+
+# Dépendances (gérées par le Dockerfile)
+node_modules
+.next
+bun.lockb
+
+# Git
+.git
+.gitignore
+
+# IDE / Éditeurs
+.idea
+.vscode
+*.swp
+*.swo
+*~
+
+# Environnement
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Documentation (pas besoin dans l'image)
+docs/
+*.md
+README.md
+LICENSE
+
+# Tests
+tests/
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+**/*.spec.tsx
+__tests__/
+
+# Coverage
+coverage/
+.nyc_output/
+
+# Outils
+.tool-results/
+download/
+agent-ctx/
+
+# Scripts de déploiement (pas dans l'image)
+scripts/
+.github/
+netlify/
+vercel.json
+netlify.toml
+
+# Fichiers de configuration locale
+.eslintrc*
+.prettierrc*
+.editorconfig
+
+# Docker files (éviter la récursion)
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+nginx.conf
+certs/
+
+# Données locales
+data/
+uploads/
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+*.log
+logs/
+
+# OS fichiers
+.DS_Store
+Thumbs.db
+
+# Mini-services (build séparés)
+mini-services/
+
+# Temp
+tmp/
+temp/
+*.tmp

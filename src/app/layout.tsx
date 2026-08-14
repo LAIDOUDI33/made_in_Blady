@@ -7,6 +7,10 @@ import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { I18nProvider } from "@/lib/i18n";
 import { OrganizationJsonLd, WebsiteJsonLd } from "@/components/SEO";
+import { AnalyticsProvider } from "@/providers/AnalyticsProvider";
+import { GATracker } from "@/components/analytics/GATracker";
+import PWAInit from "@/components/pwa/PWAInit";
+import { TenantProvider } from "@/providers/TenantProvider";
 
 // ============================================
 // Fonts Configuration
@@ -140,8 +144,11 @@ export const metadata: Metadata = {
     "geo.placename": "Algeria",
     "geo.position": "36.7538;3.0588",
     "ICBM": "36.7538, 3.0588",
-    "theme-color": "#16a34a",
+    "theme-color": "#006233",
   },
+
+  // PWA Manifest
+  manifest: "/manifest.json",
 
   // Verification tags (add your verification codes here)
   verification: {
@@ -169,18 +176,48 @@ export default function RootLayout({
         {/* Preconnect to external resources */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
+        
+        {/* Google Analytics 4 - AlgeriaTrade */}
+        {process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID && (
+          <>
+            <script
+              async
+              src={`https://www.googletagmanager.com/gtag/js?id=${process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID}`}
+            />
+            <script
+              dangerouslySetInnerHTML={{
+                __html: `
+                  window.dataLayer = window.dataLayer || [];
+                  function gtag(){dataLayer.push(arguments);}
+                  gtag('js', new Date());
+                  gtag('config', '${process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID}', {
+                    send_page_view: false,
+                    cookie_flags: 'SameSite=None;Secure',
+                  });
+                `,
+              }}
+            />
+          </>
+        )}
       </head>
       <body className={`${inter.variable} ${cairo.variable} font-sans antialiased bg-background text-foreground`}>
-        <I18nProvider defaultLanguage="fr">
-          <div className="flex min-h-screen flex-col rtl-transition">
-            <Header />
-            <main className="flex-1">
-              {children}
-            </main>
-            <Footer />
-          </div>
-          <Toaster />
-        </I18nProvider>
+        {/* PWA Initialization */}
+        <PWAInit />
+        <TenantProvider>
+          <AnalyticsProvider defaultConsent={false}>
+            <I18nProvider defaultLanguage="fr">
+              <GATracker />
+              <div className="flex min-h-screen flex-col rtl-transition">
+                <Header />
+                <main className="flex-1">
+                  {children}
+                </main>
+                <Footer />
+              </div>
+              <Toaster />
+            </I18nProvider>
+          </AnalyticsProvider>
+        </TenantProvider>
       </body>
     </html>
   );
