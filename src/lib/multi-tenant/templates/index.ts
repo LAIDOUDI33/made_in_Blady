@@ -31,10 +31,15 @@ export interface CountryTemplate {
   defaultStrings: Record<string, string>;
 }
 
+// Export all country templates
 export { algeriaTemplate } from './algeria';
 export { tunisiaTemplate } from './tunisia';
 export { moroccoTemplate } from './morocco';
 export { egyptTemplate } from './egypt';
+export { senegalTemplate } from './senegal';
+export { ivoryCoastTemplate } from './ivorycoast';
+export { saudiArabiaTemplate } from './saudiarabia';
+export { uaeTemplate } from './uae';
 
 // All available templates
 export const countryTemplates: Record<string, CountryTemplate> = {
@@ -42,13 +47,36 @@ export const countryTemplates: Record<string, CountryTemplate> = {
   tunisia: tunisiaTemplate,
   morocco: moroccoTemplate,
   egypt: egyptTemplate,
+  senegal: senegalTemplate,
+  ivorycoast: ivoryCoastTemplate,
+  saudiarabia: saudiArabiaTemplate,
+  uae: uaeTemplate,
 };
+
+// All tenants array for easy iteration
+export const ALL_TENANTS = [
+  algeriaTemplate,
+  tunisiaTemplate,
+  moroccoTemplate,
+  egyptTemplate,
+  senegalTemplate,
+  ivoryCoastTemplate,
+  saudiArabiaTemplate,
+  uaeTemplate,
+];
 
 /**
  * Get template by ID
  */
 export function getCountryTemplate(id: string): CountryTemplate | undefined {
   return countryTemplates[id];
+}
+
+/**
+ * Get tenant by slug
+ */
+export function getTenantBySlug(slug: string): CountryTemplate | undefined {
+  return ALL_TENANTS.find(t => t.slug === slug);
 }
 
 /**
@@ -59,11 +87,73 @@ export function getAllCountryTemplates(): CountryTemplate[] {
 }
 
 /**
- * Get templates filtered by region (e.g., "MENA", "Africa")
+ * Region type for filtering tenants
  */
-export function getTemplatesByRegion(region: string): CountryTemplate[] {
-  // For now, all templates are in MENA/Africa region
-  return getAllCountryTemplates();
+export type TenantRegion = 'africa' | 'mena' | 'gcc' | 'maghreb' | 'westafrica' | 'all';
+
+/**
+ * Get templates filtered by region (e.g., "MENA", "Africa", "GCC")
+ */
+export function getTenantsByRegion(region: TenantRegion): CountryTemplate[] {
+  switch (region) {
+    case 'africa':
+      // All African countries
+      return [
+        algeriaTemplate,
+        tunisiaTemplate,
+        moroccoTemplate,
+        egyptTemplate,
+        senegalTemplate,
+        ivoryCoastTemplate,
+      ];
+    case 'mena':
+      // Middle East & North Africa
+      return [
+        algeriaTemplate,
+        tunisiaTemplate,
+        moroccoTemplate,
+        egyptTemplate,
+        saudiArabiaTemplate,
+        uaeTemplate,
+      ];
+    case 'gcc':
+      // Gulf Cooperation Council countries
+      return [
+        saudiArabiaTemplate,
+        uaeTemplate,
+      ];
+    case 'maghreb':
+      // North African Arab countries
+      return [
+        algeriaTemplate,
+        tunisiaTemplate,
+        moroccoTemplate,
+        egyptTemplate,
+      ];
+    case 'westafrica':
+      // West African Francophone countries
+      return [
+        senegalTemplate,
+        ivoryCoastTemplate,
+      ];
+    case 'all':
+    default:
+      return ALL_TENANTS;
+  }
+}
+
+/**
+ * Get RTL (right-to-left) templates
+ */
+export function getRtlTemplates(): CountryTemplate[] {
+  return ALL_TENANTS.filter(t => t.language === 'ar');
+}
+
+/**
+ * Get LTR (left-to-right) templates
+ */
+export function getLtrTemplates(): CountryTemplate[] {
+  return ALL_TENANTS.filter(t => t.language !== 'ar');
 }
 
 /**
@@ -87,4 +177,17 @@ export function createTenantFromTemplate(
 export function getSuggestedFeatures(countryId: string): string[] {
   const template = getCountryTemplate(countryId);
   return template?.features || ['catalog', 'rfq', 'messaging'];
+}
+
+/**
+ * Get tenant locale configuration for i18n
+ */
+export function getTenantLocale(template: CountryTemplate) {
+  return {
+    locale: template.languages[0] === 'ar' ? `${template.countryCode.toLowerCase()}-${template.countryCode}` : `${template.language}-${template.countryCode}`,
+    direction: template.language === 'ar' ? 'rtl' as const : 'ltr' as const,
+    currency: template.currency,
+    currencySymbol: template.currencySymbol,
+    timezone: template.timezone,
+  };
 }

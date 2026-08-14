@@ -1,0 +1,766 @@
+     1→'use client';
+     2→
+     3→import { useState, useEffect, useCallback } from 'react';
+     4→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+     5→import { Button } from '@/components/ui/button';
+     6→import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+     7→import { Badge } from '@/components/ui/badge';
+     8→import { 
+     9→  KPICard,
+    10→  TimeSeriesChart,
+    11→  FunnelChart,
+    12→  DataTable,
+    13→  GeoHeatmap,
+    14→  RealTimeDashboard,
+    15→} from '@/components/analytics';
+    16→import {
+    17→  DollarSign,
+    18→  Users,
+    19→  TrendingUp,
+    20→  ShoppingCart,
+    21→  UserPlus,
+    22→  FileText,
+    23→  Package,
+    24→  Building2,
+    25→  Eye,
+    26→  Activity,
+    27→  RefreshCw,
+    28→  Download,
+    29→  Calendar,
+    30→  BarChart3,
+    31→  PieChart,
+    32→  Funnel,
+    33→  MapPin,
+    34→  Clock,
+    35→  ArrowRight,
+    36→} from 'lucide-react';
+    37→
+    38→// ============================================
+    39→// Types
+    40→// ============================================
+    41→
+    42→interface KPIData {
+    43→  [key: string]: {
+    44→    value: number | string;
+    45→    change?: string | null;
+    46→    prefix?: string;
+    47→    suffix?: string;
+    48→    format?: 'number' | 'currency' | 'percentage' | 'decimal';
+    49→    sparklineData?: number[];
+    50→  };
+    51→}
+    52→
+    53→interface TrafficDataPoint {
+    54→  date: string;
+    55→  pageViews: number;
+    56→  uniquePageViews: number;
+    57→  newUsers: number;
+    58→  returningUsers: number;
+    59→}
+    60→
+    61→interface RevenueDataPoint {
+    62→  date: string;
+    63→  revenue: number;
+    64→  orders: number;
+    65→  cib: number;
+    66→  ccp: number;
+    67→  baridiMob: number;
+    68→  bankTransfer: number;
+    69→  cod: number;
+    70→}
+    71→
+    72→interface FunnelStage {
+    73→  name: string;
+    74→  nameFr: string;
+    75→  value: number;
+    76→  percentage: number;
+    77→  conversionRate?: number;
+    78→  dropOffRate?: number;
+    79→}
+    80→
+    81→interface TopProduct {
+    82→  id: string;
+    83→  name: string;
+    84→  category: string;
+    85→  views: number;
+    86→  change: number;
+    87→}
+    88→
+    89→interface TopSupplier {
+    90→  id: string;
+    91→  name: string;
+    92→  wilaya: string;
+    93→  responseRate: number;
+    94→  rating: number;
+    95→  quotationsSent: number;
+    96→  ordersReceived: number;
+    97→}
+    98→
+    99→interface TopCategory {
+   100→  id: string;
+   101→  name: string;
+   102→  slug: string;
+   103→  productCount: number;
+   104→  rfqCount: number;
+   105→  growth: number;
+   106→}
+   107→
+   108→interface SearchTerm {
+   109→  term: string;
+   110→  count: number;
+   111→  results: number;
+   112→  clickThroughRate: number;
+   113→  trend: 'up' | 'down' | 'stable';
+   114→}
+   115→
+   116→// ============================================
+   117→// Main Analytics Dashboard Component
+   118→// ============================================
+   119→
+   120→export default function AdminAnalyticsDashboard() {
+   121→  // State
+   122→  const [isLoading, setIsLoading] = useState(true);
+   123→  const [selectedRange, setSelectedRange] = useState('30d');
+   124→  const [activeTab, setActiveTab] = useState('overview');
+   125→  
+   126→  // Data states
+   127→  const [kpiData, setKpiData] = useState<KPIData>({});
+   128→  const [trafficData, setTrafficData] = useState<TrafficDataPoint[]>([]);
+   129→  const [revenueData, setRevenueData] = useState<RevenueDataPoint[]>([]);
+   130→  const [buyerFunnel, setBuyerFunnel] = useState<FunnelStage[]>([]);
+   131→  const [supplierFunnel, setSupplierFunnel] = useState<FunnelStage[]>([]);
+   132→  const [topProducts, setTopProducts] = useState<TopProduct[]>([]);
+   133→  const [topSuppliers, setTopSuppliers] = useState<TopSupplier[]>([]);
+   134→  const [topCategories, setTopCategories] = useState<TopCategory[]>([]);
+   135→  const [topSearches, setTopSearches] = useState<SearchTerm[]>([]);
+   136→  const [wilayaData, setWilayaData] = useState<Array<{ code: string; name: string; value: number; change?: number }>>([]);
+   137→
+   138→  // Fetch all data
+   139→  const fetchAllData = useCallback(async (range: string) => {
+   140→    setIsLoading(true);
+   141→
+   142→    try {
+   143→      // Fetch all data in parallel
+   144→      const [
+   145→        overviewRes,
+   146→        trafficRes,
+   147→        revenueRes,
+   148→        funnelsRes,
+   149→        topListsRes,
+   150→      ] = await Promise.all([
+   151→        fetch(`/api/admin/analytics/overview?range=${range}`),
+   152→        fetch(`/api/admin/analytics/traffic?range=${range}`),
+   153→        fetch(`/api/admin/analytics/revenue?range=${range}`),
+   154→        fetch('/api/admin/analytics/funnels?type=all'),
+   155→        fetch('/api/admin/analytics/top-lists'),
+   156→      ]);
+   157→
+   158→      const [overview, traffic, revenue, funnels, topLists] = await Promise.all([
+   159→        overviewRes.json(),
+   160→        trafficRes.json(),
+   161→        revenueRes.json(),
+   162→        funnelsRes.json(),
+   163→        topListsRes.json(),
+   164→      ]);
+   165→
+   166→      if (overview.success) setKpiData(overview.data);
+   167→      if (traffic.success) setTrafficData(traffic.data);
+   168→      if (revenue.success) setRevenueData(revenue.data.byPeriod);
+   169→      if (funnels.success) {
+   170→        const buyerJourney = funnels.data.buyerJourney as { stages: FunnelStage[] } | undefined;
+   171→        const supplierOnboarding = funnels.data.supplierOnboarding as { stages: FunnelStage[] } | undefined;
+   172→        setBuyerFunnel(buyerJourney?.stages || []);
+   173→        setSupplierFunnel(supplierOnboarding?.stages || []);
+   174→      }
+   175→      if (topLists.success) {
+   176→        setTopProducts(topLists.data.topProducts || []);
+   177→        setTopSuppliers(topLists.data.topSuppliers || []);
+   178→        setTopCategories(topLists.data.topCategories || []);
+   179→        setTopSearches(topLists.data.topSearches || []);
+   180→      }
+   181→
+   182→      // Generate mock wilaya data for Algeria
+   183→      generateWilayaData();
+   184→    } catch (error) {
+   185→      console.error('Error fetching analytics data:', error);
+   186→    } finally {
+   187→      setIsLoading(false);
+   188→    }
+   189→  }, []);
+   190→
+   191→  // Initial data fetch
+   192→  useEffect(() => {
+   193→    fetchAllData(selectedRange);
+   194→  }, [fetchAllData, selectedRange]);
+   195→
+   196→  // Handle refresh
+   197→  const handleRefresh = () => {
+   198→    fetchAllData(selectedRange);
+   199→  };
+   200→
+   201→  // Generate mock wilaya data for Algeria
+   202→  const generateWilayaData = () => {
+   203→    const algerianWilayas = [
+   204→      { code: '16', name: 'Alger' },
+   205→      { code: '31', name: 'Oran' },
+   206→      { code: '06', name: 'Béjaïa' },
+   207→      { code: '15', name: 'Tizi Ouzou' },
+   208→      { code: '19', name: 'Sétif' },
+   209→      { code: '13', name: 'Tlemcen' },
+   210→      { code: '25', name: 'Constantine' },
+   211→      { code: '40', name: 'Khenchela' },
+   212→      { code: '28', name: 'Mostaganem' },
+   213→      { code: '44', name: 'Aïn Defla' },
+   214→      { code: '34', name: 'Bordj Bou Arréridj' },
+   215→      { code: '12', name: 'Tébessa' },
+   216→      { code: '43', name: 'Mila' },
+   217→      { code: '23', name: 'Annaba' },
+   218→      { code: '18', name: 'Jijel' },
+   219→      { code: '35', name: 'Boumerdès' },
+   220→      { code: '09', name: 'Blida' },
+   221→      { code: '10', name: 'Bouira' },
+   222→      { code: '14', name: 'Tiaret' },
+   223→      { code: '21', name: 'Skikda' },
+   224→      { code: '42', name: 'Tipaza' },
+   225→      { code: '29', name: 'Mascara' },
+   226→      { code: '46', name: 'Relizane' },
+   227→      { code: '24', name: 'Guelma' },
+   228→      { code: '17', name: 'Djelfa' },
+   229→      { code: '05', name: 'Batna' },
+   230→      { code: '20', name: "Saïda" },
+   231→      { code: '22', name: 'Sidi Bel Abbès' },
+   232→      { code: '08', name: 'Béchar' },
+   233→      { code: '07', name: 'Biskra' },
+   234→      { code: '30', name: 'Ouargla' },
+   235→      { code: '33', name: 'Illizi' },
+   236→      { code: '39', name: 'El Oued' },
+   237→      { code: '41', name: 'Souk Ahras' },
+   238→      { code: '36', name: 'El Tarf' },
+   239→      { code: '37', name: 'Tindouf' },
+   240→      { code: '38', name: 'Tissemsilt' },
+   241→      { code: '45', name: "Naâma" },
+   242→      { code: '47', name: 'Ghardaïa' },
+   243→      { code: '48', name: 'Timimoun' },
+   244→      { code: '11', name: 'Tamanrasset' },
+   245→      { code: '49', name: 'Bordj Badji Mokhtar' },
+   246→      { code: '51', name: 'Béni Abbès' },
+   247→      { code: '52', name: 'In Salah' },
+   248→      { code: '53', name: 'In Guezzam' },
+   249→      { code: '54', name: 'Touggourt' },
+   250→      { code: '55', name: 'Djanet' },
+   251→      { code: '56', name: 'El M\'Ghair' },
+   252→      { code: '57', name: 'El Menia' },
+   253→    ];
+   254→
+   255→    const data = algerianWilayas.map(wilaya => ({
+   256→      ...wilaya,
+   257→      value: Math.floor(Math.random() * 2000) + 100,
+   258→      change: parseFloat((Math.random() * 30 - 10).toFixed(1)),
+   259→    })).sort((a, b) => b.value - a.value);
+   260→
+   261→    setWilayaData(data);
+   262→  };
+   263→
+   264→  return (
+   265→    <div className="min-h-screen bg-background">
+   266→      {/* Header */}
+   267→      <div className="border-b bg-card">
+   268→        <div className="container mx-auto px-4 py-6">
+   269→          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+   270→            <div>
+   271→              <h1 className="text-2xl md:text-3xl font-bold tracking-tight flex items-center gap-3">
+   272→                <BarChart3 className="h-8 w-8 text-primary" />
+   273→                Tableau de Bord Analytique
+   274→              </h1>
+   275→              <p className="text-muted-foreground mt-1">
+   276→                Vue d&apos;ensemble complète des performances d&apos;AlgeriaTrade.dz
+   277→              </p>
+   278→            </div>
+   279→
+   280→            <div className="flex items-center gap-3">
+   281→              {/* Range Selector */}
+   282→              <div className="flex items-center border rounded-lg p-1">
+   283→                {['7d', '30d', '90d', '1y'].map((range) => (
+   284→                  <Button
+   285→                    key={range}
+   286→                    variant={selectedRange === range ? 'default' : 'ghost'}
+   287→                    size="sm"
+   288→                    onClick={() => setSelectedRange(range)}
+   289→                    className="text-xs"
+   290→                  >
+   291→                    {range === '7d' ? '7 jours' : 
+   292→                     range === '30d' ? '30 jours' : 
+   293→                     range === '90d' ? '90 jours' : '1 an'}
+   294→                  </Button>
+   295→                ))}
+   296→              </div>
+   297→
+   298→              <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isLoading}>
+   299→                <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+   300→                Actualiser
+   301→              </Button>
+   302→
+   303→              <Button variant="outline" size="sm">
+   304→                <Download className="h-4 w-4 mr-2" />
+   305→                Exporter
+   306→              </Button>
+   307→            </div>
+   308→          </div>
+   309→        </div>
+   310→      </div>
+   311→
+   312→      {/* Main Content */}
+   313→      <div className="container mx-auto px-4 py-6 space-y-6">
+   314→        {/* Section 1: KPI Cards */}
+   315→        <section aria-label="Indicateurs clés de performance">
+   316→          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
+   317→            <KPICard
+   318→              title="Chiffre d'Affaires"
+   319→              value={kpiData.revenue?.value ?? 0}
+   320→              change={kpiData.revenue?.change ? parseFloat(kpiData.revenue.change) : undefined}
+   321→              icon={DollarSign}
+   322→              color="green"
+   323→              sparklineData={kpiData.revenue?.sparklineData}
+   324→              suffix=" DZD"
+   325→              format="currency"
+   326→              isLoading={isLoading}
+   327→            />
+   328→
+   329→            <KPICard
+   330→              title="Utilisateurs Actifs"
+   331→              value={kpiData.activeUsers?.value ?? 0}
+   332→              change={kpiData.activeUsers?.change ? parseFloat(kpiData.activeUsers.change) : undefined}
+   333→              icon={Users}
+   334→              color="blue"
+   335→              sparklineData={kpiData.activeUsers?.sparklineData}
+   336→              isLoading={isLoading}
+   337→            />
+   338→
+   339→            <KPICard
+   340→              title="Taux de Conversion"
+   341→              value={kpiData.conversionRate?.value ?? 0}
+   342→              change={kpiData.conversionRate?.change ? parseFloat(kpiData.conversionRate.change) : undefined}
+   343→              icon={TrendingUp}
+   344→              color="purple"
+   345→              suffix="%"
+   346→              format="percentage"
+   347→              isLoading={isLoading}
+   348→            />
+   349→
+   350→            <KPICard
+   351→              title="Panier Moyen"
+   352→              value={kpiData.avgOrderValue?.value ?? 0}
+   353→              change={kpiData.avgOrderValue?.change ? parseFloat(kpiData.avgOrderValue.change) : undefined}
+   354→              icon={ShoppingCart}
+   355→              color="orange"
+   356→              suffix=" DZD"
+   357→              format="currency"
+   358→              isLoading={isLoading}
+   359→            />
+   360→
+   361→            <KPICard
+   362→              title="Nouveaux Inscrits"
+   363→              value={kpiData.newSignups?.value ?? 0}
+   364→              change={kpiData.newSignups?.change ? parseFloat(kpiData.newSignups.change) : undefined}
+   365→              icon={UserPlus}
+   366→              color="green"
+   367→              isLoading={isLoading}
+   368→            />
+   369→
+   370→            <KPICard
+   371→              title="RFQs Postés"
+   372→              value={kpiData.rfqsPosted?.value ?? 0}
+   373→              change={kpiData.rfqsPosted?.change ? parseFloat(kpiData.rfqsPosted.change) : undefined}
+   374→              icon={FileText}
+   375→              color="blue"
+   376→              isLoading={isLoading}
+   377→            />
+   378→          </div>
+   379→        </section>
+   380→
+   381→        {/* Additional KPI Row */}
+   382→        <section aria-label="Statistiques supplémentaires">
+   383→          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+   384→            <KPICard
+   385→              title="Total Produits"
+   386→              value={kpiData.totalProducts?.value ?? 0}
+   387→              change={kpiData.totalProducts?.change ? parseFloat(kpiData.totalProducts.change) : undefined}
+   388→              icon={Package}
+   389→              color="default"
+   390→              isLoading={isLoading}
+   391→            />
+   392→
+   393→            <KPICard
+   394→              title="Fournisseurs Vérifiés"
+   395→              value={kpiData.verifiedSuppliers?.value ?? 0}
+   396→              change={kpiData.verifiedSuppliers?.change ? parseFloat(kpiData.verifiedSuppliers.change) : undefined}
+   397→              icon={Building2}
+   398→              color="green"
+   399→              isLoading={isLoading}
+   400→            />
+   401→          </div>
+   402→        </section>
+   403→
+   404→        {/* Real-time Counter */}
+   405→        <section aria-label="Données en temps réel">
+   406→          <RealTimeDashboard />
+   407→        </section>
+   408→
+   409→        {/* Main Tabs */}
+   410→        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+   411→          <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:inline-grid">
+   412→            <TabsTrigger value="overview" className="gap-2">
+   413→              <Eye className="h-4 w-4" />
+   414→              <span className="hidden sm:inline">Vue d&apos;ensemble</span>
+   415→            </TabsTrigger>
+   416→            <TabsTrigger value="traffic" className="gap-2">
+   417→              <Activity className="h-4 w-4" />
+   418→              <span className="hidden sm:inline">Trafic</span>
+   419→            </TabsTrigger>
+   420→            <TabsTrigger value="revenue" className="gap-2">
+   421→              <DollarSign className="h-4 w-4" />
+   422→              <span className="hidden sm:inline">Revenus</span>
+   423→            </TabsTrigger>
+   424→            <TabsTrigger value="funnels" className="gap-2">
+   425→              <Funnel className="h-4 w-4" />
+   426→              <span className="hidden sm:inline">Tunnels</span>
+   427→            </TabsTrigger>
+   428→            <TabsTrigger value="details" className="gap-2">
+   429→              <BarChart3 className="h-4 w-4" />
+   430→              <span className="hidden sm:inline">Détails</span>
+   431→            </TabsTrigger>
+   432→          </TabsList>
+   433→
+   434→          {/* Tab: Overview */}
+   435→          <TabsContent value="overview" className="space-y-6">
+   436→            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+   437→              {/* Traffic Overview Chart */}
+   438→              <TimeSeriesChart
+   439→                title="Évolution du Trafic"
+   440→                data={trafficData}
+   441→                series={[
+   442→                  { key: 'pageViews', name: 'Pages Vues', color: '#006233' },
+   443→                  { key: 'uniquePageViews', name: 'Visiteurs Uniques', color: '#2563eb' },
+   444→                  { key: 'newUsers', name: 'Nouveaux Utilisateurs', color: '#9333ea' },
+   445→                ]}
+   446→                height={300}
+   447→                defaultRange={selectedRange as '7d' | '30d' | '90d' | '1y'}
+   448→                allowExport
+   449→              />
+   450→
+   451→              {/* Revenue Overview Chart */}
+   452→              <TimeSeriesChart
+   453→                title="Évolution des Revenus"
+   454→                data={revenueData}
+   455→                series={[
+   456→                  { key: 'revenue', name: 'Revenus (DZD)', color: '#006233' },
+   457→                  { key: 'orders', name: 'Commandes', color: '#ea580c' },
+   458→                ]}
+   459→                height={300}
+   460→                chartType="bar"
+   461→                defaultRange={selectedRange as '7d' | '30d' | '90d' | '1y'}
+   462→                allowExport
+   463→                valueFormatter={(value) => `${value.toLocaleString('fr-DZ')} DZD`}
+   464→              />
+   465→            </div>
+   466→
+   467→            {/* Wilaya Heatmap */}
+   468→            <GeoHeatmap
+   469→              data={wilayaData}
+   470→              onWilayaClick={(wilaya) => console.log('Wilaya clicked:', wilaya)}
+   471→              showValues
+   472→            />
+   473→          </TabsContent>
+   474→
+   475→          {/* Tab: Traffic */}
+   476→          <TabsContent value="traffic" className="space-y-6">
+   477→            <div className="grid grid-cols-1 gap-6">
+   478→              <TimeSeriesChart
+   479→                title="Analyse Détaillée du Trafic"
+   480→                data={trafficData}
+   481→                series={[
+   482→                  { key: 'pageViews', name: 'Pages Vues', color: '#006233' },
+   483→                  { key: 'uniquePageViews', name: 'Visiteurs Uniques', color: '#2563eb' },
+   484→                  { key: 'newUsers', name: 'Nouveaux', color: '#16a34a' },
+   485→                  { key: 'returningUsers', name: 'Retours', color: '#ea580c' },
+   486→                ]}
+   487→                height={350}
+   488→                defaultRange={selectedRange as '7d' | '30d' | '90d' | '1y'}
+   489→                showGrid
+   490→                showLegend
+   491→                allowExport
+   492→              />
+   493→
+   494→              <TimeSeriesChart
+   495→                title="Sources de Trafic"
+   496→                data={trafficData.map(d => ({
+   497→                  ...d,
+   498→                  organic: d.pageViews * 0.45,
+   499→                  direct: d.pageViews * 0.30,
+   500→                  referral: d.pageViews * 0.25,
+   501→                }))}
+   502→                series={[
+   503→                  { key: 'organic', name: 'Recherche Organique', color: '#22c55e' },
+   504→                  { key: 'direct', name: 'Accès Direct', color: '#3b82f6' },
+   505→                  { key: 'referral', name: 'Référence', color: '#f59e0b' },
+   506→                ]}
+   507→                height={250}
+   508→                chartType="area"
+   509→                stacked
+   510→                defaultRange={selectedRange as '7d' | '30d' | '90d' | '1y'}
+   511→              />
+   512→            </div>
+   513→          </TabsContent>
+   514→
+   515→          {/* Tab: Revenue */}
+   516→          <TabsContent value="revenue" className="space-y-6">
+   517→            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+   518→              <TimeSeriesChart
+   519→                title="Revenus par Période"
+   520→                data={revenueData}
+   521→                series={[
+   522→                  { key: 'revenue', name: 'Revenus Totaux', color: '#006233' },
+   523→                ]}
+   524→                height={300}
+   525→                chartType="bar"
+   526→                defaultRange={selectedRange as '7d' | '30d' | '90d' | '1y'}
+   527→                valueFormatter={(value) => `${value.toLocaleString('fr-DZ')} DZD`}
+   528→                allowExport
+   529→              />
+   530→
+   531→              <Card>
+   532→                <CardHeader>
+   533→                  <CardTitle className="text-base font-semibold flex items-center gap-2">
+   534→                    <PieChart className="h-5 w-5 text-muted-foreground" />
+   535→                    Répartition par Moyen de Paiement
+   536→                  </CardTitle>
+   537→                </CardHeader>
+   538→                <CardContent>
+   539→                  <PaymentMethodDistribution />
+   540→                </CardContent>
+   541→              </Card>
+   542→            </div>
+   543→
+   544→            {/* Revenue by Payment Method Over Time */}
+   545→            <TimeSeriesChart
+   546→              title="Revenus par Moyen de Paiement"
+   547→              data={revenueData.filter(d => d.revenue > 0)}
+   548→              series={[
+   549→                { key: 'cib', name: 'CIB (Carte)', color: '#006233' },
+   550→                { key: 'ccp', name: 'CCP (Poste)', color: '#2563eb' },
+   551→                { key: 'baridiMob', name: 'BaridiMob', color: '#ea580c' },
+   552→                { key: 'bankTransfer', name: 'Virement', color: '#9333ea' },
+   553→                { key: 'cod', name: 'Paiement Livraison', color: '#6b7280' },
+   554→              ]}
+   555→              height={280}
+   556→              chartType="area"
+   557→              stacked
+   558→              defaultRange={selectedRange as '7d' | '30d' | '90d' | '1y'}
+   559→            />
+   560→          </TabsContent>
+   561→
+   562→          {/* Tab: Funnels */}
+   563→          <TabsContent value="funnels" className="space-y-6">
+   564→            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+   565→              {/* Buyer Journey Funnel */}
+   566→              <FunnelChart
+   567→                title="Tunnel de Conversion - Acheteur"
+   568→                stages={buyerFunnel}
+   569→                color="#006233"
+   570→                showPercentages
+   571→                showConversionRates
+   572→                onStageClick={(stage) => console.log('Buyer stage clicked:', stage)}
+   573→              />
+   574→
+   575→              {/* Supplier Onboarding Funnel */}
+   576→              <FunnelChart
+   577→                title="Tunnel d&apos;Onboarding - Fournisseur"
+   578→                stages={supplierFunnel}
+   579→                color="#2563eb"
+   580→                showPercentages
+   581→                showConversionRates
+   582→                onStageClick={(stage) => console.log('Supplier stage clicked:', stage)}
+   583→              />
+   584→            </div>
+   585→
+   586→            {/* Funnel Comparison Summary */}
+   587→            <Card>
+   588→              <CardHeader>
+   589→                <CardTitle className="text-base font-semibold">Comparaison des Tunnels</CardTitle>
+   590→              </CardHeader>
+   591→              <CardContent>
+   592→                <div className="overflow-x-auto">
+   593→                  <table className="w-full text-sm">
+   594→                    <thead>
+   595→                      <tr className="border-b">
+   596→                        <th className="text-left py-3 px-4 font-medium">Métrique</th>
+   597→                        <th className="text-right py-3 px-4 font-medium">Acheteur</th>
+   598→                        <th className="text-right py-3 px-4 font-medium">Fournisseur</th>
+   599→                        <th className="text-right py-3 px-4 font-medium">Différence</th>
+   600→                      </tr>
+   601→                    </thead>
+   602→                    <tbody>
+   603→                      <tr className="border-b hover:bg-muted/50">
+   604→                        <td className="py-3 px-4">Conversion Totale</td>
+   605→                        <td className="text-right py-3 px-4 font-mono">
+   606→                          {buyerFunnel.length > 0 ? buyerFunnel[buyerFunnel.length - 1]?.percentage.toFixed(1) : '-'}%
+   607→                        </td>
+   608→                        <td className="text-right py-3 px-4 font-mono">
+   609→                          {supplierFunnel.length > 0 ? supplierFunnel[supplierFunnel.length - 1]?.percentage.toFixed(1) : '-'}%
+   610→                        </td>
+   611→                        <td className="text-right py-3 px-4">
+   612→                          <Badge variant={((buyerFunnel[buyerFunnel.length - 1]?.percentage || 0) > (supplierFunnel[supplierFunnel.length - 1]?.percentage || 0)) ? 'default' : 'secondary'}>
+   613→                            {Math.abs(((buyerFunnel[buyerFunnel.length - 1]?.percentage || 0) - (supplierFunnel[supplierFunnel.length - 1]?.percentage || 0))).toFixed(1)}%
+   614→                          </Badge>
+   615→                        </td>
+   616→                      </tr>
+   617→                      <tr className="border-b hover:bg-muted/50">
+   618→                        <td className="py-3 px-4">Plus Grosse Perte</td>
+   619→                        <td className="text-right py-3 px-4 font-mono">
+   620→                          {buyerFunnel.reduce((max, s) => (s.dropOffRate || 0) > max ? s.dropOffRate || 0 : max, 0).toFixed(1)}%
+   621→                        </td>
+   622→                        <td className="text-right py-3 px-4 font-mono">
+   623→                          {supplierFunnel.reduce((max, s) => (s.dropOffRate || 0) > max ? s.dropOffRate || 0 : max, 0).toFixed(1)}%
+   624→                        </td>
+   625→                        <td className="text-right py-3 px-4">-</td>
+   626→                      </tr>
+   627→                      <tr className="hover:bg-muted/50">
+   628→                        <td className="py-3 px-4">Nombre d&apos;Étapes</td>
+   629→                        <td className="text-right py-3 px-4 font-mono">{buyerFunnel.length}</td>
+   630→                        <td className="text-right py-3 px-4 font-mono">{supplierFunnel.length}</td>
+   631→                        <td className="text-right py-3 px-4">{Math.abs(buyerFunnel.length - supplierFunnel.length)}</td>
+   632→                      </tr>
+   633→                    </tbody>
+   634→                  </table>
+   635→                </div>
+   636→              </CardContent>
+   637→            </Card>
+   638→          </TabsContent>
+   639→
+   640→          {/* Tab: Details (Tables) */}
+   641→          <TabsContent value="details" className="space-y-6">
+   642→            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+   643→              {/* Top Products Table */}
+   644→              <DataTable
+   645→                title="Top Produits par Vues"
+   646→                columns={[
+   647→                  { key: 'name', header: 'Produit', render: (val) => <span className="font-medium">{String(val)}</span> },
+   648→                  { key: 'category', header: 'Catégorie' },
+   649→                  { key: 'views', header: 'Vues', sortable: true, render: (val) => Number(val).toLocaleString('fr-DZ') },
+   650→                  { key: 'change', header: 'Tendance', sortable: true },
+   651→                ]}
+   652→                data={topProducts as Record<string, unknown>[]}
+   653→                searchable
+   654→                searchPlaceholder="Rechercher un produit..."
+   655→                pageSize={8}
+   656→                trendKey="change"
+   657→              />
+   658→
+   659→              {/* Top Suppliers Table */}
+   660→              <DataTable
+   661→                title="Meilleurs Fournisseurs"
+   662→                columns={[
+   663→                  { key: 'name', header: 'Fournisseur', render: (val) => <span className="font-medium">{String(val)}</span> },
+   664→                  { key: 'wilaya', header: 'Wilaya' },
+   665→                  { key: 'responseRate', header: 'Taux Réponse', sortable: true, render: (val) => `${Number(val).toFixed(1)}%` },
+   666→                  { key: 'rating', header: 'Note', sortable: true },
+   667→                  { key: 'quotationsSent', header: 'Devis Envoyés', sortable: true },
+   668→                ]}
+   669→                data={topSuppliers as Record<string, unknown>[]}
+   670→                searchable
+   671→                searchPlaceholder="Rechercher un fournisseur..."
+   672→                pageSize={8}
+   673→              />
+   674→            </div>
+   675→
+   676→            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+   677→              {/* Top Categories Table */}
+   678→              <DataTable
+   679→                title="Catégories Populaires"
+   680→                columns={[
+   681→                  { key: 'name', header: 'Catégorie', render: (val) => <span className="font-medium">{String(val)}</span> },
+   682→                  { key: 'productCount', header: 'Produits', sortable: true },
+   683→                  { key: 'rfqCount', header: 'RFQs', sortable: true },
+   684→                  { key: 'growth', header: 'Croissance', sortable: true, trendKey: 'growth' },
+   685→                ]}
+   686→                data={topCategories as Record<string, unknown>[]}
+   687→                pageSize={8}
+   688→              />
+   689→
+   690→              {/* Top Search Terms Table */}
+   691→              <DataTable
+   692→                title="Termes de Recherche Populaires"
+   693→                columns={[
+   694→                  { key: 'term', header: 'Terme de Recherche', render: (val) => <span className="font-medium">{String(val)}</span> },
+   695→                  { key: 'count', header: 'Recherches', sortable: true },
+   696→                  { key: 'results', header: 'Résultats' },
+   697→                  { key: 'clickThroughRate', header: 'CTR', sortable: true, render: (val) => `${Number(val).toFixed(1)}%` },
+   698→                  { key: 'trend', header: 'Tendance', render: (val) => (
+   699→                    <Badge variant={
+   700→                      val === 'up' ? 'default' :
+   701→                      val === 'down' ? 'destructive' : 'secondary'
+   702→                    }>
+   703→                      {val === 'up' ? '↑ Hausse' : val === 'down' ? '↓ Baisse' : '→ Stable'}
+   704→                    </Badge>
+   705→                  )},
+   706→                ]}
+   707→                data={topSearches as Record<string, unknown>[]}
+   708→                searchable
+   709→                searchPlaceholder="Rechercher un terme..."
+   710→                pageSize={8}
+   711→              />
+   712→            </div>
+   713→          </TabsContent>
+   714→        </Tabs>
+   715→
+   716→        {/* Footer with timestamp */}
+   717→        <footer className="text-center text-sm text-muted-foreground py-4 border-t">
+   718→          <div className="flex items-center justify-center gap-2">
+   719→            <Clock className="h-4 w-4" />
+   720→            <span>Dernière mise à jour: {new Date().toLocaleString('fr-DZ')}</span>
+   721→          </div>
+   722→        </footer>
+   723→      </div>
+   724→    </div>
+   725→  );
+   726→}
+   727→
+   728→// ============================================
+   729→// Payment Method Distribution Component
+   730→// ============================================
+   731→
+   732→function PaymentMethodDistribution() {
+   733→  const methods = [
+   734→    { name: 'CIB (Carte Bancaire)', percentage: 42, color: '#006233', amount: 2450000 },
+   735→    { name: 'BaridiMob', percentage: 28, color: '#2563eb', amount: 1630000 },
+   736→    { name: 'Virement Bancaire', percentage: 15, color: '#9333ea', amount: 875000 },
+   737→    { name: 'CCP (Chèque Postal)', percentage: 10, color: '#ea580c', amount: 583000 },
+   738→    { name: 'Paiement à la Livraison', percentage: 5, color: '#6b7280', amount: 292000 },
+   739→  ];
+   740→
+   741→  return (
+   742→    <div className="space-y-4">
+   743→      {methods.map((method) => (
+   744→        <div key={method.name} className="space-y-2">
+   745→          <div className="flex items-center justify-between text-sm">
+   746→            <span>{method.name}</span>
+   747→            <span className="font-medium">{method.percentage}%</span>
+   748→          </div>
+   749→          <div className="h-3 bg-muted rounded-full overflow-hidden">
+   750→            <div
+   751→              className="h-full rounded-full transition-all duration-500"
+   752→              style={{
+   753→                width: `${method.percentage}%`,
+   754→                backgroundColor: method.color,
+   755→              }}
+   756→            />
+   757→          </div>
+   758→          <p className="text-xs text-muted-foreground text-right">
+   759→            {(method.amount / 1000).toLocaleString('fr-DZ')} kDZD
+   760→          </p>
+   761→        </div>
+   762→      ))}
+   763→    </div>
+   764→  );
+   765→}
+   766→

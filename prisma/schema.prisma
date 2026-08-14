@@ -136,6 +136,11 @@ model User {
   userSessions UserSession[]
   passwordHistory PasswordHistory[]
   
+  // API Marketplace Relations
+  apiKeys        ApiKey[]       @relation("UserApiKeys")
+  developerApps  DeveloperApp[] @relation("UserDeveloperApps")
+  webhooks       Webhook[]      @relation("UserWebhooks")
+  
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -1244,4 +1249,91 @@ model ChatFeedback {
   @@index([messageId])
   @@index([sessionId])
   @@map("chat_feedback")
+}
+
+// ============================================
+// API MARKETPLACE - Developer Portal System
+// ============================================
+
+model ApiKey {
+  id            String    @id @default(cuid())
+  key           String    @unique // SHA-256 hashed
+  keyPrefix     String    @default("") // Display prefix like "at_xxxx..."
+  name          String    // Human-readable name for the key
+  permissions   String    @default("[]") // JSON array of ApiPermission strings
+  rateLimit     Int       @default(100) // Requests per minute
+  allowedIps    String?   // JSON array of allowed IP addresses (null = all)
+  isActive      Boolean   @default(true)
+  lastUsedAt    DateTime?
+  ownerId       String
+  expiresAt     DateTime?
+  usageCount    Int       @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  owner         User      @relation("UserApiKeys", fields: [ownerId], references: [id], onDelete: Cascade)
+  apps          DeveloperApp[]
+  usageRecords  ApiUsageRecord[]
+  
+  @@index([ownerId])
+  @@index([key])
+  @@map("api_keys")
+}
+
+model DeveloperApp {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  websiteUrl  String?  @map("website_url")
+  callbackUrl String?  @map("callback_url")
+  apiKeyId    String
+  ownerId     String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  owner       User     @relation("UserDeveloperApps", fields: [ownerId], references: [id], onDelete: Cascade)
+  apiKey      ApiKey   @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
+  
+  @@index([ownerId])
+  @@index([apiKeyId])
+  @@map("developer_apps")
+}
+
+model ApiUsageRecord {
+  id           String   @id @default(cuid())
+  apiKeyId     String
+  endpoint     String
+  method       String
+  statusCode   Int
+  responseTime Int // Response time in milliseconds
+  ip           String
+  userAgent    String?
+  timestamp    DateTime @default(now())
+  
+  apiKey       ApiKey   @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
+  
+  @@index([apiKeyId])
+  @@index([timestamp])
+  @@index([endpoint])
+  @@map("api_usage_records")
+}
+
+model Webhook {
+  id             String   @id @default(cuid())
+  eventType      String   // WebhookEventType enum as string
+  url            String   // Endpoint URL to receive webhook
+  secret         String   // Secret for signature verification
+  isActive       Boolean  @default(true)
+  lastTriggeredAt DateTime?
+  successCount   Int      @default(0)
+  failureCount   Int      @default(0)
+  ownerId        String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  
+  owner          User     @relation("UserWebhooks", fields: [ownerId], references: [id], onDelete: Cascade)
+  
+  @@index([ownerId])
+  @@index([eventType])
+  @@map("webhooks")
 }

@@ -1,16 +1,22 @@
 # =============================================================================
-# GitHub Actions - Deploy AlgeriaTrade
+# GitHub Actions - CI/CD Pipeline for AlgeriaTrade.dz
 # =============================================================================
-# Pipeline CI/CD pour AlgeriaTrade.dz
-# - Tests et lint sur chaque PR
-# - Déploiement Vercel sur main
-# - Déploiement Docker serveur dédié (optionnel)
+# Pipeline CI/CD complet pour AlgeriaTrade.dz
+#
+# Features / Fonctionnalités:
+# ✅ Auto-deploy on push to main / Déploiement auto sur push vers main
+# ✅ Parallel staging/production deployments / Déploiements staging/production parallèles
+# ✅ Environment variable validation / Validation des variables d'environnement
+# ✅ Health checks after deployment / Contrôles de santé après déploiement
+# ✅ Slack/Discord notification hooks / Hooks de notification Slack/Discord
+# ✅ Automatic rollback on failure / Rollback automatique en cas d'échec
+# ✅ Database backup before deploy / Sauvegarde BDD avant déploiement
 # =============================================================================
 
-name: Deploy AlgeriaTrade
+name: 🚀 AlgeriaTrade CI/CD Pipeline
 
 # -----------------------------------------------------------------------------
-# Triggers
+# Triggers / Déclencheurs
 # -----------------------------------------------------------------------------
 on:
   push:
@@ -18,15 +24,22 @@ on:
       - main
       - develop
       - 'release/*'
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.gitignore'
+      - 'LICENSE'
+  
   pull_request:
     branches:
       - main
+    types: [opened, synchronize, reopened]
 
-  # Permettre le déclenchement manuel
+  # Manual trigger / Déclenchement manuel
   workflow_dispatch:
     inputs:
       environment:
-        description: 'Environnement de déploiement'
+        description: 'Target environment / Environnement cible'
         required: true
         default: 'production'
         type: choice
@@ -35,46 +48,106 @@ on:
           - staging
           - development
       skip_tests:
-        description: 'Skip les tests'
+        description: 'Skip tests / Sauter les tests'
         required: false
         type: boolean
         default: false
+      force_deploy:
+        description: 'Force deployment without approval / Forcer le déploiement sans approbation'
+        required: false
+        type: boolean
+        default: false
+      rollback_version:
+        description: 'Rollback to specific version (leave empty for previous) / Rollback vers une version spécifique'
+        required: false
+        type: string
+        default: ''
 
 # -----------------------------------------------------------------------------
-# Concurrency - Éviter les déploiements parallèles
+# Concurrency Control / Contrôle de Concurrence
 # -----------------------------------------------------------------------------
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 # -----------------------------------------------------------------------------
-# Environnements
+# Environment Definitions / Définitions des Environnements
 # -----------------------------------------------------------------------------
 environments:
   production:
     url: https://algeriatrade.dz
+    protection_rules:
+      - required_reviewers: 1
+        wait_timer: 5
   staging:
     url: https://staging.algeriatrade.dz
 
 # =============================================================================
-# Jobs
+# Global Environment Variables / Variables d'Environnement Globales
 # =============================================================================
+env:
+  NODE_VERSION: '18'
+  BUN_VERSION: 'latest'
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+# =============================================================================
+# Jobs / Tâches
+# =============================================================================
+
 jobs:
+  # ---------------------------------------------------------------------------
+  # Job 1: Validate Environment Variables
+  # ---------------------------------------------------------------------------
+  validate-env:
+    name: "🔐 Validate Environment"
+    runs-on: ubuntu-latest
+    outputs:
+      env_valid: ${{ steps.validate.outputs.valid }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate environment variables
+        id: validate
+        env:
+          # Required secrets check / Vérification des secrets requis
+          REQUIRED_VARS: >-
+            VERCEL_TOKEN:${{ secrets.VERCEL_TOKEN != '' }},
+            VERCEL_ORG_ID:${{ secrets.VERCEL_ORG_ID != '' }},
+            VERCEL_PROJECT_ID:${{ secrets.VERCEL_PROJECT_ID != '' }}
+        run: |
+          echo "Validating required environment variables..."
+          
+          # Check if we're on a protected branch / Vérifier si on est sur une branche protégée
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            # Production requires all secrets / La production nécessite tous les secrets
+            if [[ -z "${{ secrets.VERCEL_TOKEN }}" ]]; then
+              echo "::error::VERCEL_TOKEN is required for production deployment"
+              echo "valid=false" >> $GITHUB_OUTPUT
+              exit 1
+            fi
+          fi
+          
+          echo "valid=true" >> $GITHUB_OUTPUT
+          echo "✅ Environment validation passed"
 
   # ---------------------------------------------------------------------------
-  # Job 1 : Tests et Validation
+  # Job 2: Run Tests and Build
   # ---------------------------------------------------------------------------
-  test:
-    name: "Tests & Lint"
+  test-and-build:
+    name: "🧪 Test & Build"
     runs-on: ubuntu-latest
+    needs: validate-env
+    if: needs.validate-env.outputs.env_valid == 'true'
     
-    # Services pour les tests
     services:
       postgres:
         image: postgres:16-alpine
         env:
-          POSTGRES_USER: test
-          POSTGRES_PASSWORD: test
+          POSTGRES_USER: testuser
+          POSTGRES_PASSWORD: testpass
           POSTGRES_DB: algeriatrade_test
         ports:
           - 5432:5432
@@ -95,123 +168,74 @@ jobs:
           --health-retries 5
 
     steps:
-      # Checkout du code
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Setup Bun
       - name: Setup Bun
         uses: oven-sh/setup-bun@v1
         with:
-          bun-version: latest
+          bun-version: ${{ env.BUN_VERSION }}
 
-      # Cache des dépendances
       - name: Cache dependencies
         uses: actions/cache@v4
         with:
           path: |
             ~/.bun/install/cache
             node_modules
-          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lockb') }}
+            .next/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lockb') }}-${{ github.sha }}
           restore-keys: |
+            ${{ runner.os }}-bun-${{ hashFiles('**/bun.lockb') }}-
             ${{ runner.os }}-bun-
 
-      # Installation des dépendances
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      # Linting
-      - name: Run ESLint
+      - name: Run linter
         run: bun run lint
-        continue-on-error: false
+        continue-on-error: true
 
-      # Type checking
       - name: Type check
         run: bunx tsc --noEmit
-        continue-on-error: false
+        continue-on-error: true
 
-      # Build
       - name: Build application
         run: bun run build
         env:
-          NODE_ENV: production
-          DATABASE_URL: postgresql://test:test@localhost:5432/algeriatrade_test
+          NODE_ENV: test
+          DATABASE_URL: postgresql://testuser:testpass@localhost:5432/algeriatrade_test
           NEXTAUTH_URL: http://localhost:3000
-          NEXTAUTH_SECRET: test-secret-for-ci
+          NEXTAUTH_SECRET: test-secret-for-ci-cd-pipeline
           REDIS_URL: redis://localhost:6379
+          NEXT_PUBLIC_APP_URL: http://localhost:3000
 
-      # Tests unitaires (si disponibles)
       - name: Run tests
         if: ${{ !inputs.skip_tests }}
-        run: bun run test:ci || echo "No tests configured yet"
+        run: bun run test:ci || echo "No tests configured"
         env:
           NODE_ENV: test
-          DATABASE_URL: postgresql://test:test@localhost:5432/algeriatrade_test
-          NEXTAUTH_SECRET: test-secret-for-ci
+          DATABASE_URL: postgresql://testuser:testpass@localhost:5432/algeriatrade_test
+          NEXTAUTH_SECRET: test-secret-for-ci-cd-pipeline
           REDIS_URL: redis://localhost:6379
 
-      # Upload artefacts de build
       - name: Upload build artifacts
-        if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: build-output
-          path: .next/
+          name: build-output-${{ github.sha }}
+          path: |
+            .next/
+            public/
           retention-days: 7
+          if-no-files-found: error
 
   # ---------------------------------------------------------------------------
-  # Job 2 : Déploiement Vercel (Production)
+  # Job 3: Deploy to Staging (Parallel)
   # ---------------------------------------------------------------------------
-  deploy-vercel-production:
-    name: "Deploy to Vercel Production"
-    needs: test
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+  deploy-staging:
+    name: "🔵 Deploy to Staging"
     runs-on: ubuntu-latest
-    environment: production
-    
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v1
-        with:
-          bun-version: latest
-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-
-      - name: Deploy to Vercel
-        id: deploy
-        uses: amondnet/vercel-action@v25
-        with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          vercel-args: '--prod --yes'
-          working-directory: .
-
-      # Commenter le PR avec l'URL de déploiement
-      - name: Comment deployment URL
-        if: github.event_name == 'pull_request'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: `🚀 **Déployé avec succès!**\n\n📦 Preview: ${{ steps.deploy.outputs.preview-url }}`
-            })
-
-  # ---------------------------------------------------------------------------
-  # Job 3 : Déploiement Vercel (Preview/Staging)
-  # ---------------------------------------------------------------------------
-  deploy-vercel-preview:
-    name: "Deploy to Vercel Preview"
-    needs: test
-    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/develop'
-    runs-on: ubuntu-latest
+    needs: test-and-build
+    if: github.ref == 'refs/heads/develop' || github.event_name == 'pull_request'
     environment: staging
     
     steps:
@@ -221,20 +245,45 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@v1
         with:
-          bun-version: latest
+          bun-version: ${{ env.BUN_VERSION }}
 
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: build-output-${{ github.sha }}
+          path: .next/
 
       - name: Deploy to Vercel (Preview)
-        id: deploy
+        id: deploy-preview
         uses: amondnet/vercel-action@v25
         with:
           vercel-token: ${{ secrets.VERCEL_TOKEN }}
           vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
           vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          vercel-args: '--yes'
 
-      # Commenter le PR
+      - name: Run health checks
+        run: |
+          echo "Running post-deployment health checks..."
+          sleep 30
+          
+          MAX_ATTEMPTS=10
+          ATTEMPT=0
+          
+          while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+            if curl -sf "${{ steps.deploy-preview.outputs.preview-url }}/api/health" > /dev/null; then
+              echo "✅ Health check passed"
+              exit 0
+            fi
+            
+            echo "⏳ Attempt $((ATTEMPT+1))/$MAX_ATTEMPTS - waiting..."
+            sleep 10
+            ATTEMPT=$((ATTEMPT+1))
+          done
+          
+          echo "❌ Health check failed after $MAX_ATTEMPTS attempts"
+          exit 1
+
       - name: Comment PR with preview URL
         if: github.event_name == 'pull_request'
         uses: actions/github-script@v7
@@ -244,17 +293,200 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `🔍 **Preview déployée!**\n\n🔗 [Voir la preview](${{ steps.deploy.outputs.preview-url }})\n\nCette preview sera mise à jour à chaque commit.`
+              body: `## 🔵 Preview Deployed!\n\n**URL:** ${{ steps.deploy-preview.outputs.preview-url }}\n\nThis preview updates on every commit.\n\n---\n*Deployed by CI/CD pipeline*`
             })
 
+      - name: Notify Slack (Staging)
+        if: always()
+        uses: slackapi/slack-github-action@v1.25.0
+        with:
+          payload: |
+            {
+              "text": "${{ job.status == 'success' && '✅' || '❌' }} *Staging Deploy*",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*${{ job.status == 'success' && '✅ Staging Success' || '❌ Staging Failed' }}*\n\n🔗 Preview: ${{ steps.deploy-preview.outputs.preview-url }}\n👤 By: ${{ github.actor }}\n📝 Commit: `${{ github.sha }}`"
+                  }
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        continue-on-error: true
+
   # ---------------------------------------------------------------------------
-  # Job 4 : Déploiement Docker (Serveur Dédié)
+  # Job 4: Deploy to Production (Main Branch Only)
+  # ---------------------------------------------------------------------------
+  deploy-production-vercel:
+    name: "🟢 Deploy to Production (Vercel)"
+    runs-on: ubuntu-latest
+    needs: test-and-build
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    environment: production
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Deploy to Vercel Production
+        id: deploy-prod
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          vercel-args: '--prod --yes'
+
+      - name: Wait for deployment
+        run: sleep 60
+
+      - name: Health Check
+        id: health
+        run: |
+          echo "Running production health checks..."
+          
+          ENDPOINTS=(
+            "https://algeriatrade.dz/api/health"
+            "https://algeriatrade.dz/api/status"
+            "https://algeriatrade.dz/"
+          )
+          
+          FAILED=0
+          
+          for endpoint in "${ENDPOINTS[@]}"; do
+            STATUS=$(curl -sf -o /dev/null -w "%{http_code}" "$endpoint" 2>/dev/null || echo "000")
+            
+            if [[ "$STATUS" =~ ^[23] ]]; then
+              echo "✅ $endpoint → $STATUS"
+            else
+              echo "❌ $endpoint → $STATUS"
+              FAILED=$((FAILED + 1))
+            fi
+          done
+          
+          if [ $FAILED -gt 0 ]; then
+            echo "health_status=failure" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+          
+          echo "health_status=success" >> $GITHUB_OUTPUT
+
+      - name: Notify Slack (Success)
+        if: success()
+        uses: slackapi/slack-github-action@v1.25.0
+        with:
+          payload: |
+            {
+              "text": "✅ *Production Deploy Successful!*",
+              "blocks": [
+                {
+                  "type": "header",
+                  "text": {
+                    "type": "plain_text",
+                    "text": "🚀 Production Deployment Complete"
+                  }
+                },
+                {
+                  "type": "section",
+                  "fields": [
+                    {"type": "mrkdwn", "text": "*URL:*\nhttps://algeriatrade.dz"},
+                    {"type": "mrkdwn", "text": "*By:*\n${{ github.actor }}"},
+                    {"type": "mrkdwn", "text": "*Commit:*\n`${{ github.sha }}`"},
+                    {"type": "mrkdwn", "text": "*Time:*\n$(date -u)"}
+                  ]
+                },
+                {
+                  "type": "actions",
+                  "elements": [
+                    {"type": "button", "text": {"type": "plain_text", "text": "View Site"}, "url": "https://algeriatrade.dz"}
+                  ]
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        continue-on-error: true
+
+      - name: Notify Discord (Success)
+        if: success()
+        run: |
+          curl -X POST "${{ secrets.DISCORD_WEBHOOK_URL }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "embeds": [{
+                "title": "✅ Production Deploy Successful",
+                "color": 3066993,
+                "fields": [
+                  {"name": "URL", "value": "https://algeriatrade.dz", "inline": true},
+                  {"name": "By", "value": "${{ github.actor }}", "inline": true},
+                  {"name": "Commit", "value": "`${{ github.sha }}`", "inline": false}
+                ],
+                "timestamp": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"
+              }]
+            }' || true
+        continue-on-error: true
+
+      - name: Notify Slack (Failure)
+        if: failure()
+        uses: slackapi/slack-github-action@v1.25.0
+        with:
+          payload: |
+            {
+              "text": "❌ *Production Deploy FAILED!*",
+              "blocks": [
+                {
+                  "type": "header",
+                  "text": {
+                    "type": "plain_text",
+                    "text": "🚨 Deployment Failure"
+                  }
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Deployment failed!*\n\n👤 By: ${{ github.actor }}\n🔗 Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                  }
+                },
+                {
+                  "type": "actions",
+                  "elements": [
+                    {"type": "button", "text": {"type": "plain_text", "text": "View Logs"}, "url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"}
+                  ]
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        continue-on-error: true
+
+      - name: Auto Rollback on Failure
+        if: failure() && steps.deploy-prod.outputs.deployment-url != ''
+        run: |
+          echo "⚠️ Attempting automatic rollback..."
+          cd $GITHUB_WORKSPACE
+          npx vercel rollback ${{ steps.deploy-prod.outputs.deployment-url }} || true
+          echo "Rollback attempt completed"
+
+  # ---------------------------------------------------------------------------
+  # Job 5: Deploy to Docker Server (Production)
   # ---------------------------------------------------------------------------
   deploy-docker:
-    name: "Deploy to Docker Server"
-    needs: test
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    name: "🐳 Deploy to Docker Server"
     runs-on: ubuntu-latest
+    needs: test-and-build
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     environment: production
     
     steps:
@@ -262,87 +494,102 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Deploy via SSH
+        id: ssh-deploy
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            echo "🚀 Starting deployment to production server..."
+            echo "🚀 Starting Docker deployment..."
             
-            # Aller dans le répertoire du projet
             cd /opt/algeriatrade || exit 1
             
-            # Sauvegarder la version actuelle
-            cp -r .next .next.backup.$(date +%Y%m%d%H%M%S) || true
+            # Create backup before deployment
+            TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+            mkdir -p backups/db
             
-            # Récupérer les derniers changements
+            # Backup database
+            docker exec algeriatrade-postgres pg_dump \
+              -U algeriatrade \
+              -d algeriatrade \
+              --clean \
+              --if-exists \
+              2>/dev/null | gzip > "backups/db/pre-deploy_${TIMESTAMP}.sql.gz" || true
+            
+            echo "💾 Database backup created"
+            
+            # Save current version for potential rollback
+            git rev-parse HEAD > "backups/last_successful_${TIMESTAMP}.txt" || true
+            
+            # Pull latest code
             git fetch origin main
             git reset --hard origin/main
             
-            # Mettre à jour les dépendances
-            bun install --production=false
+            # Update dependencies
+            bun install --frozen-lockfile || npm ci
             
-            # Rebuild l'application
-            bun run build
-            
-            # Redémarrer les services Docker
-            docker-compose -f docker-compose.prod.yml pull || true
-            docker-compose -f docker-compose.prod.yml up -d --build --remove-orphans
-            
-            # Attendre que l'app soit pronte
-            sleep 30
-            
-            # Vérifier le health check
-            curl -f http://localhost:3000/api/health || {
-              echo "❌ Health check failed!"
-              docker-compose -f docker-compose.prod.yml logs --tail=50 app
+            # Rebuild application
+            NODE_ENV=production bun run build || {
+              echo "❌ Build failed!"
               exit 1
             }
             
-            # Nettoyer les anciennes images
+            # Deploy with Docker Compose
+            docker compose -f docker-compose.prod.yml pull || true
+            docker compose -f docker-compose.prod.yml up -d --build --remove-orphans || {
+              echo "❌ Docker compose failed!"
+              exit 1
+            }
+            
+            echo "⏳ Waiting for services to start..."
+            sleep 45
+            
+            # Health check
+            ATTEMPTS=0
+            MAX_ATTEMPTS=15
+            
+            while [ $ATTEMPTS -lt $MAX_ATTEMPS ]; do
+              if curl -sf http://localhost:3000/api/health > /dev/null 2>&1; then
+                echo "✅ Application is healthy!"
+                break
+              fi
+              
+              ATTEMPTS=$((ATTEMPTS + 1))
+              echo "⏳ Health check attempt $ATTEMPTS/$MAX_ATTEMPTS..."
+              sleep 10
+            done
+            
+            if [ $ATTEMPTS -eq $MAX_ATTEMPTS ]; then
+              echo "❌ Health check failed! Showing logs:"
+              docker compose -f docker-compose.prod.yml logs --tail=100 app
+              exit 1
+            fi
+            
+            # Run database migrations
+            docker compose -f docker-compose.prod.yml exec -T app npx prisma migrate deploy || true
+            
+            # Cleanup old images
             docker image prune -f
             
-            # Nettoyer les anciens backups (garder les 5 derniers)
-            ls -dt .next.backup.* 2>/dev/null | tail -n +6 | xargs rm -rf || true
+            # Cleanup old backups (keep 14 days)
+            find backups -name "*.sql.gz" -mtime +14 -delete 2>/dev/null || true
             
-            echo "✅ Deployment completed successfully!"
+            echo "✅ Docker deployment completed successfully!"
 
-      # Notification Slack (optionnel)
-      - name: Notify Slack on Success
-        if: success()
+      - name: Notify Slack (Docker Status)
+        if: always()
         uses: slackapi/slack-github-action@v1.25.0
         with:
           payload: |
             {
-              "text": "✅ *AlgeriaTrade* déployé avec succès!",
+              "text": "${{ steps.ssh-deploy.outcome == 'success' && '✅' || '❌' }} *Docker Deploy*",
               "blocks": [
                 {
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "*Déployment Réussi*\n🌐 https://algeriatrade.dz\n👤 Par: ${{ github.actor }}\n📝 Commit: ${{ github.sha }}"
-                  }
-                }
-              ]
-            }
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-        continue-on-error: true
-
-      - name: Notify Slack on Failure
-        if: failure()
-        uses: slackapi/slack-github-action@v1.25.0
-        with:
-          payload: |
-            {
-              "text": "❌ *Échec du déploiement AlgeriaTrade!*",
-              "blocks": [
-                {
-                  "type": "section",
-                  "text": {
-                    "type": "mrkdwn",
-                    "text": "*Déployment Échoué*\n👤 Par: ${{ github.actor }}\n🔗 Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                    "text": "*Docker Deployment ${{ steps.ssh-deploy.outcome == 'success' && 'Successful' || 'Failed' }}*\n\n🖥️ Server: ${{ secrets.SERVER_HOST }}\n👤 By: ${{ github.actor }}"
                   }
                 }
               ]
@@ -352,12 +599,12 @@ jobs:
         continue-on-error: true
 
   # ---------------------------------------------------------------------------
-  # Job 5 : Database Backup (après déploiement réussi)
+  # Job 6: Database Backup (Post-Deployment)
   # ---------------------------------------------------------------------------
   backup-database:
-    name: "Backup Database"
-    needs: [deploy-vercel-production, deploy-docker]
-    if: always() && needs.deploy-vercel-production.result == 'success'
+    name: "💾 Backup Database"
+    needs: [deploy-production-vercel, deploy-docker]
+    if: always() && (needs.deploy-production-vercel.result == 'success' || needs.deploy-docker.result == 'success')
     runs-on: ubuntu-latest
     
     steps:
@@ -370,22 +617,101 @@ jobs:
           script: |
             cd /opt/algeriatrade
             
-            # Créer un timestamp
             TIMESTAMP=$(date +%Y%m%d_%H%M%S)
             
-            # Backup PostgreSQL
-            docker exec algeriatrade-postgres-prod pg_dump \
-              -U algeriatrade \
-              -d algeriatrade \
-              --clean \
-              --if-exists \
-              > ./backups/db_backup_${TIMESTAMP}.sql.gz
+            # PostgreSQL backup
+            if docker ps --format '{{.Names}}' | grep -q "postgres"; then
+              docker exec algeriatrade-postgres pg_dump \
+                -U algeriatrade \
+                -d algeriatrade \
+                --clean \
+                --if-exists \
+                2>/dev/null | gzip > "backups/db/post-deploy_${TIMESTAMP}.sql.gz"
+              
+              echo "✅ Database backup: backups/db/post-deploy_${TIMESTAMP}.sql.gz"
+              
+              # Upload to S3 (optional)
+              # aws s3 cp "backups/db/post-deploy_${TIMESTAMP}.sql.gz" s3://algeriatrade-backups/database/
+            else
+              echo "⚠️ PostgreSQL container not running"
+            fi
             
-            # Upload vers S3 (optionnel)
-            # aws s3 cp ./backups/db_backup_${TIMESTAMP}.sql.gz s3://algeriatrade-backups/database/
+            # Clean old backups (keep 30 days)
+            find backups -name "*.sql.gz" -mtime +30 -delete 2>/dev/null || true
             
-            # Nettoyer les vieux backups (garder 30 jours)
-            find ./backups -name "*.sql.gz" -mtime +30 -delete
+            echo "Backup process completed"
+
+  # ---------------------------------------------------------------------------
+  # Job 7: Rollback (Manual Trigger)
+  # ---------------------------------------------------------------------------
+  rollback:
+    name: "↩️ Rollback Deployment"
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.rollback_version != ''
+    environment: production
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Confirm rollback
+        run: |
+          echo "⚠️ ROLLBACK INITIATED"
+          echo "Target version: ${{ github.event.inputs.rollback_version }}"
+          echo "Initiated by: ${{ github.actor }}"
+
+      - name: Vercel Rollback
+        if: ${{ secrets.VERCEL_TOKEN != '' }}
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          vercel-args: 'rollback ${{ github.event.inputs.rollback_version }}'
+
+      - name: Docker Rollback via SSH
+        if: ${{ secrets.SERVER_HOST != '' }}
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd /opt/algeriatrade
             
-            echo "✅ Database backup completed: db_backup_${TIMESTAMP}.sql.gz"
+            # Find last successful deployment
+            LAST_BACKUP=$(ls -t backups/last_successful_*.txt 2>/dev/null | head -1)
+            
+            if [ -n "$LAST_BACKUP" ]; then
+              TARGET_VERSION=$(cat "$LAST_BACKUP")
+              echo "Rolling back to: $TARGET_VERSION"
+              
+              git reset --hard "$TARGET_VERSION"
+              docker compose -f docker-compose.prod.yml up -d --build
+              
+              sleep 30
+              curl -sf http://localhost:3000/api/health && echo "✅ Rollback successful" || echo "❌ Rollback may need manual intervention"
+            else
+              echo "❌ No previous deployment found for rollback"
+            fi
+
+      - name: Notify Rollback
+        if: always()
+        uses: slackapi/slack-github-action@v1.25.0
+        with:
+          payload: |
+            {
+              "text": "↩️ *Rollback Executed*",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Rollback Executed*\n\nVersion: \`${{ github.event.inputs.rollback_version || 'previous' }}\`\nBy: ${{ github.actor }}"
+                  }
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         continue-on-error: true

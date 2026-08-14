@@ -1,7 +1,13 @@
-// AI Chatbot Engine - Main orchestrator
+// AI Chatbot Engine - Moteur principal d'orchestration
+// Main orchestrator with AI Provider integration
+
 import { db } from '@/lib/db';
 import { detectIntent, extractEntities, INTENTS, FALLBACK_INTENT } from './intents';
 import { getResponse, getTypingDelay, BotResponse } from './responses';
+
+// Import du système de providers AI / Import AI provider system
+import { getAIProvider, resetProvider } from '../providers/factory';
+import { ChatParams } from '../providers/index';
 
 export interface ChatContext {
   sessionId: string;
@@ -30,10 +36,26 @@ export interface ProcessedMessage {
 }
 
 class ChatbotEngine {
-  private maxHistoryLength = 20; // Keep last 20 messages for context
+  private maxHistoryLength = 20; // Garder les 20 derniers messages pour le contexte
+  private useAIProvider = true; // Activer/désactiver l'IA cloud / Enable/disable cloud AI
 
   /**
+   * Activer ou désactiver l'utilisation du provider IA
+   * Enable or disable AI provider usage
+   */
+  setUseAIProvider(use: boolean): void {
+    this.useAIProvider = use;
+  }
+
+  /**
+   * Traiter un message utilisateur et générer une réponse
    * Process user message and generate response
+   * 
+   * Cette méthode tente d'abord d'utiliser le provider IA configuré,
+   * puis fallback vers le système basé sur les règles.
+   * 
+   * This method first tries to use the configured AI provider,
+   * then falls back to the rule-based system.
    */
   async processMessage(
     message: string,
@@ -41,20 +63,112 @@ class ChatbotEngine {
   ): Promise<ProcessedMessage> {
     const startTime = Date.now();
 
-    // 1. Detect intent
-    const { intent, confidence } = detectIntent(message);
+    // Essayer d'abord avec le provider IA si activé / Try AI provider first if enabled
+    if (this.useAIProvider) {
+      try {
+        const aiResult = await this.processWithAIProvider(message, context);
+        if (aiResult) {
+          console.log(`[ChatbotEngine] AI Response generated in ${Date.now() - startTime}ms`);
+          return aiResult;
+        }
+      } catch (error) {
+        console.error('[ChatbotEngine] AI provider failed, falling back to rule-based:', error);
+        // Continuer avec le système basé sur les règles / Continue with rule-based system
+      }
+    }
 
-    // 2. Extract entities
+    // Système basé sur les règles (fallback ou mode local) / Rule-based system (fallback or local mode)
+    return await this.processWithRules(message, context, startTime);
+  }
+
+  /**
+   * Traiter le message avec le provider IA
+   * Process message with AI provider
+   */
+  private async processWithAIProvider(
+    message: string,
+    context: ChatContext
+  ): Promise<ProcessedMessage | null> {
+    const aiProvider = getAIProvider();
+
+    // Si le provider est local, utiliser directement les règles / If provider is local, use rules directly
+    if (aiProvider.name === 'local') {
+      return null;
+    }
+
+    // Préparer les messages pour l'IA / Prepare messages for AI
+    const chatParams: ChatParams = {
+      messages: [
+        {
+          role: 'user',
+          content: message,
+        },
+      ],
+      temperature: 0.7,
+      maxTokens: 1000,
+      context: this.buildContextString(context),
+    };
+
+    // Appeler le provider IA / Call AI provider
+    const response = await aiProvider.chat(chatParams);
+
+    // Extraire les entités pour le suivi / Extract entities for tracking
+    // Note: L'intention est aussi détectée pour analyse mais non utilisée directement ici
     const entities = extractEntities(message);
 
-    // 3. Get response based on intent
+    // Construire la réponse bot / Build bot response
+    const reply: BotResponse = {
+      message: response.content,
+      suggestions: response.suggestions || [],
+      cards: response.cards?.map(card => ({
+        id: card.metadata?.id as string || '',
+        name: card.title,
+        image: card.imageUrl,
+        supplier: card.description,
+        link: card.actionUrl || '',
+      })) || [],
+    };
+
+    // Calculer le délai de frappe / Calculate typing delay
+    const typingDelay = getTypingDelay(response.content);
+
+    // Sauvegarder la conversation / Save conversation
+    await this.saveConversation(context, message, reply, `ai_${response.provider}`, 0.95, entities);
+
+    return {
+      reply,
+      intent: `ai_${response.provider}`,
+      confidence: 0.95,
+      entities,
+      typingDelay,
+    };
+  }
+
+  /**
+   * Traiter le message avec le système basé sur les règles
+   * Process message with rule-based system
+   */
+  private async processWithRules(
+    message: string,
+    context: ChatContext,
+    startTime: number
+  ): Promise<ProcessedMessage> {
+    // 1. Détecter l'intention / Detect intent
+    const { intent, confidence } = detectIntent(message);
+
+    // 2. Extraire les entités / Extract entities
+    const entities = extractEntities(message);
+
+    // 3. Obtenir la réponse basée sur l'intention / Get response based on intent
     const reply = getResponse(intent, entities);
 
-    // 4. Calculate typing delay
+    // 4. Calculer le délai de frappe / Calculate typing delay
     const typingDelay = getTypingDelay(reply.message);
 
-    // 5. Save conversation to database
-    await this.saveConversation(context, message, reply, intent.id, confidence);
+    // 5. Sauvegarder la conversation en base de données / Save conversation to database
+    await this.saveConversation(context, message, reply, intent.id, confidence, entities);
+
+    console.log(`[ChatbotEngine] Rule-based response generated in ${Date.now() - startTime}ms`);
 
     return {
       reply,
@@ -66,6 +180,32 @@ class ChatbotEngine {
   }
 
   /**
+   * Construire une chaîne de contexte à partir du contexte de chat
+   * Build context string from chat context
+   */
+  private buildContextString(context: ChatContext): string {
+    const parts: string[] = [];
+
+    if (context.userInfo?.role) {
+      parts.push(`Rôle utilisateur: ${context.userInfo.role}`);
+    }
+
+    if (context.userInfo?.location) {
+      parts.push(`Localisation: ${context.userInfo.location}`);
+    }
+
+    if (context.userInfo?.company) {
+      parts.push(`Entreprise: ${context.userInfo.company}`);
+    }
+
+    if (context.userId) {
+      parts.push('Utilisateur connecté');
+    }
+
+    return parts.length > 0 ? parts.join('\n') : '';
+  }
+
+  /**
    * Save conversation to database
    */
   private async saveConversation(
@@ -73,7 +213,8 @@ class ChatbotEngine {
     userMessage: string,
     botReply: BotResponse,
     intentId: string,
-    confidence: number
+    confidence: number,
+    entities?: Record<string, string>
   ): Promise<void> {
     try {
       // Find or create session
