@@ -1,0 +1,507 @@
+# AlgeriaTrade.dz - Automated Dependency Management
+# Handles dependency updates, security patches, and version bumps
+
+name: 📦 Dependency Management
+
+on:
+  schedule:
+    # Run daily at 3 AM Algiers time
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+    inputs:
+      update_type:
+        description: 'Type of update'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - security-only
+          - minor-patches
+          - major-versions
+      dry_run:
+        description: 'Dry run (no commits)'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+env:
+  PNPM_VERSION: '8'
+
+jobs:
+  # ===========================================
+  # JOB 1: Check for Outdated Dependencies
+  # ===========================================
+  check-outdated:
+    name: 🔍 Check Outdated Dependencies
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    outputs:
+      has_security_issues: ${{ steps.security-check.outputs.has_issues }}
+      outdated_count: ${{ steps.outdated.outputs.count }}
+    
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+      
+      - name: 📦 Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      
+      - name: 🟢 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+      
+      - name: 📥 Install Dependencies
+        run: pnpm install --frozen-lockfile
+      
+      - name: 🔒 Check for Security Vulnerabilities
+        id: security-check
+        run: |
+          echo "::group::Security Audit"
+          pnpm audit --json > audit-results.json 2>&1 || true
+          
+          # Count vulnerabilities by severity
+          CRITICAL=$(cat audit-results.json | jq '[.advisories[] | select(.severity == "critical")] | length' 2>/dev/null || echo "0")
+          HIGH=$(cat audit-results.json | jq '[.advisories[] | select(.severity == "high")] | length' 2>/dev/null || echo "0")
+          MODERATE=$(cat audit-results.json | jq '[.advisories[] | select(.severity == "moderate")] | length' 2>/dev/null || echo "0")
+          
+          echo "## 🔒 Security Vulnerability Summary" >> $GITHUB_STEP_SUMMARY
+          echo "| Severity | Count |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| 🔴 Critical | ${CRITICAL} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🟠 High | ${HIGH} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🟡 Moderate | ${MODERATE} |" >> $GITHUB_STEP_SUMMARY
+          
+          TOTAL=$((CRITICAL + HIGH + MODERATE))
+          if [ "$TOTAL" -gt 0 ]; then
+            echo "has_issues=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_issues=false" >> $GITHUB_OUTPUT
+          fi
+          echo "::endgroup::"
+      
+      - name: 📊 Check for Outdated Packages
+        id: outdated
+        run: |
+          echo "::group::Outdated Packages"
+          
+          # Use pnpm outdated to check for updates
+          pnpm outdated --json > outdated-results.json 2>&1 || true
+          
+          # Parse results
+          COUNT=$(cat outdated-results.json | jq 'length' 2>/dev/null || echo "0")
+          echo "count=${COUNT}" >> $GITHUB_OUTPUT
+          
+          if [ "$COUNT" -gt 0 ]; then
+            echo "## 📦 Outdated Packages (${COUNT})" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "| Package | Current | Latest | Type |" >> $GITHUB_STEP_SUMMARY
+            echo "|---------|---------|--------|------|" >> $GITHUB_STEP_SUMMARY
+            
+            cat outdated-results.json | jq -r '.[] | "| \(.name) | \(.current // "-") | \(.latest // "-") | \(.updateType // "-") |"' >> $GITHUB_STEP_SUMMARY 2>/dev/null || true
+          fi
+          echo "::endgroup::"
+      
+      - name: 📤 Upload Reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-reports
+          path: |
+            audit-results.json
+            outdated-results.json
+          retention-days: 7
+
+  # ===========================================
+  # JOB 2: Auto-fix Security Issues
+  # ===========================================
+  auto-security-fix:
+    name: 🛡️ Auto-Security Fix
+    runs-on: ubuntu-latest
+    needs: check-outdated
+    if: needs.check-outdated.outputs.has_security_issues == 'true' && github.event.inputs.dry_run != 'true'
+    timeout-minutes: 15
+    
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+      
+      - name: 📦 Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      
+      - name: 🟢 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+      
+      - name: 🛡️ Attempt Automatic Fixes
+        id: fix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          BRANCH="fix/security-patches-$(date +%Y%m%d-%H%M%S)"
+          git checkout -b "$BRANCH"
+          
+          echo "Attempting to fix security vulnerabilities..."
+          pnpm audit fix || true
+          
+          # Check if any changes were made
+          if ! git diff --quiet; then
+            # Update lockfile
+            pnpm install --lockfile-only
+            
+            git add package.json pnpm-lock.yaml
+            git commit -m "🛡️ deps(security): automatic security vulnerability fixes
+
+            Automated fix for critical/high security vulnerabilities:
+            - Updated vulnerable dependencies to patched versions
+            - Generated from CI/CD security scan"
+            
+            echo "branch=${BRANCH}" >> $GITHUB_OUTPUT
+            echo "changes=true" >> $GITHUB_OUTPUT
+          else
+            echo "No automatic fixes available"
+            echo "changes=false" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: 🔄 Create PR for Security Fixes
+        if: steps.fix.outputs.changes == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: ${{ steps.fix.outputs.branch }}
+          title: "🛡️ deps(security): automated security vulnerability fixes"
+          body: |
+            ## 🚨 Security Vulnerability Fixes
+            
+            This PR contains **automated security patches** for known vulnerabilities.
+            
+            ### What's Changed
+            - Updated vulnerable dependencies to their latest secure versions
+            - All changes are patch/minor version updates only (no breaking changes)
+            
+            ### ⚠️ Review Required
+            Please review these changes carefully before merging:
+            1. Run full test suite locally (`pnpm test`)
+            2. Test in staging environment
+            3. Verify no breaking changes in API behavior
+            
+            ### Next Steps
+            - [ ] Review updated packages
+            - [ ] Run integration tests
+            - [ ] Deploy to staging for validation
+            - [ ] Merge after approval
+            
+            ---
+            *Automated by GitHub Actions on $(date +%Y-%m-%d)*
+          labels: |
+            security
+            dependencies
+            automated
+          reviewers: LAIDOUDI33
+          draft: false
+
+  # ===========================================
+  # JOB 3: Version Bump PRs
+  # ===========================================
+  version-bump:
+    name: 📈 Create Version Bump PRs
+    runs-on: ubuntu-latest
+    needs: check-outdated
+    if: (github.event.inputs.update_type == 'all' || github.event.inputs.update_type == 'minor-patches' || github.event.inputs.update_type == 'major-versions') && github.event.inputs.dry_run != 'true'
+    timeout-minutes: 20
+    
+    strategy:
+      fail-fast: false
+      matrix:
+        update-type: [minor, major]
+    
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+      
+      - name: 📦 Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      
+      - name: 🟢 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+      
+      - name: 📥 Install Dependencies
+        run: pnpm install --frozen-lockfile
+      
+      - name: 📈 Generate Update Plan
+        id: plan
+        run: |
+          # Get outdated packages filtered by type
+          if [ "${{ matrix.update-type }}" = "minor" ]; then
+            PACKAGES=$(pnpm outdated --json | jq -r '.[] | select(.updateType == "minor" or .updateType == "patch") | .name' 2>/dev/null)
+            TYPE_LABEL="Minor & Patch Updates"
+          else
+            PACKAGES=$(pnpm outdated --json | jq -r '.[] | select(.updateType == "major") | .name' 2>/dev/null)
+            TYPE_LABEL="Major Version Updates"
+          fi
+          
+          if [ -n "$PACKAGES" ]; then
+            echo "packages=$PACKAGES" >> $GITHUB_OUTPUT
+            echo "has_updates=true" >> $GITHUB_OUTPUT
+            echo "label=${TYPE_LABEL}" >> $GITHUB_OUTPUT
+          else
+            echo "has_updates=false" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: 🔄 Create Update Branch & PR
+        if: steps.plan.outputs.has_updates == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          BRANCH="deps/${{ matrix.update-type }}-updates-$(date +%Y%m%d)"
+          git checkout -b "$BRANCH"
+          
+          # Perform updates
+          if [ "${{ matrix.update-type }}" = "minor" ]; then
+            pnpm update --latest 2>&1 || true
+          else
+            # For major versions, we just document them
+            echo "# Major Version Updates Required" > MAJOR_UPDATES.md
+            echo "" >> MAJOR_UPDATES.md
+            echo "The following packages have major version updates available:" >> MAJOR_UPDATES.md
+            echo "${{ steps.plan.outputs.packages }}" | tr ' ' '\n' | while read pkg; do
+              echo "- ${pkg}" >> MAJOR_UPDATES.md
+            done
+          fi
+          
+          if ! git diff --quiet; then
+            pnpm install --lockfile-only
+            
+            git add .
+            git commit -m "📈 deps(${{ matrix.update-type }}): update dependencies
+
+            Automated ${{ steps.plan.outputs.label }}:
+            ${{ steps.plan.outputs.packages | tr ' ' '\n' | sed 's/^/- /' }}"
+            
+            echo "Branch created: ${BRANCH}"
+          fi
+      
+      - name: 🎉 Open Pull Request
+        if: steps.plan.outputs.has_updates == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          title: "📈 deps(${{ matrix.update-type }}): ${{ steps.plan.outputs.label }}"
+          body: |
+            ## 📦 ${{ steps.plan.outputs.label }}
+            
+            This PR updates the following dependencies:
+            
+            ### Packages to Update
+            ${{ steps.plan.outputs.packages | tr ' ' '\n' | sed 's/^/- `/';s/$/`/' }}
+            
+            ### ⚠️ Important Notes
+            ${{ matrix.update-type == 'major' && '- **Major version updates** may include breaking changes
+            - Review migration guides for each package
+            - Thorough testing is required before merging' || '- These are **safe updates** (backward compatible)
+            - Lower risk of breaking changes
+            - Still recommended to test thoroughly' }}
+            
+            ### Checklist
+            - [ ] Review changelogs for updated packages
+            - [ ] Run `pnpm test` to verify all tests pass
+            - [ ] Check for deprecated APIs or features
+            - [ ] Test in staging environment
+            - [ ] Update documentation if needed
+            
+            ---
+            *Generated automatically on $(date +%Y-%m-%d %H:%M UTC)*
+          labels: |
+            dependencies
+            automated
+            ${{ matrix.update-type == 'major' && 'breaking-change' || '' }}
+          reviewers: LAIDOUDI33
+
+  # ===========================================
+  # JOB 4: Lockfile Maintenance
+  # ===========================================
+  lockfile-maintenance:
+    name: 🔒 Lockfile Maintenance
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+      
+      - name: 📦 Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      
+      - name: 🟢 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+      
+      - name: 📥 Install Dependencies
+        run: pnpm install --frozen-lockfile
+      
+      - name: 🔒 Refresh Lockfile
+        id: refresh
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          BRANCH="deps/lockfile-maintenance-$(date +%Y%m%d)"
+          git checkout -b "$BRANCH"
+          
+          # Reinstall to refresh lockfile
+          rm -f pnpm-lock.yaml
+          pnpm install --lockfile-only
+          
+          if ! git diff --quiet; then
+            git add pnpm-lock.yaml
+            git commit -m "🔒 deps: refresh pnpm lockfile
+
+            Automated lockfile maintenance:
+            - Resolved dependency tree
+            - Updated checksums
+            - Ensured consistent installs across environments"
+            
+            echo "changes=true" >> $GITHUB_OUTPUT
+            echo "branch=${BRANCH}" >> $GITHUB_OUTPUT
+          else
+            echo "Lockfile is up to date"
+            echo "changes=false" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: 🔄 Create Lockfile PR
+        if: steps.refresh.outputs.changes == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: ${{ steps.refresh.outputs.branch }}
+          title: "🔒 deps: refresh pnpm lockfile"
+          body: |
+            ## 🔒 Lockfile Maintenance
+            
+            This PR refreshes the `pnpm-lock.yaml` file.
+            
+            ### Why?
+            - Keeps lockfile in sync with package.json
+            - Resolves any potential dependency conflicts
+            - Ensures reproducible builds
+            
+            ### Risk Level
+            🟢 **Low** - No version changes, only lockfile refreshed
+            
+            ### Verification
+            - [ ] Merge and verify build succeeds
+            - [ ] Confirm all tests pass
+          
+          labels: |
+            dependencies
+            maintenance
+          draft: false
+
+  # ===========================================
+  # JOB 5: Create Issue for Major Updates
+  # ===========================================
+  create-tracking-issue:
+    name: 📋 Create Tracking Issue
+    runs-on: ubuntu-latest
+    needs: check-outdated
+    if: needs.check-outdated.outputs.has_security_issues == 'true' || (github.event.inputs.update_type != 'security-only')
+    timeout-minutes: 5
+    
+    steps:
+      - name: 📋 Generate Report
+        id: report
+        run: |
+          cat > dependency-report.md << 'EOF'
+          # 📦 Dependency Status Report
+          
+          Generated: $(date -u "+%Y-%m-%d %H:%M:%S UTC")
+          
+          ## Summary
+          - **Security Issues:** ${{ needs.check-outdated.outputs.has_security_issues == 'true' && 'Yes - Action Required' || 'None' }}
+          - **Outdated Packages:** ${{ needs.check-outdated.outputs.outdated_count }}
+          
+          ## Actions Taken
+          EOF
+          
+          cat dependency-report.md
+      
+      - name: 🐛 Open Tracking Issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const reportContent = fs.readFileSync('dependency-report.md', 'utf8');
+            
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'dependencies',
+              per_page: 10
+            });
+            
+            // Find existing tracking issue
+            const trackingIssue = issues.find(issue => 
+              issue.title.includes('Dependency Status')
+            );
+            
+            const issueBody = `${reportContent}
+            
+            ---
+            *Last updated: ${new Date().toISOString()}*
+            
+            <details>
+            <summary>View Full Audit Results</summary>
+            
+            \`\`\`json
+            ${JSON.stringify(require('./audit-results.json'), null, 2)}
+            \`\`\`
+            </details>`;
+            
+            if (trackingIssue) {
+              // Update existing issue
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: trackingIssue.number,
+                body: issueBody,
+                state: 'open'
+              });
+              
+              console.log(`Updated issue #${trackingIssue.number}`);
+            } else {
+              // Create new issue
+              const { data: newIssue } = await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: '📦 Dependency Status Report',
+                body: issueBody,
+                labels: ['dependencies', 'maintenance']
+              });
+              
+              console.log(`Created issue #${newIssue.number}`);
+            }

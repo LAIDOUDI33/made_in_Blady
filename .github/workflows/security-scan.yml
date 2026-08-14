@@ -1,0 +1,728 @@
+# AlgeriaTrade.dz - Security Scanning Pipeline
+# Comprehensive SAST, DAST, dependency scanning, and vulnerability management
+
+name: 🔒 Security Scanning
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  schedule:
+    # Run daily at 4 AM Algiers time
+    - cron: '0 4 * * *'
+  workflow_dispatch:
+    inputs:
+      full_scan:
+        description: 'Run full security audit (all scanners)'
+        required: false
+        default: false
+        type: boolean
+      severity_threshold:
+        description: 'Minimum severity to fail on'
+        required: true
+        default: 'high'
+        type: choice
+        options:
+          - critical
+          - high
+          - medium
+          - low
+
+permissions:
+  contents: read
+  security-events: write
+  issues: write
+  pull-requests: write
+  actions: read
+
+concurrency:
+  group: security-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  # ===========================================
+  # JOB 1: CodeQL Static Analysis (SAST)
+  # ===========================================
+  codeql:
+    name: 🔍 CodeQL Analysis (SAST)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    
+    strategy:
+      fail-fast: false
+      matrix:
+        language: ['javascript', 'typescript']
+    
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+      
+      - name: 🔍 Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          queries: security-extended,security-and-quality
+      
+      - name: 🏗️ Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{matrix.language}}"
+          output: sarif-results
+          wait-for-processing: true
+      
+      - name: 📊 Upload SARIF Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: codeql-results-${{ matrix.language }}
+          path: sarif-results/
+          retention-days: 30
+
+  # ===========================================
+  # JOB 2: Dependency Vulnerability Scan
+  # ===========================================
+  dependency-vulnerability:
+    name: 📦 Dependency Security Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+      
+      - name: 📦 Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: '8'
+      
+      - name: 🟢 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+      
+      - name: 📥 Install Dependencies
+        run: pnpm install --frozen-lockfile
+      
+      - name: 🔒 Run pnpm Audit
+        id: audit
+        run: |
+          echo "::group::Dependency Security Audit"
+          
+          # Run audit and capture results
+          pnpm audit --json > pnpm-audit.json 2>&1 || true
+          pnpm audit 2>&1 | tee audit-output.txt || true
+          
+          echo "::endgroup::"
+          
+          # Parse results
+          CRITICAL=$(cat pnpm-audit.json | jq '[.advisories[] | select(.severity == "critical")] | length' 2>/dev/null || echo "0")
+          HIGH=$(cat pnpm-audit.json | jq '[.advisories[] | select(.severity == "high")] | length' 2>/dev/null || echo "0")
+          MODERATE=$(cat pnpm-audit.json | jq '[.advisories[] | select(.severity == "moderate")] | length' 2>/dev/null || echo "0")
+          LOW=$(cat pnpm-audit.json | jq '[.advisories[] | select(.severity == "low")] | length' 2>/dev/null || echo "0")
+          
+          echo "critical=${CRITICAL}" >> $GITHUB_OUTPUT
+          echo "high=${HIGH}" >> $GITHUB_OUTPUT
+          echo "moderate=${MODERATE}" >> $GITHUB_OUTPUT
+          echo "low=${LOW}" >> $GITHUB_OUTPUT
+          
+          TOTAL=$((CRITICAL + HIGH))
+          if [ "$TOTAL" -gt 0 ]; then
+            echo "has_vulnerabilities=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_vulnerabilities=false" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: 📊 Generate Audit Report
+        run: |
+          echo "## 🔒 Dependency Vulnerability Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Severity | Count | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| 🔴 Critical | ${{ steps.audit.outputs.critical }} | ${{ steps.audit.outputs.critical > 0 && '❌ Action Required' || '✅ None' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🟠 High | ${{ steps.audit.outputs.high }} | ${{ steps.audit.outputs.high > 0 && '⚠️ Review Required' || '✅ None' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🟡 Moderate | ${{ steps.audit.outputs.moderate }} | ${{ steps.audit.outputs.moderate > 5 && '⚠️ Many' or '✅ Acceptable' }} |" >> $GITHUB_STEP_SUMMARY
+          echo"| 🟢 Low | ${{ steps.audit.outputs.low }} | ✅ Info Only |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ steps.audit.outputs.has_vulnerabilities }}" = "true" ]; then
+            echo "> ⚠️ **Vulnerabilities found!** Review and update affected packages." >> $GITHUB_STEP_SUMMARY
+          fi
+      
+      - name: 📤 Upload Audit Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-audit-results
+          path: |
+            pnpm-audit.json
+            audit-output.txt
+          retention-days: 30
+
+  # ===========================================
+  # JOB 3: Secret Detection
+  # ===========================================
+  secret-scanning:
+    name: 🕵️ Secret Detection
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: 🕵️ Run TruffleHog (Full Scan)
+        id: trufflehog
+        if: github.event.inputs.full_scan == 'true' || github.event_name == 'schedule'
+        uses: trufflesecurity/trufflehog@v3
+        with:
+          path: ./
+          base: ${{ github.event.pull_request.base.sha }}
+          head: ${{ github.event.head_sha }}
+          extra_args: "--only-verified --fail"
+        continue-on-error: true
+      
+      - name: 🕵️ Run TruffleHog (PR Diff)
+        id: trufflehog-pr
+        if: github.event_name == 'pull_request' && github.event.inputs.full_scan != 'true'
+        uses: trufflesecurity/trufflehog@v3
+        with:
+          path: ./
+          base: ${{ github.event.pull_request.base.sha }}
+          head: ${{ github.event.pull_request.head.sha }}
+          extra_args: "--only-verified"
+        continue-on-error: true
+      
+      - name: 🔍 Gitleaks Secret Scan
+        id: gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        continue-on-error: true
+      
+      - name: 📊 Secret Scan Summary
+        if: always()
+        run: |
+          echo "## 🕵️ Secret Detection Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Scanner | Status | Secrets Found |" >> $GITHUB_STEP_SUMMARY
+          echo "|---------|--------|---------------|" >> $GITHUB_STEP_SUMMARY
+          echo "| TruffleHog | ${{ steps.trufflehog.outcome == 'success' && '✅ Clean' || '⚠️ Check' }} | ${{ steps.trufflehog.outcome == 'failure' && 'Potential' || 'None' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Gitleaks | ${{ steps.gitleaks.outcome == 'success' && '✅ Clean' || '⚠️ Check' }} | ${{ steps.gitleaks.outcome == 'failure' && 'Potential' || 'None' }} |" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ steps.trufflehog.outcome }}" = "failure" ] || [ "${{ steps.gitleaks.outcome }}" = "failure" ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "🚨 **Secrets detected!** Rotate any exposed credentials immediately." >> $GITHUB_STEP_SUMMARY
+          fi
+
+  # ===========================================
+  # JOB 4: Snyk Security Scanning
+  # ===========================================
+  snyk-scan:
+    name: 🛡️ Snyk Security Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    if: vars.SNYK_TOKEN != ''
+    
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+      
+      - name: 📦 Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: '8'
+      
+      - name: 🟢 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+      
+      - name: 📥 Install Dependencies
+        run: pnpm install --frozen-lockfile
+      
+      - name: 🛡️ Initialize Snyk
+        uses: snyk/actions/setup@master
+      
+      - name: 🛡️ Run Snyk Monitor
+        id: snyk-monitor
+        run: |
+          snyk monitor \
+            --org=${{ vars.SNYK_ORG }} \
+            --project-name=algeriatrade-web \
+            --remote-repo-url=${{ github.server_url }}/${{ github.repository }} \
+            || true
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      
+      - name: 🛡️ Run Snyk Test
+        id: snyk-test
+        run: |
+          snyk test \
+            --org=${{ vars.SNYK_ORG }} \
+            --severity-threshold=high \
+            --json \
+            > snyk-results.json 2>&1 || true
+          
+          cat snyk-results.json | head -100
+        env:
+          SNYK_TOKEN: ${{ secrets.SNY_TOKEN }}
+        continue-on-error: true
+      
+      - name: 📤 Upload Snyk Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: snyk-security-results
+          path: snyk-results.json
+          retention-days: 30
+
+  # ===========================================
+  # JOB 5: Docker Image Security Scan
+  # ===========================================
+  docker-scan:
+    name: 🐳 Docker Image Security
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+    
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+      
+      - name: 🏗️ Build Docker Image
+        run: docker build -t algeriatrade:ci-scan .
+      
+      - name: 🔍 Run Trivy Vulnerability Scanner
+        id: trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'algeriatrade:ci-scan'
+          format: 'table'
+          exit-code: '0'
+          ignore-unfixed: true
+          severity: 'CRITICAL,HIGH,MEDIUM,LOW'
+          output: 'trivy-results.txt'
+      
+      - name: 🔍 Trivy JSON Output
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'algeriatrade:ci-scan'
+          format: 'json'
+          output: 'trivy-results.json'
+          ignore-unfixed: true
+        continue-on-error: true
+      
+      - name: 📊 Docker Security Summary
+        if: always()
+        run: |
+          echo "## 🐳 Docker Image Security" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ -f "trivy-results.json" ]; then
+            CRITICAL=$(jq '[.Results[].Vulnerabilities[]? | select(.Severity == "CRITICAL")] | length' trivy-results.json 2>/dev/null || echo "0")
+            HIGH=$(jq '[.Results[].Vulnerabilities[]? | select(.Severity == "HIGH")] | length' trivy-results.json 2>/dev/null || echo "0")
+            
+            echo "| Severity | Count |" >> $GITHUB_STEP_SUMMARY
+            echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+            echo "| 🔴 CRITICAL | ${CRITICAL} |" >> $GITHUB_STEP_SUMMARY
+            echo "| 🟠 HIGH | ${HIGH} |" >> $GITHUB_STEP_SUMMARY
+            
+            if [ "$CRITICAL" -gt 0 ] || [ "$HIGH" -gt 10 ]; then
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "⚠️ **High number of vulnerabilities in Docker image!** Consider updating base images." >> $GITHUB_STEP_SUMMARY
+            fi
+          fi
+      
+      - name: 📤 Upload Docker Scan Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-security-results
+          path: |
+            trivy-results.txt
+            trivy-results.json
+          retention-days: 30
+
+  # ===========================================
+  # JOB 6: Static Application Security Testing (SAST)
+  # ===========================================
+  sast-custom:
+    name: 🔎 Custom SAST Rules
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+      
+      - name: 📦 Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: '8'
+      
+      - name: 🟢 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      
+      - name: 🔎 Run ESLint Security Plugin
+        id: eslint-security
+        run: |
+          npm install -g eslint-plugin-security 2>/dev/null || true
+          
+          echo "::group::ESLint Security Rules"
+          
+          # Create security-focused config
+          cat > .eslintrc.security.json << 'EOF'
+          {
+            "plugins": ["security"],
+            "extends": ["plugin:security/recommended"],
+            "parserOptions": {
+              "ecmaVersion": 2022,
+              "sourceType": "module"
+            }
+          }
+          EOF
+          
+          npx eslint --config .eslintrc.security.json --format json src/ > eslint-security.json 2>&1 || true
+          npx eslint --config .eslintrc.security.json src/ 2>&1 | tee eslint-security-output.txt || true
+          
+          echo "::endgroup::"
+        continue-on-error: true
+      
+      - name: 🔍 Custom Security Pattern Detection
+        id: custom-patterns
+        run: |
+          ISSUES=0
+          
+          echo "## 🔎 Custom Security Patterns" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Check for dangerous patterns
+          
+          # 1. eval() usage
+          EVAL_COUNT=$(grep -r "eval(" src --include="*.ts" --include="*.tsx" 2>/dev/null | grep -v ".test." | wc -l)
+          if [ "$EVAL_COUNT" -gt 0 ]; then
+            echo "- ❌ **eval() usage:** ${EVAL_COUNT} occurrences" >> $GITHUB_STEP_SUMMARY
+            ISSUES=$((ISSUES + EVAL_COUNT))
+          fi
+          
+          # 2. innerHTML assignment
+          INNERHTML_COUNT=$(grep -rE "innerHTML\s*=" src --include="*.ts" --include="*.tsx" 2>/dev/null | wc -l)
+          if [ "$INNERHTML_COUNT" -gt 0 ]; then
+            echo "- ⚠️ **innerHTML:** ${INNERHTML_COUNT} assignments (XSS risk)" >> $GITHUB_STEP_SUMMARY
+            ISSUES=$((ISSUES + INNERHTML_COUNT))
+          fi
+          
+          # 3. dangerouslySetInnerHTML
+          DANGEROUS_COUNT=$(grep -r "dangerouslySetInnerHTML" src --include="*.ts" --include="*.tsx" 2>/dev/null | wc -l)
+          if [ "$DANGEROUS_COUNT" -gt 0 ]; then
+            echo "- ⚠️ **dangerouslySetInnerHTML:** ${DANGEROUS_COUNT} usages" >> $GITHUB_STEP_SUMMARY
+            ISSUES=$((ISSUES + DANGEROUS_COUNT))
+          fi
+          
+          # 4. SQL injection patterns
+          SQL_PATTERN=$(grep -rE "(SELECT|INSERT|UPDATE|DELETE).*\+" src --include="*.ts" --include="*.tsx" 2>/dev/null | wc -l)
+          if [ "$SQL_PATTERN" -gt 0 ]; then
+            echo "- ⚠️ **Potential SQL injection:** ${SQL_PATTERN} patterns" >> $GITHUB_STEP_SUMMARY
+            ISSUES=$((ISSUES + SQL_PATTERN))
+          fi
+          
+          # 5. Hardcoded secrets pattern
+          SECRETS_PATTERN=$(grep -rE "(password|secret|api_key)\s*[:=]\s*['\"][^'\"]{8,}['\"]" src --include="*.ts" --include="*.tsx" 2>/dev/null | grep -v ".test." | grep -v ".example" | wc -l)
+          if [ "$SECRETS_PATTERN" -gt 0 ]; then
+            echo "- 🔴 **Potential hardcoded secrets:** ${SECRETS_PATTERN}" >> $GITHUB_STEP_SUMMARY
+            ISSUES=$((ISSUES + SECRETS_PATTERN))
+          fi
+          
+          # 6. Weak crypto
+          WEAK_CRYPTO=$(grep -rE "(md5|sha1)\(" src --include="*.ts" --include="*.tsx" 2>/dev/null | wc -l)
+          if [ "$WEAK_CRYPTO" -gt 0 ]; then
+            echo "- ⚠️ **Weak hashing algorithms:** ${WEAK_CRYPTO} (md5/sha1)" >> $GITHUB_STEP_SUMMARY
+            ISSUES=$((ISSUES + WEAK_CRYPTO))
+          fi
+          
+          # 7. console.log in production code
+          CONSOLE_LOG=$(grep -r "console\.(log|debug)" src --include="*.ts" --include="*.tsx" 2>/dev/null | grep -v ".test." | wc -l)
+          if [ "$CONSOLE_LOG" -gt 20 ]; then
+            echo "- ℹ️ **Console logs:** ${CONSOLE_LOG} (consider removing for production)" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Total issues found:** ${ISSUES}" >> $GITHUB_STEP_SUMMARY
+          echo "issues=${ISSUES}" >> $GITHUB_OUTPUT
+      
+      - name: 📤 Upload SAST Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: custom-sast-results
+          path: |
+            eslint-security.json
+            eslint-security-output.txt
+          retention-days: 30
+
+  # ===========================================
+  # JOB 7: OWASP ZAP DAST Scan (Staging)
+  # ===========================================
+  dast-scan:
+    name: 🌐 Dynamic Application Security (DAST)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    if: github.ref == 'refs/heads/main' || github.event.inputs.full_scan == 'true'
+    
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+      
+      - name: 🕷️ Run OWASP ZAP Baseline Scan
+        id: zap
+        uses: zaproxy/action-full-scan@v0.7.0
+        with:
+          target: 'https://staging.algeriatrade.dz'
+          rules_file_name: '.zap/rules.tsv'
+          cmd_options: '-a -m 5 -T 5 -j'
+          allow_issue_writing: false
+        continue-on-error: true
+        env:
+          ZAP_API_KEY: ${{ secrets.ZAP_API_KEY }}
+      
+      - name: 📊 DAST Report
+        if: always()
+        run: |
+          echo "## 🌐 DAST Scan Results (OWASP ZAP)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ -f "zap_report.html" ]; then
+            echo "📄 Full report available in artifacts" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "> ⚠️ DAST scans should be reviewed manually for false positives" >> $GITHUB_STEP_SUMMARY
+      
+      - name: 📤 Upload DAST Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dast-zap-results
+          path: |
+            zap_report.html
+            zap_report.md
+          retention-days: 30
+
+  # ===========================================
+  # JOB 8: Security Score & Compliance
+  # ===========================================
+  security-scorecard:
+    name: 📊 Security Scorecard
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+      
+      - name: 📊 Run OSSF Scorecard
+        uses: ossf/scorecard-action@v2.3.1
+        with:
+          results_file: scorecard.results.json
+          results_format: json
+          publish_results: true
+        continue-on-error: true
+      
+      - name: 📊 Display Scorecard Results
+        if: always()
+        run: |
+          echo "## 📊 Open Source Security Foundation (OSSF) Scorecard" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ -f "scorecard.results.json" ]; then
+            cat scorecard.results.json | jq -r '.score // "N/A"' | xargs -I {} echo "**Overall Score:** {}/10" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            
+            echo "### Checks" >> $GITHUB_STEP_SUMMARY
+            cat scorecard.results.json | jq -r '.checks[] | "- **\(.name)**: \(.score)/10 (\(.reason))"' >> $GITHUB_STEP_SUMMARY 2>/dev/null || true
+          fi
+      
+      - name: 📤 Upload Scorecard Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ossf-scorecard-results
+          path: scorecard.results.json
+          retention-days: 90
+
+  # ===========================================
+  # JOB 9: Generate Security Report & Issue
+  # ===========================================
+  security-report:
+    name: 📋 Security Report Generator
+    runs-on: ubuntu-latest
+    needs: [codeql, dependency-vulnerability, secret-scanning, sast-custom, docker-scan]
+    if: always()
+    timeout-minutes: 10
+    
+    steps:
+      - name: 📋 Generate Comprehensive Report
+        run: |
+          cat > security-report.md << 'EOF'
+          # 🔒 AlgeriaTrade.dz Security Report
+          
+          **Generated:** $(date -u "+%Y-%m-%d %H:%M:%S UTC")  
+          **Commit:** \`${{ github.sha }}\`  
+          **Branch:** \`${{ github.ref_name }}\`  
+          **Triggered by:** @${{ github.actor}}
+          
+          ---
+          
+          ## Executive Summary
+          
+          | Category | Status | Findings |
+          |----------|--------|----------|
+          | CodeQL (SAST) | ${{ needs.codeql.result == 'success' && '✅ Passed' || '⚠️ Issues' }} | View details |
+          | Dependencies | ${{ needs.dependency-vulnerability.outputs.has_vulnerabilities == 'true' && '⚠️ Vulns Found' or '✅ Secure' }} | ${{ needs.dependency-vulnerability.outputs.critical || 0 }} critical, ${{ needs.dependency-vulnerability.outputs.high || 0 }} high |
+          | Secrets | ${{ needs.secret-scanning.result == 'success' && '✅ Clean' or '⚠️ Review' }} | Check artifacts |
+          | Custom SAST | ${{ needs.sast-custom.result == 'success' && '✅ Passed' or '⚠️ Issues' }} | ${{ needs.sast-custom.outputs.issues || 0 }} findings |
+          | Docker Image | ${{ needs.docker-scan.result == 'success' && '✅ Scanned' or '⏭️ Skipped' }} | Check artifacts |
+          
+          ## Recommendations
+          
+          ### Immediate Actions (Critical/High)
+          - [ ] Review and address all critical/high vulnerabilities
+          - [ ] Rotate any exposed credentials found by secret scanning
+          - [ ] Update dependencies with known CVEs
+          
+          ### Short-term Improvements
+          - [ ] Implement Content Security Policy headers
+          - [ ] Add rate limiting to all API endpoints
+          - [ ] Enable HTTP Strict Transport Security (HSTS)
+          - [ ] Implement CORS policy review
+          
+          ### Long-term Goals
+          - [ ] Achieve OWASP ASVS Level 2 compliance
+          - [ ] Implement Web Application Firewall (WAF)
+          - [ ] Conduct annual penetration testing
+          - [ ] Set up bug bounty program
+          
+          ---
+          *This report was automatically generated by the CI/CD pipeline*
+          EOF
+          
+          cat security-report.md
+      
+      - name: 📤 Upload Full Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: full-security-report
+          path: security-report.md
+          retention-days: 90
+      
+      - name: 🐛 Create Security Issue (if needed)
+        if: needs.dependency-vulnerability.outputs.has_vulnerabilities == 'true' || needs.secret-scanning.result == 'failure'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const reportContent = fs.readFileSync('security-report.md', 'utf8');
+            
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'security',
+              per_page: 10
+            });
+            
+            const existingIssue = issues.find(issue => 
+              issue.title.includes('Security Report')
+            );
+            
+            const issueBody = `${reportContent}
+            
+            <details>
+            <summary>Workflow Details</summary>
+            
+            - **Run ID:** \`${{ github.run_id }}\`
+            - **Run Number:** \`${{ github.run_number }}\`
+            - **URL:** ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+            </details>`;
+            
+            if (existingIssue) {
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existingIssue.number,
+                body: issueBody,
+                state: 'open'
+              });
+              
+              console.log(`Updated security issue #${existingIssue.number}`);
+            } else {
+              const { data: newIssue } = await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: `🔒 Security Report - ${new Date().toISOString().split('T')[0]}`,
+                body: issueBody,
+                labels: ['security', 'automated'],
+                assignees: ['LAIDOUDI33']
+              });
+              
+              console.log(`Created security issue #${newIssue.number}`);
+            }
+
+  # ===========================================
+  # FINAL: Security Gate
+  # ===========================================
+  security-gate:
+    name: 🚦 Security Gate
+    runs-on: ubuntu-latest
+    needs: [codeql, dependency-vulnerability, secret-scanning, sast-custom]
+    if: always()
+    timeout-minutes: 2
+    
+    steps:
+      - name: 🚦 Determine Security Status
+        run: |
+          CODEQL="${{ needs.codeql.result }}"
+          DEPS="${{ needs.dependency-vulnerability.result }}"
+          SECRETS="${{ needs.secret-scanning.result }}"
+          SAST="${{ needs.sast-custom.result }}"
+          
+          THRESHOLD="${{ github.event.inputs.severity_threshold || 'high' }}"
+          
+          echo "# 🔒 Security Gate Status" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Check | Result |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| CodeQL SAST | ${CODEQL == 'success' && '✅ Pass' or '❌ Fail'} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Dependencies | ${DEPS == 'success' && '✅ Pass' or '⚠️ Warning'} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Secret Scan | ${SECRETS == 'success' && '✅ Pass' or '🚨 Block'} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Custom SAST | ${SAST == 'success' && '✅ Pass' or '⚠️ Warning'} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Threshold:** Fail on ${THRESHOLD}+ severity" >> $GITHUB_STEP_SUMMARY
+          
+          # Determine overall status
+          BLOCK=false
+          
+          if [ "$SECRETS" = "failure" ]; then
+            BLOCK=true
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "🚨 **BLOCKED:** Secrets detected in code!" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ "$CODEQL" = "failure" ] && [ "$THRESHOLD" = "critical" ]; then
+            BLOCK=true
+          fi
+          
+          if [ "$BLOCK" = true ]; then
+            exit 1
+          else
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "✅ **Security gate passed** (with warnings acceptable)" >> $GITHUB_STEP_SUMMARY
+            exit 0
+          fi

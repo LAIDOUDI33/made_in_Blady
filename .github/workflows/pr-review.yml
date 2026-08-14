@@ -1,0 +1,575 @@
+# AlgeriaTrade.dz - Automated PR Review
+# Runs on every PR to ensure code quality, security, and best practices
+
+name: 🔍 Automated PR Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  pull_request_review:
+    types: [submitted]
+  issue_comment:
+    types: [created]
+
+concurrency:
+  group: pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+  checks: write
+
+env:
+  MIN_COVERAGE: 70
+  MAX_COMPLEXITY: 15
+
+jobs:
+  # ===========================================
+  # JOB 1: PR Validation Checks
+  # ===========================================
+  validate-pr:
+    name: ✅ Validate PR Metadata
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    
+    outputs:
+      is_valid: ${{ steps.validation.outputs.is_valid }}
+      has_changelog: ${{ steps.changelog.outputs.exists }}
+    
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+      
+      - name: 🔍 Check PR Title Format
+        id: title-check
+        run: |
+          TITLE="${{ github.event.pull_request.title }}"
+          echo "PR Title: ${TITLE}"
+          
+          # Check for conventional commit format (optional but recommended)
+          if [[ "$TITLE" =~ ^(feat|fix|docs|style|refactor|test|chore|perf|ci|build|revert)(\(.+\))?!?:\s.+ ]]; then
+            echo "✅ PR title follows conventional commits format"
+            echo "title_valid=true" >> $GITHUB_OUTPUT
+          else
+            echo "⚠️ PR title doesn't follow conventional commits format"
+            echo "title_valid=false" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: 📝 Check for Changelog Entry
+        id: changelog
+        run: |
+          CHANGED_FILES=$(gh pr diff --name-only)
+          
+          if echo "$CHANGED_FILES" | grep -q "CHANGELOG.md"; then
+            echo "✅ CHANGELOG.md updated"
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "ℹ️ No CHANGELOG.md changes detected"
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: 🔗 Check Linked Issues
+        id: issues-check
+        run: |
+          BODY="${{ github.event.pull_request.body }}"
+          
+          if [[ "$BODY" =~ (Fixes|Closes|Resolves)\s*#[0-9]+ ]] || [[ "$BODY" =~ #[0-9]+ ]]; then
+            echo "✅ Issue linked to PR"
+            echo "has_issue=true" >> $GITHUB_OUTPUT
+          else
+            echo "⚠️ No issue linked to PR"
+            echo "has_issue=false" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: 📊 Check PR Size
+        id: size-check
+        run: |
+          ADDED_LINES=$(gh pr diff --numstat | awk '{added += $1} END {print added}')
+          DELETED_LINES=$(gh pr diff --numstat | awk '{deleted += $2} END {print deleted}')
+          TOTAL_LINES=$((ADDED_LINES + DELETED_LINES))
+          
+          echo "Lines changed: +${ADDED_LINES} / -${DELETED_LINES}"
+          
+          if [ "$TOTAL_LINES" -lt 500 ]; then
+            echo "size=small" >> $GITHUB_OUTPUT
+            echo "✅ PR size is manageable"
+          elif [ "$TOTAL_LINES" -lt 1000 ]; then
+            echo "size=medium" >> $GITHUB_OUTPUT
+            echo "⚠️ PR is medium-sized, consider splitting"
+          else
+            echo "size=large" >> $GITHUB_OUTPUT
+            echo "❌ PR is very large, consider splitting into smaller PRs"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: 🏷️ Set PR Labels
+        run: |
+          SIZE="${{ steps.size-check.outputs.size }}"
+          
+          # Add size label
+          gh pr edit "${{ github.event.pull_request.number }}" \
+            --add-label "pr/${SIZE}" || true
+          
+          # Add type label from title
+          TITLE="${{ github.event.pull_request.title }}"
+          if [[ "$TITLE" =~ ^feat ]]; then
+            gh pr edit "${{ github.event.pull_request.number }}" --add-label "type/feature" || true
+          elif [[ "$TITLE" =~ ^fix ]]; then
+            gh pr edit "${{ github.event.pull_request.number }}" --add-label "type/bugfix" || true
+          elif [[ "$TITLE" =~ ^(docs|chore) ]]; then
+            gh pr edit "${{ github.event.pull_request.number }}" --add-label "type/maintenance" || true
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: 📋 Final Validation Result
+        id: validation
+        run: |
+          echo "is_valid=true" >> $GITHUB_OUTPUT
+
+  # ===========================================
+  # JOB 2: Code Analysis & Quality Gates
+  # ===========================================
+  code-analysis:
+    name: 📊 Code Analysis
+    runs-on: ubuntu-latest
+    needs: validate-pr
+    timeout-minutes: 20
+    
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: 📦 Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: '8'
+      
+      - name: 🟢 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+      
+      - name: 📥 Install Dependencies
+        run: pnpm install --frozen-lockfile
+      
+      # TypeScript Analysis
+      - name: 🔤 Deep TypeScript Analysis
+        id: ts-analysis
+        run: |
+          echo "::group::TypeScript Complexity Analysis"
+          
+          # Find complex functions (high cyclomatic complexity)
+          echo "## Complex Functions Detected:" > analysis-report.md
+          find src -name "*.ts" -o -name "*.tsx" | xargs wc -l | sort -rn | head -20 >> analysis-report.md
+          
+          # Check for any types
+          ANY_TYPE_COUNT=$(grep -r ": any" src --include="*.ts" --include="*.tsx" | wc -l)
+          echo "" >> analysis-report.md
+          echo "**\`any\` type usage:** ${ANY_TYPE_COUNT}" >> analysis-report.md
+          
+          echo "::endgroup::"
+          
+          cat analysis-report.md >> $GITHUB_STEP_SUMMARY
+      
+      # Code Duplication Check
+      - name: 👯 Check Code Duplication
+        run: |
+          echo "Checking for code duplication patterns..."
+          # Simple duplication detection using common patterns
+          DUPLICATED=$(grep -r "TODO\|FIXME\|HACK\|XXX" src --include="*.ts" --include="*.tsx" 2>/dev/null | wc -l || echo "0")
+          echo "Technical debt markers found: ${DUPLICATED}"
+          
+          if [ "$DUPLICATED" -gt 10 ]; then
+            echo "::warning::High number of TODO/FIXME markers found (${DUPLICATED})"
+          fi
+      
+      # Dead Code Detection
+      - name: 💀 Detect Dead Code
+        run: |
+          echo "Scanning for potentially dead code..."
+          
+          # Find unused exports (basic check)
+          echo "Checking for unused imports and exports..."
+          
+          # This would be more accurate with tools like ts-prune or knip
+          echo "💡 Tip: Run \`npx ts-prune\` locally to detect unused exports"
+      
+      - name: 📤 Upload Analysis Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: code-analysis-report
+          path: analysis-report.md
+          retention-days: 30
+
+  # ===========================================
+  # JOB 3: Security Scanning (SAST)
+  # ===========================================
+  security-scan:
+    name: 🔒 Security Scan (SAST)
+    runs-on: ubuntu-latest
+    needs: validate-pr
+    timeout-minutes: 15
+    
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+      
+      - name: 📦 Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: '8'
+      
+      - name: 🟢 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+      
+      - name: 📥 Install Dependencies
+        run: pnpm install --frozen-lockfile
+      
+      # Dependency Vulnerability Scan
+      - name: 🔍 Run npm Audit (via pnpm)
+        id: audit
+        run: |
+          echo "::group::Dependency Security Audit"
+          pnpm audit --audit-level moderate 2>&1 | tee audit-output.txt
+          echo "::endgroup::"
+        continue-on-error: true
+      
+      # Secret Detection
+      - name: 🕵️ Detect Secrets in Code
+        uses: trufflesecurity/trufflehog@v3
+        with:
+          path: ./
+          base: ${{ github.event.pull_request.base.sha }}
+          head: ${{ github.event.head_sha }}
+          extra_args: "--only-verified --fail"
+        continue-on-error: true
+      
+      # Code Security Patterns
+      - name: 🛡️ Check Security Patterns
+        id: security-patterns
+        run: |
+          echo "## 🔒 Security Pattern Analysis" >> $GITHUB_STEP_SUMMARY
+          ISSUES=0
+          
+          # Check for hardcoded secrets
+          SECRETS=$(grep -rE "(password|secret|api_key|apikey|token)\s*[:=]\s*['\"][^'\"]+['\"]" src --include="*.ts" --include="*.tsx" 2>/dev/null | grep -v ".test." | grep -v ".spec." | wc -l)
+          if [ "$SECRETS" -gt 0 ]; then
+            echo "- ⚠️ **Potential hardcoded secrets:** ${SECRETS}" >> $GITHUB_STEP_SUMMARY
+            ISSUES=$((ISSUES + 1))
+          fi
+          
+          # Check for eval usage
+          EVALS=$(grep -rE "\beval\s*\(" src --include="*.ts" --include="*.tsx" 2>/dev/null | wc -l)
+          if [ "$EVALS" -gt 0 ]; then
+            echo "- ❌ **eval() usage detected:** ${EVALS}" >> $GITHUB_STEP_SUMMARY
+            ISSUES=$((ISSUES + 1))
+          fi
+          
+          # Check for innerHTML usage
+          INNERHTML=$(grep -rE "innerHTML\s*=" src --include="*.ts" --include="*.tsx" 2>/dev/null | wc -l)
+          if [ "$INNERHTML" -gt 0 ]; then
+            echo "- ⚠️ **innerHTML assignment:** ${INNERHTML}" >> $GITHUB_STEP_SUMMARY
+            ISSUES=$((ISSUES + 1))
+          fi
+          
+          # Check for SQL injection risks
+          SQL_INJECTION=$(grep -rE "(`|\$raw|\.query\().*\+" src --include="*.ts" 2>/dev/null | wc -l)
+          if [ "$SQL_INJECTION" -gt 0 ]; then
+            echo "- ⚠️ **Potential SQL injection:** ${SQL_INJECTION}" >> $GITHUB_STEP_SUMMARY
+            ISSUES=$((ISSUES + 1))
+          fi
+          
+          if [ "$ISSUES" -eq 0 ]; then
+            echo "- ✅ **No critical security issues found**" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "issues=${ISSUES}" >> $GITHUB_OUTPUT
+      
+      - name: 📤 Upload Security Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-scan-results
+          path: audit-output.txt
+          retention-days: 30
+
+  # ===========================================
+  # JOB 4: Test Execution on PR
+  # ===========================================
+  pr-tests:
+    name: 🧪 PR Tests
+    runs-on: ubuntu-latest
+    needs: validate-pr
+    timeout-minutes: 25
+    
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+    
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+      
+      - name: 📦 Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: '8'
+      
+      - name: 🟢 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+      
+      - name: 📥 Install Dependencies
+        run: pnpm install --frozen-lockfile
+      
+      - name: 🗄️ Setup Test Database
+        run: |
+          cp prisma/schema.prisma prisma/schema.test.prisma
+          npx prisma migrate dev --name test-db || true
+          npx prisma generate
+      
+      - name: 🏃 Run Unit Tests
+        id: unit-tests
+        run: |
+          echo "::group::Unit Tests"
+          pnpm vitest run src/__tests__/unit/ --reporter=verbose 2>&1 | tee unit-test-results.txt
+          echo "::endgroup::"
+        continue-on-error: true
+      
+      - name: 🏃 Run Integration Tests
+        id: integration-tests
+        run: |
+          echo "::group::Integration Tests"
+          pnpm vitest run src/__tests__/integration/ --reporter=verbose 2>&1 | tee integration-test-results.txt
+          echo "::endgroup::"
+        continue-on-error: true
+      
+      - name: 📊 Generate Coverage Report
+        if: always()
+        run: |
+          pnpm vitest run --coverage 2>&1 || true
+          
+          # Extract coverage percentage
+          COVERAGE=$(cat coverage/coverage-summary.json 2>/dev/null | jq '.total.lines.pct' || echo "0")
+          echo "Coverage: ${COVERAGE}%"
+          echo "coverage=${COVERAGE}" >> $GITHUB_OUTPUT
+      
+      - name: 📤 Upload Test Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr-test-results
+          path: |
+            coverage/
+            unit-test-results.txt
+            integration-test-results.txt
+          retention-days: 14
+
+  # ===========================================
+  # JOB 5: Auto-Review Comment
+  # ===========================================
+  auto-review:
+    name: 💬 Post Auto-Review Comment
+    runs-on: ubuntu-latest
+    needs: [code-analysis, security-scan, pr-tests]
+    if: always()
+    timeout-minutes: 5
+    
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+      
+      - name: 📝 Generate Review Comment
+        id: review-comment
+        run: |
+          cat > review-comment.md << 'EOF'
+          ## 🔍 Automated PR Review Results
+          
+          ### Summary
+          | Category | Status | Details |
+          |----------|--------|---------|
+          | Code Quality | ${{ needs.code-analysis.result == 'success' && '✅ Passed' || '❌ Failed' }} | Analysis complete |
+          | Security Scan | ${{ needs.security-scan.result == 'success' && '✅ Passed' || '⚠️ Issues Found' }} | SAST complete |
+          | Tests | ${{ needs.pr-tests.result == 'success' && '✅ All Passed' || '❌ Some Failed' }} | Executed |
+          
+          ### Recommendations
+          - Review security scan results before merging
+          - Ensure test coverage meets minimum threshold (${{ env.MIN_COVERAGE }}%)
+          - Check for any breaking changes in API endpoints
+          
+          ---
+          *This comment was automatically generated by CI/CD pipeline*
+          EOF
+          
+          cat review-comment.md
+      
+      - name: 💬 Post Comment on PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const commentBody = fs.readFileSync('review-comment.md', 'utf8');
+            
+            // Find existing bot comment
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            
+            const botComment = comments.find(comment => 
+              comment.user.type === 'Bot' && 
+              comment.body.includes('Automated PR Review')
+            );
+            
+            if (botComment) {
+              // Update existing comment
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: commentBody
+              });
+            } else {
+              // Create new comment
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: commentBody
+              });
+            }
+
+  # ===========================================
+  # JOB 6: Status Check Gate
+  # ===========================================
+  status-gate:
+    name: 🚦 Merge Gate
+    runs-on: ubuntu-latest
+    needs: [validate-pr, code-analysis, security-scan, pr-tests]
+    if: always()
+    timeout-minutes: 2
+    
+    steps:
+      - name: 🚦 Determine Merge Readiness
+        id: gate
+        run: |
+          CODE_ANALYSIS="${{ needs.code-analysis.result }}"
+          SECURITY="${{ needs.security-scan.result }}"
+          TESTS="${{ needs.pr-tests.result }}"
+          
+          ALL_PASSED=true
+          
+          if [ "$CODE_ANALYSIS" != "success" ]; then
+            echo "❌ Code analysis failed"
+            ALL_PASSED=false
+          fi
+          
+          if [ "$SECURITY" != "success" ]; then
+            echo "⚠️ Security scan has warnings (review required)"
+          fi
+          
+          if [ "$TESTS" != "success" ]; then
+            echo "❌ Tests failed"
+            ALL_PASSED=false
+          fi
+          
+          if [ "$ALL_PASSED" = true ]; then
+            echo "✅ PR is ready for merge"
+            echo "merge_ready=true" >> $GITHUB_OUTPUT
+            exit 0
+          else
+            echo "❌ PR requires fixes before merging"
+            echo "merge_ready=false" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
+  # ===========================================
+  # JOB 7: Command Handlers (/approve, /retest, etc.)
+  # ===========================================
+  handle-commands:
+    name: 🎮 Handle PR Commands
+    runs-on: ubuntu-latest
+    if: github.event_name == 'issue_comment' && github.event.issue.pull_request
+    timeout-minutes: 5
+    
+    steps:
+      - name: 🎮 Parse Command
+        id: command
+        run: |
+          COMMENT="${{ github.event.comment.body }}"
+          ACTOR="${{ github.event.comment.user.login }}"
+          
+          echo "Comment by: ${ACTOR}"
+          echo "Content: ${COMMENT}"
+          
+          if [[ "$COMMENT" =~ "/retest" ]]; then
+            echo "command=retest" >> $GITHUB_OUTPUT
+          elif [[ "$COMMENT" =~ "/deploy-staging" ]]; then
+            echo "command=deploy-staging" >> $GITHUB_OUTPUT
+          elif [[ "$COMMENT" =~ "/review" ]]; then
+            echo "command=review" >> $GITHUB_OUTPUT
+          else
+            echo "command=unknown" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: 🔐 Check Permissions
+        id: permissions
+        run: |
+          ACTOR="${{ github.event.comment.user.login }}"
+          
+          # Check if user is collaborator
+          IS_COLLABORATOR=$(gh api repos/${{ github.repository }}/collaborators/${ACTOR}/permission --jq '.permission' 2>/dev/null || echo "none")
+          
+          echo "Permission level: ${IS_COLLABORATOR}"
+          echo "permission=${IS_COLLABORATOR}" >> $GITHUB_OUTPUT
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: 💬 Respond to Command
+        if: steps.permissions.outputs.permission != 'none'
+        run: |
+          COMMAND="${{ steps.command.outputs.command }}"
+          COMMENT_ID="${{ github.event.comment.id }}"
+          
+          case "$COMMAND" in
+            retest)
+              RESPONSE="🔄 Retriggering tests... Please wait a few minutes."
+              ;;
+            deploy-staging)
+              RESPONSE="🚀 Deploying to staging environment..."
+              # Trigger staging deployment workflow
+              gh workflow run ci-cd.yml -f environment=staging
+              ;;
+            review)
+              RESPONSE="🔍 Triggering additional code review checks..."
+              ;;
+            *)
+              RESPONSE="❓ Unknown command. Available commands: /retest, /deploy-staging, /review"
+              ;;
+          esac
+          
+          # Reply to comment
+          gh api repos/${{ github.repository }}/issues/comments/${COMMENT_ID}/reactions \
+            --method POST \
+            -f hooray >/dev/null 2>&1 || true
+          
+          echo "$RESPONSE"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

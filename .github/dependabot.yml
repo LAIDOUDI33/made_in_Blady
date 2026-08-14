@@ -1,0 +1,112 @@
+# AlgeriaTrade.dz - Dependabot Configuration
+# Automated dependency updates for security and features
+
+version: 2
+updates:
+
+  # ===========================================
+  # NPM/pnpm Dependencies (package.json)
+  # ===========================================
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Africa/Algiers"
+    open-pull-requests-limit: 10
+    target-branch: "develop"
+    labels:
+      - "dependencies"
+      - "automated"
+    reviewers:
+      - "LAIDOUDI33"
+    assignees:
+      - "LAIDOUDI33"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+    groups:
+      # Group all Next.js related packages
+      nextjs:
+        patterns:
+          - "next*"
+          - "@next/*"
+        update-types:
+          - "minor"
+          - "patch"
+      
+      # Group all React packages
+      react:
+        patterns:
+          - "react"
+          - "react-dom"
+          - "@types/react"
+        update-types:
+          - "minor"
+          - "patch"
+      
+      # Group testing dependencies
+      testing:
+        patterns:
+          - "vitest*"
+          - "@testing-library/*"
+          - "jest*"
+        update-types:
+          - "minor"
+          - "patch"
+      
+      # Group security updates together
+      security:
+        update-types:
+          - "security"
+    
+    # Ignore specific versions that cause issues
+    ignore:
+      # Major version updates require manual review
+      - dependency-name: "*"
+        update-types: ["version-update:major"]
+      
+      # Known problematic versions
+      - dependency-name: "typescript"
+        versions: ["5.x"]
+  
+  # ===========================================
+  # Docker Dependencies (Dockerfile)
+  # ===========================================
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "wednesday"
+      time: "06:00"
+      timezone: "Africa/Algiers"
+    labels:
+      - "docker"
+      - "dependencies"
+      - "automated"
+    commit-message:
+      prefix: "docker"
+  
+  # ===========================================
+  # GitHub Actions Workflows
+  # ===========================================
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    labels:
+      - "ci-cd"
+      - "dependencies"
+      - "automated"
+    commit-message:
+      prefix: "ci"
+
+# ===========================================
+# Global Settings
+# ===========================================
+registries:
+  npm-github:
+    type: npm-registry
+    url: https://npm.pkg.github.com
+    token: ${{ secrets.GITHUB_TOKEN }}

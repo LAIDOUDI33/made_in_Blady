@@ -1,0 +1,505 @@
+# AlgeriaTrade.dz - Notification System
+# Multi-channel notifications for CI/CD events, deployments, and alerts
+
+name: 📢 Notifications
+
+on:
+  workflow_run:
+    workflows: ['CI/CD Pipeline', 'Security Scanning', 'Performance Monitoring']
+    types: [completed]
+  repository_dispatch:
+    types: [deployment-alert, security-alert, performance-alert, incident-alert]
+  issues:
+    types: [opened, labeled, closed]
+  pull_request:
+    types: [opened, ready_for_review, review_requested, closed]
+
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
+  actions: read
+
+env:
+  # Default emoji and formatting
+  SUCCESS_EMOJI: '✅'
+  FAILURE_EMOJI: '❌'
+  WARNING_EMOJI: '⚠️'
+
+jobs:
+  # ===========================================
+  # JOB 1: Send Slack Notifications
+  # ===========================================
+  slack-notification:
+    name: 💬 Slack Notification
+    runs-on: ubuntu-latest
+    if: vars.SLACK_WEBHOOK_URL != ''
+    timeout-minutes: 5
+    
+    steps:
+      - name: 📥 Get Workflow Run Details
+        id: details
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const runId = context.payload.workflow_run.id;
+            const { data: run } = await github.rest.actions.getWorkflowRun({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: runId
+            });
+            
+            return {
+              status: run.conclusion,
+              name: run.name,
+              actor: run.actor.login,
+              branch: run.head_branch,
+              url: run.html_url,
+              created_at: run.created_at,
+              updated_at: run.updated_at
+            };
+      
+      - name: 💬 Format Slack Message
+        id: message
+        run: |
+          STATUS="${{ fromJSON(steps.details.outputs.result).status }}"
+          WORKFLOW="${{ fromJSON(steps.details.outputs.result).name }}"
+          ACTOR="${{ fromJSON(steps.details.outputs.result).actor }}"
+          BRANCH="${{ fromJSON(steps.details.outputs.result).branch }}"
+          URL="${{ fromJSON(steps.details.outputs.result).url }}"
+          
+          case "$STATUS" in
+            success)
+              EMOJI="✅"
+              COLOR="#36a64f"
+              TITLE="✅ Workflow Succeeded"
+              ;;
+            failure)
+              EMOJI="❌"
+              COLOR="#dc3545"
+              TITLE="❌ Workflow Failed"
+              ;;
+            cancelled)
+              EMOJI="🚫"
+              COLOR="#808080"
+              TITLE="🚫 Workflow Cancelled"
+              ;;
+            *)
+              EMOJI="⏳"
+              COLOR="#ffc107"
+              TITLE="⏳ Workflow Running"
+              ;;
+          esac
+          
+          cat > slack-payload.json << EOF
+          {
+            "blocks": [
+              {
+                "type": "header",
+                "text": {
+                  "type": "plain_text",
+                  "text": "${TITLE}"
+                }
+              },
+              {
+                "type": "section",
+                "fields": [
+                  {"type": "mrkdwn", "text": "*Workflow:*\n${WORKFLOW}"},
+                  {"type": "mrkdwn", "text": "*Status:*\n${EMOJI} ${STATUS}"},
+                  {"type": "mrkdwn", "text": "*Branch:*\n\`${BRANCH}\`"},
+                  {"type": "mrkdwn", "text": "*Triggered by:*\n@${ACTOR}"}
+                ]
+              },
+              {
+                "type": "actions",
+                "elements": [
+                  {
+                    "type": "button",
+                    "text": {"type": "plain_text", "text": "View Workflow"},
+                    "url": "${URL}",
+                    "style": "primary"
+                  }
+                ]
+              }
+            ],
+            "attachments": [{"color": "${COLOR}"}]
+          }
+          EOF
+          
+          echo "payload_created=true" >> $GITHUB_OUTPUT
+      
+      - name: 💬 Send to Slack
+        if: steps.message.outputs.payload_created == 'true'
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          curl -X POST "${SLACK_WEBHOOK_URL}" \
+            -H 'Content-type: application/json' \
+            --data @slack-payload.json || true
+      
+      - name: 🚨 Send Critical Alerts (Failures)
+        if: fromJSON(steps.details.outputs.result).status == 'failure' && vars.SLACK_ALERTS_CHANNEL != ''
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_ALERTS_CHANNEL }}
+        run: |
+          cat > alert-payload.json << EOF
+          {
+            "text": "🚨 *CI/CD Failure Alert*\\n\\n*Repository:* ${{ github.repository }}\\n*Workflow:* ${{ fromJSON(steps.details.outputs.result).name }}\\n*Status:* ❌ Failed\\n*Actor:* @${{ fromJSON(steps.details.outputs.result).actor }}\\n*URL:* ${{ fromJSON(steps.details.outputs.result).url }}"
+          }
+          EOF
+          
+          curl -X POST "${SLACK_WEBHOOK_URL}" \
+            -H 'Content-type: application/json' \
+            --data @alert-payload.json || true
+
+  # ===========================================
+  # JOB 2: Send Email Notifications
+  # ===========================================
+  email-notification:
+    name: 📧 Email Notification
+    runs-on: ubuntu-latest
+    if: secrets.SMTP_HOST != '' && (github.event.workflow_run.conclusion == 'failure' || github.event.action == 'opened')
+    timeout-minutes: 5
+    
+    steps:
+      - name: 📧 Compose Email
+        id: email
+        run: |
+          cat > email-content.html << 'EOF'
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <style>
+              body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+              .header { background: linear-gradient(135deg, #0066cc, #004499); color: white; padding: 20px; text-align: center; }
+              .content { padding: 20px; max-width: 600px; margin: 0 auto; }
+              .status { padding: 15px; border-radius: 8px; margin: 10px 0; }
+              .success { background: #d4edda; color: #155724; }
+              .failure { background: #f8d7da; color: #721c24; }
+              table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+              th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
+              th { background: #f5f5f5; }
+              .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
+              a { color: #0066cc; }
+            </style>
+          </head>
+          <body>
+            <div class="header">
+              <h1>AlgeriaTrade.dz CI/CD Notification</h1>
+            </div>
+            <div class="content">
+              <h2>{{STATUS_TITLE}}</h2>
+              <div class="status {{STATUS_CLASS}}">
+                {{STATUS_MESSAGE}}
+              </div>
+              <table>
+                <tr><th>Repository</th><td>{{REPOSITORY}}</td></tr>
+                <tr><th>Workflow</th><td>{{WORKFLOW}}</td></tr>
+                <tr><th>Branch</th><td>{{BRANCH}}</td></tr>
+                <tr><th>Triggered By</th><td>{{ACTOR}}</td></tr>
+                <tr><th>Time</th><td>{{TIME}}</td></tr>
+              </table>
+              <p style="text-align: center;">
+                <a href="{{WORKFLOW_URL}}" style="background: #0066cc; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px;">View in GitHub</a>
+              </p>
+            </div>
+            <div class="footer">
+              <p>This is an automated message from AlgeriaTrade.dz CI/CD pipeline.</p>
+              <p>Please do not reply to this email.</p>
+            </div>
+          </body>
+          </html>
+          EOF
+          
+          # Replace placeholders
+          sed -i \
+            -e "s|{{STATUS_TITLE}}|${{ github.event.workflow_run.conclusion == 'failure' && 'Build Failed' or 'Build Success' }}|" \
+            -e "s|{{STATUS_CLASS}}|${{ github.event.workflow_run.conclusion == 'failure' && 'failure' or 'success' }}|" \
+            -e "s|{{STATUS_MESSAGE}}|${{ github.event.workflow_run.conclusion == 'failure' && 'The build has failed. Please investigate.' or 'All checks passed successfully!' }}|" \
+            -e "s|{{REPOSITORY}}|${{ github.repository }}|" \
+            -e "s|{{WORKFLOW}}|${{ github.event.workflow_run.name }}|" \
+            -e "s|{{BRANCH}}|develop|" \
+            -e "s|{{ACTOR}}|${{ github.event.sender.login }}|" \
+            -e "s|{{TIME}}|$(date -u)|" \
+            -e "s|{{WORKFLOW_URL}}|${{ github.event.workflow_run.html_url }}|" \
+            email-content.html
+          
+          cat email-content.html
+      
+      - name: 📧 Send Email
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.SMTP_HOST }}
+          server_port: 587
+          username: ${{ secrets.SMTP_USER }}
+          password: ${{ secrets.SMTP_PASSWORD }}
+          subject: "[AlgeriaTrade.dz] ${{ github.event.workflow_run.conclusion == 'failure' && '❌ Build Failed' or '✅ Build Success' }} - ${{ github.event.workflow_run.name }}"
+          to: team@algeriatrade.dz
+          from: ci-cd@algeriatrade.dz
+          html_body: {file: email-content.html}
+
+  # ===========================================
+  # JOB 3: Discord Notifications
+  # ===========================================
+  discord-notification:
+    name: 🎮 Discord Notification
+    runs-on: ubuntu-latest
+    if: vars.DISCORD_WEBHOOK_URL != ''
+    timeout-minutes: 5
+    
+    steps:
+      - name: 🎮 Format Discord Embed
+        run: |
+          STATUS="${{ github.event.workflow_run.conclusion }}"
+          
+          case "$STATUS" in
+            success)
+              COLOR="3069986"  # Green
+              THUMBNAIL="https://raw.githubusercontent.com/github/explore/91c95423aae50b70ec9c493938f50e17db29249/topics/github/github.png"
+              ;;
+            failure)
+              COLOR="15158332"  # Red
+              THUMBNAIL=""
+              ;;
+            *)
+              COLOR="16776960"  # Yellow
+              THUMBNAIL=""
+              ;;
+          esac
+          
+          cat > discord-payload.json << EOF
+          {
+            "embeds": [{
+              "title": "AlgeriaTrade.dz CI/CD Update",
+              "description": "**Status:** ${STATUS}\\n**Workflow:** ${{ github.event.workflow_run.name }}\\n**Branch:** develop\\n**By:** @${{ github.event.sender.login }}",
+              "color": ${COLOR},
+              "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+              "author": {
+                "name": "GitHub Actions",
+                "icon_url": "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png"
+              },
+              "footer": {
+                "text": "AlgeriaTrade.dz Automation",
+                "icon_url": "https://avatars.githubusercontent.com/u/LAIDOUDI33"
+              }
+            }],
+            "components": [
+              {
+                "type": 1,
+                "components": [
+                  {
+                    "type": 2,
+                    "label": "View Workflow",
+                    "style": 5,
+                    "url": "${{ github.event.workflow_run.html_url }}"
+                  }
+                ]
+              }
+            ]
+          }
+          EOF
+      
+      - name: 🎮 Send to Discord
+        env:
+          DISCORD_WEBHOOK_URL: ${{ vars.DISCORD_WEBHOOK_URL }}
+        run: |
+          curl -X POST "${DISCORD_WEBHOOK_URL}" \
+            -H 'Content-type: application/json' \
+            --data @discord-payload.json || true
+
+  # ===========================================
+  # JOB 4: Telegram Notifications (Optional)
+  # ===========================================
+  telegram-notification:
+    name: 📱 Telegram Notification
+    runs-on: ubuntu-latest
+    if: vars.TELEGRAM_BOT_TOKEN != '' && vars.TELEGRAM_CHAT_ID != ''
+    timeout-minutes: 5
+    
+    steps:
+      - name: 📱 Send to Telegram
+        run: |
+          STATUS="${{ github.event.workflow_run.conclusion }}"
+          EMOJI="${{ github.event.workflow_run.conclusion == 'success' && '✅' or '❌' }}"
+          
+          MESSAGE="*AlgeriaTrade.dz CI/CD*
+
+          Status: ${EMOJI} \`${STATUS^^}\`
+          Workflow: \`${{ github.event.workflow_run.name }}\`
+          Branch: \`develop\`
+          Actor: @${{ github.event.sender.login }}
+          Time: $(date -u '+%Y-%m-%d %H:%M UTC')
+
+          [View on GitHub](${{ github.event.workflow_run.html_url }})"
+          
+          curl -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            -d chat_id="${TELEGRAM_CHAT_ID}" \
+            -d parse_mode="Markdown" \
+            -d text="${MESSAGE}" || true
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ vars.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ vars.TELEGRAM_CHAT_ID }}
+
+  # ===========================================
+  # JOB 5: Incident Alert System
+  # ===========================================
+  incident-alert:
+    name: 🚨 Incident Alert
+    runs-on: ubuntu-latest
+    if: github.event_name == 'repository_dispatch' && github.event.action == 'incident-alert'
+    timeout-minutes: 5
+    
+    steps:
+      - name: 🚨 Process Incident Alert
+        id: incident
+        run: |
+          SEVERITY="${{ github.event.client_payload.severity }}"
+          TITLE="${{ github.event.client_payload.title }}"
+          DESCRIPTION="${{ github.event.client_payload.description }}"
+          SERVICE="${{ github.event.client_payload.service || 'unknown' }}"
+          
+          echo "## 🚨 INCIDENT ALERT" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| **Severity** | ${SEVERITY} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Service** | ${SERVICE} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Title** | ${TITLE} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Description** | ${DESCRIPTION} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Time** | $(date -u) |" >> $GITHUB_STEP_SUMMARY
+      
+      - name: 🚨 Create GitHub Issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const severity = context.payload.client_payload.severity;
+            const title = context.payload.client_payload.title;
+            const description = context.payload.client_payload.description;
+            
+            // Map severity to labels
+            const labelMap = {
+              'critical': 'P0-Critical',
+              'high': 'P1-High',
+              'medium': 'P2-Medium',
+              'low': 'P3-Low'
+            };
+            
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `🚨 [${severity.toUpperCase()}] ${title}`,
+              body: `## Incident Report\n\n**Severity:** ${severity}\n\n**Description:**\n${description}\n\n---\n*Created automatically by incident alert system*`,
+              labels: ['incident', labelMap[severity] || 'incident', 'needs-triage']
+            });
+      
+      - name: 🚨 Page On-Call (if critical)
+        if: github.event.client_payload.severity == 'critical' || github.event.client_payload.severity == 'high'
+        run: |
+          # Integrate with PagerDuty, Opsgenie, or similar
+          if [ -n "${{ vars.PAGERDUTY_INTEGRATION_KEY }}" ]; then
+            curl -X POST "https://events.pagerduty.com/v2/enqueue" \
+              -H 'Content-Type: application/json' \
+              -d "{
+                \"routing_key\": \"${{ vars.PAGERDUTY_INTEGRATION_KEY }}\",
+                \"event_action\": \"trigger\",
+                \"payload\": {
+                  \"summary\": \"${{ github.event.client_payload.title }}\",
+                  \"severity\": \"critical\",
+                  \"source\": \"AlgeriaTrade.dz CI/CD\",
+                  \"custom_details\": {
+                    \"description\": \"${{ github.event.client_payload.description }}\",
+                    \"service\": \"${{ github.event.client_payload.service }}\",
+                    \"workflow_url\": \"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\"
+                  }
+                }
+              }" || true
+          fi
+
+  # ===========================================
+  # JOB 6: PR/Issue Activity Digest
+  # ===========================================
+  activity-digest:
+    name: 📋 Activity Digest
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule'
+    timeout-minutes: 5
+    
+    steps:
+      - name: 📋 Generate Daily Digest
+        id: digest
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const yesterday = new Date();
+            yesterday.setDate(yesterday.getDate() - 1);
+            const since = yesterday.toISOString();
+            
+            // Get recent PRs
+            const { data: prs } = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              sort: 'updated',
+              direction: 'desc',
+              per_page: 10
+            });
+            
+            // Get recent issues
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              sort: 'updated',
+              direction: 'desc',
+              per_page: 10
+            });
+            
+            // Get recent deployments (from workflow runs)
+            const { data: runs } = await github.rest.actions.listWorkflowRunsForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              per_page: 5
+            });
+            
+            let digest = `# 📊 AlgeriaTrade.dz Daily Digest\n\n`;
+            digest += `**Date:** ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}\n\n`;
+            
+            // PR Summary
+            digest += `## 🔀 Open Pull Requests (${prs.length})\n\n`;
+            prs.slice(0, 5).forEach(pr => {
+              digest += `- [#${pr.number}](${pr.html_url}) ${pr.title} - @${pr.user.login}\n`;
+            });
+            
+            // Issues Summary
+            digest += `\n## 🐛 Open Issues (${issues.filter(i => !i.pull_request).length})\n\n`;
+            issues.filter(i => !i.pull_request).slice(0, 5).forEach(issue => {
+              const labels = issue.labels.map(l => l.name).join(', ');
+              digest += `- [#${issue.number}](${issue.html_url}) ${issue.title} [${labels}] - @${issue.user.login}\n`;
+            });
+            
+            // Recent Deployments
+            digest += `\n## 🚀 Recent Deployments\n\n`;
+            runs.slice(0, 3).forEach(run => {
+              const emoji = run.conclusion === 'success' ? '✅' : '❌';
+              digest += `${emoji} [${run.name}](${run.html_url}) - ${run.conclusion}\n`;
+            });
+            
+            return digest;
+      
+      - name: 📤 Post Digest to Slack
+        if: vars.SLACK_WEBHOOK_URL != ''
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          cat > digest-payload.json << EOF
+          {
+            "text": "${{ steps.digest.outputs.result }}"
+          }
+          EOF
+          
+          # Escape newlines for JSON
+          sed -i ':a;N;$!ba;s/\n/\\n/g' digest-payload.json
+          
+          curl -X POST "${SLACK_WEBHOOK_URL}" \
+            -H 'Content-type: application/json' \
+            --data @digest-payload.json || true

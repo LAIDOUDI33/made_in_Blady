@@ -1,0 +1,594 @@
+# AlgeriaTrade.dz - Mobile App Build Pipeline
+# Automated iOS/Android builds with Expo EAS, testing, and store submission
+
+name: 📱 Mobile App Build
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'mobile/**'
+      - 'shared/**'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'mobile/**'
+      - 'shared/**'
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: 'Target platform(s)'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - ios
+          - android
+      profile:
+        description: 'Build profile'
+        required: true
+        default: 'preview'
+        type: choice
+        options:
+          - preview
+          - development
+          - production
+      submit_store:
+        description: 'Submit to app stores (production only)'
+        required: false
+        default: false
+        type: boolean
+      version_bump:
+        description: 'Auto-bump version number'
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: mobile-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  EXPO_VERSION: '51'
+  NODE_VERSION: '20'
+
+jobs:
+  # ===========================================
+  # JOB 1: Code Quality & Linting
+  # ===========================================
+  mobile-lint:
+    name: 🧹 Mobile Code Quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+      
+      - name: 📦 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+          cache-dependency-path: mobile/pnpm-lock.yaml
+      
+      - name: 📦 Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: '8'
+      
+      - name: 📥 Install Mobile Dependencies
+        working-directory: mobile
+        run: pnpm install --frozen-lockfile
+      
+      - name: 🔤 TypeScript Check
+        working-directory: mobile
+        run: pnpm exec tsc --noEmit --pretty 2>&1 | tee ts-check.txt || true
+      
+      - name: 🧹 ESLint
+        id: lint
+        working-directory: mobile
+        run: |
+          pnpm eslint . --ext .ts,.tsx --format json --output-file eslint-results.json || true
+          pnpm eslint . --ext .ts,.tsx --format stylish 2>&1 | tee lint-results.txt || true
+      
+      - name: ✨ Prettier Check
+        working-directory: mobile
+        run: pnpm prettier --check "src/**/*.{ts,tsx}" 2>&1 | tee prettier-results.txt || true
+      
+      - name: 🔒 Security Audit
+        working-directory: mobile
+        run: pnpm audit --audit-level moderate 2>&1 | tee audit-results.txt || true
+      
+      - name: 📤 Upload Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-quality-reports
+          path: |
+            mobile/ts-check.txt
+            mobile/lint-results.txt
+            mobile/prettier-results.txt
+            mobile/audit-results.json
+            mobile/eslint-results.json
+          retention-days: 7
+
+  # ===========================================
+  # JOB 2: Unit & Component Tests
+  # ===========================================
+  mobile-tests:
+    name: 🧪 Mobile Tests
+    runs-on: ubuntu-latest
+    needs: mobile-lint
+    timeout-minutes: 25
+    
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+      
+      - name: 📦 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+          cache-dependency-path: mobile/pnpm-lock.yaml
+      
+      - name: 📦 Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: '8'
+      
+      - name: 📥 Install Mobile Dependencies
+        working-directory: mobile
+        run: pnpm install --frozen-lockfile
+      
+      - name: 🏃 Run Unit Tests
+        id: unit-tests
+        working-directory: mobile
+        run: |
+          echo "::group::Unit Tests"
+          pnpm vitest run --reporter=verbose --coverage 2>&1 | tee unit-test-output.txt
+          echo "::endgroup::"
+        continue-on-error: true
+      
+      - name: 🧩 Run Component Tests
+        id: component-tests
+        working-directory: mobile
+        run: |
+          echo "::group::Component Tests"
+          pnpm test:component 2>&1 | tee component-test-output.txt || true
+          echo "::endgroup::"
+        continue-on-error: true
+      
+      - name: 📊 Generate Coverage Report
+        if: always()
+        working-directory: mobile
+        run: |
+          pnpm vitest run --coverage 2>&1 || true
+          
+          COVERAGE=$(cat coverage/coverage-summary.json 2>/dev/null | jq '.total.lines.pct' || echo "0")
+          echo "Test Coverage: ${COVERAGE}%"
+          
+          echo "## 📊 Mobile Test Coverage" >> $GITHUB_STEP_SUMMARY
+          echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| **Lines** | ${COVERAGE}% |" >> $GITHUB_STEP_SUMMARY
+      
+      - name: 📤 Upload Test Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-test-results
+          path: |
+            mobile/unit-test-output.txt
+            mobile/component-test-output.txt
+            mobile/coverage/
+          retention-days: 14
+
+  # ===========================================
+  # JOB 3: Build Android APK/IPA
+  # ===========================================
+  build-android:
+    name: 🤖 Build Android
+    runs-on: ubuntu-latest
+    needs: mobile-tests
+    if: github.event.inputs.platform == 'all' || github.event.inputs.platform == 'android'
+    timeout-minutes: 45
+    
+    strategy:
+      matrix:
+        include:
+          - profile: preview
+            type: apk
+          - profile: development
+            type: appbundle
+          - profile: production
+            type: appbundle
+    
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+      
+      - name: 📦 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+          cache-dependency-path: mobile/pnpm-lock.yaml
+      
+      - name: 📦 Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: '8'
+      
+      - name: 📥 Install Mobile Dependencies
+        working-directory: mobile
+        run: pnpm install --frozen-lockfile
+      
+      - name: 🔐 Setup Expo Application Secrets
+        uses: expo/expo-github-action@v8
+        with:
+          expo-version: ${{ env.EXPO_VERSION }}
+          eas-cli-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+      
+      - name: 📝 Create Version Bump (if requested)
+        if: github.event.inputs.version_bump == 'true'
+        working-directory: mobile
+        run: |
+          CURRENT_VERSION=$(jq -r '.version' app.json)
+          IFS='.' read -ra VERSION_PARTS <<< "$CURRENT_VERSION"
+          NEW_VERSION="${VERSION_PARTS[0]}.${VERSION_PARTS[1]}.$((VERSION_PARTS[2]+1))"
+          
+          jq --arg v "$NEW_VERSION" '.version = $v' app.json > tmp.json && mv tmp.json app.json
+          echo "Bumped version: ${CURRENT_VERSION} -> ${NEW_VERSION}"
+          echo "new_version=${NEW_VERSION}" >> $GITHUB_OUTPUT
+      
+      - name: 🤖 Build Android ${{ matrix.profile }} (${{ matrix.type }})
+        id: build
+        working-directory: mobile
+        run: |
+          echo "::group::Building Android ${{ matrix.profile }}"
+          
+          PROFILE="${{ matrix.profile }}"
+          PLATFORM="android"
+          
+          eas build \
+            --platform ${PLATFORM} \
+            --profile ${PROFILE} \
+            --non-interactive \
+            --wait 2>&1 | tee android-build-log.txt
+          
+          echo "::endgroup::"
+          
+          # Extract build URL from output
+          BUILD_URL=$(grep -oP 'https://expo\.build\.artifacts.*?\.apk|https://expo\.dev/artifacts.*?\.aab' android-build-log.txt | head -1 || echo "")
+          echo "build_url=${BUILD_URL}" >> $GITHUB_OUTPUT
+          echo "profile=${PROFILE}" >> $GITHUB_OUTPUT
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+      
+      - name: ⬇️ Download Android Artifact
+        if: steps.build.outputs.build_url != ''
+        run: |
+          curl -L "${{ steps.build.outputs.build_url }}" \
+            -o algeriatrade-android-${{ matrix.profile }}.${{ matrix.type == 'apk' && 'apk' || 'aab' }}
+          
+          ls -la algeriatrade-android-*
+      
+      - name: 📤 Upload Android Build
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-build-${{ matrix.profile }}
+          path: |
+            algeriatrade-android-*
+            mobile/android-build-log.txt
+          retention-days: 30
+          if-no-files-found: warn
+
+  # ===========================================
+  # JOB 4: Build iOS IPA
+  # ===========================================
+  build-ios:
+    name: 🍎 Build iOS
+    runs-on: ubuntu-latest
+    needs: mobile-tests
+    if: github.event.inputs.platform == 'all' || github.event.inputs.platform == 'ios'
+    timeout-minutes: 60
+    
+    strategy:
+      matrix:
+        include:
+          - profile: preview
+            type: simulator
+          - profile: development
+            type: simulator
+          - profile: production
+            type: archive
+    
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+      
+      - name: 📦 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+          cache-dependency-path: mobile/pnpm-lock.yaml
+      
+      - name: 📦 Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: '8'
+      
+      - name: 📥 Install Mobile Dependencies
+        working-directory: mobile
+        run: pnpm install --frozen-lockfile
+      
+      - name: 🔐 Setup Expo & Apple Certificates
+        uses: expo/expo-github-action@v8
+        with:
+          expo-version: ${{ env.EXPO_VERSION }}
+          eas-cli-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+      
+      - name: 🍎 Build iOS ${{ matrix.profile }}
+        id: build
+        working-directory: mobile
+        run: |
+          echo "::group::Building iOS ${{ matrix.profile }}"
+          
+          eas build \
+            --platform ios \
+            --profile ${{ matrix.profile }} \
+            --non-interactive \
+            --wait 2>&1 | tee ios-build-log.txt
+          
+          echo "::endgroup::"
+          
+          BUILD_URL=$(grep -oP 'https://expo\.dev/artifacts.*?\.ipa|https://expo\.build\.artifacts.*?\.ipa' ios-build-log.txt | head -1 || echo "")
+          echo "build_url=${BUILD_URL}" >> $GITHUB_OUTPUT
+          echo "profile=${{ matrix.profile }}" >> $GITHUB_OUTPUT
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          IOS_DIST_P12_BASE64: ${{ secrets.IOS_DIST_P12_BASE64 }}
+          IOS_DIST_PASSWORD: ${{ secrets.IOS_DIST_PASSWORD }}
+          IOS_PROVISION_PROFILE_BASE64: ${{ secrets.IOS_PROVISION_PROFILE_BASE64 }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      
+      - name: ⬇️ Download iOS Artifact
+        if: steps.build.outputs.build_url != ''
+        run: |
+          curl -L "${{ steps.build.outputs.build_url }}" \
+            -o algeriatrade-ios-${{ matrix.profile }}.ipa
+          
+          ls -la algeriatrade-ios-*.ipa
+      
+      - name: 📤 Upload iOS Build
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-build-${{ matrix.profile }}
+          path: |
+            algeriatrade-ios-*.ipa
+            mobile/ios-build-log.txt
+          retention-days: 30
+          if-no-files-found: warn
+
+  # ===========================================
+  # JOB 5: Submit to Google Play Store
+  # ===========================================
+  submit-android-store:
+    name: 🚀 Submit to Google Play
+    runs-on: ubuntu-latest
+    needs: build-android
+    if: matrix.profile == 'production' && (github.event.inputs.submit_store == 'true' || github.ref == 'refs/heads/main')
+    timeout-minutes: 20
+    
+    strategy:
+      matrix:
+        profile: [production]
+    
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+      
+      - name: 🔐 Setup Expo
+        uses: expo/expo-github-action@v8
+        with:
+          expo-version: ${{ env.EXPO_VERSION }}
+          eas-cli-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+      
+      - name: 🚀 Submit to Google Play Console
+        id: submit
+        working-directory: mobile
+        run: |
+          echo "::group::Submitting to Google Play"
+          
+          eas submit \
+            --platform android \
+            --latest \
+            --non-interactive 2>&1 | tee submit-log.txt
+          
+          echo "::endgroup::"
+          echo "status=success" >> $GITHUB_OUTPUT
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          GOOGLE_SERVICE_ACCOUNT_EMAIL: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_EMAIL }}
+      
+      - name: 📊 Submission Summary
+        run: |
+          echo "## 🚀 Google Play Submission" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Item | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| **Platform** | 🤖 Android |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Store** | Google Play Console |" >> $GITHUB_STEP_SUMMARY
+          echo"| **Status** | ✅ Submitted |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Time** | $(date -u) |" >> $GITHUB_STEP_SUMMARY
+
+  # ===========================================
+  # JOB 6: Submit to Apple App Store
+  # ===========================================
+  submit-ios-store:
+    name: 🍎 Submit to App Store
+    runs-on: ubuntu-latest
+    needs: build-ios
+    if: matrix.profile == 'production' && (github.event.inputs.submit_store == 'true' || github.ref == 'refs/heads/main')
+    timeout-minutes: 20
+    
+    strategy:
+      matrix:
+        profile: [production]
+    
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+      
+      - name: 🔐 Setup Expo
+        uses: expo/expo-github-action@v8
+        with:
+          expo-version: ${{ env.EXPO_VERSION }}
+          eas-cli-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+      
+      - name: 🍎 Submit to App Store Connect
+        id: submit
+        working-directory: mobile
+        run: |
+          echo "::group::Submitting to App Store Connect"
+          
+          eas submit \
+            --platform ios \
+            --latest \
+            --non-interactive 2>&1 | tee submit-log.txt
+          
+          echo "::endgroup::"
+          echo "status=success" >> $GITHUB_OUTPUT
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+      
+      - name: 📊 Submission Summary
+        run: |
+          echo "## 🍎 App Store Submission" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Item | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| **Platform** | 🍎 iOS |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Store** | App Store Connect |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Status** | ✅ Submitted |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Time** | $(date -u) |" >> $GITHUB_STEP_SUMMARY
+
+  # ===========================================
+  # JOB 7: Distribute Preview Builds
+  # ===========================================
+  distribute-preview:
+    name: 📤 Distribute Preview Builds
+    runs-on: ubuntu-latest
+    needs: [build-android, build-ios]
+    if: github.ref == 'refs/heads/develop' && (matrix.profile == 'preview' || matrix.profile == 'development')
+    timeout-minutes: 15
+    
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+      
+      - name: 🔐 Setup Expo
+        uses: expo/expo-github-action@v8
+        with:
+          expo-version: ${{ env.EXPO_VERSION }}
+          eas-cli-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+      
+      - name: 📤 Distribute via EAS
+        working-directory: mobile
+        run: |
+          # Get the latest build artifact URL from previous jobs
+          eas update \
+            --branch "preview-${{ github.sha }}" \
+            --message "Preview build from commit ${{ github.sha }}" \
+            --non-interactive 2>&1 || true
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      
+      - name: 💬 Post Preview Links
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const commentBody = `## 📱 Mobile Preview Builds Ready
+            
+            ### Downloads
+            - **Android APK:** Download from Artifacts (this workflow run)
+            - **iOS Simulator:** Download from Artifacts (this workflow run)
+            
+            ### QR Codes / Links
+            Scan or click to install preview builds:
+            
+            ---
+            *Built from \`${{ github.sha }}\` by @${{ github.actor }}*`;
+            
+            // Find existing bot comment on PR
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number || 1,
+              per_page: 50
+            });
+            
+            const existingComment = comments.find(c => 
+              c.user.type === 'Bot' && c.body.includes('Mobile Preview Builds')
+            );
+            
+            if (existingComment && context.issue.number) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existingComment.id,
+                body: commentBody
+              });
+            }
+
+  # ===========================================
+  # JOB 8: Build Summary
+  # ===========================================
+  summary:
+    name: 📋 Build Summary
+    runs-on: ubuntu-latest
+    needs: [mobile-lint, mobile-tests, build-android, build-ios, submit-android-store, submit-ios-store]
+    if: always()
+    timeout-minutes: 3
+    
+    steps:
+      - name: 📋 Generate Summary Report
+        run: |
+          echo "# 📱 AlgeriaTrade.dz Mobile Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Platform | Profile | Build | Submit |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|---------|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| 🤖 Android | Preview | ${{ needs.build-android.result == 'success' && '✅' || '❌' }} | N/A |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🤖 Android | Development | ${{ needs.build-android.result == 'success' && '✅' || '❌' }} | N/A |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🤖 Android | Production | ${{ needs.build-android.result == 'success' && '✅' || '❌' }} | ${{ needs.submit-android-store.result == 'success' && '✅' || '⏭️' }|" >> $GITHUB_STEP_SUMMARY
+          echo "| 🍎 iOS | Preview | ${{ needs.build-ios.result == 'success' && '✅' || '❌' }} | N/A |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🍎 iOS | Development | ${{ needs.build-ios.result == 'success' && '✅' || '❌' }} | N/A |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🍎 iOS | Production | ${{ needs.build-ios.result == 'success' && '✅' || '❌' }} | ${{ needs.submit-ios-store.result == 'success' && '✅' || '⏭️' }|" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Triggered by:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY

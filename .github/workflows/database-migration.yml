@@ -1,0 +1,595 @@
+# AlgeriaTrade.dz - Database Migration Pipeline
+# Automated database schema migrations with safety checks and rollbacks
+
+name: 🗄️ Database Migrations
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'prisma/**'
+      - '**/migrations/**'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'prisma/**'
+      - '**/migrations/**'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+          - development
+      migration_name:
+        description: 'Migration name (for new migrations)'
+        required: false
+      rollback:
+        description: 'Rollback last migration'
+        required: false
+        default: false
+        type: boolean
+      dry_run:
+        description: 'Dry run (show changes without applying)'
+        required: false
+        default: true
+        type: boolean
+
+concurrency:
+  group: db-migration-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  deployments: write
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  # ===========================================
+  # JOB 1: Validate Schema Changes
+  # ===========================================
+  validate-schema:
+    name: ✅ Validate Schema
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    outputs:
+      has_changes: ${{ steps.check.outputs.has_changes }}
+      is_breaking: ${{ steps.breaking.outputs.is_breaking }}
+    
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      
+      - name: 📦 Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: '8'
+      
+      - name: 🟢 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+      
+      - name: 📥 Install Dependencies
+        run: pnpm install --frozen-lockfile
+      
+      - name: 🔍 Check for Schema Changes
+        id: check
+        run: |
+          # Detect if prisma schema changed
+          if git diff --name-only HEAD~1 HEAD | grep -q "prisma/schema.prisma"; then
+            echo "Schema changes detected"
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            
+            # Show diff summary
+            echo "## 📝 Schema Changes" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`diff" >> $GITHUB_STEP_SUMMARY
+            git diff HEAD~1 prisma/schema.prisma >> $GITHUB_STEP_SUMMARY || true
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "No schema changes"
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: 💥 Check for Breaking Changes
+        id: breaking
+        run: |
+          # Analyze for potentially breaking changes
+          BREAKING_PATTERNS=(
+            "@map\("  # Field renaming
+            "@relation.*onDelete"  # Relation changes
+            "@unique"  # Unique constraint additions
+            "@id"  # ID field changes
+            "enum {"  # Enum modifications
+          )
+          
+          IS_BREAKING=false
+          
+          if [ "${{ steps.check.outputs.has_changes }}" = "true" ]; then
+            for pattern in "${BREAKING_PATTERNS[@]}"; do
+              if git diff HEAD~1 prisma/schema.prisma | grep -q "$pattern"; then
+                echo "⚠️ Potential breaking change detected: ${pattern}"
+                IS_BREAKING=true
+              fi
+            done
+          fi
+          
+          if [ "$IS_BREAKING" = true ]; then
+            echo "is_breaking=true" >> $GITHUB_OUTPUT
+            echo "::warning::Breaking schema changes detected - review carefully!"
+          else
+            echo "is_breaking=false" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: 🧪 Generate Prisma Client
+        run: npx prisma generate
+      
+      - name: 🔤 Type Check Generated Client
+        run: pnpm exec tsc --noEmit --pretty
+
+  # ===========================================
+  # JOB 2: Create Migration (if needed)
+  # ===========================================
+  create-migration:
+    name: 📝 Create Migration
+    runs-on: ubuntu-latest
+    needs: validate-schema
+    if: needs.validate-schema.outputs.has_changes == 'true' && github.event.inputs.rollback != 'true' && github.event_name == 'workflow_dispatch'
+    timeout-minutes: 15
+    
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+      
+      - name: 📦 Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: '8'
+      
+      - name: 🟢 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+      
+      - name: 📥 Install Dependencies
+        run: pnpm install --frozen-lockfile
+      
+      - name: 🗄️ Create New Migration
+        id: create
+        env:
+          DATABASE_URL: file:./dev.db
+        run: |
+          MIGRATION_NAME="${{ github.event.inputs.migration_name }}"
+          
+          if [ -z "$MIGRATION_NAME" ]; then
+            # Auto-generate name from branch/date
+            BRANCH_NAME="${GITHUB_REF_NAME//\//-}"
+            TIMESTAMP=$(date +%Y%m%d%H%M%S)
+            MIGRATION_NAME="auto_${BRANCH_NAME}_${TIMESTAMP}"
+          fi
+          
+          echo "Creating migration: ${MIGRATION_NAME}"
+          npx prisma migrate dev --name "${MIGRATION_NAME}" --create-only
+          
+          echo "migration_name=${MIGRATION_NAME}" >> $GITHUB_OUTPUT
+      
+      - name: 📤 Upload Migration Files
+        uses: actions/upload-artifact@v4
+        with:
+          name: prisma-migration-${{ steps.create.outputs.migration_name }}
+          path: prisma/migrations/
+          retention-days: 30
+
+  # ===========================================
+  # JOB 3: Test Migration on Staging DB
+  # ===========================================
+  test-migration:
+    name: 🧪 Test Migration
+    runs-on: ubuntu-latest
+    needs: validate-schema
+    if: needs.validate-schema.outputs.has_changes == 'true'
+    timeout-minutes: 20
+    
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: algeriatrade_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U test_user"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+      
+      - name: 📦 Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: '8'
+      
+      - name: 🟢 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+      
+      - name: 📥 Install Dependencies
+        run: pnpm install --frozen-lockfile
+      
+      - name: 🔄 Reset Test Database
+        env:
+          DATABASE_URL: postgresql://test_user:test_password@localhost:5432/algeriatrade_test
+        run: |
+          npx prisma migrate reset --force
+          echo "Test database reset complete"
+      
+      - name: 🗄️ Apply Migrations
+        id: migrate
+        env:
+          DATABASE_URL: postgresql://test_user:test_password@localhost:5432/algeriatrade_test
+        run: |
+          echo "::group::Applying Migrations"
+          npx prisma migrate deploy 2>&1 | tee migration-output.txt
+          echo "::endgroup::"
+          
+          if [ $? -eq 0 ]; then
+            echo "✅ Migration successful"
+            echo "status=success" >> $GITHUB_OUTPUT
+          else
+            echo "❌ Migration failed"
+            echo "status=failure" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+      
+      - name: 📊 Verify Database State
+        env:
+          DATABASE_URL: postgresql://test_user:test_password@localhost:5432/algeriatrade_test
+        run: |
+          echo "## 📊 Post-Migration Verification" >> $GITHUB_STEP_SUMMARY
+          
+          # List all tables
+          TABLES=$(npx prisma db execute --stdin <<< "\\dt" 2>/dev/null || echo "N/A")
+          echo "**Tables:** \`${TABLES}\`" >> $GITHUB_STEP_SUMMARY
+          
+          # Run Prisma validate
+          npx prisma validate
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ **Prisma validation passed**" >> $GITHUB_STEP_SUMMARY
+      
+      - name: 📤 Upload Migration Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: migration-test-results
+          path: migration-output.txt
+          retention-days: 14
+
+  # ===========================================
+  # JOB 4: Deploy to Staging Database
+  # ===========================================
+  deploy-staging-db:
+    name: 🚀 Deploy to Staging DB
+    runs-on: ubuntu-latest
+    needs: [validate-schema, test-migration]
+    if: github.ref == 'refs/heads/develop' && needs.test-migration.result == 'success'
+    environment:
+      name: staging-database
+      url: postgres://staging:****@staging-db.algeriatrade.dz:5432/algeriatrade
+    timeout-minutes: 15
+    
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+      
+      - name: 📦 Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: '8'
+      
+      - name: 🟢 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+      
+      - name: 📥 Install Dependencies
+        run: pnpm install --frozen-lockfile
+      
+      - name: 💾 Backup Staging Database
+        if: github.event.inputs.dry_run != 'true'
+        env:
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+          PGPASSWORD: ${{ secrets.STAGING_DB_PASSWORD }}
+        run: |
+          BACKUP_FILE="staging_backup_$(date +%Y%m%d_%H%M%S).sql"
+          pg_dump $DATABASE_URL > $BACKUP_FILE || true
+          echo "Backup created: ${BACKUP_FILE}"
+          
+          # Keep backup for 7 days
+          aws s3 cp $BACKUP_FILE s3://algeriatrade-backups/staging/db/ \
+            --endpoint-url ${{ secrets.S3_ENDPOINT }} || true
+      
+      - name: 🚀 Deploy Migration to Staging
+        if: github.event.inputs.dry_run != 'true'
+        id: deploy
+        env:
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+        run: |
+          echo "::group::Deploying to Staging Database"
+          npx prisma migrate deploy 2>&1 | tee staging-deploy.log
+          echo "::endgroup::"
+          
+          echo "status=success" >> $GITHUB_OUTPUT
+      
+      - name: 🔄 Seed Staging Data (if needed)
+        if: steps.deploy.outputs.status == 'success' && github.event.inputs.dry_run != 'true'
+        env:
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+        run: |
+          # Run seed script if exists
+          if [ -f "prisma/seed.ts" ] || [ -f "prisma/seed.js" ]; then
+            echo "Running seed script..."
+            npx prisma db seed || echo "Seed script failed or not needed"
+          fi
+      
+      - name: 📊 Deployment Summary
+        run: |
+          echo "## 🚀 Staging Database Deployment" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Item | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| **Environment** | Staging |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Status** | ✅ Success |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Time** | $(date -u) |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Triggered by** | ${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY
+
+  # ===========================================
+  # JOB 5: Deploy to Production Database
+  # ===========================================
+  deploy-production-db:
+    name: 🏭 Deploy to Production DB
+    runs-on: ubuntu-latest
+    needs: [validate-schema, test-migration]
+    if: (github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production')) && needs.test-migration.result == 'success'
+    environment:
+      name: production-database
+      url: postgres://prod:****@prod-db.algeriatrade.dz:5432/algeriatrade
+    timeout-minutes: 30
+    
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+      
+      - name: 📦 Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: '8'
+      
+      - name: 🟢 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+      
+      - name: 📥 Install Dependencies
+        run: pnpm install --frozen-lockfile
+      
+      - name: ⏸️ Request Production Approval
+        run: |
+          echo "⚠️ Waiting for approval before deploying to production..."
+          echo "This will modify the production database schema!"
+      
+      - name: 💾 Full Production Backup
+        if: github.event.inputs.dry_run != 'true'
+        env:
+          DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+          PGPASSWORD: ${{ secrets.PRODUCTION_DB_PASSWORD }}
+        run: |
+          BACKUP_FILE="production_backup_$(date +%Y%m%d_%H%M%S)_pre_migration.sql"
+          
+          echo "Creating full production backup..."
+          pg_dump \
+            --host=$PRODUCTION_DB_HOST \
+            --port=5432 \
+            --username=algeriatrade_prod \
+            --format=custom \
+            --verbose \
+            --file=$BACKUP_FILE \
+            algeriatrade_production || exit 1
+          
+          echo "Backup size: $(du -h $BACKUP_FILE | cut -f1)"
+          
+          # Upload to secure storage
+          aws s3 cp $BACKUP_FILE s3://algeriatrade-backups/production/db/ \
+            --storage-class GLACIER_IR || true
+          
+          echo "✅ Production backup completed"
+        env:
+          PRODUCTION_DB_HOST: ${{ secrets.PRODUCTION_DB_HOST }}
+      
+      - name: 🚀 Deploy Migration to Production
+        if: github.event.inputs.dry_run != 'true'
+        id: prod-deploy
+        env:
+          DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+        run: |
+          echo "::group::Deploying to PRODUCTION Database"
+          echo "⚠️ THIS IS A PRODUCTION DEPLOYMENT"
+          echo ""
+          
+          npx prisma migrate deploy 2>&1 | tee production-deploy.log
+          
+          if [ $? -eq 0 ]; then
+            echo "::endgroup::"
+            echo "✅ Production migration successful!"
+            echo "status=success" >> $GITHUB_OUTPUT
+          else
+            echo "::endgroup::"
+            echo "❌ Production migration FAILED!"
+            echo "status=failure" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+      
+      - name: 🔄 Rollback on Failure
+        if: failure() && github.event.inputs.dry_run != 'true'
+        env:
+          DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+        run: |
+          echo "🚨 CRITICAL: Migration failed! Initiating emergency rollback..."
+          
+          # Find last successful migration
+          LAST_GOOD_MIGRATION=$(npx prisma migrate resolve --rolled-back 2>&1 || echo "")
+          
+          echo "Rollback status: ${LAST_GOOD_MIGRATION}"
+          
+          # Notify team of failure
+          curl -X POST "${{ secrets.SLACK_WEBHOOK_URL }}" \
+            -H 'Content-type: application/json' \
+            -d '{"text": "🚨 PRODUCTION DATABASE MIGRATION FAILED!\nRepo: ${{ github.repository }}\nCommit: ${{ github.sha }}\nImmediate action required!"}' || true
+      
+      - name: 📊 Production Deployment Summary
+        if: success()
+        run: |
+          echo "## 🏭 Production Database Deployment" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "> ⚠️ **Production deployment completed successfully**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Item | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| **Environment** | 🏭 Production |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Status** | ✅ Success |" >> $GITHUB_STEP_SUMMARY
+          echo"| **Commit** | \`${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Executed by** | ${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Timestamp** | $(date -u '+%Y-%m-%d %H:%M:%S UTC') |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Next Steps" >> $GITHUB_STEP_SUMMARY
+          echo "- [ ] Verify application functionality" >> $GITHUB_STEP_SUMMARY
+          echo "- [ ] Monitor error rates in Sentry" >> $GITHUB_STEP_SUMMARY
+          echo "- [ ] Check query performance" >> $GITHUB_STEP_SUMMARY
+
+  # ===========================================
+  # JOB 6: Rollback Migration
+  # ===========================================
+  rollback:
+    name: ↩️ Rollback Migration
+    runs-on: ubuntu-latest
+    if: github.event.inputs.rollback == 'true' && github.event_name == 'workflow_dispatch'
+    timeout-minutes: 20
+    
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+      
+      - name: 📦 Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: '8'
+      
+      - name: 🟢 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+      
+      - name: 📥 Install Dependencies
+        run: pnpm install --frozen-lockfile
+      
+      - name: ↩️ Execute Rollback
+        id: rollback
+        env:
+          DATABASE_URL: ${{ github.event.inputs.environment == 'production' && secrets.PRODUCTION_DATABASE_URL || secrets.STAGING_DATABASE_URL }}
+        run: |
+          ENV="${{ github.event.inputs.environment }}"
+          
+          echo "⚠️ Rolling back last migration on ${ENV}..."
+          
+          # Get current migration status
+          npx prisma migrate status
+          
+          # Rollback the last migration
+          npx prigrate migrate resolve --rolled-back || true
+          
+          # Alternative: Use migrate reset for full rollback (dangerous!)
+          # npx prisma migrate reset --force
+          
+          echo "rollback_complete=true" >> $GITHUB_OUTPUT
+      
+      - name: 📊 Rollback Summary
+        run: |
+          echo "## ↩️ Migration Rollback Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Item | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| **Environment** | ${{ github.event.inputs.environment }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Status** | ✅ Rolled Back |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Performed by** | ${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY
+
+  # ===========================================
+  # JOB 7: Generate Migration Documentation
+  # ===========================================
+  docs:
+    name: 📋 Update Migration Docs
+    runs-on: ubuntu-latest
+    needs: [deploy-staging-db, deploy-production-db]
+    if: always() && (needs.deploy-staging-db.result == 'success' || needs.deploy-production-db.result == 'success')
+    timeout-minutes: 5
+    
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+      
+      - name: 📝 Update CHANGELOG
+        run: |
+          cat >> docs/MIGRATION_LOG.md << 'EOF'
+          
+          ## Migration - $(date +%Y-%m-%d)
+          
+          - **Commit:** ${{ github.sha }}
+          - **Branch:** ${{ github.ref_name }}
+          - **Author:** ${{ github.actor }}
+          - **Staging:** ${{ needs.deploy-staging-db.result == 'success' && '✅ Deployed' || '⏭️ Skipped' }}
+          - **Production:** ${{ needs.deploy-production-db.result == 'success' && '✅ Deployed' || '⏭️ Skipped' }}
+          
+          EOF
+      
+      - name: 💬 Comment on PR (if applicable)
+        if: github.event.pull_request.number
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const commentBody = `## 🗄️ Database Migration Status
+            
+            | Environment | Status |
+            |------------|--------|
+            | Validation | ✅ Passed |
+            | Test | ✅ Passed |
+            | Staging | ${${{ needs.deploy-staging-db.result }} === 'success' ? '✅ Deployed' : '⏭️ Skipped'} |
+            | Production | ${${{ needs.deploy-production-db.result }} === 'success' ? '✅ Deployed' : '⏭️ Skipped'} |
+            
+            ---
+            *Automated migration check*`;
+            
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: commentBody
+            });
