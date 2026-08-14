@@ -1,0 +1,995 @@
+     1→import { ApiEndpoint, ApiCategory, ApiPermission } from './types';
+     2→
+     3→/**
+     4→ * Complete API Endpoints Definition for AlgeriaTrade API
+     5→ * This serves as the single source of truth for all API documentation
+     6→ */
+     7→export const API_ENDPOINTS: ApiEndpoint[] = [
+     8→  // ============================================
+     9→  // PRODUCTS ENDPOINTS
+    10→  // ============================================
+    11→  {
+    12→    id: 'list-products',
+    13→    path: '/api/v1/products',
+    14→    method: 'GET',
+    15→    description: {
+    16→      fr: 'Lister les produits avec filtres avancés',
+    17→      en: 'List products with advanced filters',
+    18→      ar: 'قائمة المنتجات مع فلاتر متقدمة',
+    19→    },
+    20→    category: 'products',
+    21→    requiredPermissions: ['products:read'],
+    22→    requestSchema: {
+    23→      type: 'object',
+    24→      properties: {
+    25→        category: { 
+    26→          type: 'string', 
+    27→          description: 'Filter by category slug' 
+    28→        },
+    29→        search: { 
+    30→          type: 'string', 
+    31→          description: 'Search in product name and description' 
+    32→        },
+    33→        page: { 
+    34→          type: 'integer', 
+    35→          default: 1,
+    36→          minimum: 1,
+    37→          description: 'Page number for pagination'
+    38→        },
+    39→        limit: { 
+    40→          type: 'integer', 
+    41→          default: 20,
+    42→          minimum: 1,
+    43→          maximum: 100,
+    44→          description: 'Items per page'
+    45→        },
+    46→        wilaya: { 
+    47→          type: 'string', 
+    48→          description: 'Filter by wilaya code (e.g., "16" for Alger)' 
+    49→        },
+    50→        min_price: { 
+    51→          type: 'number', 
+    52→          description: 'Minimum price filter (DZD)' 
+    53→        },
+    54→        max_price: { 
+    55→          type: 'number', 
+    56→          description: 'Maximum price filter (DZD)' 
+    57→        },
+    58→        sort: { 
+    59→          type: 'string', 
+    60→          enum: ['price_asc', 'price_desc', 'newest', 'popular'],
+    61→          default: 'newest',
+    62→          description: 'Sort order'
+    63→        },
+    64→        is_verified: {
+    65→          type: 'boolean',
+    66→          description: 'Only show products from verified suppliers'
+    67→        }
+    68→      },
+    69→    },
+    70→    responseSchema: {
+    71→      type: 'object',
+    72→      properties: {
+    73→        success: { type: 'boolean', const: true },
+    74→        data: {
+    75→          type: 'array',
+    76→          items: { $ref: '#/components/schemas/Product' }
+    77→        },
+    78→        pagination: { $ref: '#/components/schemas/Pagination' },
+    79→        meta: { $ref: '#/components/schemas/ResponseMeta' }
+    80→      },
+    81→    },
+    82→    rateLimitCost: 1,
+    83→    version: '1.0.0',
+    84→  },
+    85→
+    86→  {
+    87→    id: 'get-product',
+    88→    path: '/api/v1/products/{slug}',
+    89→    method: 'GET',
+    90→    description: {
+    91→      fr: 'Obtenir les détails d\'un produit par son slug',
+    92→      en: 'Get product details by slug',
+    93→      ar: 'الحصول على تفاصيل المنتج بواسطة المعرف',
+    94→    },
+    95→    category: 'products',
+    96→    requiredPermissions: ['products:read'],
+    97→    requestSchema: {
+    98→      type: 'object',
+    99→      properties: {
+   100→        slug: { 
+   101→          type: 'string', 
+   102→          description: 'Product URL slug' 
+   103→        },
+   104→      },
+   105→      required: ['slug'],
+   106→    },
+   107→    responseSchema: {
+   108→      type: 'object',
+   109→      properties: {
+   110→        success: { type: 'boolean' },
+   111→        data: { $ref: '#/components/schemas/Product' },
+   112→        meta: { $ref: '#/components/schemas/ResponseMeta' }
+   113→      },
+   114→    },
+   115→    rateLimitCost: 1,
+   116→    version: '1.0.0',
+   117→  },
+   118→
+   119→  // ============================================
+   120→  // SEARCH ENDPOINTS
+   121→  // ============================================
+   122→  {
+   123→    id: 'search',
+   124→    path: '/api/v1/search',
+   125→    method: 'GET',
+   126→    description: {
+   127→      fr: 'Rechercher des produits et fournisseurs globalement',
+   128→      en: 'Search across products and suppliers',
+   129→      ar: 'البحث في المنتجات والموردين',
+   130→    },
+   131→    category: 'search',
+   132→    requiredPermissions: ['search'],
+   133→    requestSchema: {
+   134→      type: 'object',
+   135→      properties: {
+   136→        q: { 
+   137→          type: 'string', 
+   138→          minLength: 2,
+   139→          description: 'Search query (minimum 2 characters)'
+   140→        },
+   141→        type: { 
+   142→          type: 'string', 
+   143→          enum: ['all', 'products', 'suppliers'],
+   144→          default: 'all',
+   145→          description: 'Search scope'
+   146→        },
+   147→        page: { 
+   148→          type: 'integer', 
+   149→          default: 1 
+   150→        },
+   151→        limit: { 
+   152→          type: 'integer', 
+   153→          default: 10 
+   154→        },
+   155→      },
+   156→      required: ['q'],
+   157→    },
+   158→    responseSchema: {
+   159→      type: 'object',
+   160→      properties: {
+   161→        success: { type: 'boolean' },
+   162→        query: { type: 'string' },
+   163→        type: { type: 'string' },
+   164→        results: {
+   165→          type: 'object',
+   166→          properties: {
+   167→            products: { type: 'array' },
+   168→            suppliers: { type: 'array' }
+   169→          }
+   170→        },
+   171→        meta: {
+   172→          type: 'object',
+   173→          properties: {
+   174→            totalResults: { type: 'integer' },
+   175→            searchedAt: { type: 'string', format: 'date-time' }
+   176→          }
+   177→        }
+   178→      },
+   179→    },
+   180→    rateLimitCost: 2,
+   181→    version: '1.0.0',
+   182→  },
+   183→
+   184→  // ============================================
+   185→  // ORDERS ENDPOINTS
+   186→  // ============================================
+   187→  {
+   188→    id: 'list-orders',
+   189→    path: '/api/v1/orders',
+   190→    method: 'GET',
+   191→    description: {
+   192→      fr: 'Lister les commandes de l\'utilisateur authentifié',
+   193→      en: 'List authenticated user orders',
+   194→      ar: 'قائمة طلبات المستخدم المصادق عليه',
+   195→    },
+   196→    category: 'orders',
+   197→    requiredPermissions: ['orders:read'],
+   198→    requestSchema: {
+   199→      type: 'object',
+   200→      properties: {
+   201→        status: {
+   202→          type: 'string',
+   203→          enum: ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled']
+   204→        },
+   205→        page: { type: 'integer', default: 1 },
+   206→        limit: { type: 'integer', default: 20 },
+   207→      },
+   208→    },
+   209→    rateLimitCost: 1,
+   210→    version: '1.0.0',
+   211→  },
+   212→
+   213→  {
+   214→    id: 'create-order',
+   215→    path: '/api/v1/orders',
+   216→    method: 'POST',
+   217→    description: {
+   218→      fr: 'Créer une nouvelle commande',
+   219→      en: 'Create a new order',
+   220→      ar: 'إنشاء طلب جديد',
+   221→    },
+   222→    category: 'orders',
+   223→    requiredPermissions: ['orders:write'],
+   224→    requestSchema: {
+   225→      type: 'object',
+   226→      required: ['items', 'shipping_address'],
+   227→      properties: {
+   228→        items: {
+   229→          type: 'array',
+   230→          items: {
+   231→            type: 'object',
+   232→            required: ['product_id', 'quantity'],
+   233→            properties: {
+   234→              product_id: { type: 'string' },
+   235→              quantity: { type: 'integer', minimum: 1 },
+   236→              notes: { type: 'string' }
+   237→            }
+   238→          }
+   239→        },
+   240→        shipping_address: {
+   241→          type: 'object',
+   242→          required: ['address', 'wilaya', 'city'],
+   243→          properties: {
+   244→            address: { type: 'string' },
+   245→            wilaya: { type: 'string' },
+   246→            city: { type: 'string' },
+   247→            phone: { type: 'string' },
+   248→            recipient_name: { type: 'string' }
+   249→          }
+   250→        },
+   251→        payment_method: {
+   252→          type: 'string',
+   253→          enum: ['cib', 'ccp', 'baridimob', 'bank_transfer', 'cod']
+   254→        },
+   255→        notes: { type: 'string' }
+   256→      },
+   257→    },
+   258→    rateLimitCost: 3,
+   259→    version: '1.0.0',
+   260→  },
+   261→
+   262→  // ============================================
+   263→  // RFQ (REQUEST FOR QUOTATION) ENDPOINTS
+   264→  // ============================================
+   265→  {
+   266→    id: 'list-rfqs',
+   267→    path: '/api/v1/rfqs',
+   268→    method: 'GET',
+   269→    description: {
+   270→      fr: 'Lister les appels d\'offres de l\'utilisateur',
+   271→      en: 'List user RFQs (Requests for Quotation)',
+   272→      ar: 'قائمة طلبات عرض السعر للمستخدم',
+   273→    },
+   274→    category: 'rfqs',
+   275→    requiredPermissions: ['rfq:read'],
+   276→    requestSchema: {
+   277→      type: 'object',
+   278→      properties: {
+   279→        status: {
+   280→          type: 'string',
+   281→          enum: ['open', 'closed', 'expired']
+   282→        },
+   283→        page: { type: 'integer', default: 1 },
+   284→        limit: { type: 'integer', default: 20 },
+   285→      },
+   286→    },
+   287→    rateLimitCost: 1,
+   288→    version: '1.0.0',
+   289→  },
+   290→
+   291→  {
+   292→    id: 'create-rfq',
+   293→    path: '/api/v1/rfqs',
+   294→    method: 'POST',
+   295→    description: {
+   296→      fr: 'Créer un appel d\'offres pour obtenir des devis',
+   297→      en: 'Create an RFQ to receive quotations from suppliers',
+   298→      ar: 'إنشاء طلب عرض سعر للحصول على عروض من الموردين',
+   299→    },
+   300→    category: 'rfqs',
+   301→    requiredPermissions: ['rfq:write'],
+   302→    requestSchema: {
+   303→      type: 'object',
+   304→      required: ['title', 'category', 'quantity'],
+   305→      properties: {
+   306→        title: { 
+   307→          type: 'string', 
+   308→          minLength: 5,
+   309→          maxLength: 200,
+   310→          description: 'RFQ title'
+   311→        },
+   312→        description: { 
+   313→          type: 'string',
+   314→          maxLength: 2000,
+   315→          description: 'Detailed description of requirements'
+   316→        },
+   317→        category: { 
+   318→          type: 'string',
+   319→          description: 'Category slug or ID'
+   320→        },
+   321→        quantity: { 
+   322→          type: 'number',
+   323→          minimum: 1,
+   324→          description: 'Required quantity'
+   325→        },
+   326→        unit: { 
+   327→          type: 'string',
+   328→          description: 'Unit of measurement (e.g., "kg", "units", "meters")'
+   329→        },
+   330→        budget: { 
+   331→          type: 'number',
+   332→          description: 'Maximum budget in DZD (optional)'
+   333→        },
+   334→        deadline: { 
+   335→          type: 'string', 
+   336→          format: 'date',
+   337→          description: 'Deadline for quotations'
+   338→        },
+   339→        wilaya: { 
+   340→          type: 'string',
+   341→          description: 'Delivery location wilaya code'
+   342→        },
+   343→        attachments: {
+   344→          type: 'array',
+   345→          items: { type: 'string', format: 'uri' },
+   346→          description: 'URLs to specification documents or images'
+   347→        }
+   348→      },
+   349→    },
+   350→    responseSchema: {
+   351→      type: 'object',
+   352→      properties: {
+   353→        success: { type: 'boolean' },
+   354→        data: { $ref: '#/components/schemas/RFQ' },
+   355→        message: { type: 'string' }
+   356→      },
+   357→    },
+   358→    rateLimitCost: 3,
+   359→    version: '1.0.0',
+   360→  },
+   361→
+   362→  // ============================================
+   363→  // COMPANIES ENDPOINTS
+   364→  // ============================================
+   365→  {
+   366→    id: 'list-companies',
+   367→    path: '/api/v1/companies',
+   368→    method: 'GET',
+   369→    description: {
+   370→      fr: 'Lister les entreprises vérifiées sur la plateforme',
+   371→      en: 'List verified companies on the platform',
+   372→      ar: 'قائمة الشركات الموثقة على المنصة',
+   373→    },
+   374→    category: 'companies',
+   375→    requiredPermissions: ['companies:read'],
+   376→    requestSchema: {
+   377→      type: 'object',
+   378→      properties: {
+   379→        verified: { 
+   380→          type: 'boolean',
+   381→          default: true,
+   382→          description: 'Only verified companies'
+   383→        },
+   384→        category: { 
+   385→          type: 'string',
+   386→          description: 'Filter by business category'
+   387→        },
+   388→        wilaya: { 
+   389→          type: 'string',
+   390→          description: 'Filter by location'
+   391→        },
+   392→        page: { type: 'integer', default: 1 },
+   393→        limit: { type: 'integer', default: 20 },
+   394→        search: { type: 'string' },
+   395→      },
+   396→    },
+   397→    rateLimitCost: 1,
+   398→    version: '1.0.0',
+   399→  },
+   400→
+   401→  {
+   402→    id: 'get-company',
+   403→    path: '/api/v1/companies/{slug}',
+   404→    method: 'GET',
+   405→    description: {
+   406→      fr: 'Obtenir les détails d\'une entreprise',
+   407→      en: 'Get company details',
+   408→      ar: 'الحصول على تفاصيل شركة',
+   409→    },
+   410→    category: 'companies',
+   411→    requiredPermissions: ['companies:read'],
+   412→    rateLimitCost: 1,
+   413→    version: '1.0.0',
+   414→  },
+   415→
+   416→  // ============================================
+   417→  // CATEGORIES ENDPOINTS
+   418→  // ============================================
+   419→  {
+   420→    id: 'list-categories',
+   421→    path: '/api/v1/categories',
+   422→    method: 'GET',
+   423→    description: {
+   424→      fr: 'Lister toutes les catégories de produits',
+   425→      en: 'List all product categories',
+   426→      ar: 'قائمة جميع فئات المنتجات',
+   427→    },
+   428→    category: 'products',
+   429→    requiredPermissions: ['categories:read'],
+   430→    responseSchema: {
+   431→      type: 'object',
+   432→      properties: {
+   433→        success: { type: 'boolean' },
+   434→        data: {
+   435→          type: 'array',
+   436→          items: { $ref: '#/components/schemas/Category' }
+   437→        },
+   438→        meta: { $ref: '#/components/schemas/ResponseMeta' }
+   439→      },
+   440→    },
+   441→    rateLimitCost: 1,
+   442→    version: '1.0.0',
+   443→  },
+   444→
+   445→  // ============================================
+   446→  // ANALYTICS ENDPOINTS
+   447→  // ============================================
+   448→  {
+   449→    id: 'get-analytics-overview',
+   450→    path: '/api/v1/analytics/overview',
+   451→    method: 'GET',
+   452→    description: {
+   453→      fr: 'Obtenir les statistiques du compte développeur',
+   454→      en: 'Get developer account analytics overview',
+   455→      ar: 'الحصول على نظرة عامة على إحصائيات حساب المطور',
+   456→    },
+   457→    category: 'analytics',
+   458→    requiredPermissions: ['analytics:read'],
+   459→    responseSchema: {
+   460→      type: 'object',
+   461→      properties: {
+   462→        success: { type: 'boolean' },
+   463→        data: {
+   464→          type: 'object',
+   465→          properties: {
+   466→            total_requests: { type: 'integer' },
+   467→            requests_today: { type: 'integer' },
+   468→            requests_this_month: { type: 'integer' },
+   469→            avg_response_time_ms: { type: 'number' },
+   470→            error_rate_percent: { type: 'number' },
+   471→            top_endpoints: {
+   472→              type: 'array',
+   473→              items: {
+   474→                type: 'object',
+   475→                properties: {
+   476→                  endpoint: { type: 'string' },
+   477→                  count: { type: 'integer' }
+   478→                }
+   479→              }
+   480→            },
+   481→            requests_by_day: {
+   482→              type: 'array',
+   483→              items: {
+   484→                type: 'object',
+   485→                properties: {
+   486→                  date: { type: 'string' },
+   487→                  count: { type: 'integer' }
+   488→                }
+   489→              }
+   490→            }
+   491→          }
+   492→        }
+   493→      },
+   494→    },
+   495→    rateLimitCost: 5,
+   496→    version: '1.0.0',
+   497→  },
+   498→
+   499→  // ============================================
+   500→  // ACCOUNT ENDPOINTS
+   501→  // ============================================
+   502→  {
+   503→    id: 'get-account-info',
+   504→    path: '/api/v1/account',
+   505→    method: 'GET',
+   506→    description: {
+   507→      fr: 'Obtenir les informations du compte API',
+   508→      en: 'Get API account information',
+   509→      ar: 'الحصول على معلومات حساب API',
+   510→    },
+   511→    category: 'account',
+   512→    requiredPermissions: [],
+   513→    responseSchema: {
+   514→      type: 'object',
+   515→      properties: {
+   516→        success: { type: 'boolean' },
+   517→        data: {
+   518→          type: 'object',
+   519→          properties: {
+   520→            plan: { type: 'string' },
+   521→            requests_remaining_today: { type: 'integer' },
+   522→            api_keys_count: { type: 'integer' },
+   523→            apps_count: { type: 'integer' },
+   524→            created_at: { type: 'string', format: 'date-time' }
+   525→          }
+   526→        }
+   527→      },
+   528→    },
+   529→    rateLimitCost: 1,
+   530→    version: '1.0.0',
+   531→  },
+   532→];
+   533→
+   534→// ============================================
+   535→// HELPER FUNCTIONS
+   536→// ============================================
+   537→
+   538→/**
+   539→ * Get endpoints by category
+   540→ */
+   541→export function getEndpointsByCategory(category: ApiCategory): ApiEndpoint[] {
+   542→  return API_ENDPOINTS.filter(e => e.category === category);
+   543→}
+   544→
+   545→/**
+   546→ * Get single endpoint by ID
+   547→ */
+   548→export function getEndpointById(id: string): ApiEndpoint | undefined {
+   549→  return API_ENDPOINTS.find(e => e.id === id);
+   550→}
+   551→
+   552→/**
+   553→ * Get all unique categories
+   554→ */
+   555→export function getCategories(): { name: ApiCategory; count: number }[] {
+   556→  const categoryMap = new Map<ApiCategory, number>();
+   557→  
+   558→  for (const endpoint of API_ENDPOINTS) {
+   559→    const current = categoryMap.get(endpoint.category) || 0;
+   560→    categoryMap.set(endpoint.category, current + 1);
+   561→  }
+   562→
+   563→  return Array.from(categoryMap.entries()).map(([name, count]) => ({ name, count }));
+   564→}
+   565→
+   566→/**
+   567→ * Generate OpenAPI 3.0 specification
+   568→ */
+   569→export function generateOpenAPISpec(): object {
+   570→  return {
+   571→    openapi: '3.0.3',
+   572→    info: {
+   573→      title: 'AlgeriaTrade API',
+   574→      version: '1.0.0',
+   575→      description: `**API pour la plateforme B2B AlgeriaTrade.dz**
+   576→
+   577→API RESTful pour accéder aux données du plus grand marché B2B d'Algérie.
+   578→
+   579→---
+   580→
+   581→**RESTful API for AlgeriaTrade.dz B2B Platform**
+   582→
+   583→Access thousands of products, suppliers, and business data through our comprehensive API.
+   584→
+   585→## Authentication
+   586→
+   587→All API requests require authentication using an API key in the header:
+   588→
+   589→\`\`\`
+   590→X-API-Key: at_your_api_key_here
+   591→\`\`\`
+   592→
+   593→## Rate Limits
+   594→
+   595→- **Free Plan**: 100 requests/day
+   596→- **Pro Plan**: 10,000 requests/day  
+   597→- **Enterprise**: Unlimited
+   598→
+   599→Rate limit headers are included in every response:
+   600→- \`X-RateLimit-Limit\`: Your daily limit
+   601→- \`X-RateLimit-Remaining\`: Requests remaining
+   602→- \`X-RateLimit-Reset\`: When the limit resets (Unix timestamp)
+   603→
+   604→## Errors
+   605→
+   606→The API uses standard HTTP status codes and returns errors in this format:
+   607→
+   608→\`\`\`json
+   609→{
+   610→  "error": "Error message",
+   611→  "code": "ERROR_CODE",
+   612→  "message": "Detailed explanation"
+   613→}
+   614→\`\`\`
+   615→
+   616→## Support
+   617→
+   618→- Documentation: https://algeriatrade.dz/api-portal
+   619→- Email: api@algeriatrade.dz
+   620→- Status Page: https://status.algeriatrade.dz`,
+   621→      contact: {
+   622→        email: 'api@algeriatrade.dz',
+   623→        url: 'https://algeriatrade.dz/docs/api',
+   624→      },
+   625→      license: {
+   626→        name: 'MIT',
+   627→        url: 'https://opensource.org/licenses/MIT',
+   628→      },
+   629→      termsOfService: 'https://algeriatrade.dz/terms',
+   630→    },
+   631→    servers: [
+   632→      { 
+   633→        url: 'https://api.algeriatrade.dz', 
+   634→        description: 'Production Server 🚀' 
+   635→      },
+   636→      { 
+   637→        url: 'https://staging-api.algeriatrade.dz', 
+   638→        description: 'Staging Environment 🧪' 
+   639→      },
+   640→      { 
+   641→        url: 'http://localhost:3000/api', 
+   642→        description: 'Local Development 💻' 
+   643→      },
+   644→    ],
+   645→    components: {
+   646→      securitySchemes: {
+   647→        apiKey: {
+   648→          type: 'apiKey',
+   649→          in: 'header',
+   650→          name: 'X-API-Key',
+   651→          description: 'Your API key obtained from the developer portal',
+   652→        },
+   653→      },
+   654→      schemas: {
+   655→        Product: {
+   656→          type: 'object',
+   657→          properties: {
+   658→            id: { type: 'string', example: 'clxxxxxxx' },
+   659→            slug: { type: 'string', example: 'panneau-solaire-300w' },
+   660→            name: { type: 'string', example: 'Panneau Solaire 300W Monocristallin' },
+   661→            nameAr: { type: 'string', example: 'لوحة شمسية 300 واط أحادية البلورة' },
+   662→            description: { type: 'string' },
+   663→            price: { type: 'number', example: 25000 },
+   664→            currency: { type: 'string', example: 'DZD' },
+   665→            unit: { type: 'string', example: 'unit' },
+   666→            stockQuantity: { type: 'integer', example: 150 },
+   667→            images: {
+   668→              type: 'array',
+   669→              items: { type: 'string', format: 'uri' }
+   670→            },
+   671→            category: {
+   672→              type: 'object',
+   673→              properties: {
+   674→                id: { type: 'string' },
+   675→                name: { type: 'string' },
+   676→                slug: { type: 'string' }
+   677→              }
+   678→            },
+   679→            company: {
+   680→              type: 'object',
+   681→              properties: {
+   682→                id: { type: 'string' },
+   683→                name: { type: 'string' },
+   684→                slug: { type: 'string' },
+   685→                isVerified: { type: 'boolean' }
+   686→              }
+   687→            },
+   688→            status: { 
+   689→              type: 'string', 
+   690→              enum: ['draft', 'published', 'archived'] 
+   691→            },
+   692→            createdAt: { type: 'string', format: 'date-time' },
+   693→            updatedAt: { type: 'string', format: 'date-time' },
+   694→          },
+   695→        },
+   696→        Company: {
+   697→          type: 'object',
+   698→          properties: {
+   699→            id: { type: 'string' },
+   700→            slug: { type: 'string' },
+   701→            name: { type: 'string', example: 'SolarTech Algérie' },
+   702→            description: { type: 'string' },
+   703→            logoUrl: { type: 'string', format: 'uri' },
+   704→            isVerified: { type: 'boolean' },
+   705→            wilaya: { type: 'string', example: '16' },
+   706→            city: { type: 'string', example: 'Alger' },
+   707→            contactEmail: { type: 'string', format: 'email' },
+   708→            contactPhone: { type: 'string' },
+   709→            website: { type: 'string', format: 'uri' },
+   710→            foundedYear: { type: 'integer' },
+   711→            employeeCount: { type: 'string' },
+   712→            _count: {
+   713→              type: 'object',
+   714→              properties: {
+   715→                products: { type: 'integer' }
+   716→              }
+   717→            }
+   718→          },
+   719→        },
+   720→        RFQ: {
+   721→          type: 'object',
+   722→          properties: {
+   723→            id: { type: 'string' },
+   724→            title: { type: 'string' },
+   725→            description: { type: 'string' },
+   726→            category: { type: 'string' },
+   727→            quantity: { type: 'number' },
+   728→            unit: { type: 'string' },
+   729→            budget: { type: 'number' },
+   730→            status: { 
+   731→              type: 'string', 
+   732→              enum: ['open', 'in_progress', 'closed', 'expired'] 
+   733→            },
+   734→            deadline: { type: 'string', format: 'date' },
+   735→            createdAt: { type: 'string', format: 'date-time' },
+   736→            quotationsCount: { type: 'integer' },
+   737→          },
+   738→        },
+   739→        Category: {
+   740→          type: 'object',
+   741→          properties: {
+   742→            id: { type: 'string' },
+   743→            name: { type: 'string', example: 'Énergie Solaire' },
+   744→            nameAr: { type: 'string', example: 'طاقة شمسية' },
+   745→            slug: { type: 'string', example: 'energie-solaire' },
+   746→            icon: { type: 'string' },
+   747→            productCount: { type: 'integer' },
+   748→          },
+   749→        },
+   750→        Pagination: {
+   751→          type: 'object',
+   752→          properties: {
+   753→            page: { type: 'integer', example: 1 },
+   754→            limit: { type: 'integer', example: 20 },
+   755→            total: { type: 'integer', example: 150 },
+   756→            totalPages: { type: 'integer', example: 8 },
+   757→          },
+   758→        },
+   759→        ResponseMeta: {
+   760→          type: 'object',
+   761→          properties: {
+   762→            queriedAt: { type: 'string', format: 'date-time' },
+   763→            apiVersion: { type: 'string', example: '1.0.0' },
+   764→            requestId: { type: 'string' },
+   765→          },
+   766→        },
+   767→        Error: {
+   768→          type: 'object',
+   769→          properties: {
+   770→            error: { type: 'string', example: 'Invalid API key' },
+   771→            code: { 
+   772→              type: 'string', 
+   773→              enum: [
+   774→                'INVALID_API_KEY',
+   775→                'MISSING_API_KEY',
+   776→                'RATE_LIMITED',
+   777→                'IP_FORBIDDEN',
+   778→                'INVALID_QUERY',
+   779→                'NOT_FOUND',
+   780→                'INTERNAL_ERROR',
+   781→                'PERMISSION_DENIED'
+   782→              ]
+   783→            },
+   784→            message: { type: 'string' },
+   785→          },
+   786→          required: ['error', 'code'],
+   787→        },
+   788→      },
+   789→    },
+   790→    paths: Object.fromEntries(
+   791→      API_ENDPOINTS.map(endpoint => {
+   792→        const path = endpoint.path.replace(/{slug}/g, '{slug}').replace(/{id}/g, '{id}');
+   793→        
+   794→        return [
+   795→          path,
+   796→          {
+   797→            [endpoint.method.toLowerCase()]: {
+   798→              summary: endpoint.description.fr,
+   799→              description: `${endpoint.description.en}\n\n**العربية:** ${endpoint.description.ar}`,
+   800→              operationId: endpoint.id,
+   801→              tags: [endpoint.category],
+   802→              security: [{ apiKey: [] }],
+   803→              deprecated: endpoint.deprecated ?? false,
+   804→              parameters: extractParameters(endpoint),
+   805→              ...(endpoint.requestSchema && endpoint.method !== 'GET' ? {
+   806→                requestBody: {
+   807→                  required: true,
+   808→                  content: {
+   809→                    'application/json': {
+   810→                      schema: endpoint.requestSchema,
+   811→                      example: getExampleForEndpoint(endpoint),
+   812→                    },
+   813→                  },
+   814→                },
+   815→              } : {}),
+   816→              responses: {
+   817→                '200': {
+   818→                  description: 'Successful response',
+   819→                  content: {
+   820→                    'application/json': {
+   821→                      schema: endpoint.responseSchema || {
+   822→                        type: 'object',
+   823→                        properties: {
+   824→                          success: { type: 'boolean', const: true },
+   825→                          data: { type: 'object' },
+   826→                        },
+   827→                      },
+   828→                    },
+   829→                  },
+   830→                },
+   831→                '401': {
+   832→                  description: 'Unauthorized - Invalid or missing API key',
+   833→                  content: {
+   834→                    'application/json': {
+   835→                      schema: { $ref: '#/components/schemas/Error' },
+   836→                      example: {
+   837→                        error: 'Invalid API key',
+   838→                        code: 'INVALID_API_KEY',
+   839→                      },
+   840→                    },
+   841→                  },
+   842→                },
+   843→                '429': {
+   844→                  description: 'Too Many Requests - Rate limit exceeded',
+   845→                  content: {
+   846→                    'application/json': {
+   847→                      schema: { $ref: '#/components/schemas/Error' },
+   848→                      example: {
+   849→                        error: 'Rate limit exceeded',
+   850→                        code: 'RATE_LIMITED',
+   851→                        retryAfter: 60,
+   852→                      },
+   853→                    },
+   854→                  },
+   855→                },
+   856→                '500': {
+   857→                  description: 'Internal Server Error',
+   858→                  content: {
+   859→                    'application/json': {
+   860→                      schema: { $ref: '#/components/schemas/Error' },
+   861→                    },
+   862→                  },
+   863→                },
+   864→              },
+   865→            },
+   866→          },
+   867→        ];
+   868→      })
+   869→    ),
+   870→    tags: [
+   871→      { 
+   872→        name: 'products', 
+   873→        description: 'Gestion des produits | Product management | إدارة المنتجات' 
+   874→      },
+   875→      { 
+   876→        name: 'search', 
+   877→        description: 'Recherche globale | Global search | بحث شامل' 
+   878→      },
+   879→      { 
+   880→        name: 'orders', 
+   881→        description: 'Gestion des commandes | Order management | إدارة الطلبات' 
+   882→      },
+   883→      { 
+   884→        name: 'rfqs', 
+   885→        description: 'Appels d\'offres | RFQ management | طلبات عرض السعر' 
+   886→      },
+   887→      { 
+   888→        name: 'companies', 
+   889→        description: 'Entreprises et fournisseurs | Companies & Suppliers | الشركات والموردون' 
+   890→      },
+   891→      { 
+   892→        name: 'analytics', 
+   893→        description: 'Statistiques d\'utilisation | Usage Analytics | إحصائيات الاستخدام' 
+   894→      },
+   895→      { 
+   896→        name: 'account', 
+   897→        description: 'Informations du compte | Account information | معلومات الحساب' 
+   898→      },
+   899→    ],
+   900→  };
+   901→}
+   902→
+   903→/**
+   904→ * Extract OpenAPI parameters from endpoint definition
+   905→ */
+   906→function extractParameters(endpoint: ApiEndpoint): any[] {
+   907→  const params: any[] = [];
+   908→  
+   909→  // Path parameters
+   910→  if (endpoint.path.includes('{slug}')) {
+   911→    params.push({
+   912→      name: 'slug',
+   913→      in: 'path',
+   914→      required: true,
+   915→      description: 'Resource identifier (slug)',
+   916→      schema: { type: 'string' },
+   917→      example: 'panneau-solaire-300w',
+   918→    });
+   919→  }
+   920→  
+   921→  if (endpoint.path.includes('{id}')) {
+   922→    params.push({
+   923→      name: 'id',
+   924→      in: 'path',
+   925→      required: true,
+   926→      description: 'Resource ID',
+   927→      schema: { type: 'string' },
+   928→    });
+   929→  }
+   930→
+   931→  // Query parameters for GET requests
+   932→  if (endpoint.method === 'GET' && endpoint.requestSchema?.properties) {
+   933→    for (const [name, schema] of Object.entries(endpoint.requestSchema.properties as any)) {
+   934→      params.push({
+   935→        name,
+   936→        in: 'query',
+   937→        required: endpoint.requestSchema.required?.includes(name) || false,
+   938→        description: (schema as any).description,
+   939→        schema: {
+   940→          type: (schema as any).type,
+   941→          enum: (schema as any).enum,
+   942→          default: (schema as any).default,
+   943→        },
+   944→      });
+   945→    }
+   946→  }
+   947→  
+   948→  return params;
+   949→}
+   950→
+   951→/**
+   952→ * Generate example request body for an endpoint
+   953→ */
+   954→function getExampleForEndpoint(endpoint: ApiEndpoint): any {
+   955→  switch (endpoint.id) {
+   956→    case 'create-order':
+   957→      return {
+   958→        items: [
+   959→          { product_id: 'product_slug_123', quantity: 5 }
+   960→        ],
+   961→        shipping_address: {
+   962→          address: '123 Rue Didouche Mourad',
+   963→          wilaya: '16',
+   964→          city: 'Alger',
+   965→          phone: '+213555123456',
+   966→          recipient_name: 'Mohammed Ali'
+   967→        },
+   968→        payment_method: 'cod',
+   969→        notes: 'Livraison avant midi SVP'
+   970→      };
+   971→    
+   972→    case 'create-rfq':
+   973→      return {
+   974→        title: 'Besoin de 500 mètres de câble électrique CU 4mm²',
+   975→        description: 'Recherche fournisseur régulier pour câbles électriques cuivre norme CEI',
+   976→        category: 'electricite-cablage',
+   977→        quantity: 500,
+   978→        unit: 'mètres',
+   979→        budget: 150000,
+   980→        deadline: '2025-02-15',
+   981→        wilaya: '16',
+   982→      };
+   983→    
+   984→    default:
+   985→      return {};
+   986→  }
+   987→}
+   988→
+   989→/**
+   990→ * Export API spec as JSON string
+   991→ */
+   992→export function getOpenApiJsonString(pretty: boolean = true): string {
+   993→  return JSON.stringify(generateOpenAPISpec(), null, pretty ? 2 : 0);
+   994→}
+   995→
