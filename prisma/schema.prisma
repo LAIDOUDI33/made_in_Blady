@@ -169,6 +169,18 @@ model Company {
   reviewCount         Int                @default(0)
   responseRate        Float              @default(0)
   
+  // Enhanced Verification (Phase 6A)
+  verificationLevel   VerificationLevel   @default(BASIC)
+  verifications       SupplierVerification[] @relation("CompanyVerifications")
+  badges              CompanyBadge[]        @relation("CompanyBadges")
+  
+  // Multimedia (Phase 6C)
+  videos              CompanyVideo[]       @relation("CompanyVideos")
+  virtualTours        VirtualTour[]         @relation("VirtualTours")
+  
+  // Exhibitions (Phase 6F)
+  booths              ExhibitionBooth[]     @relation("ExhibitionBooths")
+  
   // Location
   wilaya              String
   commune             String?
@@ -219,6 +231,10 @@ model Category {
   subcategories Category[] @relation("CategoryTree")
   products    Product[]
   rfqs        RFQ[]
+  
+  // Phase 6G: Insights & Guides
+  marketInsights     MarketInsight[] @relation("MarketInsights")
+  buyingGuides       BuyingGuide[] @relation("BuyingGuides")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -251,6 +267,20 @@ model Product {
   
   // Origin
   countryOfOrigin     String?
+  
+  // Phase 6D: Advanced Features
+  certifications      ProductCertification[]   @relation("ProductCertifications")
+  bulkPricingTiers    BulkPricingTier[]         @relation("BulkPricingTiers")
+  customizationOptions CustomizationOption[]     @relation("CustomizationOptions")
+  packageItems        PackageItem[]             @relation("PackageItems")
+  relatedProductsFrom RelatedProduct[]           @relation("RelatedProductsFrom")
+  relatedProductsTo   RelatedProduct[]           @relation("RelatedProductsTo")
+  
+  // Phase 6C: Video
+  videos              ProductVideo[]            @relation("ProductVideos")
+  
+  // Phase 6G: Trending
+  trendingRecords      TrendingProduct[]        @relation("TrendingProducts")
   
   // Relations
   companyId           String
@@ -472,6 +502,12 @@ model Order {
   company         Company     @relation("SupplierOrders", fields: [companyId], references: [id])
   items           OrderItem[]
   payment         Payment?
+  
+  // Phase 6B: Trade Assurance
+  escrow           EscrowAccount?
+  
+  // Phase 6H: Logistics
+  shipments        Shipment[] @relation("OrderShipments")
   
   status          OrderStatus @default(PENDING)
 
@@ -1336,4 +1372,1105 @@ model Webhook {
   @@index([ownerId])
   @@index([eventType])
   @@map("webhooks")
+}
+
+// ============================================
+// PHASE 6A: SUPPLIER VERIFICATION & TRUST SYSTEM
+// ============================================
+
+enum VerificationLevel {
+  BASIC           // Email & phone verified
+  VERIFIED        // Business documents verified
+  CERTIFIED       // On-site inspection passed
+  PREMIUM         // SGS/TUV third-party audit
+  ENTERPRISE      // Full enterprise verification
+}
+
+enum VerificationType {
+  BUSINESS_LICENSE
+  TAX_COMPLIANCE
+  BANK_ACCOUNT
+  IDENTITY
+  ADDRESS
+  PHONE
+  EMAIL
+  PRODUCT_QUALITY
+  PRODUCTION_CAPACITY
+  EXPORT_LICENSE
+  ISO_CERTIFICATION
+  SGS_AUDIT
+  CUSTOM
+}
+
+model SupplierVerification {
+  id                String            @id @default(cuid())
+  companyId         String
+  
+  // Verification Level & Status
+  level             VerificationLevel @default(BASIC)
+  status            VerificationStatus @default(PENDING)
+  
+  // Verification Details
+  type              VerificationType
+  documents         String?            // JSON array of document URLs
+  
+  // Inspector Info (for on-site verification)
+  inspectorName     String?
+  inspectorId       String?
+  inspectionDate    DateTime?
+  inspectionNotes   String?
+  inspectionPhotos  String?            // JSON array of photo URLs
+  inspectionVideos  String?            // JSON array of video URLs
+  
+  // Scoring
+  score             Int?               // 0-100 overall score
+  categoryScores    String?            // JSON {"quality": 90, "capacity": 85, ...}
+  
+  // Validity
+  issuedAt          DateTime?
+  expiresAt         DateTime?
+  isValid           Boolean            @default(false)
+  
+  // Admin Review
+  reviewedBy        String?
+  reviewedAt        DateTime?
+  reviewNotes       String?
+  rejectionReason   String?
+  
+  // Badge/Certificate
+  badgeUrl          String?
+  certificateUrl    String?
+  certificateNumber String?            @unique
+  
+  company           Company?           @relation("CompanyVerifications", fields: [companyId], references: [id], onDelete: Cascade)
+  
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  
+  @@index([companyId])
+  @@index([level])
+  @@index([status])
+  @@index([certificateNumber])
+  @@map("supplier_verifications")
+}
+
+model VerificationBadge {
+  id                String            @id @default(cuid())
+  name              String             // "Verified Supplier", "Premium Seller", etc.
+  description       String?
+  icon              String             // Badge icon URL or emoji
+  color             String             @default("#006233") // Badge color
+  level             VerificationLevel  // Minimum level required
+  
+  // Display Settings
+  isDisplayed       Boolean            @default(true)
+  sortOrder         Int                @default(0)
+  
+  companies         CompanyBadge[]
+  
+  createdAt         DateTime           @default(now())
+  
+  @@map("verification_badges")
+}
+
+model CompanyBadge {
+  id                String   @id @default(cuid())
+  companyId         String
+  badgeId           String
+  awardedAt         DateTime @default(now())
+  expiresAt         DateTime?
+  isActive          Boolean   @default(true)
+  
+  company           Company?           @relation("CompanyBadges", fields: [companyId], references: [id], onDelete: Cascade)
+  badge             VerificationBadge @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+  
+  @@unique([companyId, badgeId])
+  @@index([companyId])
+  @@map("company_badges")
+}
+
+// ============================================
+// PHASE 6B: TRADE ASSURANCE & ESCROW SYSTEM
+// ============================================
+
+enum EscrowStatus {
+  PENDING
+  FUNDED
+  IN_ESCROW
+  RELEASED
+  REFUNDED
+  PARTIAL_REFUND
+  DISPUTED
+  CANCELLED
+}
+
+enum DisputeStatus {
+  OPEN
+  INVESTIGATING
+  MEDIATION
+  ARBITRATION
+  RESOLVED
+  CANCELLED
+}
+
+enum DisputeReason {
+  PRODUCT_NOT_AS_DESCRIBED
+  QUALITY_ISSUES
+  SHIPPING_DELAY
+  WRONG_PRODUCT
+  DAMAGED_GOODS
+  PARTIAL_SHIPMENT
+  SCAM_SUSPICION
+  OTHER
+}
+
+model EscrowAccount {
+  id                String       @id @default(cuid())
+  accountId         String       @unique // Public account identifier
+  orderId           String       @unique
+  
+  // Amounts
+  amount            Float
+  currency          String       @default("DZD")
+  releasedAmount    Float         @default(0)
+  refundedAmount    Float         @default(0)
+  feeAmount         Float         @default(0) // Platform fee
+  
+  // Status
+  status            EscrowStatus @default(PENDING)
+  
+  // Timeline
+  fundedAt          DateTime?
+  inEscrowAt        DateTime?
+  releaseRequestedAt DateTime?
+  releasedAt        DateTime?
+  refundRequestedAt  DateTime?
+  refundedAt        DateTime?
+  
+  // Parties
+  buyerId           String
+  supplierCompanyId String
+  
+  // Dispute (if any)
+  dispute           Dispute?
+  
+  // Release Conditions
+  autoReleaseDays   Int          @default(30) // Auto-release after N days
+  autoReleaseAt     DateTime?
+  
+  // Transaction Details
+  paymentMethod     String?
+  paymentReference  String?
+  
+  order             Order        @relation(fields: [orderId], references: [id])
+  
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  
+  @@index([orderId])
+  @@index([status])
+  @@index([buyerId])
+  @@map("escrow_accounts")
+}
+
+model Dispute {
+  id                String         @id @default(cuid())
+  escrowId          String         @unique
+  
+  // Dispute Details
+  title             String
+  description       String
+  reason            DisputeReason
+  status            DisputeStatus @default(OPEN)
+  
+  // Amount Requested
+  requestedAmount   Float?
+  offeredAmount     Float?
+  settledAmount     Float?
+  
+  // Parties
+  openedBy          String         // User ID who opened dispute
+  buyerId           String
+  supplierCompanyId String
+  
+  // Evidence
+  evidence          String?        // JSON array of evidence URLs {type, url, description}
+  
+  // Resolution
+  resolution        String?        // Resolution text
+  resolvedBy        String?        // Admin/Mediator ID
+  resolvedAt        DateTime?
+  rulingInFavorOf   String?        // "buyer" or "supplier"
+  
+  // Mediation/Arbitration
+  mediatorId        String?
+  mediatorAssignedAt DateTime?
+  arbitrationId    String?
+  
+  // Timeline
+  responseDeadline  DateTime?
+  escalationAt      DateTime?
+  
+  escrow            EscrowAccount  @relation(fields: [escrowId], references: [id], onDelete: Cascade)
+  messages          DisputeMessage[]
+  
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  
+  @@index([status])
+  @@index([buyerId])
+  @@index([openedBy])
+  @@map("disputes")
+}
+
+model DisputeMessage {
+  id                String   @id @default(cuid())
+  disputeId         String
+  senderId          String
+  senderRole        String   // "buyer", "supplier", "mediator", "admin"
+  content           String
+  attachments       String?  // JSON array of file URLs
+  
+  dispute           Dispute  @relation(fields: [disputeId], references: [id], onDelete: Cascade)
+  
+  createdAt         DateTime @default(now())
+  
+  @@index([disputeId])
+  @@map("dispute_messages")
+}
+
+// ============================================
+// PHASE 6C: VIDEO SHOWROOM & MULTIMEDIA
+// ============================================
+
+model ProductVideo {
+  id                String   @id @default(cuid())
+  productId         String
+  
+  // Video Details
+  title             String
+  description       String?
+  videoUrl          String   // Video file or embed URL
+  thumbnailUrl      String?
+  duration          Int?     // Duration in seconds
+  
+  // Video Type
+  type              String   @default("product_demo") // product_demo, factory_tour, testimonial, tutorial
+  language          String?  // ar, fr, en
+  
+  // Status
+  isPrimary         Boolean  @default(false)
+  status            String   @default("processing") // processing, ready, failed
+  
+  // Stats
+  viewCount         Int      @default(0)
+  
+  product           Product?  @relation("ProductVideos", fields: [productId], references: [id], onDelete: Cascade)
+  
+  createdAt         DateTime @default(now())
+  
+  @@index([productId])
+  @@map("product_videos")
+}
+
+model CompanyVideo {
+  id                String   @id @default(cuid())
+  companyId         String
+  
+  // Video Details
+  title             String
+  description       String?
+  videoUrl          String
+  thumbnailUrl      String?
+  duration          Int?
+  
+  // Video Type
+  type              String   @default("company_intro") // company_intro, factory_tour, production_line, ceo_message, exhibition
+  language          String?
+  
+  // Status
+  isFeatured        Boolean  @default(false)
+  status            String   @default("processing")
+  
+  // Stats
+  viewCount         Int      @default(0)
+  
+  company           Company?  @relation("CompanyVideos", fields: [companyId], references: [id], onDelete: Cascade)
+  
+  createdAt         DateTime @default(now())
+  
+  @@index([companyId])
+  @@map("company_videos")
+}
+
+model VirtualTour {
+  id                String   @id @default(cuid())
+  companyId         String
+  
+  // Tour Details
+  title             String
+  description       String?
+  tourUrl           String   // 360° tour URL or viewer config
+  coverImage        String?
+  
+  // Tour Type
+  type              String   @default("factory") // factory, office, showroom, warehouse
+  
+  // Hotspots (interactive points)
+  hotspots          String?  // JSON array {position, title, content, mediaUrl}
+  
+  // Stats
+  viewCount         Int      @default(0)
+  
+  company           Company?  @relation("VirtualTours", fields: [companyId], references: [id], onDelete: Cascade)
+  
+  createdAt         DateTime @default(now())
+  
+  @@index([companyId])
+  @@map("virtual_tours")
+}
+
+// ============================================
+// PHASE 6D: ADVANCED PRODUCT FEATURES
+// ============================================
+
+model ProductCertification {
+  id                String   @id @default(cuid())
+  productId         String
+  
+  // Certification Details
+  name              String   // CE, ISO 9001, SGS, TUV, etc.
+  issuingBody       String   // Certification body
+  certificateNumber String?
+  issueDate         DateTime?
+  expiryDate        DateTime?
+  
+  // Documents
+  certificateUrl    String?
+  
+  // Status
+  isValid           Boolean  @default(true)
+  verifiedBy        String?  // Admin who verified
+  verifiedAt        DateTime?
+  
+  product           Product?  @relation("ProductCertifications", fields: [productId], references: [id], onDelete: Cascade)
+  
+  createdAt         DateTime @default(now())
+  
+  @@index([productId])
+  @@map("product_certifications")
+}
+
+model BulkPricingTier {
+  id                String   @id @default(cuid())
+  productId         String
+  
+  // Tier Details
+  minQuantity       Int      // Minimum quantity for this tier
+  maxQuantity       Int?     // Null means unlimited
+  unitPrice         Float    // Price per unit at this tier
+  discountPercent   Float?   // Discount percentage
+  
+  // Currency
+  currency          String   @default("DZD")
+  
+  // Validity
+  validFrom         DateTime?
+  validUntil        DateTime?
+  
+  product           Product?  @relation("BulkPricingTiers", fields: [productId], references: [id], onDelete: Cascade)
+  
+  createdAt         DateTime @default(now())
+  
+  @@index([productId])
+  @@map("bulk_pricing_tiers")
+}
+
+model CustomizationOption {
+  id                String   @id @default(cuid())
+  productId         String
+  
+  // Option Details
+  name              String   // Color, Size, Material, etc.
+  type              String   @default("select") // select, radio, checkbox, text, number, file
+  isRequired         Boolean  @default(false)
+  
+  // Options (for select/radio/checkbox types)
+  options           String?  // JSON array [{value, label, priceModifier, stock}]
+  
+  // Display
+  sortOrder         Int      @default(0)
+  
+  product           Product?  @relation("CustomizationOptions", fields: [productId], references: [id], onDelete: Cascade)
+  
+  values            CustomizationValue[]
+  
+  createdAt         DateTime @default(now())
+  
+  @@index([productId])
+  @@map("customization_options")
+}
+
+model CustomizationValue {
+  id                String   @id @default(cuid())
+  optionId          String
+  
+  value             String   // Selected/entered value
+  priceModifier     Float     @default(0) // Additional cost
+  
+  option            CustomizationOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  
+  @@map("customization_values")
+}
+
+model ProductPackage {
+  id                String   @id @default(cuid())
+  
+  // Package Details
+  name              String   // "Starter Pack", "Business Bundle", etc.
+  description       String?
+  discountPercent   Float     @default(0) // Package discount
+  
+  // Pricing
+  totalPrice        Float?
+  currency          String    @default("DZD")
+  
+  // Status
+  isActive          Boolean   @default(true)
+  
+  products          PackageItem[]
+  
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  
+  @@map("product_packages")
+}
+
+model PackageItem {
+  id                String   @id @default(cuid())
+  packageId         String
+  productId         String
+  quantity          Int      @default(1)
+  includedPrice     Float?   // If null, use current product price
+  
+  packageProduct    ProductPackage @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  product           Product?  @relation("PackageItems", fields: [productId], references: [id], onDelete: Cascade)
+  
+  @@index([packageId])
+  @@index([productId])
+  @@map("package_items")
+}
+
+// Related Products (Up-sells/Cross-sells)
+model RelatedProduct {
+  id                String   @id @default(cuid())
+  productId         String   // Main product
+  relatedProductId   String   // Related product
+  type              String   @default("related") // related, up_sell, cross_sell, complementary, alternative
+  sortOrder         Int      @default(0)
+  
+  product           Product?  @relation("RelatedProductsFrom", fields: [productId], references: [id], onDelete: Cascade)
+  relatedProduct    Product?  @relation("RelatedProductsTo", fields: [relatedProductId], references: [id], onDelete: Cascade)
+  
+  @@unique([productId, relatedProductId])
+  @@index([productId])
+  @@map("related_products")
+}
+
+// ============================================
+// PHASE 6E: INSPECTION & QUALITY CONTROL
+// ============================================
+
+enum InspectionStatus {
+  REQUESTED
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  FAILED
+}
+
+enum InspectionType {
+  PRE_PRODUCTION
+  DURING_PRODUCTION
+  PRE_SHIPMENT
+  CONTAINER_LOADING
+  SAMPLE_INSPECTION
+  FACTORY_AUDIT
+}
+
+model InspectionService {
+  id                String           @id @default(cuid())
+  
+  // Service Definition
+  name              String
+  description       String?
+  type              InspectionType
+  basePrice         Float
+  currency          String           @default("DZD")
+  
+  // Timeframe
+  typicalLeadTime   Int               @default(3) // Days
+  
+  // Status
+  isActive          Boolean           @default(true)
+  
+  bookings          InspectionBooking[]
+  
+  createdAt         DateTime          @default(now())
+  
+  @@map("inspection_services")
+}
+
+model InspectionBooking {
+  id                String           @id @default(cuid())
+  bookingNumber     String           @unique
+  
+  // Service Reference
+  serviceId         String
+  
+  // Buyer Info
+  buyerId           String
+  
+  // Supplier Info
+  supplierCompanyId String
+  
+  // Product Reference
+  productId         String?
+  orderId           String?
+  
+  // Inspection Details
+  preferredDate     DateTime?
+  address           String?
+  contactPerson     String?
+  contactPhone      String?
+  specialInstructions String?
+  
+  // Status
+  status            InspectionStatus  @default(REQUESTED)
+  
+  // Assignment
+  inspectorId       String?
+  inspectorName     String?
+  scheduledAt       DateTime?
+  completedAt       DateTime?
+  
+  // Results
+  result            String?           // JSON object with detailed results
+  overallScore      Int?              // 0-100
+  passFail          String?           // "pass", "fail", "conditional"
+  reportUrl         String?
+  
+  // Photos/Videos
+  photos            String?           // JSON array of photo URLs
+  videos            String?           // JSON array of video URLs
+  
+  // Payment
+  amount            Float?
+  currency          String            @default("DZD")
+  paidAt            DateTime?
+  
+  // Timeline
+  requestedAt       DateTime          @default(now())
+  confirmedAt       DateTime?
+  cancelledAt       DateTime?
+  cancellationReason String?
+  
+  service           InspectionService @relation(fields: [serviceId], references: [id])
+  
+  @@index([buyerId])
+  @@index([supplierCompanyId])
+  @@index([status])
+  @@map("inspection_bookings")
+}
+
+// ============================================
+// PHASE 6F: ONLINE EXHIBITIONS & EVENTS
+// ============================================
+
+enum ExhibitionStatus {
+  DRAFT
+  PUBLISHED
+  LIVE
+  ENDED
+  CANCELLED
+}
+
+enum ExhibitionType {
+  VIRTUAL_TRADE_SHOW
+  INDUSTRY_EVENT
+  PRODUCT_LAUNCH
+  PROCUREMENT_EVENT
+  NETWORKING_EVENT
+}
+
+model Exhibition {
+  id                String           @id @default(cuid())
+  
+  // Basic Info
+  title             String
+  description       String?
+  slug              String           @unique
+  
+  // Event Details
+  type              ExhibitionType
+  status            ExhibitionStatus  @default(DRAFT)
+  
+  // Date & Duration
+  startDate         DateTime
+  endDate           DateTime
+  
+  // Location (virtual or physical)
+  isVirtual          Boolean           @default(true)
+  physicalAddress   String?
+  virtualUrl        String?
+  
+  // Branding
+  coverImage        String?
+  logo              String?
+  themeColor        String            @default("#006233")
+  
+  // Organization
+  organizerId       String?           // Admin user ID
+  
+  // Registration
+  maxExhibitors     Int?
+  maxVisitors       Int?
+  registrationFee   Float?            @default(0)
+  currency          String            @default("DZD")
+  
+  // Stats
+  exhibitorCount    Int               @default(0)
+  visitorCount      Int               @default(0)
+  
+  // Featured
+  isFeatured        Boolean           @default(false)
+  
+  booths            ExhibitionBooth[]
+  events            ExhibitionEvent[]
+  registrations     ExhibitionRegistration[]
+  
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  
+  @@index([status])
+  @@index([type])
+  @@index([startDate])
+  @@map("exhibitions")
+}
+
+model ExhibitionBooth {
+  id                String   @id @default(cuid())
+  exhibitionId      String
+  companyId         String
+  
+  // Booth Details
+  boothNumber       String?
+  name              String   // Booth display name
+  description       String?
+  
+  // Branding
+  bannerImage       String?
+  logo              String?
+  themeColor        String?
+  
+  // Virtual Booth Content
+  welcomeMessage    String?
+  products          String?   // JSON array of featured product IDs
+  videos            String?   // JSON array of video URLs
+  documents         String?   // JSON array of document URLs (catalogs, brochures)
+  contactInfo       String?   // JSON {email, phone, website}
+  
+  // Staff
+  staffIds          String?   // JSON array of user IDs manning the booth
+  
+  // Stats
+  visitorCount      Int      @default(0)
+  leadCount         Int      @default(0)
+  
+  // Status
+  status            String   @default("active") // active, inactive, suspended
+  
+  exhibition         Exhibition @relation(fields: [exhibitionId], references: [id], onDelete: Cascade)
+  company           Company?   @relation("ExhibitionBooths", fields: [companyId], references: [id], onDelete: Cascade)
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  @@index([exhibitionId])
+  @@index([companyId])
+  @@map("exhibition_booths")
+}
+
+model ExhibitionEvent {
+  id                String   @id @default(cuid())
+  exhibitionId      String
+  
+  // Event Details
+  title             String
+  description       String?
+  type              String   @default("seminar") // seminar, workshop, networking, keynote, demo
+  
+  // Schedule
+  startTime         DateTime
+  endTime           DateTime
+  
+  // Location (within exhibition)
+  roomId            String?  // Virtual room ID or physical location
+  
+  // Speakers
+  speakers          String?  // JSON array [{name, title, company, bio, photo}]
+  
+  // Capacity
+  maxAttendees      Int?
+  currentAttendees  Int      @default(0)
+  
+  // Resources
+  recordingUrl      String?
+  presentationUrl   String?
+  materialsUrl      String?   // JSON array of resource URLs
+  
+  // Status
+  status            String   @default("scheduled") // scheduled, live, completed, cancelled
+  
+  exhibition         Exhibition @relation(fields: [exhibitionId], references: [id], onDelete: Cascade)
+  registrations     EventRegistration[]
+  
+  createdAt         DateTime @default(now())
+  
+  @@index([exhibitionId])
+  @@index([startTime])
+  @@map("exhibition_events")
+}
+
+model ExhibitionRegistration {
+  id                String   @id @default(cuid())
+  exhibitionId      String
+  userId            String
+  
+  // Registration Type
+  registrationType  String   @default("visitor") // visitor, exhibitor, speaker, press
+  
+  // Registration Details
+  companyName       String?
+  jobTitle          String?
+  interests         String?   // JSON array of category IDs or topics
+  
+  // Payment (if applicable)
+  paidAt            DateTime?
+  amount            Float?
+  
+  // Attendance
+  checkedInAt       DateTime?
+  lastVisitedAt     DateTime?
+  
+  // Status
+  status            String   @default("registered") // registered, checked_in, attended, no_show, cancelled
+  
+  exhibition         Exhibition @relation(fields: [exhibitionId], references: [id], onDelete: Cascade)
+  
+  createdAt         DateTime @default(now())
+  
+  @@unique([exhibitionId, userId])
+  @@index([userId])
+  @@map("exhibition_registrations")
+}
+
+model EventRegistration {
+  id                String   @id @default(cuid())
+  eventId            String
+  userId            String
+  
+  registeredAt      DateTime @default(now())
+  attendedAt        DateTime?
+  
+  event             ExhibitionEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  
+  @@unique([eventId, userId])
+  @@map("event_registrations")
+}
+
+// ============================================
+// PHASE 6G: ADVANCED SEARCH & DISCOVERY
+// ============================================
+
+model TrendingProduct {
+  id                String   @id @default(cuid())
+  productId         String
+  
+  // Trending Metrics
+  score             Float    // Calculated trending score
+  viewCount         Int      @default(0)
+  inquiryCount     Int      @default(0)
+  orderCount        Int      @default(0)
+  favoriteCount     Int      @default(0)
+  
+  // Period
+  periodType        String   @default("weekly") // daily, weekly, monthly
+  periodStart       DateTime
+  periodEnd         DateTime
+  
+  // Rank
+  rank              Int
+  previousRank      Int?     // For showing movement
+  
+  product           Product?  @relation("TrendingProducts", fields: [productId], references: [id], onDelete: Cascade)
+  
+  createdAt         DateTime @default(now())
+  
+  @@unique([productId, periodType, periodStart])
+  @@index([periodType, rank])
+  @@map("trending_products")
+}
+
+model MarketInsight {
+  id                String   @id @default(cuid())
+  
+  // Content
+  title             String
+  content           String   // Markdown or HTML content
+  summary           String?
+  
+  // Category
+  categoryId        String?
+  
+  // Type
+  type              String   @default("market_report") // market_report, industry_analysis, buying_guide, trend_forecast, price_analysis
+  
+  // Target Audience
+  targetRole         String?   // buyer, supplier, both
+  
+  // Media
+  coverImage        String?
+  attachments       String?   // JSON array of document URLs
+  
+  // Author
+  authorId          String?   // Admin ID
+  
+  // Stats
+  viewCount         Int       @default(0)
+  likeCount         Int       @default(0)
+  
+  // Status
+  isPublished       Boolean   @default(false)
+  publishedAt       DateTime?
+  
+  featuredUntil     DateTime?
+  
+  category          Category? @relation("MarketInsights", fields: [categoryId], references: [id])
+  
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  
+  @@index([categoryId])
+  @@index([type])
+  @@index([isPublished])
+  @@map("market_insights")
+}
+
+model BuyingGuide {
+  id                String   @id @default(cuid())
+  
+  // Content
+  title             String
+  slug              String   @unique
+  content           String   // Markdown
+  summary           String?
+  
+  // Category
+  categoryId        String
+  
+  // Structure
+  sections          String?   // JSON array [{title, content, order}]
+  
+  // Tips
+  tips              String?   // JSON array of quick tips
+  commonMistakes    String?   // JSON array of common mistakes
+  checklist         String?   // JSON array of checklist items
+  
+  // Media
+  coverImage        String?
+  videoUrl          String?
+  
+  // Related
+  productIds        String?   // JSON array of recommended product IDs
+  
+  // Author
+  authorId          String?
+  
+  // Stats
+  viewCount         Int       @default(0)
+  helpfulCount      Int       @default(0)
+  notHelpfulCount   Int       @default(0)
+  
+  // Status
+  isPublished       Boolean   @default(false)
+  publishedAt       DateTime?
+  
+  category          Category  @relation("BuyingGuides", fields: [categoryId], references: [id])
+  
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  
+  @@index([categoryId])
+  @@index([slug])
+  @@index([isPublished])
+  @@map("buying_guides")
+}
+
+// ============================================
+// PHASE 6H: LOGISTICS & SHIPPING
+// ============================================
+
+enum ShippingMethod {
+  STANDARD
+  EXPRESS
+  AIR_FREIGHT
+  SEA_FREIGHT
+  RAIL_FREIGHT
+  PICKUP
+  WHITE_GLOVE
+}
+
+enum Incoterm {
+  EXW        // Ex Works
+  FCA        // Free Carrier
+  CPT        // Carriage Paid To
+  CIP        // Carriage and Insurance Paid To
+  DAP        // Delivered at Place
+  DDP        // Delivered Duty Paid
+  FAS        // Free Alongside Ship
+  FOB        // Free on Board
+  CFR        // Cost and Freight
+  CIF        // Cost Insurance and Freight
+}
+
+enum ShipmentStatus {
+  PENDING
+  READY_TO_SHIP
+  SHIPPED
+  IN_TRANSIT
+  OUT_FOR_DELIVERY
+  DELIVERED
+  EXCEPTION
+  RETURNED
+  LOST
+}
+
+model ShippingRate {
+  id                String           @id @default(cuid())
+  
+  // Route
+  originWilaya      String
+  destinationWilaya String
+  
+  // Method & Pricing
+  method            ShippingMethod
+  basePrice         Float
+  weightPrice       Float?            // Price per kg
+  volumePrice       Float?            // Price per m³
+  
+  // Constraints
+  minWeight         Float?            // kg
+  maxWeight         Float?            // kg
+  minDimensions     String?           // JSON {length, width, height}
+  maxDimensions     String?           // JSON {length, width, height}
+  
+  // Timeframe
+  estimatedDaysMin  Int
+  estimatedDaysMax  Int
+  
+  // Carrier
+  carrierName       String?
+  trackingSupported Boolean          @default(false)
+  
+  // Validity
+  effectiveFrom     DateTime
+  effectiveUntil    DateTime?
+  
+  isActive          Boolean           @default(true)
+  
+  shipments         Shipment[]
+  
+  createdAt         DateTime          @default(now())
+  
+  @@index([originWilaya, destinationWilaya])
+  @@index([method])
+  @@map("shipping_rates")
+}
+
+model Shipment {
+  id                String         @id @default(cuid())
+  trackingNumber    String         @unique
+  orderId           String
+  
+  // Shipping Method
+  shippingMethod    ShippingMethod
+  shippingRateId    String?
+  
+  // Addresses
+  originAddress     String           // JSON {name, phone, address, wilaya, commune}
+  destinationAddress String         // JSON {name, phone, address, wilaya, commune}
+  
+  // Incoterms
+  incoterm          Incoterm         @default(DAP)
+  
+  // Dimensions & Weight
+  weight            Float?           // Total weight in kg
+  dimensions        String?          // JSON {length, width, height, unit}
+  packageCount      Int              @default(1)
+  
+  // Cost
+  shippingCost      Float
+  currency          String           @default("DZD")
+  
+  // Status
+  status            ShipmentStatus    @default(PENDING)
+  
+  // Tracking
+  trackingEventsData String?          // JSON array of tracking events
+  estimatedDelivery DateTime?
+  actualDelivery    DateTime?
+  
+  // Carrier Info
+  carrierName       String?
+  carrierTrackingUrl String?
+  
+  // Documents
+  waybillUrl        String?
+  customsDocsUrl    String?
+  insuranceUrl      String?
+  
+  order             Order            @relation("OrderShipments", fields: [orderId], references: [id])
+  rate              ShippingRate?    @relation(fields: [shippingRateId], references: [id])
+  trackingEvents    TrackingEvent[]  @relation("ShipmentTrackingEvents")
+  
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  
+  @@index([orderId])
+  @@index([trackingNumber])
+  @@index([status])
+  @@map("shipments")
+}
+
+model TrackingEvent {
+  id                String   @id @default(cuid())
+  shipmentId        String
+  
+  // Event Details
+  status            String   // Description of event
+  location          String?
+  timestamp         DateTime
+  
+  // Additional Info
+  description       String?
+  imageUrl          String?   // Photo proof of delivery
+  
+  shipment          Shipment  @relation("ShipmentTrackingEvents", fields: [shipmentId], references: [id], onDelete: Cascade)
+  
+  createdAt         DateTime @default(now())
+  
+  @@index([shipmentId])
+  @@map("tracking_events")
 }
