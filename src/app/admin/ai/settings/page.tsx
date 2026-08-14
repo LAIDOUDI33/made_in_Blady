@@ -1,557 +1,525 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
-import {
-  Settings,
-  Bot,
-  Sparkles,
-  Search,
-  BarChart3,
-  Save,
-  RefreshCw,
-  AlertCircle,
-  CheckCircle2,
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Switch } from '@/components/ui/switch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { 
+  Settings2, 
+  Bot, 
+  DollarSign, 
+  Activity, 
+  Key, 
+  Zap,
+  CheckCircle,
+  XCircle,
+  AlertTriangle,
+  TrendingUp,
+  BarChart3
 } from 'lucide-react';
 
-export default function AdminAISettingsPage() {
-  // Recommendation settings state
-  const [recSettings, setRecSettings] = useState({
-    enabled: true,
-    collaborativeFiltering: true,
-    contentBased: true,
-    trending: true,
-    popular: true,
-    cfWeight: 30,
-    cbWeight: 35,
-    trendingWeight: 20,
-    popularWeight: 15,
-    maxRecommendations: 20,
-    minScoreThreshold: 0.1,
-    abTestingEnabled: false,
-    showToPercentage: 50,
+interface AIConfig {
+  provider: 'openai' | 'anthropic' | 'local';
+  openaiApiKey: string;
+  openaiModel: string;
+  anthropicApiKey: string;
+  anthropicModel: string;
+  smartRouting: boolean;
+  dailyBudget: number;
+}
+
+interface UsageStats {
+  totalRequests: number;
+  totalTokens: number;
+  totalCost: number;
+  dailySpent: number;
+  dailyBudget: number;
+  providerBreakdown: Record<string, { requests: number; tokens: number; cost: number }>;
+}
+
+export default function AISettingsPage() {
+  const [config, setConfig] = useState<AIConfig>({
+    provider: 'local',
+    openaiApiKey: '',
+    openaiModel: 'gpt-4o-mini',
+    anthropicApiKey: '',
+    anthropicModel: 'claude-3-5-sonnet-20241022',
+    smartRouting: true,
+    dailyBudget: 10,
   });
 
-  // Chatbot settings state
-  const [chatSettings, setChatSettings] = useState({
-    enabled: true,
-    greetingMessage: "Bonjour ! Je suis l'assistant AlgeriaTrade. Comment puis-je vous aider ?",
-    businessHoursStart: '08:00',
-    businessHoursEnd: '17:30',
-    fallbackEmail: 'support@algeriatrade.dz',
-    enableHumanHandoff: true,
-    collectFeedback: true,
-  });
+  const [usageStats, setUsageStats] = useState<UsageStats | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState<string | null>(null);
 
-  // Search settings state
-  const [searchSettings, setSearchSettings] = useState({
-    spellCorrection: true,
-    queryExpansion: true,
-    trackSearches: true,
-    maxSuggestions: 8,
-    blacklistWords: '',
-    promotedResults: '',
-  });
+  useEffect(() => {
+    fetchUsageStats();
+    fetchCurrentConfig();
+  }, []);
 
-  const handleSave = (section: string) => {
-    console.log(`Saving ${section} settings...`);
-    // In real app, would save to database
-    alert(`Paramètres ${section} sauvegardés avec succès !`);
+  const fetchUsageStats = async () => {
+    try {
+      const response = await fetch('/api/admin/ai/usage');
+      if (response.ok) {
+        const data = await response.json();
+        setUsageStats(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch usage stats:', error);
+    }
+  };
+
+  const fetchCurrentConfig = async () => {
+    try {
+      const response = await fetch('/api/admin/ai/config');
+      if (response.ok) {
+        const data = await response.json();
+        setConfig(prev => ({ ...prev, ...data }));
+      }
+    } catch (error) {
+      console.error('Failed to fetch config:', error);
+    }
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const response = await fetch('/api/admin/ai/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(config),
+      });
+
+      if (response.ok) {
+        // Show success message
+        alert('Configuration saved successfully!');
+      } else {
+        alert('Failed to save configuration');
+      }
+    } catch (error) {
+      console.error('Save failed:', error);
+      alert('Error saving configuration');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const testProvider = async (provider: string) => {
+    setTesting(provider);
+    try {
+      const response = await fetch('/api/admin/ai/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider }),
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        alert(`${provider} connection successful! Latency: ${data.latency}ms`);
+      } else {
+        alert(`${provider} connection failed: ${data.error}`);
+      }
+    } catch (error) {
+      alert(`Error testing ${provider}`);
+    } finally {
+      setTesting(null);
+    }
   };
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-            <Sparkles className="h-8 w-8 text-[#006233]" />
-            Configuration IA
-          </h1>
-          <p className="text-gray-500 mt-1">
-            Gérez les paramètres de l'intelligence artificielle de la plateforme
+          <h1 className="text-3xl font-bold tracking-tight">AI Configuration</h1>
+          <p className="text-muted-foreground">
+            Manage AI providers, models, and usage settings
           </p>
         </div>
+        <Button onClick={handleSave} disabled={saving}>
+          <Settings2 className="mr-2 h-4 w-4" />
+          {saving ? 'Saving...' : 'Save Changes'}
+        </Button>
       </div>
 
-      {/* Main Content */}
-      <Tabs defaultValue="recommendations" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-grid">
-          <TabsTrigger value="recommendations" className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4" />
-            Recommandations
-          </TabsTrigger>
-          <TabsTrigger value="chatbot" className="flex items-center gap-2">
+      <Tabs defaultValue="providers" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="providers" className="flex items-center gap-2">
             <Bot className="h-4 w-4" />
-            Chatbot
+            Providers
           </TabsTrigger>
-          <TabsTrigger value="search" className="flex items-center gap-2">
-            <Search className="h-4 w-4" />
-            Recherche
+          <TabsTrigger value="routing" className="flex items-center gap-2">
+            <Zap className="h-4 w-4" />
+            Smart Routing
           </TabsTrigger>
-          <TabsTrigger value="analytics" className="flex items-center gap-2">
+          <TabsTrigger value="usage" className="flex items-center gap-2">
             <BarChart3 className="h-4 w-4" />
-            Analytics
+            Usage & Costs
           </TabsTrigger>
         </TabsList>
 
-        {/* Recommendations Settings */}
-        <TabsContent value="recommendations" className="space-y-6">
+        {/* Provider Configuration */}
+        <TabsContent value="providers" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-[#006233]" />
-                Moteur de Recommandations
-              </CardTitle>
+              <CardTitle>AI Providers</CardTitle>
               <CardDescription>
-                Configurez l'algorithme de recommandation pour personnaliser l'expérience utilisateur
+                Configure OpenAI and/or Anthropic Claude for enhanced chatbot capabilities
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              {/* Enable/Disable */}
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                <div>
-                  <Label className="text-base font-medium">Activer les recommandations</Label>
-                  <p className="text-sm text-gray-500">Afficher les produits et fournisseurs recommandés aux utilisateurs</p>
-                </div>
-                <Switch 
-                  checked={recSettings.enabled}
-                  onCheckedChange={(v) => setRecSettings({...recSettings, enabled: v})}
-                />
+              {/* Default Provider Selection */}
+              <div className="space-y-2">
+                <Label>Default Provider</Label>
+                <Select
+                  value={config.provider}
+                  onValueChange={(value: any) => 
+                    setConfig(prev => ({ ...prev, provider: value }))
+                  }
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select default provider" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="local">Local (Rule-based) - Free</SelectItem>
+                    <SelectItem value="openai">OpenAI GPT - Best for code</SelectItem>
+                    <SelectItem value="anthropic">Anthropic Claude - Best for reasoning</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
-              <Separator />
-
-              {/* Algorithm Toggles */}
-              <div className="space-y-4">
-                <h3 className="font-semibold">Algorithmes activés</h3>
-                
-                {[
-                  { key: 'collaborativeFiltering', label: 'Filtrage collaboratif', desc: '"Les utilisateurs similaires ont aussi aimé"' },
-                  { key: 'contentBased', label: 'Filtrage basé sur le contenu', desc: '"Similaire à vos recherches précédentes"' },
-                  { key: 'trending', label: 'Tendances', desc: '"Populaire en ce moment"' },
-                  { key: 'popular', label: 'Popularité', desc: '"Les plus consultés sur la plateforme"' },
-                ].map(algo => (
-                  <div key={algo.key} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
-                    <div>
-                      <Label className="font-medium">{algo.label}</Label>
-                      <p className="text-sm text-gray-500">{algo.desc}</p>
-                    </div>
-                    <Switch 
-                      checked={recSettings[algo.key as keyof typeof recSettings] as boolean}
-                      onCheckedChange={(v) => setRecSettings({...recSettings, [algo.key]: v})}
+              {/* OpenAI Configuration */}
+              <Card className="border-l-4 border-l-green-500">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      🤖 OpenAI GPT
+                    </CardTitle>
+                    <Badge variant={config.openaiApiKey ? 'default' : 'secondary'}>
+                      {config.openaiApiKey ? 'Configured' : 'Not Set'}
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="openai-key">API Key</Label>
+                    <Input
+                      id="openai-key"
+                      type="password"
+                      placeholder="sk-..."
+                      value={config.openaiApiKey}
+                      onChange={(e) => 
+                        setConfig(prev => ({ ...prev, openaiApiKey: e.target.value }))
+                      }
                     />
                   </div>
-                ))}
-              </div>
-
-              <Separator />
-
-              {/* Algorithm Weights */}
-              <div className="space-y-4">
-                <h3 className="font-semibold">Pondération des algorithmes</h3>
-                <p className="text-sm text-gray-500">Ajustez le poids de chaque algorithme (doit totaliser 100%)</p>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  {[
-                    { key: 'cfWeight', label: 'Collaboratif' },
-                    { key: 'cbWeight', label: 'Contenu' },
-                    { key: 'trendingWeight', label: 'Tendance' },
-                    { key: 'popularWeight', label: 'Popularité' },
-                  ].map(weight => (
-                    <div key={weight.key}>
-                      <Label>{weight.label}</Label>
-                      <div className="flex items-center mt-1">
-                        <Input
-                          type="number"
-                          min="0"
-                          max="100"
-                          value={recSettings[weight.key as keyof typeof recSettings]}
-                          onChange={(e) => setRecSettings({...recSettings, [weight.key]: parseInt(e.target.value) || 0})}
-                          className="w-20"
-                        />
-                        <span className="ml-2 text-gray-500">%</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                <div className={`p-3 rounded-lg ${
-                  recSettings.cfWeight + recSettings.cbWeight + recSettings.trendingWeight + recSettings.popularWeight === 100
-                    ? 'bg-green-50 text-green-700'
-                    : 'bg-yellow-50 text-yellow-700'
-                }`}>
-                  Total: {recSettings.cfWeight + recSettings.cbWeight + recSettings.trendingWeight + recSettings.popularWeight}%
-                  {recSettings.cfWeight + recSettings.cbWeight + recSettings.trendingWeight + recSettings.popularWeight !== 100 && (
-                    <span className="ml-2">(doit être 100%)</span>
-                  )}
-                </div>
-              </div>
-
-              <Separator />
-
-              {/* A/B Testing */}
-              <div className="space-y-4">
-                <h3 className="font-semibold">Test A/B</h3>
-                
-                <div className="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
-                  <div>
-                    <Label>Activer les tests A/B</Label>
-                    <p className="text-sm text-gray-500">Montrer les recommandations à un pourcentage d'utilisateurs</p>
+                  
+                  <div className="space-y-2">
+                    <Label>Model</Label>
+                    <Select
+                      value={config.openaiModel}
+                      onValueChange={(value) =>
+                        setConfig(prev => ({ ...prev, openaiModel: value }))
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="gpt-4o">GPT-4o (Most capable)</SelectItem>
+                        <SelectItem value="gpt-4o-mini">GPT-4o Mini (Best value)</SelectItem>
+                        <SelectItem value="gpt-4-turbo-preview">GPT-4 Turbo</SelectItem>
+                        <SelectItem value="gpt-3.5-turbo">GPT-3.5 Turbo (Cheapest)</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
-                  <Switch 
-                    checked={recSettings.abTestingEnabled}
-                    onCheckedChange={(v) => setRecSettings({...recSettings, abTestingEnabled: v})}
-                  />
-                </div>
 
-                {recSettings.abTestingEnabled && (
-                  <div>
-                    <Label>Pourcentage d'affichage</Label>
-                    <div className="flex items-center mt-1">
-                      <Input
-                        type="range"
-                        min="10"
-                        max="100"
-                        step="10"
-                        value={recSettings.showToPercentage}
-                        onChange={(e) => setRecSettings({...recSettings, showToPercentage: parseInt(e.target.value)})}
-                        className="flex-1 mr-3"
-                      />
-                      <span className="font-medium w-12 text-right">{recSettings.showToPercentage}%</span>
-                    </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => testProvider('openai')}
+                    disabled={testing === 'openai' || !config.openaiApiKey}
+                  >
+                    {testing === 'openai' ? 'Testing...' : 'Test Connection'}
+                  </Button>
+
+                  <div className="text-sm text-muted-foreground space-y-1">
+                    <p><strong>Strengths:</strong> Code generation, structured data, function calling</p>
+                    <p><strong>Pricing:</strong> $0.00015 - $0.01 per 1K tokens</p>
+                    <p><strong>Latency:</strong> ~800ms average</p>
                   </div>
-                )}
-              </div>
+                </CardContent>
+              </Card>
 
-              <Button onClick={() => handleSave('recommandations')} className="bg-[#006233] hover:bg-[#007a3f]">
-                <Save className="h-4 w-4 mr-2" />
-                Sauvegarder les paramètres
-              </Button>
+              {/* Anthropic Configuration */}
+              <Card className="border-l-4 border-l-orange-500">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      🧠 Anthropic Claude
+                    </CardTitle>
+                    <Badge variant={config.anthropicApiKey ? 'default' : 'secondary'}>
+                      {config.anthropicApiKey ? 'Configured' : 'Not Set'}
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="anthropic-key">API Key</Label>
+                    <Input
+                      id="anthropic-key"
+                      type="password"
+                      placeholder="sk-ant-..."
+                      value={config.anthropicApiKey}
+                      onChange={(e) =>
+                        setConfig(prev => ({ ...prev, anthropicApiKey: e.target.value }))
+                      }
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Model</Label>
+                    <Select
+                      value={config.anthropicModel}
+                      onValueChange={(value) =>
+                        setConfig(prev => ({ ...prev, anthropicModel: value }))
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="claude-sonnet-4-20250514">Claude 4 Sonnet</SelectItem>
+                        <SelectItem value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</SelectItem>
+                        <SelectItem value="claude-3-haiku-20240307">Claude 3 Haiku (Fastest)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => testProvider('anthropic')}
+                    disabled={testing === 'anthropic' || !config.anthropicApiKey}
+                  >
+                    {testing === 'anthropic' ? 'Testing...' : 'Test Connection'}
+                  </Button>
+
+                  <div className="text-sm text-muted-foreground space-y-1">
+                    <p><strong>Strengths:</strong> Complex reasoning, nuanced analysis, safety</p>
+                    <p><strong>Pricing:</strong> $0.00025 - $0.003 per 1K tokens</p>
+                    <p><strong>Latency:</strong> ~1200ms average</p>
+                  </div>
+                </CardContent>
+              </Card>
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* Chatbot Settings */}
-        <TabsContent value="chatbot" className="space-y-6">
+        {/* Smart Routing */}
+        <TabsContent value="routing" className="space-y-4">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Bot className="h-5 w-5 text-[#006233]" />
-                Assistant Chatbot IA
+                <Zap className="h-5 w-5" />
+                Intelligent Routing
               </CardTitle>
               <CardDescription>
-                Configurez le comportement du chatbot d'assistance virtuelle
+                Automatically route queries to the best AI provider based on complexity and content
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              {/* Enable/Disable */}
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                <div>
-                  <Label className="text-base font-medium">Activer le chatbot</Label>
-                  <p className="text-sm text-gray-500">Afficher le widget de chat sur le site</p>
+              <div className="flex items-center justify-between rounded-lg border p-4">
+                <div className="space-y-0.5">
+                  <Label className="text-base">Enable Smart Routing</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Automatically select the best provider for each query type
+                  </p>
                 </div>
-                <Switch 
-                  checked={chatSettings.enabled}
-                  onCheckedChange={(v) => setChatSettings({...chatSettings, enabled: v})}
+                <Switch
+                  checked={config.smartRouting}
+                  onCheckedChange={(checked) =>
+                    setConfig(prev => ({ ...prev, smartRouting: checked }))
+                  }
                 />
               </div>
 
-              <Separator />
+              {config.smartRouting && (
+                <>
+                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm">Simple Queries</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <p className="text-2xl font-bold text-green-600">Local</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Fast responses, no cost
+                        </p>
+                      </CardContent>
+                    </Card>
 
-              {/* Greeting Message */}
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm">Code & Analysis</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <p className="text-2xl font-bold text-blue-600">OpenAI</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Best for technical tasks
+                        </p>
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm">Complex Reasoning</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <p className="text-2xl font-bold text-orange-600">Claude</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Deep analysis & nuance
+                        </p>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  <div className="rounded-lg bg-muted p-4">
+                    <h4 className="font-medium mb-2">How it works:</h4>
+                    <ul className="text-sm text-muted-foreground space-y-1">
+                      <li>• Simple questions (FAQs, basic info) → Local rule-based system</li>
+                      <li>• Code, APIs, debugging → OpenAI GPT models</li>
+                      <li>• Complex analysis, strategy → Anthropic Claude</li>
+                      <li>• Arabic language queries → OpenAI (better multilingual support)</li>
+                      <li>• Budget exceeded → Automatic fallback to local</li>
+                    </ul>
+                  </div>
+                </>
+              )}
+
               <div className="space-y-2">
-                <Label>Message d'accueil</Label>
-                <textarea
-                  value={chatSettings.greetingMessage}
-                  onChange={(e) => setChatSettings({...chatSettings, greetingMessage: e.target.value})}
-                  className="w-full p-3 border border-gray-300 rounded-lg resize-none h-24"
-                  placeholder="Message affiché quand un utilisateur ouvre le chat..."
-                />
-              </div>
-
-              <Separator />
-
-              {/* Business Hours */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label>Heure d'ouverture</Label>
-                  <Input
-                    type="time"
-                    value={chatSettings.businessHoursStart}
-                    onChange={(e) => setChatSettings({...chatSettings, businessHoursStart: e.target.value})}
-                    className="mt-1"
-                  />
-                </div>
-                <div>
-                  <Label>Heure de fermeture</Label>
-                  <Input
-                    type="time"
-                    value={chatSettings.businessHoursEnd}
-                    onChange={(e) => setChatSettings({...chatSettings, businessHoursEnd: e.target.value})}
-                    className="mt-1"
-                  />
-                </div>
-              </div>
-
-              <Separator />
-
-              {/* Fallback & Handoff */}
-              <div className="space-y-4">
-                <h3 className="font-semibold">Transfert vers un humain</h3>
-                
-                <div className="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
-                  <div>
-                    <Label>Permettre le transfert</Label>
-                    <p className="text-sm text-gray-500">L'utilisateur peut demander à parler à un agent</p>
-                  </div>
-                  <Switch 
-                    checked={chatSettings.enableHumanHandoff}
-                    onCheckedChange={(v) => setChatSettings({...chatSettings, enableHumanHandoff: v})}
-                  />
-                </div>
-
-                <div>
-                  <Label>Email de secours</Label>
-                  <Input
-                    type="email"
-                    value={chatSettings.fallbackEmail}
-                    onChange={(e) => setChatSettings({...chatSettings, fallbackEmail: e.target.value})}
-                    placeholder="support@example.com"
-                    className="mt-1"
-                  />
-                  <p className="text-sm text-gray-500 mt-1">Email utilisé pour les requêtes complexes hors horaires</p>
-                </div>
-              </div>
-
-              <Separator />
-
-              {/* Feedback Collection */}
-              <div className="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
-                <div>
-                  <Label>Collecter les retours utilisateurs</Label>
-                  <p className="text-sm text-gray-500">Afficher les boutons "Utile/Pas utile" après chaque réponse</p>
-                </div>
-                <Switch 
-                  checked={chatSettings.collectFeedback}
-                  onCheckedChange={(v) => setChatSettings({...chatSettings, collectFeedback: v})}
-                />
-              </div>
-
-              <Button onClick={() => handleSave('chatbot')} className="bg-[#006233] hover:bg-[#007a3f]">
-                <Save className="h-4 w-4 mr-2" />
-                Sauvegarder les paramètres
-              </Button>
-            </CardContent>
-          </Card>
-
-          {/* Intent Management Preview */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Intents configurés</CardTitle>
-              <CardDescription>Liste des intentions reconnues par le chatbot</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {[
-                  { id: 'greeting', name: 'Salutations', examples: 'Bonjour, Salut...' },
-                  { id: 'search_products', name: 'Recherche produit', examples: 'Je cherche...' },
-                  { id: 'post_rfq', name: 'Appel d\'offres', examples: 'Comment poster un AO...' },
-                  { id: 'pricing_info', name: 'Tarification', examples: 'Combien ça coûte...' },
-                  { id: 'payment_help', name: 'Paiement', examples: 'Comment payer...' },
-                  { id: 'shipping_info', name: 'Livraison', examples: 'Délai de livraison...' },
-                  { id: 'account_help', name: 'Compte', examples: 'Mot de passe oublié...' },
-                  { id: 'verification_help', name: 'Vérification', documents: 'Documents requis...' },
-                  { id: 'contact_human', name: 'Contact humain', examples: 'Parler à un agent...' },
-                  { id: 'thanks', name: 'Remerciements', examples: 'Merci...' },
-                ].map(intent => (
-                  <div key={intent.id} className="p-3 border border-gray-200 rounded-lg">
-                    <div className="flex items-center gap-2 mb-1">
-                      <Badge variant="secondary" className="bg-green-50 text-[#006233]">
-                        {intent.id}
-                      </Badge>
-                    </div>
-                    <p className="font-medium text-sm">{intent.name}</p>
-                    <p className="text-xs text-gray-500 mt-0.5">{intent.examples || intent.documents}</p>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Search Settings */}
-        <TabsContent value="search" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Search className="h-5 w-5 text-[#006233]" />
-                Recherche Intelligente
-              </CardTitle>
-              <CardDescription>
-                Paramètres de correction orthographique et d'expansion de requête
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Spell Correction */}
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                <div>
-                  <Label className="text-base font-medium">Correction orthographique</Label>
-                  <p className="text-sm text-gray-500">Corriger automatiquement les fautes de frappe courantes</p>
-                </div>
-                <Switch 
-                  checked={searchSettings.spellCorrection}
-                  onCheckedChange={(v) => setSearchSettings({...searchSettings, spellCorrection: v})}
-                />
-              </div>
-
-              {/* Query Expansion */}
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                <div>
-                  <Label className="text-base font-medium">Expansion de requête</Label>
-                  <p className="text-sm text-gray-500">Ajouter automatiquement des synonymes et termes connexes</p>
-                </div>
-                <Switch 
-                  checked={searchSettings.queryExpansion}
-                  onCheckedChange={(v) => setSearchSettings({...searchSettings, queryExpansion: v})}
-                />
-              </div>
-
-              {/* Track Searches */}
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                <div>
-                  <Label className="text-base font-medium">Suivi des recherches</Label>
-                  <p className="text-sm text-gray-500">Enregistrer les recherches pour améliorer les suggestions</p>
-                </div>
-                <Switch 
-                  checked={searchSettings.trackSearches}
-                  onCheckedChange={(v) => setSearchSettings({...searchSettings, trackSearches: v})}
-                />
-              </div>
-
-              <Separator />
-
-              {/* Max Suggestions */}
-              <div>
-                <Label>Nombre maximum de suggestions</Label>
+                <Label>Daily Budget ($)</Label>
                 <Input
                   type="number"
-                  min="3"
-                  max="20"
-                  value={searchSettings.maxSuggestions}
-                  onChange={(e) => setSearchSettings({...searchSettings, maxSuggestions: parseInt(e.target.value) || 8})}
-                  className="mt-1 w-32"
+                  min="0"
+                  max="1000"
+                  step="0.50"
+                  value={config.dailyBudget}
+                  onChange={(e) =>
+                    setConfig(prev => ({ ...prev, dailyBudget: parseFloat(e.target.value) || 0 }))
+                  }
                 />
+                <p className="text-xs text-muted-foreground">
+                  When this limit is reached, all queries will use the free local provider
+                </p>
               </div>
-
-              <Button onClick={() => handleSave('recherche')} className="bg-[#006233] hover:bg#[#007a3f]">
-                <Save className="h-4 w-4 mr-2" />
-                Sauvegarder les paramètres
-              </Button>
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* Analytics Tab */}
-        <TabsContent value="analytics" className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Usage Statistics */}
+        <TabsContent value="usage" className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-500">Sessions chat</p>
-                    <p className="text-2xl font-bold text-gray-900">1,234</p>
-                  </div>
-                  <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
-                    <Bot className="h-6 w-6 text-blue-600" />
-                  </div>
-                </div>
-                <p className="text-xs text-green-600 mt-2">+12% cette semaine</p>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Requests</CardTitle>
+                <Activity className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{usageStats?.totalRequests || 0}</div>
               </CardContent>
             </Card>
 
             <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-500">Taux de satisfaction</p>
-                    <p className="text-2xl font-bold text-gray-900">87%</p>
-                  </div>
-                  <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
-                    <CheckCircle2 className="h-6 w-6 text-green-600" />
-                  </div>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Tokens</CardTitle>
+                <TrendingUp className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {(usageStats?.totalTokens || 0).toLocaleString()}
                 </div>
-                <p className="text-xs text-green-600 mt-2">+5% ce mois</p>
               </CardContent>
             </Card>
 
             <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-500">Recommandations cliquées</p>
-                    <p className="text-2xl font-bold text-gray-900">5.6K</p>
-                  </div>
-                  <div className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center">
-                    <Sparkles className="h-6 w-6 text-purple-600" />
-                  </div>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Today's Cost</CardTitle>
+                <DollarSign className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  ${(usageStats?.dailySpent || 0).toFixed(4)}
                 </div>
-                <p className="text-xs text-green-600 mt-2">+18% cette semaine</p>
+                <p className="text-xs text-muted-foreground">
+                  of ${(usageStats?.dailyBudget || 0).toFixed(2)} budget
+                </p>
               </CardContent>
             </Card>
 
             <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-500">Taux de conversion IA</p>
-                    <p className="text-2xl font-bold text-gray-900">4.2%</p>
-                  </div>
-                  <div className="w-12 h-12 rounded-full bg-orange-100 flex items-center justify-center">
-                    <BarChart3 className="h-6 w-6 text-orange-600" />
-                  </div>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Budget Used</CardTitle>
+                <BarChart3 className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {usageStats && usageStats.dailyBudget > 0
+                    ? ((usageStats.dailySpent / usageStats.dailyBudget) * 100).toFixed(1)
+                    : 0}%
                 </div>
-                <p className="text-xs text-green-600 mt-2">+0.8% ce mois</p>
               </CardContent>
             </Card>
           </div>
 
-          {/* Top Intents */}
           <Card>
             <CardHeader>
-              <CardTitle>Intents les plus utilisées</CardTitle>
+              <CardTitle>Provider Breakdown</CardTitle>
+              <CardDescription>
+                Usage statistics by AI provider today
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {[
-                  { intent: 'greeting', count: 456, percentage: 37 },
-                  { intent: 'search_products', count: 289, percentage: 23 },
-                  { intent: 'post_rfq', count: 156, percentage: 13 },
-                  { intent: 'pricing_info', count: 98, percentage: 8 },
-                  { intent: 'payment_help', count: 78, percentage: 6 },
-                  { intent: 'shipping_info', count: 65, percentage: 5 },
-                  { intent: 'fallback', count: 48, percentage: 4 },
-                ].map((item, index) => (
-                  <div key={item.intent} className="flex items-center gap-4">
-                    <span className="w-6 text-sm text-gray-500">#{index + 1}</span>
-                    <span className="flex-1 font-medium capitalize">{item.intent.replace('_', ' ')}</span>
-                    <div className="w-48 bg-gray-200 rounded-full h-2">
-                      <div 
-                        className="bg-[#006233] h-2 rounded-full" 
-                        style={{ width: `${item.percentage}%` }}
-                      ></div>
+              {usageStats?.providerBreakdown && Object.keys(usageStats.providerBreakdown).length > 0 ? (
+                <div className="space-y-4">
+                  {Object.entries(usageStats.providerBreakdown).map(([provider, stats]) => (
+                    <div key={provider} className="flex items-center justify-between p-4 rounded-lg border">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-3 h-3 rounded-full ${
+                          provider === 'openai' ? 'bg-green-500' :
+                          provider === 'anthropic' ? 'bg-orange-500' :
+                          'bg-gray-500'
+                        }`} />
+                        <span className="font-medium capitalize">{provider}</span>
+                      </div>
+                      <div className="flex gap-6 text-sm">
+                        <div className="text-center">
+                          <p className="font-semibold">{stats.requests}</p>
+                          <p className="text-muted-foreground">Requests</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="font-semibold">{stats.tokens.toLocaleString()}</p>
+                          <p className="text-muted-foreground">Tokens</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="font-semibold">${stats.cost.toFixed(4)}</p>
+                          <p className="text-muted-foreground">Cost</p>
+                        </div>
+                      </div>
                     </div>
-                    <span className="w-16 text-right text-sm text-gray-500">{item.count}</span>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  No usage data available yet. Once you start using AI features, statistics will appear here.
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

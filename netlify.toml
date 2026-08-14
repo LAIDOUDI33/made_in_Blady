@@ -1,129 +1,82 @@
 # =============================================================================
 # Netlify Configuration - AlgeriaTrade.dz
 # =============================================================================
-# Configuration pour le déploiement sur Netlify
-# Optimisé pour le marché algérien
-# =============================================================================
-
 [build]
-  # Commande de build avec bun
   command = "bun run build"
-  
-  # Répertoire de publication (output Next.js)
   publish = ".next"
-  
-  # Ne pas utiliser le plugin Next.js intégré (on utilise le plugin officiel)
-  [build.environment]
-    # Version Node.js requise
-    NODE_VERSION = "20"
-    
-    # Utiliser bun comme package manager
-    NETLIFY_USE_BUN = "true"
-    
-    # Flags npm pour le cache
-    NPM_FLAGS = "--prefer-offline"
-    
-    # Désactiver le plugin interne Next.js
-    NETLIFY_NEXT_PLUGIN_SKIP = "true"
-    
-    # Variables d'environnement de build
-    NEXT_TELEMETRY_DISABLED = "1"
-    NODE_ENV = "production"
+  functions = "netlify/functions"
 
-# =============================================================================
-# Plugin Next.js Officiel
-# =============================================================================
+[build.environment]
+  NODE_VERSION = "20"
+  NPM_FLAGS = "--prefer-offline"
+  NEXT_USE_NETLIFY_PLUGIN = "true"
+
 [[plugins]]
-  # Plugin officiel Next.js pour Netlify
   package = "@netlify/plugin-nextjs"
-  
-  [plugins.inputs]
-    # Configuration du plugin
-    enableStrictCSP = true
 
-# =============================================================================
-# Redirects - Réécriture d'URLs
-# =============================================================================
-
-# API Routes vers fonctions Netlify
 [[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/:splat"
   status = 200
   force = false
-  
-# Service Worker (PWA support)
+
 [[redirects]]
   from = "/sw.js"
   to = "/sw.js"
   status = 200
-  force = true
 
-# SPA Fallback - Toutes les autres routes vers index.html
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
+  conditions = {Role = ["admin"]}
 
-# =============================================================================
-# Headers - Sécurité et Performance
-# =============================================================================
-
-# Headers globaux pour toutes les ressources
-[headers]
-  for = "/*"
-  [headers.values]
-    # Security Headers
-    X-Frame-Options = "DENY"
-    X-XSS-Protection = "1; mode=block"
-    X-Content-Type-Options = "nosniff"
-    Referrer-Policy = "strict-origin-when-cross-origin"
-    Permissions-Policy = "camera=(), microphone=(), geolocation=(), interest-cohort=()"
-    # Cache pour les assets statiques
-    Cache-Control = "public, max-age=3600"
-
-# Headers spécifiques pour l'API
-[headers]
+# Security Headers
+[[headers]]
   for = "/api/*"
   [headers.values]
-    # Pas de cache pour les réponses API
-    Cache-Control = "no-store, must-revalidate, no-cache"
-    Pragma = "no-cache"
-    # CORS pour les requêtes API
+    Cache-Control = "no-store, must-revalidate"
     Access-Control-Allow-Origin = "*"
-    Access-Control-Allow-Methods = "GET, POST, PUT, DELETE, PATCH, OPTIONS"
+    Access-Control-Allow-Methods = "GET,POST,PUT,DELETE,OPTIONS"
     Access-Control-Allow-Headers = "Content-Type, Authorization, X-Requested-With"
-    Access-Control-Max-Age = "86400"
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
 
-# Headers pour les assets statiques Next.js (cache long terme)
-[headers]
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    X-XSS-Protection = "1; mode=block"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=()"
+    Strict-Transport-Security = "max-age=31536000; includeSubDomains; preload"
+
+# Cache static assets
+[[headers]]
   for = "/_next/static/*"
   [headers.values]
     Cache-Control = "public, max-age=31536000, immutable"
 
-# Headers pour les images optimisées
-[headers]
-  for = "/_next/image*"
+[[headers]]
+  for = "/icons/*"
   [headers.values]
-    Cache-Control = "public, max-age=604800"
+    Cache-Control = "public, max-age=86400"
 
-# Headers pour les fonts
-[headers]
-  for = "/fonts/*"
+[[headers]]
+  for = "/screenshots/*"
   [headers.values]
-    Cache-Control = "public, max-age=31536000, immutable"
-    Access-Control-Allow-Origin = "*"
+    Cache-Control = "public, max-age=86400"
 
-# =============================================================================
-# Dév / Preview Settings
-# =============================================================================
+# Dev plugin configuration (optional)
+[dev]
+  command = "bun run dev"
+  port = 3000
+  targetPort = 3000
 
-# Context-specific settings
+# Framework detection (optional)
 [context.production]
   environment = { NODE_ENV = "production" }
 
 [context.deploy-preview]
-  environment = { NODE_ENV = "preview", NEXT_PUBLIC_APP_URL = "https://preview--algeriatrade.netlify.app" }
-
-[context.branch-deploy]
-  environment = { NODE_ENV = "staging" }
+  environment = { NODE_ENV = "preview" }

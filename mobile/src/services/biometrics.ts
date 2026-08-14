@@ -1,328 +1,296 @@
-// Biometric Authentication Service for AlgeriaTrade
+// Biometric Authentication Service - AlgeriaTrade Mobile
+// Service d'authentification biométrique
+
 import ReactNativeBiometrics, { BiometryTypes } from 'react-native-biometrics';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Platform } from 'react-native';
 
-export interface BiometricInfo {
-  available: boolean;
-  biometryType: 'Touch ID' | 'Face ID' | 'Empreinte' | null;
-}
+/**
+ * Biometric auth manager
+ * Gestionnaire d'authentification biométrique
+ */
+export class BiometricAuthService {
+  private static instance: BiometricAuthService;
+  private rnBiometrics: ReactNativeBiometrics;
 
-export interface BiometricConfig {
-  allowDeviceCredentials?: boolean;
-  promptMessage?: string;
-  cancelButtonText?: string;
-  fallbackPromptMessage?: string;
-}
+  static getInstance(): BiometricAuthService {
+    if (!BiometricAuthService.instance) {
+      BiometricAuthService.instance = new BiometricAuthService();
+    }
+    return BiometricAuthService.instance;
+  }
 
-const DEFAULT_CONFIG: Required<BiometricConfig> = {
-  allowDeviceCredentials: true,
-  promptMessage: 'Confirmer votre identité',
-  cancelButtonText: 'Annuler',
-  fallbackPromptMessage: 'Entrez votre code PIN',
-};
-
-export class BiometricService {
-  private rnb: ReactNativeBiometrics;
-  private config: Required<BiometricConfig>;
-  private keysExist: boolean = false;
-
-  constructor(config: BiometricConfig = {}) {
-    this.config = { ...DEFAULT_CONFIG, ...config };
-    this.rnb = new ReactNativeBiometrics({
-      allowDeviceCredentials: this.config.allowDeviceCredentials,
+  private constructor() {
+    this.rnBiometrics = new ReactNativeBiometrics({
+      allowDeviceCredentials: true, // Allow PIN/pattern as fallback
     });
   }
 
-  // Check if biometrics is available on device
-  async isAvailable(): Promise<BiometricInfo> {
-    try {
-      const { available, biometryType, error } = await this.rnb.isSensorAvailable();
-      
-      if (error) {
-        console.error('Biometric sensor error:', error);
-        return { available: false, biometryType: null };
-      }
-
-      let typeLabel: BiometricInfo['biometryType'] = null;
-      
-      switch (biometryType) {
-        case BiometryTypes.TouchID:
-          typeLabel = 'Touch ID';
-          break;
-        case BiometryTypes.FaceID:
-          typeLabel = 'Face ID';
-          break;
-        case BiometryTypes.Biometrics:
-          typeLabel = 'Empreinte';
-          break;
-        default:
-          typeLabel = Platform.OS === 'ios' ? 'Face ID / Touch ID' : 'Empreinte digitale';
-      }
-
-      return { available, biometryType: typeLabel };
-    } catch (error) {
-      console.error('Biometric availability check failed:', error);
-      return { available: false, biometryType: null };
-    }
-  }
-
-  // Authenticate user with biometrics
-  async authenticate(promptMessage?: string): Promise<{
-    success: boolean;
+  /**
+   * Check if biometrics are available on device
+   * Vérifier si la biométrie est disponible sur l'appareil
+   */
+  async isAvailable(): Promise<{
+    available: boolean;
+    biometryType?: string;
     error?: string;
   }> {
     try {
-      // First ensure keys exist
-      if (!this.keysExist) {
-        const { keysCreated } = await this.rnb.createKeys('AlgeriaTradeKey');
-        if (!keysCreated) {
-          return { success: false, error: 'Impossible de créer les clés biométriques' };
-        }
-        this.keysExist = true;
+      const { available, biometryType } = await this.rnBiometrics.isSensorAvailable();
+      
+      let typeString: string | undefined;
+      
+      if (biometryType === BiometryTypes.TouchID) {
+        typeString = 'Touch ID';
+      } else if (biometryType === BiometryTypes.FaceID) {
+        typeString = 'Face ID';
+      } else if (biometryType === BiometryTypes.Biometrics) {
+        typeString = 'Biometric';
       }
 
-      // Create signature to verify identity
-      const { signatureVerified, error } = await this.rnb.createSignature({
-        promptMessage: promptMessage || this.config.promptMessage,
-        payload: `AlgeriaTrade_Auth_${Date.now()}`,
-        cancelButtonText: this.config.cancelButtonText,
-      });
-
-      if (error) {
-        // User cancelled or biometric failed
-        return { success: false, error: error };
-      }
-
-      return { success: signatureVerified };
-    } catch (error) {
-      console.error('Biometric auth error:', error);
+      return { available, biometryType: typeString };
+    } catch (error: any) {
+      console.error('[BiometricAuth] Availability check failed:', error);
       return { 
-        success: false, 
-        error: 'Erreur d\'authentification biométrique' 
+        available: false, 
+        error: error.message || 'Unknown error' 
       };
     }
   }
 
-  // Simple authentication (no key management)
+  /**
+   * Create biometric keys for public key cryptography
+   * Créer les clés biométriques pour le chiffrement à clé publique
+   */
+  async createKeys(): Promise<{ publicKey: string; success: boolean }> {
+    try {
+      const { publicKey } = await this.rnBiometrics.createKeys();
+      console.log('[BiometricAuth] Keys created successfully');
+      return { publicKey, success: true };
+    } catch (error: any) {
+      console.error('[BiometricAuth] Key creation failed:', error);
+      return { publicKey: '', success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Delete biometric keys
+   * Supprimer les clés biométriques
+   */
+  async deleteKeys(): Promise<boolean> {
+    try {
+      const { keysDeleted } = await this.rnBiometrics.deleteKeys();
+      console.log('[BiometricAuth] Keys deleted:', keysDeleted);
+      return keysDeleted;
+    } catch (error: any) {
+      console.error('[BiometricAuth] Key deletion failed:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Check if biometric keys exist
+   * Vérifier si les clés biométriques existent
+   */
+  async biometricKeysExist(): Promise<boolean> {
+    try {
+      const { keysExist } = await this.rnBiometrics.biometricKeysExist();
+      return keysExist;
+    } catch (error) {
+      console.error('[BiometricAuth] Key check failed:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Prompt user for biometric authentication
+   * Demander l'authentification biométrique à l'utilisateur
+   */
+  async authenticate(promptMessage?: string): Promise<{
+    success: boolean;
+    error?: string;
+    signature?: string;
+  }> {
+    try {
+      const { success, signature } = await this.rnBiometrics.createSignature({
+        promptMessage: promptMessage || 'Confirm your identity to continue',
+        payload: 'algeriatrade-auth-' + Date.now(), // Unique payload each time
+      });
+
+      if (success && signature) {
+        console.log('[BiometricAuth] Authentication successful');
+        return { success: true, signature };
+      }
+
+      return { success: false, error: 'Authentication cancelled or failed' };
+    } catch (error: any) {
+      console.error('[BiometricAuth] Authentication failed:', error);
+      
+      // Handle specific errors
+      if (error.message?.includes('User cancel')) {
+        return { success: false, error: 'cancelled' };
+      }
+      if (error.message?.includes('Lockout')) {
+        return { success: false, error: 'lockout' };
+      }
+      if (error.message?.includes('No credentials enrolled')) {
+        return { success: false, error: 'not_enrolled' };
+      }
+
+      return { success: false, error: error.message || 'Unknown error' };
+    }
+  }
+
+  /**
+   * Simple biometric verification (no signature)
+   * Vérification biométrique simple (sans signature)
+   */
   async simpleAuthenticate(promptMessage?: string): Promise<{
     success: boolean;
     error?: string;
   }> {
     try {
-      const { success, error } = await this.rnb.simplePrompt({
-        promptMessage: promptMessage || this.config.promptMessage,
-        cancelButtonText: this.config.cancelButtonText,
-        fallbackPromptMessage: this.config.fallbackPromptMessage,
-      });
-
-      if (error) {
-        return { success: false, error };
-      }
-
-      return { success };
-    } catch (error) {
-      console.error('Simple biometric auth error:', error);
-      return { 
-        success: false, 
-        error: 'Erreur d\'authentification' 
+      // For simple auth, we can use the built-in method
+      // Note: This requires different setup on some platforms
+      const result = await this.authenticate(
+        promptMessage || 'Use biometrics to verify'
+      );
+      
+      return {
+        success: result.success,
+        error: result.error,
       };
+    } catch (error: any) {
+      console.error('[BiometricAuth] Simple auth failed:', error);
+      return { success: false, error: error.message };
     }
   }
 
-  // Create biometric keys for user
-  async createKeys(): Promise<boolean> {
+  /**
+   * Enable biometric login for user
+   * Activer la connexion biométrique pour l'utilisateur
+   */
+  async enableBiometricLogin(userId: string): Promise<{
+    enabled: boolean;
+    error?: string;
+  }> {
     try {
-      const { keysCreated } = await this.rnb.createKeys('AlgeriaTradeKey');
-      this.keysExist = keysCreated;
-      
-      if (keysCreated) {
-        await AsyncStorage.setItem('biometric_keys_created', 'true');
-      }
-      
-      return keysCreated;
-    } catch (error) {
-      console.error('Create keys error:', error);
-      return false;
-    }
-  }
-
-  // Delete stored keys (on logout)
-  async deleteKeys(): Promise<void> {
-    try {
-      const { keysDeleted } = await this.rnb.deleteKeys('AlgeriaTradeKey');
-      this.keysExist = !keysDeleted;
-      
-      if (keysDeleted) {
-        await AsyncStorage.removeItem('biometric_keys_created');
-        await AsyncStorage.removeItem('biometric_enabled');
-      }
-    } catch (error) {
-      console.error('Delete keys error:', error);
-    }
-  }
-
-  // Check if biometric keys exist
-  async keysExistCheck(): Promise<boolean> {
-    try {
-      const { keysExist } = await this.rnb.biometricKeysExist();
-      this.keysExist = keysExist;
-      return keysExist;
-    } catch (error) {
-      console.error('Keys exist check error:', error);
-      return false;
-    }
-  }
-
-  // Enable biometric login for user
-  async enableBiometric(userId: string): Promise<{ success: boolean; error?: string }> {
-    try {
-      // Check availability first
-      const { available, biometryType } = await this.isAvailable();
-      
+      // First check availability
+      const { available, error } = await this.isAvailable();
       if (!available) {
         return { 
-          success: false, 
-          error: `Aucune ${biometryType || 'biométrie'} disponible sur cet appareil` 
+          enabled: false, 
+          error: error || 'Biometrics not available on this device' 
         };
       }
 
-      // Test authentication works
-      const authResult = await this.authenticate(`Activer ${biometryType || 'la biométrie'}`);
-      
-      if (!authResult.success) {
-        return { 
-          success: false, 
-          error: authResult.error || 'Authentification échouée' 
-        };
+      // Create keys for this user
+      const { success, error: keyError } = await this.createKeys();
+      if (!success) {
+        return { enabled: false, error: keyError };
       }
 
-      // Save user preference
-      await AsyncStorage.setItem('biometric_enabled', 'true');
-      await AsyncStorage.setItem('biometric_user_id', userId);
+      // Store that biometric is enabled for this user
+      // In production, store securely in encrypted storage/keychain
+      await this.storeBiometricSetting(userId, true);
 
-      return { success: true };
-    } catch (error) {
-      console.error('Enable biometric error:', error);
-      return { success: false, error: 'Erreur lors de l\'activation' };
+      return { enabled: true };
+    } catch (error: any) {
+      console.error('[BiometricAuth] Enable failed:', error);
+      return { enabled: false, error: error.message };
     }
   }
 
-  // Disable biometric login
-  async disableBiometric(): Promise<void> {
-    await this.deleteKeys();
-    await AsyncStorage.removeItem('biometric_user_id');
+  /**
+   * Disable biometric login for user
+   * Désactiver la connexion biométrique pour l'utilisateur
+   */
+  async disableBiometricLogin(userId: string): Promise<void> {
+    try {
+      await this.deleteKeys();
+      await this.storeBiometricSetting(userId, false);
+      console.log('[BiometricAuth] Biometric login disabled');
+    } catch (error) {
+      console.error('[BiometricAuth] Disable failed:', error);
+    }
   }
 
-  // Check if biometric is enabled for current user
-  async isEnabled(): Promise<boolean> {
+  /**
+   * Check if biometric login is enabled for user
+   * Vérifier si la connexion biométrique est activée pour l'utilisateur
+   */
+  async isBiometricLoginEnabled(userId: string): Promise<boolean> {
     try {
-      const enabled = await AsyncStorage.getItem('biometric_enabled');
-      return enabled === 'true';
-    } catch {
+      const setting = await this.getBiometricSetting(userId);
+      return setting === true;
+    } catch (error) {
       return false;
     }
   }
 
-  // Get the user ID associated with biometric login
-  async getAssociatedUserId(): Promise<string | null> {
+  /**
+   * Store biometric setting securely
+   * Stocker le paramètre biométrique de manière sécurisée
+   */
+  private async storeBiometricSetting(userId: string, enabled: boolean): Promise<void> {
+    // In production, use secure storage like:
+    // - iOS: Keychain Services
+    // - Android: Encrypted SharedPreferences / Keystore
+    // For now, we'll use AsyncStorage with a note that this should be secured
+    
+    const { AsyncStorage } = require('@react-native-async-storage/async-storage');
+    
+    const settings = await AsyncStorage.getItem('@algeriatrade_biometric_settings') || '{}';
+    const parsedSettings = JSON.parse(settings);
+    
+    parsedSettings[userId] = {
+      enabled,
+      updatedAt: new Date().toISOString(),
+    };
+    
+    await AsyncStorage.setItem(
+      '@algeriatrade_biometric_settings', 
+      JSON.stringify(parsedSettings)
+    );
+  }
+
+  /**
+   * Get biometric setting for user
+   * Obtenir le paramètre biométrique pour l'utilisateur
+   */
+  private async getBiometricSetting(userId: string): Promise<boolean | null> {
     try {
-      return await AsyncStorage.getItem('biometric_user_id');
-    } catch {
+      const { AsyncStorage } = require('@react-native-async-storage/async-storage');
+      
+      const settings = await AsyncStorage.getItem('@algeriatrace_biometric_settings');
+      if (!settings) return null;
+      
+      const parsedSettings = JSON.parse(settings);
+      return parsedSettings[userId]?.enabled ?? null;
+    } catch (error) {
       return null;
     }
   }
 
-  // Get display name for biometric type
-  async getBiometricDisplayName(): Promise<string> {
-    const { biometryType } = await this.isAvailable();
-    
-    switch (biometryType) {
-      case 'Face ID':
-        return 'Face ID';
-      case 'Touch ID':
-        return 'Touch ID';
-      case 'Empreinte':
-        return 'Empreinte digitale';
-      default:
-        return Platform.OS === 'ios' ? 'Face ID / Touch ID' : 'Empreinte digitale';
-    }
-  }
-
-  // Get icon name for biometric type
-  async getBiometricIconName(): Promise<string> {
-    const { biometryType } = await this.isAvailable();
-    
-    switch (biometryType) {
-      case 'Face ID':
-        return 'face-recognition';
-      case 'Touch ID':
-        return 'finger-print';
-      case 'Empreinte':
-        return 'finger-print';
-      default:
-        return 'shield-checkmark';
-    }
+  /**
+   * Get human-readable biometry type name
+   * Obtenir le nom lisible du type de biométrie
+   */
+  async getBiometryTypeName(): Promise<string> {
+    const { available, biometryType } = await this.isAvailable();
+    return biometryType || 'Not Available';
   }
 }
 
-// Singleton instance
-export const biometricService = new BiometricService();
+// Export singleton instance
+export const biometricAuthService = BiometricAuthService.getInstance();
 
-// React hook for biometric authentication
-import { useState, useEffect, useCallback } from 'react';
-
-export function useBiometrics() {
-  const [isAvailable, setIsAvailable] = useState(false);
-  const [biometryType, setBiometryType] = useState<BiometricInfo['biometryType']>(null);
-  const [isEnabled, setIsEnabled] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    initializeBiometrics();
-  }, []);
-
-  const initializeBiometrics = useCallback(async () => {
-    try {
-      const info = await biometricService.isAvailable();
-      setIsAvailable(info.available);
-      setBiometryType(info.biometryType);
-      
-      const enabled = await biometricService.isEnabled();
-      setIsEnabled(enabled);
-    } catch (error) {
-      console.error('Initialize biometrics error:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  const authenticate = useCallback(async (promptMessage?: string) => {
-    return biometricService.authenticate(promptMessage);
-  }, []);
-
-  const enableBiometric = useCallback(async (userId: string) => {
-    const result = await biometricService.enableBiometric(userId);
-    if (result.success) {
-      setIsEnabled(true);
-    }
-    return result;
-  }, []);
-
-  const disableBiometric = useCallback(async () => {
-    await biometricService.disableBiometric();
-    setIsEnabled(false);
-  }, []);
-
-  return {
-    isLoading,
-    isAvailable,
-    biometryType,
-    isEnabled,
-    authenticate,
-    enableBiometric,
-    disableBiometric,
-    getDisplayName: biometricService.getBiometricDisplayName.bind(biometricService),
-    getIconName: biometricService.getBiometricIconName.bind(biometricService),
-  };
-}
+/**
+ * Error codes for biometric authentication
+ * Codes d'erreur pour l'authentification biométrique
+ */
+export const BIOMETRIC_ERRORS = {
+  CANCELLED: 'cancelled',
+  LOCKOUT: 'lockout',
+  NOT_ENROLLED: 'not_enrolled',
+  NOT_AVAILABLE: 'not_available',
+  AUTHENTICATION_FAILED: 'authentication_failed',
+} as const;

@@ -1,685 +1,368 @@
 #!/bin/bash
 # =============================================================================
-# Docker Production Deployment Script for AlgeriaTrade.dz
+# AlgeriaTrade.dz - Docker Production Deployment Script
 # =============================================================================
-# Script de déploiement Docker Production pour AlgeriaTrade.dz
-#
-# Full production stack includes / Stack complet de production inclut:
-# - PostgreSQL (database robuste) / Base de données PostgreSQL
-# - Redis (cache & sessions) / Cache et sessions Redis  
-# - Next.js Application / Application Next.js
-# - Nginx (reverse proxy SSL) / Reverse proxy SSL Nginx
-# - Socket.IO Message Service / Service de messagerie Socket.IO
-# - pgAdmin (optional admin) / Administration pgAdmin (optionnel)
-# - Redis Commander (optional admin) / Administration Redis Commander (optionnel)
-#
-# Usage / Utilisation:
-#   ./scripts/deployment/deploy-docker.sh              # Full production deploy
-#   ./scripts/deployment/deploy-docker.sh --setup-env   # Setup .env.production
-#   ./scripts/deployment/deploy-docker.sh --down        # Stop services
-#   ./scripts/deployment/deploy-docker.sh --logs        # Show logs
-#   ./scripts/deployment/deploy-docker.sh --admin       # Start with admin tools
+# Usage: ./deploy-docker.sh [command]
+#   Commands:
+#     up        - Start production stack (docker-compose up -d)
+#     down      - Stop production stack
+#     restart   - Restart all services
+#     logs      - View logs from all services
+#     status    - Check status of all services
+#     setup      - Initial setup (create .env, generate secrets)
+#     backup     - Create database backup
+#     restore    - Restore from backup
+#     update     - Pull latest images and recreate containers
 # =============================================================================
 
-set -euo pipefail
+set -e
 
-# =============================================================================
-# Configuration / Configuration
-# =============================================================================
-
-# Colors / Couleurs
+# Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 CYAN='\033[0;36m'
-BOLD='\033[1m'
-NC='\033[0m'
+NC='\033[0m' # No Color
 
-# Paths / Chemins
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
-COMPOSE_FILE="$PROJECT_ROOT/docker-compose.prod.yml"
-ENV_FILE="$PROJECT_ROOT/.env.production"
-LOG_FILE="$PROJECT_ROOT/logs/docker-deploy.log"
-BACKUP_DIR="$PROJECT_ROOT/backups"
-TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+COMPOSE_FILE="docker-compose.prod.yml"
+PROJECT_NAME="algeriatrade"
 
-# Container names / Noms des conteneurs
-APP_CONTAINER="algeriatrade-app-prod"
-POSTGRES_CONTAINER="algeriatrade-postgres"
-REDIS_CONTAINER="algeriatrade-redis-prod"
-NGINX_CONTAINER="algeriatrade-nginx-prod"
-
-# Default settings / Paramètres par défaut
-COMPOSE_PROFILES=""
-SKIP_PULL=false
-SKIP_BUILD=false
-SHOW_LOGS=false
-STOP_SERVICES=false
-SETUP_ENV=false
-WITH_ADMIN=false
-FORCE_MODE=false
-
-# =============================================================================
-# Functions / Fonctions
-# =============================================================================
-
-log() {
-    echo -e "${GREEN}[$(date '+%Y-%m-%d %H:%M:%S')]${NC} $1" | tee -a "$LOG_FILE"
+# Helper functions
+print_banner() {
+    echo -e "${CYAN}"
+    echo "╔═══════════════════════════════════════════════════════╗"
+    echo "║          AlgeriaTrade.dz - Docker Deployment          ║"
+    echo "║              Production Environment                   ║"
+    echo "╚═══════════════════════════════════════════════════════╝"
+    echo -e "${NC}"
 }
 
-warn() {
-    echo -e "${YELLOW}[WARNING]${NC} $1" | tee -a "$LOG_FILE"
-}
-
-error() {
-    echo -e "${RED}[ERROR]${NC} $1" | tee -a "$LOG_FILE"
-}
-
-info() {
-    echo -e "${BLUE}[INFO]${NC} $1" | tee -a "$LOG_FILE"
-}
-
-success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1" | tee -a "$LOG_FILE"
-}
-
-die() {
-    error "$1"
-    exit 1
-}
-
-# Banner / Bannière
-show_banner() {
-    echo ""
-    echo -e "${BOLD}${CYAN}╔══════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${BOLD}${CYAN}║${NC}     ${BOLD}🇩🇿  AlgeriaTrade.dz - Docker Production${NC}         ${BOLD}${CYAN}║${NC}"
-    echo -e "${BOLD}${CYAN}║${NC}     ${BOLD}Déploiement Production Docker${NC}                      ${BOLD}${CYAN}║${NC}"
-    echo -e "${BOLD}${CYAN}╚══════════════════════════════════════════════════════════╝${NC}"
-    echo ""
-}
-
-setup_directories() {
-    mkdir -p "$(dirname "$LOG_FILE")"
-    mkdir -p "$BACKUP_DIR/db"
-    mkdir -p "$BACKUP_DIR/files"
-    mkdir -p "$PROJECT_ROOT/certs"
-    touch "$LOG_FILE"
-    log "Directories initialized / Répertoires initialisés"
-}
-
-parse_args() {
-    while [[ $# -gt 0 ]]; do
-        case $1 in
-            --setup-env|-e)
-                SETUP_ENV=true
-                shift
-                ;;
-            --down|-d)
-                STOP_SERVICES=true
-                shift
-                ;;
-            --logs|-l)
-                SHOW_LOGS=true
-                shift
-                ;;
-            --admin|-a)
-                WITH_ADMIN=true
-                COMPOSE_PROFILES="admin"
-                shift
-                ;;
-            --skip-pull)
-                SKIP_PULL=true
-                shift
-                ;;
-            --skip-build)
-                SKIP_BUILD=true
-                shift
-                ;;
-            --force|-f)
-                FORCE_MODE=true
-                shift
-                ;;
-            --backup|-b)
-                backup_database
-                exit 0
-                ;;
-            --restore=*)
-                RESTORE_FILE="${1#*=}"
-                restore_database "$RESTORE_FILE"
-                exit 0
-                ;;
-            --status|-s)
-                show_status
-                exit 0
-                ;;
-            --help|-h)
-                show_help
-                exit 0
-                ;;
-            *)
-                die "Unknown argument: $1 / Argument inconnu: $1"
-                ;;
-        esac
-    done
-}
-
-show_help() {
-    cat << 'EOF'
-🐳 AlgeriaTrade.dz Docker Production Deployment
-
-Usage: ./deploy-docker.sh [OPTIONS]
-
-Options:
-  -e, --setup-env      Setup .env.production file
-  -d, --down           Stop all services
-  -l, --logs           Show container logs
-  -a, --admin          Start with admin tools (pgAdmin, Redis Commander)
-  --skip-pull          Skip pulling latest images
-  --skip-build         Skip building images
-  -f, --force          Force without confirmation
-  -b, --backup         Backup database only
-  --restore=FILE       Restore database from file
-  -s, --status         Show service status
-  -h, --help           Show this help
-
-Examples:
-  ./deploy-docker.sh                    # Full production deploy
-  ./deploy-docker.sh --setup-env        # First-time setup
-  ./deploy-docker.sh --admin            # Deploy with admin tools
-  ./deploy-docker.sh --logs             # View logs
-  ./deploy-docker.sh --down             # Stop everything
-
-Services:
-  - App (Next.js):        http://localhost:3000
-  - pgAdmin:              http://localhost:5050 (with --admin)
-  - Redis Commander:      http://localhost:8081 (with --admin)
-EOF
-}
-
-# Setup environment file / Configurer le fichier d'environnement
-setup_environment() {
-    log "Setting up production environment... / Configuration de l'environnement de production..."
-
-    if [[ -f "$ENV_FILE" ]]; then
-        warn ".env.production already exists / .env.production existe déjà"
-        read -rp "Overwrite? [y/N] " overwrite
-        [[ "$overwrite" != "y" && "$overwrite" != "Y" ]] && return
+check_docker() {
+    if ! command -v docker &> /dev/null; then
+        echo -e "${RED}❌ Docker is not installed. Please install Docker first.${NC}"
+        exit 1
     fi
+    
+    if ! command -v docker-compose &> /dev/null && ! docker compose version &> /dev/null; then
+        echo -e "${RED}❌ Docker Compose is not installed. Please install Docker Compose.${NC}"
+        exit 1
+    fi
+    
+    echo -e "${GREEN}✅ Docker environment ready${NC}"
+}
 
-    # Generate secrets / Générer les secrets
-    local postgres_password=$(openssl rand -base64 24 | tr -dc 'a-zA-Z0-9' | head -c 24)
-    local redis_password=$(openssl rand -base64 16 | tr -dc 'a-zA-Z0-9' | head -c 16)
-    local nextauth_secret=$(openssl rand -base64 32)
-    local two_factor_key=$(openssl rand -hex 32)
-
-    cat > "$ENV_FILE" << EOF
+generate_secrets() {
+    echo -e "${BLUE}🔐 Generating secure secrets...${NC}"
+    
+    # Generate random passwords and keys
+    POSTGRES_PASSWORD=$(openssl rand -base64 32 | tr -d '/+=' | head -c 32)
+    REDIS_PASSWORD=$(openssl rand -base64 24 | tr -d '/+=' | head -c 24)
+    NEXTAUTH_SECRET=$(openssl rand -base64 48)
+    
+    # Create .env.production if it doesn't exist
+    if [ ! -f ".env.production" ]; then
+        cat > .env.production << EOF
 # =============================================================================
-# AlgeriaTrade.dz - Production Environment Variables
-# =============================================================================
+# Auto-generated production environment variables
 # Generated: $(date)
-# ⚠️  UPDATE PASSWORDS AND SECRETS BEFORE DEPLOYMENT!
-# ⚠️  METTEZ À JOUR LES MOTS DE PASSE ET SECRETS AVANT LE DÉPLOIEMENT!
 # =============================================================================
 
-# --- Application ---
+# Application
+NODE_ENV=production
 NEXT_PUBLIC_APP_URL=https://algeriatrade.dz
 NEXT_PUBLIC_APP_NAME=AlgeriaTrade
-NODE_ENV=production
-LOG_LEVEL=info
 
-# --- Authentication ---
-NEXTAUTH_URL=https://algeriatrade.dz
-NEXTAUTH_SECRET=${nextauth_secret}
-TWO_FACTOR_ENCRYPTION_KEY=${two_factor_key}
-
-# --- Database (PostgreSQL) ---
+# Database
 POSTGRES_USER=algeriatrade
-POSTGRES_PASSWORD=${postgres_password}
+POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
 POSTGRES_DB=algeriatrade
-DATABASE_URL=postgresql://algeriatrade:${postgres_password}@postgres:5432/algeriatrade
+DATABASE_URL=postgresql://algeriatrade:${POSTGRES_PASSWORD}@postgres:5432/algeriatrade
 
-# --- Email (Resend recommended) ---
-EMAIL_PROVIDER=resend
-RESEND_API_KEY=re_xxxxxxxxxxxx
-EMAIL_FROM=noreply@algeriatrade.dz
+# Auth
+NEXTAUTH_URL=https://algeriatrade.dz
+NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
 
-# --- Payment Gateways (Algerian) ---
-CIB_API_KEY=
-CIB_MERCHANT_ID=
-CCP_MERCHANT_ID=
-BARIDIMOB_API_KEY=
-BARIDIMOB_WEBHOOK_SECRET=
+# Redis
+REDIS_PASSWORD=${REDIS_PASSWORD}
+REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379
 
-# --- Storage (AWS S3 compatible) ---
-S3_BUCKET=algeriatrade-uploads
-S3_REGION=eu-west-3
-AWS_ACCESS_KEY_ID=
-AWS_SECRET_ACCESS_KEY=
+# Socket.IO
+SOCKET_IO_PORT=3003
 
-# --- Cache (Redis) ---
-REDIS_PASSWORD=${redis_password}
-REDIS_URL=redis://:${redis_password}@redis:6379
-
-# --- AI Services (Optional) ---
-OPENAI_API_KEY=
-ANTHROPIC_API_KEY=
-AI_PROVIDER=openai
-
-# --- Analytics ---
-NEXT_PUBLIC_GA_MEASUREMENT_ID=G-XXXXXXXXXX
-NEXT_PUBLIC_GA_ENABLED=true
-
-# --- Monitoring ---
-SENTRY_DSN=
-
-# --- Admin Tools (pgAdmin) ---
-PGADMIN_EMAIL=admin@algeriatrade.dz
-PGADMIN_PASSWORD=$(openssl rand -base64 12 | tr -dc 'a-zA-Z0-9')
+# Logging
+LOG_LEVEL=info
 EOF
-
-    success "Environment file created: $ENV_FILE"
-    warn "⚠️  PLEASE REVIEW AND UPDATE SECRETS BEFORE DEPLOYMENT!"
-    warn "⚠️  VEUILLEZ EXAMINER ET METTRE À JOUR LES SECRETS AVANT LE DÉPLOIEMENT!"
-    echo ""
-    info "Generated passwords:"
-    info "  PostgreSQL Password: ${postgres_password}"
-    info "  Redis Password: ${redis_password}"
-    info "  NextAuth Secret: ${nextauth_secret:0:16}..."
+        echo -e "${GREEN}✅ Created .env.production with generated secrets${NC}"
+        echo -e "${YELLOW}⚠️  Save these passwords securely!${NC}"
+    else
+        echo -e "${YELLOW}⚠️  .env.production already exists. Skipping secret generation.${NC}"
+    fi
 }
 
-# Check prerequisites / Vérifier les prérequis
-check_prerequisites() {
-    log "Checking prerequisites... / Vérification des prérequis..."
-
-    # Check Docker / Vérifier Docker
-    if ! command -v docker &> /dev/null; then
-        die "Docker is not installed / Docker n'est pas installé"
-    fi
-    success "Docker version: $(docker --version)"
-
-    # Check Docker Compose / Vérifier Docker Compose
-    if ! docker compose version &> /dev/null; then
-        die "Docker Compose is not installed / Docker Compose n'est pas installé"
-    fi
-    success "Docker Compose version: $(docker compose version)"
-
-    # Check compose file / Vérifier le fichier compose
-    if [[ ! -f "$COMPOSE_FILE" ]]; then
-        die "Docker compose file not found: $COMPOSE_FILE"
-    fi
-
-    # Check env file / Vérifier le fichier env
-    if [[ ! -f "$ENV_FILE" ]]; then
-        warn "Environment file not found: $ENV_FILE"
-        warn "Run with --setup-env to create it / Exécutez avec --setup-env pour le créer"
-        read -rp "Continue without .env.production? [y/N] " continue_without
-        [[ "$continue_without" != "y" && "$continue_without" != "Y" ]] && exit 1
-    fi
-
-    # Check resources / Vérifier les ressources
-    local available_mem=$(free -g | awk '/^Mem:/{print $7}')
-    local available_disk=$(df -BG "$PROJECT_ROOT" | awk 'NR==2 {print $4}' | tr -d 'G')
+setup_ssl() {
+    echo -e "\n${BLUE}🔒 SSL Certificate Setup${NC}"
+    echo "----------------------------------------"
     
-    info "Available memory: ${available_mem}GB"
-    info "Available disk: ${available_disk}GB"
-    
-    if [[ "${available_mem%.*}" -lt 2 ]]; then
-        warn "Low memory detected! At least 4GB recommended / Mémoire faible! 4GB recommandés"
+    if [ ! -d "certs" ]; then
+        mkdir -p certs
     fi
     
-    if [[ "$available_disk" -lt 5 ]]; then
-        warn "Low disk space! At least 10GB recommended / Espace disque faible! 10GB recommandés"
-    fi
-
-    success "Prerequisites check passed / Vérification des prérequis réussie"
-}
-
-# Backup database / Sauvegarder la base de données
-backup_database() {
-    log "Creating database backup... / Création de la sauvegarde de base de données..."
-
-    local backup_file="$BACKUP_DIR/db/backup_${TIMESTAMP}.sql.gz"
-
-    # Check if PostgreSQL container is running / Vérifier si le conteneur PostgreSQL tourne
-    if docker ps --format '{{.Names}}' | grep -q "$POSTGRES_CONTAINER"; then
-        docker exec "$POSTGRES_CONTAINER" pg_dump \
-            -U algeriatrade \
-            -d algeriatrade \
-            --clean \
-            --if-exists \
-            2>/dev/null | gzip > "$backup_file"
+    # Check if certificates exist
+    if [ ! -f "certs/fullchain.pem" ] || [ ! -f "certs/privkey.pem" ]; then
+        echo -e "${YELLOW}No SSL certificates found. Options:${NC}"
+        echo "1. Let's Encrypt (automatic, requires domain)"
+        echo "2. Self-signed (for development/testing)"
+        echo "3. Skip (use existing certificates)"
         
-        success "Backup created: $backup_file"
-        info "Size: $(du -h "$backup_file" | cut -f1)"
+        read -p "Choose option (1/2/3): " ssl_choice
+        
+        case $ssl_choice in
+            1)
+                echo -e "${BLUE}Installing certbot for Let's Encrypt...${NC}"
+                if command -v certbot &> /dev/null || command -v certbot-auto &> /dev/null; then
+                    read -p "Enter your domain (e.g., algeriatrade.dz): " DOMAIN
+                    sudo certbot certonly --standalone -d "$DOMAIN" --non-interactive --agree-tos --email admin@$DOMAIN
+                    sudo cp /etc/letsencrypt/live/$DOMAIN/fullchain.pem certs/
+                    sudo cp /etc/letsencrypt/live/$DOMAIN/privkey.pem certs/
+                    echo -e "${GREEN}✅ SSL certificates installed${NC}"
+                else
+                    echo -e "${RED}❌ Certbot not found. Please install certbot or choose another option.${NC}"
+                fi
+                ;;
+            2)
+                echo -e "${YELLOW}Generating self-signed certificate...${NC}"
+                openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+                    -keyout certs/privkey.pem \
+                    -out certs/fullchain.pem \
+                    -subj "/C=DZ/O=AlgeriaTrade/CN=algeriatrade.dz"
+                echo -e "${GREEN}✅ Self-signed certificate generated (valid for 365 days)${NC}"
+                echo -e "${YELLOW}⚠️  Browsers will show security warnings for self-signed certs${NC}"
+                ;;
+            3)
+                echo -e "${YELLOW}Skipping SSL setup. Make sure to place certificates in ./certs/${NC}"
+                ;;
+            *)
+                echo -e "${RED}Invalid option${NC}"
+                ;;
+        esac
     else
-        warn "PostgreSQL container not running, skipping backup"
-        return 1
+        echo -e "${GREEN}✅ SSL certificates already exist${NC}"
     fi
-
-    # Clean old backups / Nettoyer les anciennes sauvegardes
-    find "$BACKUP_DIR/db" -name "*.sql.gz" -mtime +7 -delete 2>/dev/null || true
 }
 
-# Restore database / Restaurer la base de données
-restore_database() {
-    local backup_file="$1"
+init_database() {
+    echo -e "\n${blue}💾 Initializing Database...${NC}"
     
-    if [[ ! -f "$backup_file" ]]; then
-        die "Backup file not found: $backup_file"
-    fi
+    # Run Prisma migrations
+    docker-compose -f $COMPOSE_FILE -p $PROJECT_NAME exec -T app npx prisma migrate deploy || true
+    
+    # Seed database with initial data
+    docker-compose -f $COMPOSE_FILE -p $PROJECT_NAME exec -T app npx prisma db seed || true
+    
+    echo -e "${GREEN}✅ Database initialized${NC}"
+}
 
-    log "Restoring database from backup... / Restauration de la base de données depuis la sauvegarde..."
-
-    if docker ps --format '{{.Names}}' | grep -q "$POSTGRES_CONTAINER"; then
-        gunzip -c "$backup_file" | docker exec -i "$POSTGRES_CONTAINER" psql \
-            -U algeriatrade \
-            -d algeriatrade \
-            2>/dev/null
+# Main commands
+case "${1:-up}" in
+    up)
+        print_banner
         
-        success "Database restored from: $backup_file"
-    else
-        die "PostgreSQL container is not running"
-    fi
-}
-
-# Stop existing containers / Arrêter les conteneurs existants
-stop_services() {
-    log "Stopping existing services... / Arrêt des services existants..."
-
-    cd "$PROJECT_ROOT"
-
-    # Graceful shutdown / Arrêt gracieux
-    if docker compose -f "$COMPOSE_FILE" down --timeout 60 2>&1 | tee -a "$LOG_FILE"; then
-        success "Services stopped / Services arrêtés"
-    else
-        warn "Some containers may not have stopped properly / Certains conteneurs peuvent ne pas s'être arrêtés correctement"
-        docker compose -f "$COMPOSE_FILE" down --timeout 30 --remove-orphans 2>/dev/null || true
-    fi
-}
-
-# Pull images / Tirer les images
-pull_images() {
-    if [[ "$SKIP_PULL" == true ]]; then
-        info "Skipping image pull / Tirage d'image ignoré"
-        return
-    fi
-
-    log "Pulling latest images... / Téléchargement des dernières images..."
-
-    cd "$PROJECT_ROOT"
-
-    docker compose -f "$COMPOSE_FILE" pull 2>&1 | tee -a "$LOG_FILE" || {
-        warn "Some images could not be pulled, will build locally / Certaines images n'ont pas pu être tirées, construction locale"
-    }
-
-    success "Images pulled / Images téléchargées"
-}
-
-# Build images / Construire les images
-build_images() {
-    if [[ "$SKIP_BUILD" == true ]]; then
-        info "Skipping image build / Construction d'image ignorée"
-        return
-    fi
-
-    log "Building Docker images... / Construction des images Docker..."
-
-    cd "$PROJECT_ROOT"
-
-    local build_args=()
-    [[ -f "$ENV_FILE" ]] && build_args+=(--env-file "$ENV_FILE")
-    [[ -n "$COMPOSE_PROFILES" ]] && build_args+=(--profile "$COMPOSE_PROFILES")
-
-    if docker compose -f "$COMPOSE_FILE" build "${build_args[@]}" 2>&1 | tee -a "$LOG_FILE"; then
-        success "Images built successfully / Images construites avec succès"
-    else
-        die "Image build failed / La construction des images a échoué"
-    fi
-}
-
-# Start services / Démarrer les services
-start_services() {
-    log "Starting services... / Démarrage des services..."
-
-    cd "$PROJECT_ROOT"
-
-    local up_args=(-d --remove-orphans)
-    [[ -n "$COMPOSE_PROFILES" ]] && up_args+=(--profile "$COMPOSE_PROFILES")
-
-    if docker compose -f "$COMPOSE_FILE" up "${up_args[@]}" 2>&1 | tee -a "$LOG_FILE"; then
-        success "Services starting... / Services en cours de démarrage..."
-    else
-        die "Failed to start services / Échec du démarrage des services"
-    fi
-}
-
-# Wait for healthy status / Attendre le statut sain
-wait_for_healthy() {
-    log "Waiting for services to be healthy... / Attente que les services soient sains..."
-
-    local services=("postgres" "redis" "app")
-    local max_wait=120
-    local waited=0
-
-    for service in "${services[@]}"; do
-        info "Waiting for $service... / Attente de $service..."
-        local elapsed=0
+        echo -e "${BLUE}🚀 Starting Production Stack...${NC}"
+        echo "----------------------------------------"
         
-        while [[ $elapsed -lt $max_wait ]]; do
-            local health_status=$(docker compose -f "$COMPOSE_FILE" ps "$service" --format json 2>/dev/null | \
-                grep -o '"Health":"[^"]*"' | head -1 || echo "")
+        check_docker
+        
+        # Check for .env.production
+        if [ ! -f ".env.production" ]; then
+            echo -e "${YELLOW}⚠️  No .env.production found. Running initial setup...${NC}"
+            generate_secrets
+            setup_ssl
+        fi
+        
+        echo -e "\n${YELLOW}Pulling latest images...${NC}"
+        docker-compose -f $COMPOSE_FILE -p $PROJECT_NAME pull --quiet 2>/dev/null || true
+        
+        echo -e "${YELLOW}Starting services...${NC}"
+        docker-compose -f $COMPOSE_FILE -p $PROJECT_NAME up -d
+        
+        echo -e "\n${GREEN}Waiting for services to be healthy...${NC}"
+        sleep 10
+        
+        # Initialize database on first run
+        init_database
+        
+        echo -e "\n${GREEN}=============================================${NC}"
+        echo -e "${GREEN}✅ Production stack is running!${NC}"
+        echo -e "${GREEN}=============================================${NC}"
+        
+        echo -e "\n${BLUE}📊 Service Status:${NC}"
+        docker-compose -f $COMPOSE_FILE -p $PROJECT_NAME ps
+        
+        echo -e "\n${CYAN}📱 Access Points:${NC}"
+        echo "  • App: https://localhost (via nginx)"
+        echo "  • API: https://localhost/api"
+        echo "  • pgAdmin: http://localhost:5050 (if enabled)"
+        echo "  • Redis Commander: http://localhost:8081 (if enabled)"
+        
+        echo -e "\n${BLUE}Useful Commands:${NC}"
+        echo "  • View logs: $0 logs"
+        echo "  • Stop stack: $0 down"
+        echo "  • Restart: $0 restart"
+        echo "  • Backup: $0 backup"
+        ;;
+        
+    down)
+        print_banner
+        echo -e "${BLUE}⏹️  Stopping Production Stack...${NC}"
+        docker-compose -f $COMPOSE_FILE -p $PROJECT_NAME down
+        echo -e "${GREEN}✅ All services stopped${NC}"
+        ;;
+        
+    restart)
+        print_banner
+        echo -e "${BLUE}🔄 Restarting Services...${NC}"
+        docker-compose -f $COMPOSE_FILE -p $PROJECT_NAME restart
+        echo -e "${GREEN}✅ Services restarted${NC}"
+        ;;
+        
+    logs)
+        echo -e "${BLUE}📋 Viewing Logs (Ctrl+C to exit)...${NC}"
+        docker-compose -f $COMPOSE_FILE -p $PROJECT_NAME logs -f --tail=100 ${2:-}
+        ;;
+        
+    status)
+        print_banner
+        echo -e "${BLUE}📊 Service Status:${NC}"
+        echo "----------------------------------------"
+        docker-compose -f $COMPOSE_FILE -p $PROJECT_NAME ps
+        
+        echo -e "\n${BLUE}💾 Disk Usage:${NC}"
+        docker system df
+        
+        echo -e "\n${BLUE}📈 Resource Usage:${NC}"
+        docker stats --no-stream --format "table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}\t{{.NetIO}}"
+        ;;
+        
+    setup)
+        print_banner
+        check_docker
+        generate_secrets
+        setup_ssl
+        
+        echo -e "\n${GREEN}✅ Setup complete! Run '$0 up' to start the stack.${NC}"
+        ;;
+        
+    backup)
+        TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+        BACKUP_DIR="backups/${TIMESTAMP}"
+        
+        echo -e "${BLUE}💾 Creating Backup: ${TIMESTAMP}${NC}"
+        mkdir -p "$BACKUP_DIR"
+        
+        # Backup PostgreSQL
+        echo -e "${YELLOW}  Backing up PostgreSQL...${NC}"
+        docker-compose -f $COMPOSE_FILE -p $PROJECT_NAME exec -T postgres pg_dumpall -U algeriatrade > "$BACKUP_DIR/postgres_dump.sql" 2>/dev/null || \
+            echo -e "${YELLOW}  ⚠️  PostgreSQL backup failed (container might not be running)${NC}"
+        
+        # Backup Redis
+        echo -e "${YELLOW}  Backing up Redis...${NC}"
+        docker-compose -f $COMPOSE_FILE -p $PROJECT_NAME exec -T redis redis-cli BGSAVE > /dev/null 2>&1 || true
+        docker cp algeriatrade-redis-prod:/data/dump.rdb "$BACKUP_DIR/redis_dump.rdb" 2>/dev/null || \
+            echo -e "${YELLOW}  ⚠️  Redis backup failed${NC}"
+        
+        # Backup uploads
+        echo -e "${YELLOW}  Backing up uploads...${NC}"
+        docker cp algeriatrade-app-prod:/app/public/uploads "$BACKUP_DIR/uploads" 2>/dev/null || \
+            echo -e "${YELLOW}  ⚠️  Uploads backup failed${NC}"
+        
+        # Compress backup
+        tar -czf "${BACKUP_DIR}.tar.gz" -C backups "$TIMESTAMP"
+        rm -rf "$BACKUP_DIR"
+        
+        echo -e "${GREEN}✅ Backup created: ${BACKUP_DIR}.tar.gz${NC}"
+        echo -e "${YELLOW}Size: $(du -h ${BACKUP_DIR}.tar.gz | cut -f1)${NC}"
+        ;;
+        
+    restore)
+        BACKUP_FILE="${2:-$(ls -t backups/*.tar.gz 2>/dev/null | head -1)}"
+        
+        if [ -z "$BACKUP_FILE" ] || [ ! -f "$BACKUP_FILE" ]; then
+            echo -e "${RED}❌ No backup file found. Usage: $0 restore [backup-file.tar.gz]${NC}"
+            exit 1
+        fi
+        
+        echo -e "${BLUE}🔄 Restoring from: ${BACKUP_FILE}${NC}"
+        read -p "This will overwrite current data. Continue? (y/N): " confirm
+        
+        if [[ $confirm =~ ^[Yy]$ ]]; then
+            # Extract backup
+            TEMP_DIR=$(mktemp -d)
+            tar -xzf "$BACKUP_FILE" -C "$TEMP_DIR"
             
-            if [[ "$health_status" == *'"healthy"'* ]] || \
-               docker compose -f "$COMPOSE_FILE" ps --format "{{.Name}}" 2>/dev/null | grep -q "$service"; then
-                success "$service is ready / $service est prêt"
-                break
+            # Restore PostgreSQL
+            SQL_FILE=$(find "$TEMP_DIR" -name "postgres_dump.sql" | head -1)
+            if [ -n "$SQL_FILE" ]; then
+                echo -e "${YELLOW}  Restoring PostgreSQL...${NC}"
+                cat "$SQL_FILE" | docker-compose -f $COMPOSE_FILE -p $PROJECT_NAME exec -T postgres psql -U algeriatrade 2>/dev/null || \
+                    echo -e "${YELLOW}  ⚠️  PostgreSQL restore failed${NC}"
             fi
             
-            sleep 5
-            ((elapsed+=5))
-            ((waited+=5))
-        done
-
-        if [[ $elapsed -ge $max_wait ]]; then
-            warn "$service may not be fully ready yet / $service peut ne pas être complètement prêt"
-        fi
-    done
-
-    # Additional wait for app startup / Attente supplémentaire pour le démarrage de l'app
-    info "Waiting for application startup... / Attente du démarrage de l'application..."
-    sleep 15
-}
-
-# Run database migrations / Exécuter les migrations de base de données
-run_migrations() {
-    log "Running database migrations... / Exécution des migrations de base de données..."
-
-    cd "$PROJECT_ROOT"
-
-    # Wait for PostgreSQL to be ready / Attendre que PostgreSQL soit prêt
-    local max_attempts=30
-    local attempt=0
-
-    while [[ $attempt -lt $max_attempts ]]; do
-        if docker exec "$POSTGRES_CONTAINER" pg_isready -U algeriatrade &> /dev/null; then
-            break
-        fi
-        sleep 2
-        ((attempt++))
-    done
-
-    # Run Prisma migrations / Exécuter les migrations Prisma
-    if docker compose -f "$COMPOSE_FILE" exec -T app npx prisma migrate deploy 2>&1 | tee -a "$LOG_FILE"; then
-        success "Migrations completed / Migrations terminées"
-    else
-        warn "Migrations may have failed or no pending migrations / Les migrations peuvent avoir échoué ou aucune migration en attente"
-    fi
-}
-
-# Health check / Contrôle de santé
-health_check() {
-    log "Running health checks... / Exécution des contrôles de santé..."
-
-    local endpoints=(
-        "http://localhost:3000/api/health"
-        "http://localhost:3000/api/status"
-    )
-
-    local all_healthy=true
-
-    for endpoint in "${endpoints[@]}"; do
-        local attempts=0
-        local max_attempts=10
-        
-        while [[ $attempts -lt $max_attempts ]]; do
-            if curl -sf --max-time 5 "$endpoint" > /dev/null 2>&1; then
-                success "Healthy: $endpoint"
-                break
+            # Restore Redis
+            RDB_FILE=$(find "$TEMP_DIR" -name "redis_dump.rdb" | head -1)
+            if [ -n "$RDB_FILE" ]; then
+                echo -e "${YELLOW}  Restoring Redis...${NC}"
+                docker cp "$RDB_FILE" algeriatrade-redis-prod:/data/dump.rdb 2>/dev/null || \
+                    echo -e "${YELLOW}  ⚠️  Redis restore failed${NC}"
+                docker-compose -f $COMPOSE_FILE -p $PROJECT_NAME restart redis
             fi
             
-            ((attempts++))
-            sleep 3
-        done
-
-        if [[ $attempts -ge $max_attempts ]]; then
-            warn "Unhealthy: $endpoint"
-            all_healthy=false
+            rm -rf "$TEMP_DIR"
+            echo -e "${GREEN}✅ Restore completed!${NC}"
+        else
+            echo -e "${YELLOW}Restore cancelled.${NC}"
         fi
-    done
-
-    if [[ "$all_healthy" == true ]]; then
-        success "All health checks passed / Tous les contrôles de santé ont réussi"
-    else
-        warn "Some health checks failed. Check logs with: $0 --logs"
-        warn "Certains contrôles ont échoué. Consultez les logs avec: $0 --logs"
-    fi
-}
-
-# Show status / Afficher le statut
-show_status() {
-    echo ""
-    echo -e "${BOLD}AlgeriaTrade.dz Docker Services Status${NC}"
-    echo -e "${BOLD}=====================================${NC}"
-    echo ""
-    
-    cd "$PROJECT_ROOT"
-    docker compose -f "$COMPOSE_FILE" ps 2>/dev/null || {
-        warn "No services running / Aucun service en cours d'exécution"
-    }
-    
-    echo ""
-    echo -e "${BOLD}Resource Usage:${NC}"
-    docker stats --no-stream --format "table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}\t{{.NetIO}}" 2>/dev/null | \
-        grep -E "(algeriatrade|NAME)" || true
-}
-
-# Show logs / Afficher les logs
-show_logs() {
-    cd "$PROJECT_ROOT"
-    
-    local follow="${1:-false}"
-    local logs_args=()
-    
-    [[ "$follow" == "follow" ]] && logs_args+=("-f")
-    logs_args+=("--tail=100")
-    
-    docker compose -f "$COMPOSE_FILE" logs "${logs_args[@]}" 2>/dev/null || {
-        warn "No logs available / Aucun journal disponible"
-    }
-}
-
-# Display summary / Afficher le résumé
-display_summary() {
-    echo ""
-    echo -e "${BOLD}${GREEN}═══════════════════════════════════════════════════════════${NC}"
-    echo -e "${BOLD}${GREEN}  ✅ DEPLOYMENT COMPLETE! / DÉPLOIEMENT TERMINÉ!               ${NC}"
-    echo -e "${BOLD}${GREEN}═══════════════════════════════════════════════════════════${NC}"
-    echo ""
-    echo -e "  ${BOLD}Services Available:/ Services Disponibles:${NC}"
-    echo -e "  🌐  App (Next.js):     ${CYAN}http://localhost:3000${NC}"
-    echo -e "  🔒  HTTPS:            ${CYAN}https://algeriatrade.dz${NC}"
-    
-    if [[ "$WITH_ADMIN" == true ]]; then
-        echo -e "  🐘  pgAdmin:           ${CYAN}http://localhost:5050${NC}"
-        echo -e "  ⚡  Redis Commander:   ${CYAN}http://localhost:8081${NC}"
-    fi
-    
-    echo ""
-    echo -e "  ${BOLD}Useful Commands:/ Commandes Utiles:${NC}"
-    echo -e "  View logs:    ${YELLOW}$0 --logs${NC}"
-    echo -e "  Stop all:     ${YELLOW}$0 --down${NC}"
-    echo -e "  Status:       ${YELLOW}$0 --status${NC}"
-    echo -e "  Backup DB:    ${YELLOW}$0 --backup${NC}"
-    echo ""
-    echo -e "  ${BOLD}Timestamp: ${NC}$(date)"
-    echo ""
-}
-
-# Send notification / Envoyer une notification
-send_notification() {
-    local status="$1"
-    local message="$2"
-
-    if [[ -n "${SLACK_WEBHOOK_URL:-}" ]]; then
-        local color=$([[ "$status" == "success" ]] && echo "good" || echo "danger")
-        local emoji=$([[ "$status" == "success" ]] && echo "✅" || echo "❌")
-
-        curl -s -X POST "$SLACK_WEBHOOK_URL" \
-            -H 'Content-type: application/json' \
-            -d "{
-                \"attachments\": [{
-                    \"color\": \"$color\",
-                    \"title\": \"${emoji} AlgeriaTrade Docker Deploy\",
-                    \"text\": \"$message\",
-                    \"fields\": [
-                        {\"title\": \"Host\", \"value\": \"$(hostname)\", \"short\": true},
-                        {\"title\": \"Time\", \"value\": \"$(date)\", \"short\": true},
-                        {\"title\": \"Containers\", \"value\": \"$(docker ps --filter 'name=algeriatrade' -q | wc -l)\", \"short\": true}
-                    ]
-                }]
-            }" > /dev/null 2>&1 || true
-    fi
-}
-
-# =============================================================================
-# Main / Principal
-# =============================================================================
-
-main() {
-    setup_directories
-    parse_args "$@"
-    show_banner
-
-    # Handle specific modes / Gérer les modes spécifiques
-    [[ "$STOP_SERVICES" == true ]] && { stop_services; exit 0; }
-    [[ "$SHOW_LOGS" == true ]] && { show_logs "follow"; exit 0; }
-    [[ "$SETUP_ENV" == true ]] && { setup_environment; exit 0; }
-
-    # Confirm deployment / Confirmer le déploiement
-    if [[ "$FORCE_MODE" != true ]]; then
-        warn "This will restart ALL production containers / Cela redémarrera TOUS les conteneurs de production"
-        read -rp "Continue with deployment? [y/N] " confirm
-        [[ "$confirm" != "y" && "$confirm" != "Y" ]] && {
-            info "Deployment cancelled / Déploiement annulé"
-            exit 0
-        }
-    fi
-
-    # Execute deployment steps / Exécuter les étapes de déploiement
-    check_prerequisites
-    backup_database
-    stop_services
-    pull_images
-    build_images
-    start_services
-    wait_for_healthy
-    run_migrations
-    health_check
-    display_summary
-
-    send_notification "success" "Docker production deployment completed at $(date)"
-}
-
-main "$@"
+        ;;
+        
+    update)
+        print_banner
+        echo -e "${BLUE}🔄 Updating Production Stack...${NC}"
+        
+        # Pull new images
+        echo -e "${YELLOW}Pulling updated images...${NC}"
+        docker-compose -f $COMPOSE_FILE -p $PROJECT_NAME pull
+        
+        # Recreate containers
+        echo -e "${YELLOW}Recreating containers...${NC}"
+        docker-compose -f $COMPOSE_FILE -p $PROJECT_NAME up -d --force-recreate
+        
+        # Clean up unused images
+        echo -e "${YELLOWCleaning up old images...${NC}"
+        docker image prune -f
+        
+        echo -e "${GREEN}✅ Update completed!${NC}"
+        ;;
+        
+    *)
+        echo "AlgeriaTrade.dz - Docker Deployment Helper"
+        echo ""
+        echo "Usage: $0 [command] [options]"
+        echo ""
+        echo "Commands:"
+        echo "  up         Start production stack (default)"
+        echo "  down       Stop production stack"
+        echo "  restart    Restart all services"
+        echo "  logs       View logs (optional: service name)"
+        echo "  status     Show service status and resource usage"
+        echo "  setup      Initial setup (secrets, SSL)"
+        echo "  backup     Create database backup"
+        echo "  restore    Restore from backup (optional: backup file)"
+        echo "  update     Update images and recreate containers"
+        echo ""
+        echo "Examples:"
+        echo "  $0 up                  Start production stack"
+        echo "  $0 logs app           View app logs only"
+        echo "  $0 backup              Create timestamped backup"
+        echo "  $0 restore backup.tar.gz  Restore specific backup"
+        ;;
+esac

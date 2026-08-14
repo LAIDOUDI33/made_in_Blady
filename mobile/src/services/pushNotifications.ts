@@ -1,26 +1,16 @@
-// Push Notification Service for AlgeriaTrade
-import messaging, {
-  FirebaseMessagingTypes,
-} from '@react-native-firebase/messaging';
-import { Platform, PermissionsAndroid } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+// Push Notification Service - AlgeriaTrade Mobile
+// Service de notifications push pour l'application mobile
 
-export interface NotificationData {
-  title: string;
-  body: string;
-  type?: 'rfq' | 'message' | 'order' | 'promotion' | 'system';
-  data?: Record<string, string>;
-}
+import * as Notifications from 'expo-notifications';
+import { Platform } from 'react-native';
 
-export interface NotificationSubscription {
-  topic: string;
-  subscribedAt: number;
-}
-
+/**
+ * Configure notification handler
+ * Configure le gestionnaire de notifications
+ */
 export class PushNotificationService {
   private static instance: PushNotificationService;
-  private token: string | null = null;
-  private messageHandler: ((message: FirebaseMessagingTypes.RemoteMessage) => void) | null = null;
+  private listenerAttached = false;
 
   static getInstance(): PushNotificationService {
     if (!PushNotificationService.instance) {
@@ -29,339 +19,222 @@ export class PushNotificationService {
     return PushNotificationService.instance;
   }
 
-  // Request permission
-  async requestPermission(): Promise<boolean> {
+  /**
+   * Initialize push notifications
+   * Initialiser les notifications push
+   */
+  async initialize(): Promise<string | null> {
     try {
-      if (Platform.OS === 'ios') {
-        const authStatus = await messaging().requestPermission();
-        const enabled =
-          authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
-          authStatus === messaging.AuthorizationStatus.PROVISIONAL;
-        
-        if (enabled) {
-          await AsyncStorage.setItem('notification_permission', 'granted');
-        }
-        return enabled;
+      // Configure notification behavior
+      Notifications.setNotificationHandler({
+        handleNotification: async () => ({
+          shouldShowAlert: true,
+          shouldPlaySound: true,
+          shouldSetBadge: true,
+        }),
+      });
+
+      // Request permissions
+      const { status: existingStatus } = await Notifications.getPermissionsAsync();
+      let finalStatus = existingStatus;
+
+      if (existingStatus !== 'granted') {
+        const { status } = await Notifications.requestPermissionsAsync();
+        finalStatus = status;
       }
 
-      // Android 13+ requires runtime permission
-      if (Platform.Version >= 33) {
-        const granted = await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS
-        );
-        const isGranted = granted === PermissionsAndroid.RESULTS.GRANTED;
-        
-        if (isGranted) {
-          await AsyncStorage.setItem('notification_permission', 'granted');
-        }
-        return isGranted;
+      if (finalStatus !== 'granted') {
+        console.log('[PushNotification] Permission not granted');
+        return null;
       }
 
-      return true;
+      // Get Expo push token
+      const tokenData = await Notifications.getExpoPushTokenAsync({
+        projectId: process.env.EXPO_PROJECT_ID || 'your-project-id',
+      });
+
+      console.log('[PushNotification] Token obtained:', tokenData.data);
+
+      // Set up listeners
+      this.attachListeners();
+
+      return tokenData.data;
     } catch (error) {
-      console.error('Permission request error:', error);
-      return false;
-    }
-  }
-
-  // Check if permission is granted
-  async checkPermission(): Promise<boolean> {
-    try {
-      const authStatus = await messaging().hasPermission();
-      return (
-        authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
-        authStatus === messaging.AuthorizationStatus.PROVISIONAL
-      );
-    } catch {
-      return false;
-    }
-  }
-
-  // Get FCM token
-  async getToken(forceRefresh: boolean = false): Promise<string | null> {
-    try {
-      // Check cached token first
-      if (!forceRefresh && this.token) {
-        return this.token;
-      }
-
-      const cachedToken = await AsyncStorage.getItem('fcm_token');
-      if (!forceRefresh && cachedToken) {
-        this.token = cachedToken;
-        return cachedToken;
-      }
-
-      // Check if user has authorized
-      const enabled = await this.checkPermission();
-      if (!enabled) {
-        const granted = await this.requestPermission();
-        if (!granted) {
-          console.log('Notification permission not granted');
-          return null;
-        }
-      }
-
-      // Get new token
-      const token = await messaging().getToken();
-      
-      if (token) {
-        this.token = token;
-        await AsyncStorage.setItem('fcm_token', token);
-        
-        // Send token to server
-        await this.sendTokenToServer(token);
-      }
-      
-      return token;
-    } catch (error) {
-      console.error('FCM token error:', error);
+      console.error('[PushNotification] Initialization error:', error);
       return null;
     }
   }
 
-  // Listen for foreground messages
-  onMessage(callback: (message: NotificationData) => void): () => void {
-    this.messageHandler = callback;
-    
-    const unsubscribe = messaging().onMessage(async (remoteMessage) => {
-      const notification: NotificationData = {
-        title: remoteMessage.notification?.title || 'Nouvelle notification',
-        body: remoteMessage.notification?.body || '',
-        type: (remoteMessage.data?.type as NotificationData['type']) || 'system',
-        data: remoteMessage.data,
-      };
-      
-      callback(notification);
+  /**
+   * Attach notification listeners
+   * Attacher les écouteurs de notifications
+   */
+  private attachListeners(): void {
+    if (this.listenerAttached) return;
+
+    // Foreground notification listener
+    Notifications.addNotificationReceivedListener(notification => {
+      console.log('[PushNotification] Received in foreground:', notification.request.content);
     });
 
-    return unsubscribe;
-  }
-
-  // Handle background/quit state messages
-  setBackgroundMessageHandler(): void {
-    messaging().setBackgroundMessageHandler(async (remoteMessage) => {
-      console.log('Background message handled:', remoteMessage.notification?.title);
-      // Handle background message - update local storage, etc.
+    // Notification response listener (user tapped)
+    Notifications.addNotificationResponseReceivedListener(response => {
+      console.log('[PushNotification] User interacted:', response.notification.request.content);
+      
+      // Handle navigation based on notification data
+      const data = response.notification.request.content.data;
+      this.handleNotificationTap(data);
     });
+
+    this.listenerAttached = true;
   }
 
-  // Handle notification when app is opened from quit state
-  getInitialNotification(): Promise<FirebaseMessagingTypes.RemoteMessage | null> {
-    return messaging().getInitialNotification();
+  /**
+   * Handle user tapping on notification
+   * Gérer le tap sur une notification
+   */
+  private handleNotificationTap(data: any): void {
+    // Navigation will be handled by the app's navigation container
+    // This just logs the action - actual navigation happens via deep links
+    console.log('[PushNotification] Navigate to:', data?.screen, data?.params);
+
+    // Emit custom event for the app to handle
+    if (typeof globalThis !== 'undefined' && globalThis.EventEmitter) {
+      globalThis.EventEmitter.emit('notificationTapped', data);
+    }
   }
 
-  // Subscribe to topic
-  async subscribeToTopic(topic: string): Promise<void> {
+  /**
+   * Send local notification (for testing or reminders)
+   * Envoyer une notification locale
+   */
+  async sendLocalNotification({
+    title,
+    body,
+    data = {},
+    schedule = null,
+  }: {
+    title: string;
+    body: string;
+    data?: any;
+    schedule?: Date | null;
+  }): Promise<string> {
     try {
-      await messaging().subscribeToTopic(topic);
-      
-      // Save subscription locally
-      const subscriptions = await this.getSubscriptions();
-      subscriptions.push({ topic, subscribedAt: Date.now() });
-      await AsyncStorage.setItem('notification_subscriptions', JSON.stringify(subscriptions));
-      
-      console.log(`Subscribed to topic: ${topic}`);
+      const notificationId = await Notifications.scheduleNotificationAsync({
+        content: {
+          title,
+          body,
+          data,
+          sound: true,
+          badge: 1,
+        },
+        trigger: schedule ? { date: schedule } : null,
+      });
+
+      console.log('[PushNotification] Local notification scheduled:', notificationId);
+      return notificationId;
     } catch (error) {
-      console.error('Subscribe to topic error:', error);
+      console.error('[PushNotification] Error sending local notification:', error);
+      throw error;
     }
   }
 
-  // Unsubscribe from topic
-  async unsubscribeFromTopic(topic: string): Promise<void> {
-    try {
-      await messaging().unsubscribeFromTopic(topic);
-      
-      // Remove subscription locally
-      let subscriptions = await this.getSubscriptions();
-      subscriptions = subscriptions.filter(s => s.topic !== topic);
-      await AsyncStorage.setItem('notification_subscriptions', JSON.stringify(subscriptions));
-      
-      console.log(`Unsubscribed from topic: ${topic}`);
-    } catch (error) {
-      console.error('Unsubscribe from topic error:', error);
-    }
+  /**
+   * Cancel a scheduled notification
+   * Annuler une notification programmée
+   */
+  async cancelNotification(notificationId: string): Promise<void> {
+    await Notifications.cancelScheduledNotificationAsync(notificationId);
   }
 
-  // Get all subscriptions
-  async getSubscriptions(): Promise<NotificationSubscription[]> {
-    try {
-      const subs = await AsyncStorage.getItem('notification_subscriptions');
-      return subs ? JSON.parse(subs) : [];
-    } catch {
-      return [];
-    }
+  /**
+   * Cancel all notifications
+   * Annuler toutes les notifications
+   */
+  async cancelAllNotifications(): Promise<void> {
+    await Notifications.cancelAllScheduledNotificationsAsync();
+    Notifications.setBadgeCountAsync(0);
   }
 
-  // Subscribe to AlgeriaTrade default topics
-  async subscribeToDefaultTopics(userId?: string): Promise<void> {
-    const defaultTopics = ['all_users', 'promotions', 'updates'];
-    
-    for (const topic of defaultTopics) {
-      await this.subscribeToTopic(topic);
-    }
-
-    // User-specific topics
-    if (userId) {
-      await this.subscribeToTopic(`user_${userId}`);
-    }
+  /**
+   * Get all scheduled notifications
+   * Obtenir toutes les notifications programmées
+   */
+  async getScheduledNotifications(): Promise<Notifications.NotificationRequest[]> {
+    return await Notifications.getAllScheduledNotificationsAsync();
   }
 
-  // Unsubscribe from all topics
-  async unsubscribeFromAllTopics(): Promise<void> {
-    const subscriptions = await this.getSubscriptions();
-    
-    for (const { topic } of subscriptions) {
-      try {
-        await messaging().unsubscribeFromTopic(topic);
-      } catch (error) {
-        console.error(`Error unsubscribing from ${topic}:`, error);
-      }
-    }
-    
-    await AsyncStorage.removeItem('notification_subscriptions');
-  }
-
-  // Send token to backend server
-  private async sendTokenToServer(token: string): Promise<void> {
-    try {
-      // TODO: Implement actual API call
-      // Example:
-      // const apiService = ApiService.getInstance();
-      // await apiService.post('/notifications/register', { 
-      //   fcmToken: token,
-      //   platform: Platform.OS,
-      // });
-      console.log('FCM Token registered:', token.substring(0, 10) + '...');
-      await AsyncStorage.setItem('fcm_token_registered', 'true');
-    } catch (error) {
-      console.error('Token registration failed:', error);
-      await AsyncStorage.setItem('fcm_token_registered', 'false');
-    }
-  }
-
-  // Delete token (on logout)
-  async deleteToken(): Promise<void> {
-    try {
-      await messaging().deleteToken();
-      this.token = null;
-      await AsyncStorage.removeItem('fcm_token');
-      await AsyncStorage.removeItem('fcm_token_registered');
-      
-      // Unsubscribe from user-specific topics
-      await this.unsubscribeFromAllTopics();
-    } catch (error) {
-      console.error('Delete token error:', error);
-    }
-  }
-
-  // Get token registration status
-  async isTokenRegistered(): Promise<boolean> {
-    const registered = await AsyncStorage.getItem('fcm_token_registered');
-    return registered === 'true';
-  }
-
-  // Create notification channel (Android)
-  async createChannel(
-    channelId: string,
-    name: string,
-    description: string,
-    importance: 'high' | 'default' | 'low' | 'min' = 'high'
-  ): Promise<void> {
+  /**
+   * Create notification channels for Android
+   * Créer des canaux de notification pour Android
+   */
+  async createChannels(): Promise<void> {
     if (Platform.OS === 'android') {
-      await messaging().createNotificationChannel({
-        id: channelId,
-        name,
-        description,
-        importance: importance === 'high' ? messaging.Android.Importance.HIGH :
-                     importance === 'default' ? messaging.Android.Importance.DEFAULT :
-                     importance === 'low' ? messaging.Android.Importance.LOW :
-                     messaging.Android.Importance.MIN,
+      await Notifications.setNotificationChannelAsync('messages', {
+        name: 'Messages',
+        importance: Notifications.AndroidImportance.HIGH,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#006633',
+      });
+
+      await Notifications.setNotificationChannelAsync('orders', {
+        name: 'Orders',
+        importance: Notifications.AndroidImportance.HIGH,
+        vibrationPattern: [0, 500],
+        lightColor: '#FF9800',
+      });
+
+      await Notifications.setNotificationChannelAsync('rfq', {
+        name: 'RFQ Responses',
+        importance: Notifications.AndroidImportance.DEFAULT,
+        vibrationPattern: [0, 250],
+        lightColor: '#2196F3',
+      });
+
+      await Notifications.setNotificationChannelAsync('promotions', {
+        name: 'Promotions & Updates',
+        importance: Notifications.AndroidImportance.LOW,
+        vibrationPattern: null,
+        lightColor: '#9C27B0',
       });
     }
   }
-
-  // Create default channels for AlgeriaTrade
-  async createDefaultChannels(): Promise<void> {
-    await this.createChannel(
-      'rfq_alerts',
-      'Alertes AO',
-      'Notifications pour les nouvelles demandes de devis'
-    );
-    
-    await this.createChannel(
-      'messages',
-      'Messages',
-      'Notifications pour les nouveaux messages'
-    );
-    
-    await this.createChannel(
-      'orders',
-      'Commandes',
-      'Notifications pour les mises à jour des commandes'
-    );
-    
-    await this.createChannel(
-      'promotions',
-      'Promotions',
-      'Offres spéciales et promotions'
-    );
-  }
 }
 
+// Export singleton instance
 export const pushNotificationService = PushNotificationService.getInstance();
 
-// React hook for notifications
-import { useEffect, useRef, useCallback } from 'react';
-
-export function usePushNotifications(onNotification?: (data: NotificationData) => void) {
-  const serviceRef = useRef(pushNotificationService);
-  const [isInitialized, setIsInitialized] = useState(false);
-
-  const initialize = useCallback(async () => {
-    const service = serviceRef.current;
-    
-    // Request permission
-    const hasPermission = await service.requestPermission();
-    if (!hasPermission) {
-      console.log('Notification permission denied');
-      setIsInitialized(true);
-      return;
-    }
-
-    // Get token
-    await service.getToken();
-
-    // Set up background handler
-    service.setBackgroundMessageHandler();
-
-    // Create default channels
-    await service.createDefaultChannels();
-
-    setIsInitialized(true);
-  }, []);
-
-  useEffect(() => {
-    initialize();
-
-    let unsubscribe: (() => void) | undefined;
-
-    if (onNotification) {
-      unsubscribe = serviceRef.current.onMessage(onNotification);
-    }
-
-    return () => {
-      if (unsubscribe) {
-        unsubscribe();
-      }
-    };
-  }, [initialize, onNotification]);
-
-  return {
-    isInitialized,
-    subscribeToTopic: serviceRef.current.subscribeToTopic.bind(serviceRef.current),
-    unsubscribeFromTopic: serviceRef.current.unsubscribeFromTopic.bind(serviceRef.current),
-  };
-}
-
-// Need to add useState import
-import { useState } from 'react';
+/**
+ * Notification types for AlgeriaTrade
+ * Types de notifications pour AlgeriaTrade
+ */
+export const NOTIFICATION_TYPES = {
+  NEW_MESSAGE: {
+    type: 'new_message',
+    channel: 'messages',
+    title: 'New Message',
+    titleFr: 'Nouveau Message',
+    titleAr: 'رسالة جديدة',
+  },
+  ORDER_UPDATE: {
+    type: 'order_update',
+    channel: 'orders',
+    title: 'Order Update',
+    titleFr: "Mise à jour de commande",
+    titleAr: 'تحديث الطلب',
+  },
+  RFQ_RESPONSE: {
+    type: 'rfq_response',
+    channel: 'rfq',
+    title: 'New Quotation',
+    titleFr: 'Nouveau devis',
+    titleAr: 'عرض سعر جديد',
+  },
+  PROMOTION: {
+    type: 'promotion',
+    channel: 'promotions',
+    title: 'Special Offer!',
+    titleFr: 'Offre spéciale !',
+    titleAr: 'عرض خاص!',
+  },
+} as const;
