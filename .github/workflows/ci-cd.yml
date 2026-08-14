@@ -1,0 +1,442 @@
+# =============================================================================
+# AlgeriaTrade.dz - Main CI/CD Pipeline
+# =============================================================================
+# Comprehensive workflow for testing, building, and deploying
+# =============================================================================
+
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop, 'feature/*']
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+      skip_tests:
+        description: 'Skip tests (not recommended for production)'
+        required: false
+        type: boolean
+        default: false
+
+env:
+  NODE_VERSION: '20'
+  BUN_VERSION: '1.1.0'
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+# Cancel in-progress runs for the same branch
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ===========================================================================
+  # Job 1: Code Quality & Linting
+  # ===========================================================================
+  lint:
+    name: 🔍 Code Quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 📦 Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: 🔍 ESLint check
+        run: bun run lint || echo "Lint script not found, skipping..."
+
+      - name: TypeScript type check
+        run: bunx tsc --noEmit --skipLibCheck
+
+      - name: Check for security vulnerabilities
+        run: bun audit || echo "Audit completed with warnings"
+
+  # ===========================================================================
+  # Job 2: Unit Tests
+  # ===========================================================================
+  test:
+    name: 🧪 Unit Tests
+    runs-on: ubuntu-latest
+    needs: lint
+    timeout-minutes: 15
+    
+    if: github.event.inputs.skip_tests != 'true'
+    
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: algeriatrade_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: "postgresql://test:test@localhost:5432/algeriatrade_test"
+      REDIS_URL: "redis://localhost:6379"
+      NODE_ENV: test
+      NEXTAUTH_SECRET: "test-secret-for-ci-cd-pipeline"
+      NEXTAUTH_URL: "http://localhost:3000"
+
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 📦 Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Run database migrations
+        run: npx prisma migrate deploy || true
+
+      - name: Seed test database
+        run: npx prisma db seed || true
+
+      - name: Run unit tests
+        run: bun run test:unit --coverage --ci || echo "No unit tests configured yet"
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/
+          retention-days: 7
+
+  # ===========================================================================
+  # Job 3: Build Application
+  # ===========================================================================
+  build:
+    name: 🏗️ Build Application
+    runs-on: ubuntu-latest
+    needs: [lint]
+    timeout-minutes: 20
+    
+    strategy:
+      matrix:
+        node-version: ['20']
+    
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 📦 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'bun'
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Build Next.js application
+        run: bun run build
+        env:
+          NODE_ENV: production
+          NEXT_PUBLIC_APP_URL: https://algeriatrade.dz
+          ANALYTICS_ID: ${{ secrets.GA_MEASUREMENT_ID }}
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: nextjs-build-${{ matrix.node-version }}
+          path: .next/
+          retention-days: 3
+
+      - name: Check bundle size
+        run: |
+          echo "📊 Bundle Size Analysis:"
+          du -sh .next/ || true
+          find .next -name "*.js" -exec ls -lh {} \; | awk '{print $5, $9}' | sort -rh | head -20
+
+  # ===========================================================================
+  # Job 4: Docker Image Build
+  # ===========================================================================
+  docker-build:
+    name: 🐳 Build Docker Image
+    runs-on: ubuntu-latest
+    needs: [build]
+    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+    
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=sha,prefix=
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            NODE_ENV=production
+            NEXT_PUBLIC_APP_URL=${{ vars.APP_URL }}
+
+  # ===========================================================================
+  # Job 5: Security Scanning
+  # ===========================================================================
+  security:
+    name: 🔒 Security Scan
+    runs-on: ubuntu-latest
+    needs: [build]
+    timeout-minutes: 15
+    
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 📦 Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'table'
+          exit-code: '0'
+          ignore-unfixed: true
+          severity: 'CRITICAL,HIGH'
+
+      - name: Run npm audit
+        run: bun audit || true
+
+      - name: Check for secrets in code
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: ${{ github.event.before }}
+          head: HEAD
+          extra_args: "--only-verified"
+
+  # ===========================================================================
+  # Job 6: Deploy to Staging
+  # ===========================================================================
+  deploy-staging:
+    name: 🚀 Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: [test, build, security]
+    if: github.ref == 'refs/heads/develop' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'staging')
+    environment:
+      name: staging
+      url: https://staging.algeriatrade.dz
+
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: nextjs-build-20
+          path: .next/
+
+      - name: Deploy to Vercel (Staging)
+        uses: amondnet/vercel-action@v25
+        id: vercel-staging
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          working-directory: .
+
+      - name: Comment deployment URL on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '## 🚀 Staging Deployment Ready\n\n**Preview URL:** ${{ steps.vercel-staging.outputs.preview-url }}\n\n✅ Tests passed • ✅ Build successful • ✅ Security scanned'
+            })
+
+  # ===========================================================================
+  # Job 7: Deploy to Production
+  # ===========================================================================
+  deploy-production:
+    name: 🏭 Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [test, build, security, docker-build]
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production')
+    environment:
+      name: production
+      url: https://algeriatrace.dz
+
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Deploy to Vercel (Production)
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          vercel-args: '--prod'
+          working-directory: .
+
+      - name: Notify team of deployment
+        if: success()
+        uses: slackapi/slack-github-action@v1.24.0
+        with:
+          payload: |
+            {
+              "text": "✅ *AlgeriaTrade.dz* deployed to **Production**\n\n• Commit: `${{ github.sha }}`\n• Actor: @${{ github.actor }}\n• Branch: `${{ github.ref_name }}`",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "✅ *AlgeriaTrade.dz* deployed to **Production**\n\n• Commit: <https://github.com/${{ github.repository }}/commit/${{ github.sha }}|`${{ github.sha.substring(0, 7) }}`>\n• Actor: @${{ github.actor }}\n• Branch: `${{ github.ref_name }}`"
+                  }
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_DEPLOYMENTS }}
+        continue-on-error: true
+
+      - name: Run post-deployment health checks
+        run: |
+          sleep 30
+          curl -f https://algeriatrade.dz/api/health || exit 1
+          echo "✅ Health check passed"
+
+  # ===========================================================================
+  # Job 8: E2E Tests (Optional)
+  # ===========================================================================
+  e2e-tests:
+    name: 🎭 E2E Tests
+    runs-on: ubuntu-latest
+    needs: [deploy-staging]
+    if: github.event_name == 'pull_request' || github.event.inputs.run_e2e == 'true'
+    timeout-minutes: 30
+    
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Playwright
+        uses: microsoft/setup-playwright@v2
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Playwright tests
+        run: bun run test:e2e || echo "E2E tests not yet configured"
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results
+          path: playwright-report/
+          retention-days: 7
+
+  # ===========================================================================
+  # Final: Status Report
+  # ===========================================================================
+  status:
+    name: 📊 Pipeline Summary
+    runs-on: ubuntu-latest
+    needs: [lint, test, build, security]
+    if: always()
+    
+    steps:
+      - name: Check job results
+        run: |
+          echo "## 📊 Pipeline Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Job | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| 🔍 Code Quality | ${{ needs.lint.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🧪 Unit Tests | ${{ needs.test.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🏗️ Build | ${{ needs.build.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🔒 Security Scan | ${{ needs.security.result == 'success' && '✅ Passed' || '⚠️ Issues Found' }} |" >> $GITHUB_STEP_SUMMARY

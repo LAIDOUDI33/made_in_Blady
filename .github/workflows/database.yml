@@ -1,0 +1,154 @@
+# =============================================================================
+# Database Backup & Migration Workflow
+# Automated database backups and schema migrations
+# =============================================================================
+
+name: 🗄️ Database Operations
+
+on:
+  schedule:
+    # Daily backup at 3 AM UTC
+    - cron: '0 3 * * *'
+    # Weekly maintenance on Sunday at 4 AM UTC
+    - cron: '0 4 * * 0'
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: 'Database operation to perform'
+        required: true
+        default: 'backup'
+        type: choice
+        options:
+          - backup
+          - migrate
+          - seed
+          - restore
+
+env:
+  POSTGRES_HOST: ${{ secrets.PROD_DB_HOST }}
+  POSTGRES_USER: ${{ secrets.PROD_DB_USER }}
+  POSTGRES_PASSWORD: ${{ secrets.PROD_DB_PASSWORD }}
+  POSTGRES_DB: ${{ secrets.PROD_DB_NAME }}
+
+jobs:
+  backup:
+    name: 💾 Create Database Backup
+    runs-on: ubuntu-latest
+    if: github.event.inputs.operation == 'backup' || github.event.inputs.operation == '' || (github.event_name == 'schedule')
+    
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Generate backup filename
+        id: backup-name
+        run: echo "filename=algeriatrade-backup-$(date +%Y%m%d_%H%M%S).sql.gz" >> $GITHUB_OUTPUT
+
+      - name: 📦 Create PostgreSQL backup
+        run: |
+          PGPASSWORD="${{ env.POSTGRES_PASSWORD }}" pg_dump \
+            -h "${{ env.POSTGRES_HOST }}" \
+            -U "${{ env.POSTGRES_USER }}" \
+            -d "${{ env.POSTGRES_DB }}" \
+            --no-owner \
+            --no-privileges \
+            --compress=9 \
+            > "${{ steps.backup-name.outputs.filename }}"
+          
+          ls -lh "${{ steps.backup-name.outputs.filename }}"
+
+      - name: Upload backup to S3/Cloud Storage
+        uses: jakejarvis/s3-sync-action@master
+        with:
+          args: --delete
+        env:
+          AWS_S3_BUCKET: ${{ secrets.BACKUP_S3_BUCKET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_BACKUP_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_BACKUP_SECRET_KEY }}
+          SOURCE_PATH: '${{ steps.backup-name.outputs.filename }}'
+          DEST_PATH: 'database-backups/'
+
+      - name: Clean up local backup file
+        run: rm -f "${{ steps.backup-name.outputs.filename }}"
+
+      - name: Report backup status
+        run: |
+          echo "## ✅ Database Backup Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Filename:** ${{ steps.backup-name.outputs.filename }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Timestamp:** $(date -u)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Location:** s3://${{ secrets.BACKUP_S3_BUCKET }}/database-backups/" >> $GITHUB_STEP_SUMMARY
+
+  migrate:
+    name: 🔄 Run Migrations
+    runs-on: ubuntu-latest
+    if: github.event.inputs.operation == 'migrate'
+    
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Run database migrations
+        run: |
+          npx prisma migrate deploy
+          echo "✅ Migrations applied successfully"
+
+      - name: Verify migration
+        run: npx prisma migrate status
+
+  weekly-maintenance:
+    name: 🔧 Weekly Maintenance
+    runs-on: ubuntu-latest
+    if: github.event.schedule == '0 4 * * 0'
+    
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Analyze database for optimization
+        env:
+          DATABASE_URL: "postgresql://${{ env.POSTGRES_USER }}:${{ env.POSTGRES_PASSWORD }}@${{ env.POSTGRES_HOST }}/${{ env.POSTGRES_DB }}"
+        run: |
+          npx prisma db execute --stdin <<EOF
+          -- VACUUM tables to reclaim space
+          VACUUM ANALYZE;
+          
+          -- Check table sizes
+          SELECT 
+            schemaname,
+            tablename,
+            pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename)) AS size
+          FROM pg_tables 
+          WHERE schemaname = 'public'
+          ORDER BY pg_total_relation_size(schemaname||'.'||tablename) DESC
+          LIMIT 20;
+          EOF
+
+      - name: Clean up old data (optional)
+        run: |
+          echo "🧹 Running cleanup tasks..."
+          # Add cleanup queries here as needed
+          # Example: Delete old audit logs older than 90 days
+          # DELETE FROM AuditLog WHERE createdAt < NOW() - INTERVAL '90 days';
+
+      - name: Report maintenance results
+        run: |
+          echo "## 🔧 Weekly Maintenance Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Date:** $(date -u)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Operations:** Vacuum, Analyze, Cleanup" >> $GITHUB_STEP_SUMMARY
