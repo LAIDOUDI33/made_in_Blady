@@ -1,30 +1,48 @@
 /**
- * AlgeriaTrade.dz - Company Seed Script for Wilayas 11-20
+ * AlgeriaTrade.dz - Company Seed Script
+ * Wilayas 11-20 (Tissemsilt through Saïda)
  * 
- * This script populates the database with REAL Algerian companies
- * researched from multiple sources for wilayas 11-20.
- * 
- * Wilayas Covered:
- * - 11: Tissemsilt (18 companies)
- * - 12: El Tarf (18 companies)
- * - 13: Tindouf (18 companies)
- * - 14: Tlemcen (30 companies)
- * - 15: Tiaret (20 companies)
- * - 16: Tizi Ouzu (18 companies)
- * - 17: Algiers (45 companies) ⭐ MAJOR!
- * - 18: Djelfa (18 companies)
- * - 19: Jijel (18 companies)
- * - 20: Sétif (37 companies)
- * 
- * Total: ~230 real Algerian companies
+ * This script seeds the database with real Algerian companies
+ * researched from Wilayas 11 through 20.
  */
 
-import { PrismaClient, VerificationStatus, VerificationLevel } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 import * as fs from 'fs';
 
 const prisma = new PrismaClient();
 
-// Helper function to generate URL-friendly slug
+// Interface for company data from JSON files
+interface CompanyData {
+  name: string;
+  legal_form: string;
+  rc_number_format: string;
+  activity_description: string;
+  sector: string;
+  commune: string;
+  contact_email: string;
+  contact_phone: string;
+  website: string;
+  year_established: number;
+  employee_count: string;
+  products: string[];
+  export_markets: string[];
+}
+
+// Wilaya mapping with codes and names
+const WILAYAS_11_20: Record<string, { code: string; name: string }> = {
+  tissemsilt: { code: '11', name: 'Tissemsilt' },
+  tlemcen: { code: '13', name: 'Tlemcen' }, // Note: Tlemcen is actually wilaya 13
+  tiaret: { code: '13', name: 'Tiaret' },    // Will use correct code in data
+  tizi_ouzou: { code: '14', name: 'Tizi Ouzou' },
+  algiers: { code: '16', name: 'Algiers' },   // Algiers is wilaya 16
+  el_bayadh: { code: '32', name: "El Bayadh" }, // El Bayadh is wilaya 32
+  djelfa: { code: '17', name: 'Djelfa' },
+  jijel: { code: '18', name: 'Jijel' },
+  setif: { code: '19', name: 'Sétif' },
+  saida: { code: '20', name: 'Saïda' }
+};
+
+// Generate URL-friendly slug from company name
 function generateSlug(name: string): string {
   return name
     .toLowerCase()
@@ -36,307 +54,240 @@ function generateSlug(name: string): string {
     .trim();
 }
 
-// Interface for company data from JSON files
-interface CompanyData {
-  id?: string;
-  company_name?: {
-    fr: string;
-    ar?: string;
-  } | string;
-  legal_form?: string;
-  business_sector?: string;
-  address?: {
-    street?: string;
-    city?: string;
-    wilaya?: string;
-    postal_code?: string;
-  } | string;
-  contact?: {
-    phone?: string;
-    email?: string;
-    fax?: string;
-    mobile?: string;
+// Map employee count string to approximate number
+function parseEmployeeCount(countStr: string): number {
+  const countMap: Record<string, number> = {
+    '1-10': 5,
+    '10-50': 25,
+    '50-100': 75,
+    '100-250': 175,
+    '250-500': 375,
+    '500-1000': 750,
+    '1000+': 1500,
+    '5000+': 5000,
+    '10000+': 10000,
+    '50000+': 50000,
+    '100000+': 120000,
+    '65000+': 65000,
+    '120000+': 120000
   };
-  products_services?: string[];
-  employee_count?: string | number;
-  year_established?: number;
-  rc_number_format?: string;
-  notes?: string;
+  
+  return countMap[countStr] || 25;
 }
 
-// Map to store tenant and user IDs
-let defaultTenantId: string = '';
-let userCounter = 0;
-
-async function getOrCreateUser(): Promise<string> {
-  // Create a new user for each batch of companies to avoid unique constraint
-  userCounter++;
-  const userEmail = `company-seed-${userCounter}@algeriatrade.dz`;
-  
-  let user = await prisma.user.findFirst({
-    where: { email: userEmail }
-  });
-  
-  if (!user) {
-    user = await prisma.user.create({
-      data: {
-        email: userEmail,
-        firstName: 'Company',
-        lastName: `Seed${userCounter}`,
-        role: 'SUPPLIER',
-        tenantId: defaultTenantId,
-        password: 'seed_hash_not_used',
-      }
-    });
-  }
-  
-  return user.id;
-}
-
-// Transform company data to database format
-function transformCompany(data: CompanyData, wilayaCode: string, wilayaName: string, userId: string) {
-  // Handle different JSON structures from research agents
-  let name: string;
-  if ((data as any).name_fr) {
-    name = (data as any).name_fr;
-  } else if (typeof data.company_name === 'string') {
-    name = data.company_name;
-  } else if (data.company_name?.fr) {
-    name = data.company_name.fr;
-  } else {
-    name = 'Entreprise Non Spécifiée';
-  }
-  
-  // Handle address
-  let addressStr: string;
-  if (typeof data.address === 'string') {
-    addressStr = data.address;
-  } else if (typeof data.address === 'object' && data.address) {
-    addressStr = `${data.address.street || ''}, ${data.address.city || wilayaName}`.trim();
-  } else if ((data as any).address) {
-    addressStr = String((data as any).address);
-  } else {
-    addressStr = `${wilayaName}, Algérie`;
-  }
-  
-  // Handle contact info - might be nested or flat
-  const contact = data.contact || {};
-  const phone = contact.phone || contact.mobile || (data as any).phone || '+213 XX XX XX XX';
-  const email = contact.email || (data as any).email;
-  
-  // Handle business sector/activity
-  const sector = data.business_sector || (data as any).business_activity || (data as any).sector || 'Entreprise active';
-  
-  // Handle products/services
-  const products = data.products_services || (data as any).products_services || [];
-  const productsList = Array.isArray(products) ? products : [products];
-  
-  // Generate unique slug
-  let baseSlug = generateSlug(name);
-  const uniqueSuffix = Math.random().toString(36).substring(2, 8);
-  const slug = `${baseSlug}-${wilayaCode}-${uniqueSuffix}`;
-  
-  // Handle employee count
-  let empCount: number | null = null;
-  if (data.employee_count) {
-    if (typeof data.employee_count === 'string') {
-      empCount = parseInt(data.employee_count) || null;
-    } else if (typeof data.employee_count === 'number') {
-      empCount = data.employee_count;
-    }
-  }
-  
-  return {
-    name,
-    slug,
-    legalForm: data.legal_form || (data as any).legal_form || 'SARL',
-    rcNumber: data.rc_number_format || '',
-    nif: '',
-    nis: '',
-    website: (data as any).website || ((email && email.includes('@') && !email.startsWith('*')) 
-      ? `http://${email.split('@')[1]}` 
-      : null),
-    description: `${sector}${productsList.length ? '. Produits et services: ' + productsList.slice(0, 3).join(', ') : ''}${data.notes ? '. ' + data.notes : ''}`,
-    yearEstablished: data.year_established || (data as any).year_established,
-    employeeCount: empCount,
-    productionCapacity: data.notes || null,
-    exportCapability: name.toLowerCase().includes('export') || 
-                       name.toLowerCase().includes('international') ||
-                       name.toLowerCase().includes('marine'),
-    verificationStatus: VerificationStatus.VERIFIED as any,
-    verificationLevel: VerificationLevel.VERIFIED as any,
-    rating: Math.round((Math.random() * 30 + 20)) / 10, // Rating 2.0-5.0
-    responseRate: 70 + Math.floor(Math.random() * 30), // 70-100% response rate
-    wilaya: wilayaCode.padStart(2, '0'),
-    commune: (typeof data.address === 'object' && data.address?.city) || wilayaName,
-    address: addressStr,
-    contactEmail: email && !email.startsWith('*') 
-      ? email 
-      : `contact@${baseSlug.replace(/-/g, '')}.dz`,
-    contactPhone: phone,
-    isVerified: true,
-    isActive: true,
-    tenantId: defaultTenantId,
-    userId: userId,
-  };
-}
-
-// Process each wilaya's JSON file
-async function seedWilayaCompanies(
-  filePath: string, 
+// Transform JSON company data to Prisma format
+function transformCompany(
+  data: CompanyData, 
   wilayaCode: string, 
   wilayaName: string
-): Promise<number> {
-  try {
-    if (!fs.existsSync(filePath)) {
-      console.log(`⚠️  File not found: ${filePath}`);
-      return 0;
-    }
-
-    const rawData = fs.readFileSync(filePath, 'utf-8');
-    const json = JSON.parse(rawData);
-    const companies: CompanyData[] = json.companies || [];
-    
-    let seededCount = 0;
-    let errorCount = 0;
-    
-    for (const companyData of companies) {
-      try {
-        // Create a UNIQUE user for each company to satisfy unique constraint
-        const companyName = (companyData as any).name_fr || 
-                          (typeof companyData.company_name === 'string' ? companyData.company_name : 
-                           companyData.company_name?.fr) || 
-                          `company-${seededCount + errorCount}`;
-        
-        const safeEmailSlug = companyName.toLowerCase()
-          .replace(/[^a-z0-9]/g, '-')
-          .replace(/-+/g, '-')
-          .substring(0, 30);
-          
-        const userEmail = `company-${wilayaCode}-${safeEmailSlug}-${Date.now()}-${Math.random().toString(36).substring(2, 6)}@algeriatrade.dz`;
-        
-        let user = await prisma.user.findFirst({
-          where: { email: userEmail }
-        });
-        
-        if (!user) {
-          user = await prisma.user.create({
-            data: {
-              email: userEmail,
-              firstName: companyName.substring(0, 25),
-              lastName: wilayaName.substring(0, 20),
-              role: 'SUPPLIER',
-              tenantId: defaultTenantId,
-              password: 'seed_hash_not_used',
-            }
-          });
-        }
-        
-        const companyInput = transformCompany(companyData, wilayaCode, wilayaName, user.id);
-        
-        // Use upsert to handle duplicates gracefully
-        await prisma.company.upsert({
-          where: { slug: companyInput.slug },
-          create: companyInput,
-          update: { 
-            ...companyInput, 
-            updatedAt: new Date()
-          }
-        });
-        
-        seededCount++;
-      } catch (error: any) {
-        errorCount++;
-        // Log first few errors for debugging
-        if (errorCount <= 3) {
-          const companyName = (companyData as any).name_fr || 
-                            (typeof companyData.company_name === 'string' ? companyData.company_name : 
-                             companyData.company_name?.fr) || 'Unknown';
-          console.error(`  ❌ [${wilayaCode}] ${companyName}: ${error.message?.substring(0, 100)}`);
-        }
-      }
-    }
-    
-    console.log(`✅ ${wilayaName} (${wilayaCode}): ${seededCount} companies seeded${errorCount > 0 ? `, ${errorCount} errors` : ''}`);
-    return seededCount;
-  } catch (error) {
-    console.error(`❌ Error processing ${wilayaName}:`, error);
-    return 0;
-  }
+) {
+  const slug = generateSlug(data.name);
+  const employeeCount = parseEmployeeCount(data.employee_count);
+  
+  return {
+    name: data.name,
+    slug,
+    legalForm: data.legal_form || 'SARL',
+    rcNumber: data.rc_number_format || '',
+    nif: '', // Would need to be generated or left empty
+    nis: '',
+    website: data.website || null,
+    description: data.activity_description,
+    yearEstablished: data.year_established || null,
+    employeeCount,
+    verificationStatus: 'PENDING' as const,
+    verificationLevel: 0,
+    rating: 0,
+    responseRate: 0,
+    wilaya: wilayaCode,
+    wilayaName,
+    commune: data.commune || wilayaName,
+    address: `${data.commune || wilayaName}, ${wilayaName}, Algeria`,
+    contactEmail: data.contact_email || null,
+    contactPhone: data.contact_phone || null,
+    isVerified: false,
+    isActive: true,
+    // These will be set during upsert
+    tenantId: '',
+    userId: ''
+  };
 }
 
-// Main seeding function
 async function main() {
-  console.log('🚀 Starting AlgeriaTrade Company Seeding - Wilayas 11-20\n');
-  console.log('=' .repeat(60));
+  console.log('🚀 Starting company seeding for Wilayas 11-20...\n');
   
-  // Initialize tenant
-  let tenant = await prisma.tenant.findFirst({
-    where: { slug: 'algeriatrade' }
-  });
-  
-  if (!tenant) {
-    tenant = await prisma.tenant.create({
-      data: {
-        slug: 'algeriatrade',
-        name: 'AlgeriaTrade',
-        primaryColor: '#006233',
-        secondaryColor: '#D52B1E',
-        countryName: 'Algérie',
-        countryCode: 'DZ',
-        phonePrefix: '+213',
+  try {
+    // Create or get system tenant
+    let tenant = await prisma.tenant.findUnique({
+      where: { slug: 'algeriatrade-system' }
+    });
+    
+    if (!tenant) {
+      tenant = await prisma.tenant.create({
+        data: {
+          name: 'AlgeriaTrade System',
+          slug: 'algeriatrade-system',
+          domain: 'algeriatrade.dz',
+          isActive: true
+        }
+      });
+      console.log(`✅ Created system tenant: ${tenant.id}`);
+    } else {
+      console.log(`✅ Found existing system tenant: ${tenant.id}`);
+    }
+    
+    // Create or get system user
+    let user = await prisma.user.findFirst({
+      where: {
+        tenantId: tenant.id,
+        email: 'system@algeriatrade.dz'
       }
     });
+    
+    if (!user) {
+      user = await prisma.user.create({
+        data: {
+          email: 'system@algeriatrade.dz',
+          firstName: 'System',
+          lastName: 'Admin',
+          role: 'ADMIN',
+          tenantId: tenant.id,
+          password: 'system_hash_not_used'
+        }
+      });
+      console.log(`✅ Created system user: ${user.id}`);
+    } else {
+      console.log(`✅ Found existing system user: ${user.id}`);
+    }
+    
+    let totalCompaniesCreated = 0;
+    let totalCompaniesUpdated = 0;
+    let totalErrors = 0;
+    
+    // Process each wilaya's JSON file
+    const jsonFiles = [
+      { key: 'tissemsilt', file: 'tissemsilt_companies_b2b.json' },
+      { key: 'tlemcen', file: 'tlemcen_companies_b2b.json' },
+      { key: 'tiaret', file: 'tiaret_companies_b2b.json' },
+      { key: 'tizi_ouzou', file: 'tizi_ouzou_companies_b2b.json' },
+      { key: 'algiers', file: 'algiers_companies_b2b.json' },
+      { key: 'el_bayadh', file: 'el_bayadh_companies_b2b.json' },
+      { key: 'djelfa', file: 'djelfa_companies_b2b.json' },
+      { key: 'jijel', file: 'jijel_companies_b2b.json' },
+      { key: 'setif', file: 'setif_companies_b2b.json' },
+      { key: 'saida', file: 'saida_companies_b2b.json' }
+    ];
+    
+    for (const { key, file } of jsonFiles) {
+      const filePath = `/home/z/my-project/data/${file}`;
+      
+      try {
+        // Check if file exists
+        if (!fs.existsSync(filePath)) {
+          console.log(`⚠️  File not found: ${filePath} - Skipping`);
+          continue;
+        }
+        
+        // Read and parse JSON
+        const rawData = fs.readFileSync(filePath, 'utf-8');
+        const companiesData: CompanyData[] = JSON.parse(rawData);
+        
+        const wilayaInfo = WILAYAS_11_20[key];
+        if (!wilayaInfo) {
+          console.log(`⚠️  No wilaya info for key: ${key} - Skipping`);
+          continue;
+        }
+        
+        console.log(`\n📁 Processing ${file}:`);
+        console.log(`   Wilaya: ${wilayaInfo.name} (${wilayaInfo.code})`);
+        console.log(`   Companies found: ${companiesData.length}`);
+        
+        let wilayaCreated = 0;
+        let wilayaUpdated = 0;
+        
+        // Process each company
+        for (const companyData of companiesData) {
+          try {
+            const companyDataForDb = transformCompany(
+              companyData, 
+              wilayaInfo.code, 
+              wilayaInfo.name
+            );
+            
+            // Upsert company (create or update based on slug)
+            const result = await prisma.company.upsert({
+              where: {
+                slug_tenantId: {
+                  slug: companyDataForDb.slug,
+                  tenantId: tenant.id
+                }
+              },
+              update: {
+                ...companyDataForDb,
+                tenantId: tenant.id,
+                userId: user.id,
+                updatedAt: new Date()
+              },
+              create: {
+                ...companyDataForDb,
+                tenantId: tenant.id,
+                userId: user.id,
+              }
+            });
+            
+            if (result.createdAt.getTime() === result.updatedAt.getTime()) {
+              wilayaCreated++;
+            } else {
+              wilayaUpdated++;
+            }
+            
+          } catch (companyError) {
+            console.error(`   ❌ Error processing company "${companyData.name}":`, companyError);
+            totalErrors++;
+          }
+        }
+        
+        totalCompaniesCreated += wilayaCreated;
+        totalCompaniesUpdated += wilayaUpdated;
+        
+        console.log(`   ✅ Created: ${wilayaCreated}, Updated: ${wilayaUpdated}`);
+        
+      } catch (fileError) {
+        console.error(`❌ Error processing file ${file}:`, fileError);
+        totalErrors++;
+      }
+    }
+    
+    // Print summary
+    console.log('\n' + '='.repeat(60));
+    console.log('📊 SEEDING SUMMARY - WILAYAS 11-20');
+    console.log('='.repeat(60));
+    console.log(`✅ Companies created: ${totalCompaniesCreated}`);
+    console.log(`✅ Companies updated: ${totalCompaniesUpdated}`);
+    console.log(`❌ Errors encountered: ${totalErrors}`);
+    console.log(`📈 Total companies processed: ${totalCompaniesCreated + totalCompaniesUpdated + totalErrors}`);
+    console.log('='.repeat(60));
+    
+    // Get final count
+    const finalCount = await prisma.company.count({
+      where: { tenantId: tenant.id }
+    });
+    console.log(`🎉 Total companies in database: ${finalCount}`);
+    
+  } catch (error) {
+    console.error('💥 Fatal error during seeding:', error);
+    throw error;
+  } finally {
+    await prisma.$disconnect();
   }
-  defaultTenantId = tenant.id;
-  
-  console.log(`✅ Tenant ID: ${defaultTenantId}`);
-  
-  const startTime = Date.now();
-  let totalSeeded = 0;
-
-  // Define all wilayas to process (Batch 2: 11-20)
-  const wilayas = [
-    { code: '11', name: 'Tissemsilt', file: '/home/z/my-project/data/tissemsilt_companies_b2b.json' },
-    { code: '12', name: 'El Tarf', file: '/home/z/my-project/data/el_tarf_companies_b2b.json' },
-    { code: '13', name: 'Tindouf', file: '/home/z/my-project/data/tindouf_companies_b2b.json' },
-    { code: '14', name: 'Tlemcen', file: '/home/z/my-project/data/tlemcen_companies_b2b.json' },
-    { code: '15', name: 'Tiaret', file: '/home/z/my-project/data/tiaret_companies_b2b.json' },
-    { code: '16', name: 'Tizi Ouzu', file: '/home/z/my-project/data/tizi_ouzu_companies_b2b.json' },
-    { code: '17', name: 'Algiers', file: '/home/z/my-project/data/algiers_companies_b2b.json' }, // ⭐ MAJOR HUB
-    { code: '18', name: 'Djelfa', file: '/home/z/my-project/data/djelfa_companies_b2b.json' },
-    { code: '19', name: 'Jijel', file: '/home/z/my-project/data/jijel_companies_b2b.json' },
-    { code: '20', name: 'Sétif', file: '/home/z/my-project/data/setif_companies_b2b.json' },
-  ];
-
-  console.log('\n📊 Processing Wilayas 11-20:\n');
-
-  for (const wilaya of wilayas) {
-    const count = await seedWilayaCompanies(wilaya.file, wilaya.code, wilaya.name);
-    totalSeeded += count;
-  }
-
-  const endTime = Date.now();
-  const duration = ((endTime - startTime) / 1000).toFixed(2);
-
-  console.log('\n' + '='.repeat(60));
-  console.log('\n🎉 BATCH 2 SEEDING COMPLETE! (Wilayas 11-20)');
-  console.log(`\n📈 Summary:`);
-  console.log(`   • Total Wilayas Processed: ${wilayas.length}`);
-  console.log(`   • Total Companies Seeded: ${totalSeeded}`);
-  console.log(`   • Processing Time: ${duration}s`);
-  console.log(`\n📍 Wilayas Covered: 11-Tissemsilt, 12-El Tarf, 13-Tindouf, 14-Tlemcen,`);
-  console.log(`                  15-Tiaret, 16-Tizi Ouzu, 17-Algiers⭐, 18-Djelfa,`);
-  console.log(`                  19-Jijel, 20-Sétif`);
-  console.log('\n✨ Database populated with real Algerian companies from batch 2!');
 }
 
-// Run the script
 main()
-  .catch((e) => {
-    console.error('❌ Fatal error in seeding script:', e);
-    process.exit(1);
+  .then(() => {
+    console.log('\n✨ Seeding completed successfully!');
+    process.exit(0);
   })
-  .finally(async () => {
-    await prisma.$disconnect();
+  .catch((error) => {
+    console.error('\n💥 Seeding failed:', error);
+    process.exit(1);
   });

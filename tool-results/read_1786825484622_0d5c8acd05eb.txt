@@ -1,0 +1,1189 @@
+     1→{
+     2→  "metadata": {
+     3→    "wilaya_code": "17",
+     4→    "wilaya_name": "Alger/Algiers",
+     5→    "wilaya_arabic": "الجزائر",
+     6→    "country": "Algérie/Algeria",
+     7→    "capital_city": true,
+     8→    "total_companies": 45,
+     9→    "research_date": "2025-01-15",
+    10→    "source": "Web research - Major companies headquartered in Algiers"
+    11→  },
+    12→  "companies": [
+    13→    {
+    14→      "id": "ALG-001",
+    15→      "company_name": {
+    16→        "fr": "SONATRACH",
+    17→        "ar": "سوناطراك"
+    18→      },
+    19→      "legal_form": "SPA (Société par Actions)",
+    20→      "business_sector": "Pétrole, Gaz, Énergie",
+    21→      "address": {
+    22→        "street": "Djenane El Malik, Hydra",
+    23→        "city": "Alger",
+    24→        "wilaya": "17"
+    25→      },
+    26→      "contact": {
+    27→        "phone": "+213 21 54 80 11",
+    28→        "email": "sonatrach@sonatrach.dz",
+    29→        "website": "https://sonatrach.com"
+    30→      },
+    31→      "products_services": [
+    32→        "Exploration pétrole et gaz",
+    33→        "Raffinage",
+    34→        "Pétrochimie",
+    35→        "Distribution"
+    36→      ],
+    37→      "employee_count": 120000,
+    38→      "year_established": 1963
+    39→    },
+    40→    {
+    41→      "id": "ALG-002",
+    42→      "company_name": {
+    43→        "fr": "SONELGAZ",
+    44→        "ar": "سونلغاز"
+    45→      },
+    46→      "legal_form": "SPA (Société par Actions)",
+    47→      "business_sector": "Électricité, Gaz, Énergie renouvelable",
+    48→      "address": {
+    49→        "street": "2 Boulevard Salak Bouakouir",
+    50→        "city": "Bir Mourad Raïs",
+    51→        "wilaya": "17"
+    52→      },
+    53→      "contact": {
+    54→        "phone": "+213 23 56 95 01",
+    55→        "email": "contact@sonelgaz.dz",
+    56→        "website": "https://www.sonelgaz.dz"
+    57→      },
+    58→      "products_services": [
+    59→        "Production électricité",
+    60→        "Distribution gaz",
+    61→        "Énergies renouvelables"
+    62→      ],
+    63→      "employee_count": 120000,
+    64→      "year_established": 1969
+    65→    },
+    66→    {
+    67→      "id": "ALG-003",
+    68→      "company_name": {
+    69→        "fr": "CEVITAL",
+    70→        "ar": "سيفيتال"
+    71→      },
+    72→      "legal_form": "SPA (Société Privée)",
+    73→      "business_sector": "Agroalimentaire, Acier, Commerce",
+    74→      "address": {
+    75→        "street": "Zone Industrielle Oued Smar",
+    76→        "city": "Alger",
+    77→        "wilaya": "17"
+    78→      },
+    79→      "contact": {
+    80→        "phone": "+213 23 28 00 00",
+    81→        "email": "contact@cevital.com",
+    82→        "website": "https://www.cevital.com"
+    83→      },
+    84→      "products_services": [
+    85→        "Produits alimentaires",
+    86→        "Acier",
+    87→        "Distribution grande surface"
+    88→      ],
+    89→      "employee_count": 15000,
+    90→      "year_established": 1998
+    91→    },
+    92→    {
+    93→      "id": "ALG-004",
+    94→      "company_name": {
+    95→        "fr": "Engie Algeria",
+    96→        "ar": "انجي الجزائر"
+    97→      },
+    98→      "legal_form": "SPA (Joint Venture)",
+    99→      "business_sector": "Électricité, Gaz, Énergie",
+   100→      "address": {
+   101→        "street": "Zone d'Activités Rouiba",
+   102→        "city": "Rouiba",
+   103→        "wilaya": "17"
+   104→      },
+   105→      "contact": {
+   106→        "phone": "+213 23 81 00 00",
+   107→        "email": "contact@engie.algeria",
+   108→        "website": "https://www.engie.com.dz"
+   109→      },
+   110→      "products_services": [
+   111→        "Production électrique",
+   112→        "Distribution gaz",
+   113→        "Solutions énergétiques"
+   114→      ],
+   115→      "employee_count": 4500,
+   116→      "year_established": 2002
+   117→    },
+   118→    {
+   119→      "id": "ALG-005",
+   120→      "company_name": {
+   121→        "fr": "Air Algérie",
+   122→        "ar": "الخطوط الجوية الجزائرية"
+   123→      },
+   124→      "legal_form": "EPE (Entreprise Publique Économique)",
+   125→      "business_sector": "Transport Aérien",
+   126→      "address": {
+   127→        "street": "1 Place des Martyrs",
+   128→        "city": "Alger Centre",
+   129→        "wilaya": "17"
+   130→      },
+   131→      "contact": {
+   132→        "phone": "+213 21 63 11 11",
+   133→        "email": "contact@airalgerie.dz",
+   134→        "website": "https://www.airalgerie.dz"
+   135→      },
+   136→      "products_services": [
+   137→        "Transport passagers",
+   138→        "Transport fret",
+   139→        "Maintenance aéronautique"
+   140→      ],
+   141→      "employee_count": 10000,
+   142→      "year_established": 1963
+   143→    },
+   144→    {
+   145→      "id": "ALG-006",
+   146→      "company_name": {
+   147→        "fr": "NAFTAL",
+   148→        "ar": "نفتال"
+   149→      },
+   150→      "legal_form": "SPA (Filière Sonatrach)",
+   151→      "business_sector": "Distribution Carburants, Lubrifiants",
+   152→      "address": {
+   153→        "street": "Route de Kouba",
+   154→        "city": "Alger",
+   155→        "wilaya": "17"
+   156→      },
+   157→      "contact": {
+   158→        "phone": "+213 21 64 44 00",
+   159→        "email": "contact@naftal.dz",
+   160→        "website": "https://www.naftal.dz"
+   161→      },
+   162→      "products_services": [
+   163→        "Stations service",
+   164→        "Carburants",
+   165→        "Lubrifiants",
+   166→        "GPL"
+   167→      ],
+   168→      "employee_count": 25000,
+   169→      "year_established": 1982
+   170→    },
+   171→    {
+   172→      "id": "ALG-007",
+   173→      "company_name": {
+   174→        "fr": "Mobilis",
+   175→        "ar": "موبيليس"
+   176→      },
+   177→      "legal_form": "SPA (Filiée Algérie Télécom)",
+   178→      "business_sector": "Télécommunications Mobiles",
+   179→      "address": {
+   180→        "street": "Boulevard François Mitterrand",
+   181→        "city": "Hussein Dey",
+   182→        "wilaya": "17"
+   183→      },
+   184→      "contact": {
+   185→        "phone": "+213 21 91 11 11",
+   186→        "email": "contact@mobilis.dz",
+   187→        "website": "https://www.mobilis.dz"
+   188→      },
+   189→      "products_services": [
+   190→        "Téléphonie mobile",
+   191→        "Internet mobile",
+   192→        "Services data"
+   193→      ],
+   194→      "employee_count": 3500,
+   195→      "year_established": 2003
+   196→    },
+   197→    {
+   198→      "id": "ALG-008",
+   199→      "company_name": {
+   200→        "fr": "Djezzy",
+   201→        "ar": "جيزي"
+   202→      },
+   203→      "legal_form": "SPA (Groupe Nedjma/Ooredoo)",
+   204→      "business_sector": "Télécommunications Mobiles",
+   205→      "address": {
+   206→        "street": "Centre Commercial Zeralda",
+   207→        "city": "Zeralda",
+   208→        "wilaya": "17"
+   209→      },
+   210→      "contact": {
+   211→        "phone": "+213 21 91 22 22",
+   212→        "email": "contact@djezzy.dz",
+   213→        "website": "https://www.djezzy.dz"
+   214→      },
+   215→      "products_services": [
+   216→        "Téléphonie mobile",
+   217→        "Internet 4G/LTE",
+   218→        "Solutions entreprises"
+   219→      ],
+   220→      "employee_count": 4000,
+   221→      "year_established": 1994
+   222→    },
+   223→    {
+   224→      "id": "ALG-009",
+   225→      "company_name": {
+   226→        "fr": "Ooredoo Algérie",
+   227→        "ar": "أوريدو الجزائر"
+   228→      },
+   229→      "legal_form": "SPA (Groupe Ooredoo Qatar)",
+   230→      "business_sector": "Télécommunications",
+   231→      "address": {
+   232→        "street": "Immeuble Ooredoo Hydra",
+   233→        "city": "Hydra",
+   234→        "wilaya": "17"
+   235→      },
+   236→      "contact": {
+   237→        "phone": "+213 21 54 88 88",
+   238→        "email": "contact@ooredoo.dz",
+   239→        "website": "https://www.ooredoo.dz"
+   240→      },
+   241→      "products_services": [
+   242→        "Téléphonie mobile",
+   243→        "Internet fibre",
+   244→        "Services fixes"
+   245→      ],
+   246→      "employee_count": 3000,
+   247→      "year_established": 2014
+   248→    },
+   249→    {
+   250→      "id": "ALG-010",
+   251→      "company_name": {
+   252→        "fr": "BNA - Banque Nationale d'Algérie",
+   253→        "ar": "البنك الوطني الجزائري"
+   254→      },
+   255→      "legal_form": "EPE (Banque Publique)",
+   256→      "business_sector": "Banque, Services Financiers",
+   257→      "address": {
+   258→        "street": "Boulevard Khemisti",
+   259→        "city": "Alger Centre",
+   260→        "wilaya": "17"
+   261→      },
+   262→      "contact": {
+   263→        "phone": "+213 21 63 66 66",
+   264→        "email": "contact@bna.dz",
+   265→        "website": "https://www.bna.dz"
+   266→      },
+   267→      "products_services": [
+   268→        "Banque détail",
+   269→        "Crédits",
+   270→        "Services aux entreprises"
+   271→      ],
+   272→      "employee_count": 12000,
+   273→      "year_established": 1966
+   274→    },
+   275→    {
+   276→      "id": "ALG-011",
+   277→      "company_name": {
+   278→        "fr": "CPA - Crédit Populaire d'Algérie",
+   279→        "ar": "القرض الشعبي الجزائري"
+   280→      },
+   281→      "legal_form": "EPE (Banque Publique)",
+   282→      "business_sector": "Banque, Microfinance",
+   283→      "address": {
+   284→        "street": "Rue de Marseille",
+   285→        "city": "Alger Centre",
+   286→        "wilaya": "17"
+   287→      },
+   288→      "contact": {
+   289→        "phone": "+213 21 63 77 77",
+   290→        "email": "contact@cpa.dz",
+   291→        "website": "https://www.cpa-bank.dz"
+   292→      },
+   293→      "products_services": [
+   294→        "Comptes bancaires",
+   295→        "Microcrédits",
+   296→        "Transferts"
+   297→      ],
+   298→      "employee_count": 12500,
+   299→      "year_established": 1987
+   300→    },
+   301→    {
+   302→      "id": "ALG-012",
+   303→      "company_name": {
+   304→        "fr": "BEA - Banque Extérieure d'Algérie",
+   305→        "ar": "البنك الخارجي الجزائري"
+   306→      },
+   307→      "legal_form": "EPE (Banque Publique)",
+   308→      "business_sector": "Banque, Commerce International",
+   309→      "address": {
+   310→        "street": "Boulevard Amirouche",
+   311→        "city": "Alger",
+   312→        "wilaya": "17"
+   313→      },
+   314→      "contact": {
+   315→        "phone": "+213 21 63 99 99",
+   316→        "email": "contact@bea.dz",
+   317→        "website": "https://www.bea.dz"
+   318→      },
+   319→      "products_services": [
+   320→        "Financement export/import",
+   321→        "Crédits documentaires",
+   322→        "Change étranger"
+   323→      ],
+   324→      "employee_count": 6000,
+   325→      "year_established": 1967
+   326→    },
+   327→    {
+   328→      "id": "ALG-013",
+   329→      "company_name": {
+   330→        "fr": "COSIDER",
+   331→        "ar": "كوسيدار"
+   332→      },
+   333→      "legal_form": "SPA (Groupe Public)",
+   334→      "business_sector": "Construction BTP, Industrie",
+   335→      "address": {
+   336→        "street": "Zone Industrielle Rouiba",
+   337→        "city": "Rouiba",
+   338→        "wilaya": "17"
+   339→      },
+   340→      "contact": {
+   341→        "phone": "+213 21 82 00 00",
+   342→        "email": "commercial@cosider.dz",
+   343→        "website": "https://www.cosider.dz"
+   344→      },
+   345→      "products_services": [
+   346→        "Travaux publics",
+   347→        "Construction industrielle",
+   348→        "Tuyaux béton"
+   349→      ],
+   350→      "employee_count": 8000,
+   351→      "year_established": 1970
+   352→    },
+   353→    {
+   354→      "id": "ALG-014",
+   355→      "company_name": {
+   356→        "fr": "ETRHB Haddad Group",
+   357→        "ar": "مجموعة حداد للأشغال العمومية"
+   358→      },
+   359→      "legal_form": "SARL (Groupe Privé)",
+   360→      "business_sector": "Construction BTP, Travaux Publics",
+   361→      "address": {
+   362→        "street": "Zone Industrielle Oued Smar",
+   363→        "city": "Alger",
+   364→        "wilaya": "17"
+   365→      },
+   366→      "contact": {
+   367→        "phone": "+213 23 27 00 00",
+   368→        "email": "contact@etrhb-haddad.dz",
+   369→        "website": "https://www.etrhb-hadda.dz"
+   370→      },
+   371→      "products_services": [
+   372→        "Infrastructure routière",
+   373→        "Bâtiment",
+   374→        "Génie civil"
+   375→      ],
+   376→      "employee_count": 15000,
+   377→      "year_established": 1986
+   378→    },
+   379→    {
+   380→      "id": "ALG-015",
+   381→      "company_name": {
+   382→        "fr": "Condor",
+   383→        "ar": "كوندور"
+   384→      },
+   385→      "legal_form": "SARL (Groupe Benhamadi)",
+   386→      "business_sector": "Électroménager, Électronique",
+   387→      "address": {
+   388→        "zone": "Parc d'Activités de Bou Ismaïl",
+   389→        "city": "Boumerdès",
+   390→        "wilaya": "17"
+   391→      },
+   392→      "contact": {
+   393→        "phone": "+213 24 85 00 00",
+   394→        "email": "contact@condor.dz",
+   395→        "website": "https://www.condor.dz"
+   396→      },
+   397→      "products_services": [
+   398→        "Appareils électroménagers",
+   399→        "Électronique grand public",
+   400→        "Climatisation"
+   401→      ],
+   402→      "employee_count": 8000,
+   403→      "year_established": 1996
+   404→    },
+   405→    {
+   406→      "id": "ALG-016",
+   407→      "company_name": {
+   408→        "fr": "SAIDAL Group",
+   409→        "ar": "مجموعة صيدال"
+   410→      },
+   411→      "legal_form": "SPA (Groupe Pharmaceutique Public)",
+   412→      "business_sector": "Pharmacie, Produits de Santé",
+   413→      "address": {
+   414→        "street": "Zone Industrielle El Harrach",
+   415→        "city": "El Harrach",
+   416→        "wilaya": "17"
+   417→      },
+   418→      "contact": {
+   419→        "phone": "+213 21 82 55 55",
+   420→        "email": "contact@saidal.dz",
+   421→        "website": "https://www.saidal.dz"
+   422→      },
+   423→      "products_services": [
+   424→        "Médicaments génériques",
+   425→        "Vaccins",
+   426→        "Produits pharmaceutiques"
+   427→      ],
+   428→      "employee_count": 4243,
+   429→      "year_established": 1985
+   430→    },
+   431→    {
+   432→      "id": "ALG-017",
+   433→      "company_name": {
+   434→        "fr": "Pharmal",
+   435→        "ar": "فارمال"
+   436→      },
+   437→      "legal_form": "SARL (Laboratoire Pharmaceutique)",
+   438→      "business_sector": "Pharmacie, Médecines",
+   439→      "address": {
+   440→        "street": "Zone Industrielle Oued Smar",
+   441→        "city": "Alger",
+   442→        "wilaya": "17"
+   443→      },
+   444→      "contact": {
+   445→        "phone": "+213 23 28 33 33",
+   446→        "email": "contact@pharmal.dz",
+   447→        "website": "https://www.pharmal.dz"
+   448→      },
+   449→      "products_services": [
+   450→        "Médicaments",
+   451→        "Produits de santé",
+   452→        "Cosmétiques pharmaceutiques"
+   453→      ],
+   454→      "employee_count": 1200,
+   455→      "year_established": 1986
+   456→    },
+   457→    {
+   458→      "id": "ALG-018",
+   459→      "company_name": {
+   460→        "fr": "Biopharm",
+   461→        "ar": "بيوفارم"
+   462→      },
+   463→      "legal_form": "SPA (Laboratoire Pharmaceutique Privé)",
+   464→      "business_sector": "Pharmacie, Biotechnologie",
+   465→      "address": {
+   466→        "street": "Zone Industrielle de Chéraga",
+   467→        "city": "Blida (proximité Alger)",
+   468→        "wilaya": "17"
+   469→      },
+   470→      "contact": {
+   471→        "phone": "+213 25 23 39 31",
+   472→        "email": "contact@biopharm.dz",
+   473→        "website": "https://www.biopharm.dz"
+   474→      },
+   475→      "products_services": [
+   476→        "Médicaments biosimilaires",
+   477→        "Biotechnologies",
+   478→        "Oncologie"
+   479→      ],
+   480→      "employee_count": 1800,
+   481→      "year_established": 1992
+   482→    },
+   483→    {
+   484→      "id": "ALG-019",
+   485→      "company_name": {
+   486→        "fr": "IFRI",
+   487→        "ar": "إفري"
+   488→      },
+   489→      "legal_form": "SARL (Groupe Privé)",
+   490→      "business_sector": "Jus et Boissons",
+   491→      "address": {
+   492→        "street": "Zone Industrielle Rouiba",
+   493→        "city": "Rouiba",
+   494→        "wilaya": "17"
+   495→      },
+   496→      "contact": {
+   497→        "phone": "+213 21 82 44 44",
+   498→        "email": "contact@ifri.dz",
+   499→        "website": "https://www.ifri.dz"
+   500→      },
+   501→      "products_services": [
+   502→        "Jus de fruits",
+   503→        "Boissons gazeuses",
+   504→        "Eaux minérales"
+   505→      ],
+   506→      "employee_count": 2500,
+   507→      "year_established": 1995
+   508→    },
+   509→    {
+   510→      "id": "ALG-020",
+   511→      "company_name": {
+   512→        "fr": "NCA - Nouvelle Conserverie Algérienne",
+   513→        "ar": "المعلبات الجزائرية الجديدة"
+   514→      },
+   515→      "legal_form": "SPA",
+   516→      "business_sector": "Agroalimentaire, Conserves",
+   517→      "address": {
+   518→        "street": "Zone Industrielle Rouiba",
+   519→        "city": "Rouiba",
+   520→        "wilaya": "17"
+   521→      },
+   522→      "contact": {
+   523→        "phone": "+213 21 82 55 55",
+   524→        "email": "contact@nca.dz",
+   525→        "website": "https://www.nca.dz"
+   526→      },
+   527→      "products_services": [
+   528→        "Conserves fruits/légumes",
+   529→        "Tomates concentrées",
+   530→        "Jus"
+   531→      ],
+   532→      "employee_count": 3000,
+   533→      "year_established": 1972
+   534→    },
+   535→    {
+   536→      "id": "ALG-021",
+   537→      "company_name": {
+   538→        "fr": "Groupe Rouiba",
+   539→        "ar": "مجموعة الرويبة"
+   540→      },
+   541→      "legal_form": "SARL (Familial)",
+   542→      "business_sector": "Agroalimentaire, Laiterie",
+   543→      "address": {
+   544→        "street": "Zone Industrielle Rouiba",
+   545→        "city": "Rouiba",
+   546→        "wilaya": "17"
+   547→      },
+   548→      "contact": {
+   549→        "phone": "+213 21 82 66 66",
+   550→        "email": "contact@groupe-rouiba.dz",
+   551→        "website": "https://www.groupe-rouiba.dz"
+   552→      },
+   553→      "products_services": [
+   554→        "Produits laitiers",
+   555→        "Jus de fruits",
+   556→        "Conserves"
+   557→      ],
+   558→      "employee_count": 1500,
+   559→      "year_established": 1966
+   560→    },
+   561→    {
+   562→      "id": "ALG-022",
+   563→      "company_name": {
+   564→        "fr": "IMETAL",
+   565→        "ar": "إيميتال"
+   566→      },
+   567→      "legal_form": "SPA (Groupe Public)",
+   568→      "business_sector": "Métallurgie, Tubes acier",
+   569→      "address": {
+   570→        "street": "Zone Industrielle Oued Smar",
+   571→        "city": "Alger",
+   572→        "wilaya": "17"
+   573→      },
+   574→      "contact": {
+   575→        "phone": "+213 23 27 11 11",
+   576→        "email": "commercial@imetal.dz",
+   577→        "website": "https://www.imetal.dz"
+   578→      },
+   579→      "products_services": [
+   580→        "Tubes en acier",
+   581→        "Profilés métalliques",
+   582→        "Tuyauterie industrielle"
+   583→      ],
+   584→      "employee_count": 5000,
+   585→      "year_established": 1971
+   586→    },
+   587→    {
+   588→      "id": "ALG-023",
+   589→      "company_name": {
+   590→        "fr": "ENGOV - Entreprise Nationale des Granulats et Ouvrages",
+   591→        "ar": "المؤسسة الوطنية للحصى والأشغال"
+   592→      },
+   593→      "legal_form": "EPE (Entreprise Publique)",
+   594→      "business_sector": "Granulats, Travaux Publics",
+   595→      "address": {
+   596→        "street": "Route de Constantine",
+   597→        "city": "Dar el Beida",
+   598→        "wilaya": "17"
+   599→      },
+   600→      "contact": {
+   601→        "phone": "+213 21 37 00 00",
+   602→        "email": "contact@engov.dz",
+   603→        "website": ""
+   604→      },
+   605→      "products_services": [
+   606→        "Granulats",
+   607→        "Bitume",
+   608→        "Travaux routiers"
+   609→      ],
+   610→      "employee_count": 4500,
+   611→      "year_established": 1974
+   612→    },
+   613→    {
+   614→      "id": "ALG-024",
+   615→      "company_name": {
+   616→        "fr": "SAA - Société Algérienne d'Assurance",
+   617→        "ar": "الشركة الجزائرية للتأمينات"
+   618→      },
+   619→      "legal_form": "SPA (Assurance Publique)",
+   620→      "business_sector": "Assurances, Réassurances",
+   621→      "address": {
+   622→        "street": "Boulevard Mohamed Khemisti",
+   623→        "city": "Alger",
+   624→        "wilaya": "17"
+   625→      },
+   626→      "contact": {
+   627→        "phone": "+213 21 63 88 88",
+   628→        "email": "contact@saa.dz",
+   629→        "website": "https://www.saa.dz"
+   630→      },
+   631→      "products_services": [
+   632→        "Assurance auto",
+   633→        "Assurance vie",
+   634→        "Réassurance"
+   635→      ],
+   636→      "employee_count": 2800,
+   637→      "year_established": 1966
+   638→    },
+   639→    {
+   640→      "id": "ALG-025",
+   641→      "company_name": {
+   642→        "fr": "CAAT - Compagnie Algérienne d'Assurance Transport",
+   643→        "ar": "الشركة الجزائرية لتأمين النقل"
+   644→      },
+   645→      "legal_form": "SPA (Assurance Spécialisée)",
+   646→      "business_sector": "Assurance Transport, Maritime",
+   647→      "address": {
+   648→        "street": "Port d'Alger",
+   649→        "city": "Alger",
+   650→        "wilaya": "17"
+   651→      },
+   652→      "contact": {
+   653→        "phone": "+213 21 21 00 00",
+   654→        "email": "contact@caat.dz",
+   655→        "website": "https://www.caat.dz"
+   656→      },
+   657→      "products_services": [
+   658→        "Assurance maritime",
+   659→        "Assurance transport",
+   660→        "Avaries communes"
+   661→      ],
+   662→      "employee_count": 900,
+   663→      "year_established": 1966
+   664→    },
+   665→    {
+   666→      "id": "ALG-026",
+   667→      "company_name": {
+   668→        "fr": "Groupe Tahkount",
+   669→        "ar": "مجموعة تاهكونت"
+   670→      },
+   671→      "legal_form": "SARL (Concessionnaire Auto)",
+   672→      "business_sector": "Automobile, Distribution Véhicules",
+   673→      "address": {
+   674→        "street": "RN5 Zone Industrielle Dar el Beida",
+   675→        "city": "Dar el Beida",
+   676→        "wilaya": "17"
+   677→      },
+   678→      "contact": {
+   679→        "phone": "+213 23 37 11 11",
+   680→        "email": "contact@tahkount.dz",
+   681→        "website": "https://www.tahkount.dz"
+   682→      },
+   683→      "products_services": [
+   684→        "Distribution véhicules",
+   685→        "Après-vente auto",
+   686→        "Pièces détachées"
+   687→      ],
+   688→      "employee_count": 1200,
+   689→      "year_established": 1982
+   690→    },
+   691→    {
+   692→      "id": "ALG-027",
+   693→      "company_name": {
+   694→        "fr": "Volkswagen Algeria",
+   695→        "ar": "فولكس فاغن الجزائر"
+   696→      },
+   697→      "legal_form": "Joint Venture",
+   698→      "business_sector": "Automobile, Assemblage VW",
+   699→      "address": {
+   700→        "street": "Zone Industrielle de Relizane (siège Alger)",
+   701→        "city": "Alger",
+   702→        "wilaya": "17"
+   703→      },
+   704→      "contact": {
+   705→        "phone": "+213 23 38 00 00",
+   706→        "email": "contact@vw-algeria.dz",
+   707→        "website": "https://www.vw-algeria.dz"
+   708→      },
+   709→      "products_services": [
+   710→        "Assemblage véhicules VW",
+   711→        "Distribution",
+   712→        "Service après-vente"
+   713→      ],
+   714→      "employee_count": 800,
+   715→      "year_established": 2017
+   716→    },
+   717→    {
+   718→      "id": "ALG-028",
+   719→      "company_name": {
+   720→        "fr": "Poste Algérienne - Direction Générale",
+   721→        "ar": "البريد الجزائري - المديرية العامة"
+   722→      },
+   723→      "legal_form": "Etablissement Public",
+   724→      "business_sector": "Poste, Services Financiers, Colis",
+   725→      "address": {
+   726→        "street": "Rue Abderrahmane Mira",
+   727→        "city": "Alger Centre",
+   728→        "wilaya": "17"
+   729→      },
+   730→      "contact": {
+   731→        "phone": "+213 21 63 33 33",
+   732→        "email": "contact@postalge.dz",
+   733→        "website": "https://www.poste.dz"
+   734→      },
+   735→      "products_services": [
+   736→        "Envois postaux",
+   737→        "Mandats-poste",
+   738→        "Epargne postale",
+   739→        "Colis express"
+   740→      ],
+   741→      "employee_count": 25000,
+   742→      "year_established": 1900
+   743→    },
+   744→    {
+   745→      "id": "ALG-029",
+   746→      "company_name": {
+   747→        "fr": "Algérie Télécom",
+   748→        "ar": "اتصالات الجزائر"
+   749→      },
+   750→      "legal_form": "SPA (Opérateur Historique)",
+   751→      "business_sector": "Télécommunications Fixes, Internet",
+   752→      "address": {
+   753→        "street": "Boulevard François Mitterrand",
+   754→        "city": "Hussein Dey",
+   755→        "wilaya": "17"
+   756→      },
+   757→      "contact": {
+   758→        "phone": "+213 21 91 00 00",
+   759→        "email": "contact@algerietelecom.dz",
+   760→        "website": "https://www.algerietelecom.dz"
+   761→      },
+   762→      "products_services": [
+   763→        "Téléphonie fixe",
+   764→        "Internet ADSL/Fibre",
+   765→        "Data center"
+   766→      ],
+   767→      "employee_count": 18000,
+   768→      "year_established": 2000
+   769→    },
+   770→    {
+   771→      "id": "ALG-030",
+   772→      "company_name": {
+   773→        "fr": "BDL - Banque de Développement Local",
+   774→        "ar": "بنك التنمية المحلية"
+   775→      },
+   776→      "legal_form": "EPE (Banque Publique)",
+   777→      "business_sector": "Banque, Financement PME",
+   778→      "address": {
+   779→        "street": "Rue des Frères Bouadou",
+   780→        "city": "Ben Aknoun",
+   781→        "wilaya": "17"
+   782→      },
+   783→      "contact": {
+   784→        "phone": "+213 21 91 55 55",
+   785→        "email": "contact@bdl.dz",
+   786→        "website": "https://www.bdl.dz"
+   787→      },
+   788→      "products_services": [
+   789→        "Financement PME",
+   790→        "Microcrédit",
+   791→        "Développement local"
+   792→      ],
+   793→      "employee_count": 3500,
+   794→      "year_established": 1986
+   795→    },
+   796→    {
+   797→      "id": "ALG-031",
+   798→      "company_name": {
+   799→        "fr": "CNEP Banque",
+   800→        "ar": "صندوق الادخار والقرض"
+   801→      },
+   802→      "legal_form": "EPE (Banque Publique)",
+   803→      "business_sector": "Banque, Épargne, Crédit Immobilier",
+   804→      "address": {
+   805→        "street": "Rue Didouche Mourad",
+   806→        "city": "Alger",
+   807→        "wilaya": "17"
+   808→      },
+   809→      "contact": {
+   810→        "phone": "+213 21 64 11 11",
+   811→        "email": "contact@cnep.dz",
+   812→        "website": "https://www.cnep.dz"
+   813→      },
+   814→      "products_services": [
+   815→        "Comptes épargne",
+   816→        "Crédit logement",
+   817→        "Transactions bancaires"
+   818→      ],
+   819→      "employee_count": 5000,
+   820→      "year_established": 1966
+   821→    },
+   822→    {
+   823→      "id": "ALG-032",
+   824→      "company_name": {
+   825→        "fr": "BNDA - Banque Nationale de Développement Agricole",
+   826→        "ar": "البنك الوطني للتنمية الفلاحية"
+   827→      },
+   828→      "legal_form": "EPE (Banque Publique)",
+   829→      "business_sector": "Banque, Financement Agriculture",
+   830→      "address": {
+   831→        "street": "Rue Aga Khan",
+   832→        "city": "Alger",
+   833→        "wilaya": "17"
+   834→      },
+   835→      "contact": {
+   836→        "phone": "+213 21 62 22 22",
+   837→        "email": "contact@bnda.dz",
+   838→        "website": "https://www.bnda.dz"
+   839→      },
+   840→      "products_services": [
+   841→        "Crédit agricole",
+   842→        "Financement rural",
+   843→        "Développement agricole"
+   844→      ],
+   845→      "employee_count": 4000,
+   846→      "year_established": 1982
+   847→    },
+   848→    {
+   849→      "id": "ALG-033",
+   850→      "company_name": {
+   851→        "fr": "Groupe El Djazaïr",
+   852→        "ar": "مجموعة الجزائر"
+   853→      },
+   854→      "legal_form": "SARL (Groupe Privé)",
+   855→      "business_sector": "Immobilier, Promotion, Distribution",
+   856→      "address": {
+   857→        "street": "Chemin des Caroubiers",
+   858→        "city": "Bir Mourad Raïs",
+   859→        "wilaya": "17"
+   860→      },
+   861→      "contact": {
+   862→        "phone": "+213 23 56 00 00",
+   863→        "email": "contact@groupe-el-djazair.dz",
+   864→        "website": "https://www.groupe-el-djazair.dz"
+   865→      },
+   866→      "products_services": [
+   867→        "Promotion immobilière",
+   868→        "Grands magasins",
+   869→        "Distribution"
+   870→      ],
+   871→      "employee_count": 5000,
+   872→      "year_established": 1990
+   873→    },
+   874→    {
+   875→      "id": "ALG-034",
+   876→      "company_name": {
+   877→        "fr": "SEROR - Société d'Études et de Réalisations",
+   878→        "ar": "شركة الدراسات والإنجازات"
+   879→      },
+   880→      "legal_form": "SARL",
+   881→      "business_sector": "Ingénierie, Études Techniques",
+   882→      "address": {
+   883→        "street": "Zone d'Activités Bordj El Kiffan",
+   884→        "city": "Alger",
+   885→        "wilaya": "17"
+   886→      },
+   887→      "contact": {
+   888→        "phone": "+213 23 45 00 00",
+   889→        "email": "contact@seror.dz",
+   890→        "website": ""
+   891→      },
+   892→      "products_services": [
+   893→        "Études techniques",
+   894→        "Maîtrise d'œuvre",
+   895→        "Ingénierie conseil"
+   896→      ],
+   897→      "employee_count": 350,
+   898→      "year_established": 2005
+   899→    },
+   900→    {
+   901→      "id": "ALG-035",
+   902→      "company_name": {
+   903→        "fr": "SN Métal",
+   904→        "ar": "أن ميتال"
+   905→      },
+   906→      "legal_form": "SARL (Métallurgie)",
+   907→      "business_sector": "Métallurgie, Transformation Métaux",
+   908→      "address": {
+   909→        "street": "Zone Industrielle Oued Smar",
+   910→        "city": "Alger",
+   911→        "wilaya": "17"
+   912→      },
+   913→      "contact": {
+   914→        "phone": "+213 23 27 22 22",
+   915→        "email": "commercial@sn-metal.dz",
+   916→        "website": ""
+   917→      },
+   918→      "products_services": [
+   919→        "Transformation métaux",
+   920→        "Chaudronnerie",
+   921→        "Structures métalliques"
+   922→      ],
+   923→      "employee_count": 650,
+   924→      "year_established": 1998
+   925→    },
+   926→    {
+   927→      "id": "ALG-036",
+   928→      "company_name": {
+   929→        "fr": "ENAFOR - Entreprise Nationale de Forage",
+   930→        "ar": "المؤسسة الوطنية للحفر"
+   931→      },
+   932→      "legal_form": "EPE (Filière Sonatrach)",
+   933→      "business_sector": "Forages Pétroliers, Services Pétroliers",
+   934→      "address": {
+   935→        "street": "Hydra, Rue du Sahara",
+   936→        "city": "Alger",
+   937→        "wilaya": "17"
+   938→      },
+   939→      "contact": {
+   940→        "phone": "+213 21 48 31 31",
+   941→        "email": "contact@enafor.dz",
+   942→        "website": "https://www.enafor.dz"
+   943→      },
+   944→      "products_services": [
+   945→        "Forages pétroliers",
+   946→        "Workover",
+   947→        "Ingénierie pétrolière"
+   948→      ],
+   949→      "employee_count": 5500,
+   950→      "year_established": 1967
+   951→    },
+   952→    {
+   953→      "id": "ALG-037",
+   954→      "company_name": {
+   955→        "fr": "NAFTEC",
+   956→        "ar": "نافتك"
+   957→      },
+   958→      "legal_form": "SPA (Joint Venture Sonatrach/Total)",
+   959→      "business_sector": "Distribution Carburants, Stations Service",
+   960→      "address": {
+   961→        "street": "Route de Kouba",
+   962→        "city": "Alger",
+   963→        "wilaya": "17"
+   964→      },
+   965→      "contact": {
+   966→        "phone": "+213 21 65 00 00",
+   967→        "email": "contact@naftec.dz",
+   968→        "website": "https://www.naftec.dz"
+   969→      },
+   970→      "products_services": [
+   971→        "Stations service",
+   972→        "Carburants",
+   973→        "Lubrifiants",
+   974→        "Cartes carburant"
+   975→      ],
+   976→      "employee_count": 3000,
+   977→      "year_established": 1998
+   978→    },
+   979→    {
+   980→      "id": "ALG-038",
+   981→      "company_name": {
+   982→        "fr": "CAAR - Compagnie Algérienne d'Assurance et de Réassurance",
+   983→        "ar": "الشركة الجزائرية للتأمين وإعادة التأمين"
+   984→      },
+   985→      "legal_form": "SPA (Assurance Publique)",
+   986→      "business_sector": "Assurances Multirisques",
+   987→      "address": {
+   988→        "street": "Boulevard du 1er Novembre",
+   989→        "city": "Hussein Dey",
+   990→        "wilaya": "17"
+   991→      },
+   992→      "contact": {
+   993→        "phone": "+213 21 61 00 00",
+   994→        "email": "contact@caar.dz",
+   995→        "website": "https://www.caar.dz"
+   996→      },
+   997→      "products_services": [
+   998→        "Assurance multirisques",
+   999→        "Réassurance",
+  1000→        "Assurance automobile"
+  1001→      ],
+  1002→      "employee_count": 2200,
+  1003→      "year_established": 1998
+  1004→    },
+  1005→    {
+  1006→      "id": "ALG-039",
+  1007→      "company_name": {
+  1008→        "fr": "Groupe Vitam",
+  1009→        "ar": "مجموعة فيتام"
+  1010→      },
+  1011→      "legal_form": "SARL (Production Alimentaire)",
+  1012→      "business_sector": "Agroalimentaire, Produits Céréaliers",
+  1013→      "address": {
+  1014→        "street": "Zone Industrielle de Baraki",
+  1015→        "city": "Baraki",
+  1016→        "wilaya": "17"
+  1017→      },
+  1018→      "contact": {
+  1019→        "phone": "+213 23 41 00 00",
+  1020→        "email": "contact@vitam.dz",
+  1021→        "website": "https://www.vitam.dz"
+  1022→      },
+  1023→      "products_services": [
+  1024→        "Pâtes alimentaires",
+  1025→        "Céréales petit-déjeuner",
+  1026→        "Biscuits"
+  1027→      ],
+  1028→      "employee_count": 1800,
+  1029→      "year_established": 1985
+  1030→    },
+  1031→    {
+  1032→      "id": "ALG-040",
+  1033→      "company_name": {
+  1034→        "fr": "Plastique Industries Algérie (PIA)",
+  1035→        "ar": "صناعات البلاستيك الجزائر"
+  1036→      },
+  1037→      "legal_form": "SARL",
+  1038→      "business_sector": "Plastique, Emballage",
+  1039→      "address": {
+  1040→        "street": "Zone Industrielle de Baraki",
+  1041→        "city": "Baraki",
+  1042→        "wilaya": "17"
+  1043→      },
+  1044→      "contact": {
+  1045→        "phone": "+213 23 42 00 00",
+  1046→        "email": "contact@pia-plastique.dz",
+  1047→        "website": ""
+  1048→      },
+  1049→      "products_services": [
+  1050→        "Emballages plastique",
+  1051→        "Préformes PET",
+  1052→        "Articles ménagers plastique"
+  1053→      ],
+  1054→      "employee_count": 750,
+  1055→      "year_established": 2000
+  1056→    },
+  1057→    {
+  1058→      "id": "ALG-041",
+  1059→      "company_name": {
+  1060→        "fr": "Textile International Algérie (TIA)",
+  1061→        "ar": "النسيج الدولي الجزائر"
+  1062→      },
+  1063→      "legal_form": "SARL",
+  1064→      "business_sector": "Textile, Habillement",
+  1065→      "address": {
+  1066→        "street": "Zone Industrielle de Bougara",
+  1067→        "city": "Bougara",
+  1068→        "wilaya": "17"
+  1069→      },
+  1070→      "contact": {
+  1071→        "phone": "+213 23 50 00 00",
+  1072→        "email": "contact@tia-textile.dz",
+  1073→        "website": ""
+  1074→      },
+  1075→      "products_services": [
+  1076→        "Confection textile",
+  1077→        "Vêtements",
+  1078→        "Articles textiles maison"
+  1079→      ],
+  1080→      "employee_count": 1200,
+  1081→      "year_established": 1992
+  1082→    },
+  1083→    {
+  1084→      "id": "ALG-042",
+  1085→      "company_name": {
+  1086→        "fr": "Digital Algeria Tech",
+  1087→        "ar": "الجزائر الرقمية تيك"
+  1088→      },
+  1089→      "legal_form": "Startup (Incubateur State)",
+  1090→      "business_sector": "Technologie, IT, Services Numériques",
+  1091→      "address": {
+  1092→        "street": "Technopole de Sidi Abdellah",
+  1093→        "city": "Chéraga",
+  1094→        "wilaya": "17"
+  1095→      },
+  1096→      "contact": {
+  1097→        "phone": "+213 25 90 00 00",
+  1098→        "email": "contact@digitalalgeria.dz",
+  1099→        "website": "https://www.digitalalgeria.dz"
+  1100→      },
+  1101→      "products_services": [
+  1102→        "Développement logiciel",
+  1103→        "Services cloud",
+  1104→        "Intelligence artificielle"
+  1105→      ],
+  1106→      "employee_count": 500,
+  1107→      "year_established": 2019
+  1108→    },
+  1109→    {
+  1110→      "id": "ALG-043",
+  1111→      "company_name": {
+  1112→        "fr": "Groupe Hamoud Boualem",
+  1113→        "ar": "مجموعة حمود بوعلام"
+  1114→      },
+  1115→      "legal_form": "SARL (Familial Traditionnel)",
+  1116→      "business_sector": "Agroalimentaire, Boissons Traditionnelles",
+  1117→      "address": {
+  1118→        "street": "Zone Industrielle Oued Smar",
+  1119→        "city": "Alger",
+  1120→        "wilaya": "17"
+  1121→      },
+  1122→      "contact": {
+  1123→        "phone": "+213 23 27 33 33",
+  1124→        "email": "contact@hamoud-boualem.dz",
+  1125→        "website": "https://www.hamoud-boualem.dz"
+  1126→      },
+  1127→      "products_services": [
+  1128→        "Boissons gazeuses traditionnelles",
+  1129→        "Sirops",
+  1130→        "Conserves"
+  1131→      ],
+  1132→      "employee_count": 850,
+  1133→      "year_established": 1878
+  1134→    },
+  1135→    {
+  1136→      "id": "ALG-044",
+  1137→      "company_name": {
+  1138→        "fr": "SNVI - Société Nationale des Véhicules Industriels",
+  1139→        "ar": "الشركة الوطنية للمركبات الصناعية"
+  1140→      },
+  1141→      "legal_form": "EPE (Groupe Public)",
+  1142→      "business_sector": "Automobile, Fabrication Camions/Véhicules Utilitaires",
+  1143→      "address": {
+  1144→        "street": "Zone Industrielle de Rouïba",
+  1145→        "city": "Constantine (siège opérationnel Alger)",
+  1146→        "wilaya": "17"
+  1147→      },
+  1148→      "contact": {
+  1149→        "phone": "+213 23 40 00 00",
+  1150→        "email": "contact@snvi.dz",
+  1151→        "website": "https://www.snvi.dz"
+  1152→      },
+  1153→      "products_services": [
+  1154→        "Camions",
+  1155→        "Autobus",
+  1156→        "Véhicules utilitaires",
+  1157→        "Pièces détachées"
+  1158→      ],
+  1159→      "employee_count": 7000,
+  1160→      "year_established": 1967
+  1161→    },
+  1162→    {
+  1163→      "id": "ALG-045",
+  1164→      "company_name": {
+  1165→        "fr": "Transavia Algérie",
+  1166→        "ar": "ترانسافيا الجزائر"
+  1167→      },
+  1168→      "legal_form": "Joint Venture (Air France-KLM)",
+  1169→      "business_sector": "Transport Aérien, Compagnie Low Cost",
+  1170→      "address": {
+  1171→        "street": "Aéroport Houari Boumediene",
+  1172→        "city": "Dar el Beida",
+  1173→        "wilaya": "17"
+  1174→      },
+  1175→      "contact": {
+  1176→        "phone": "+213 23 93 00 00",
+  1177→        "email": "contact@transavia.dz",
+  1178→        "website": "https://www.transavia.com"
+  1179→      },
+  1180→      "products_services": [
+  1181→        "Vols low cost",
+  1182→        "Transport passagers européen",
+  1183→        "Fret aérien"
+  1184→      ],
+  1185→      "employee_count": 350,
+  1186→      "year_established": 2023
+  1187→    }
+  1188→  ]
+  1189→}
