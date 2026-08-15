@@ -1,0 +1,25 @@
+{
+  "code": 200,
+  "data": {
+    "description": "",
+    "external": {},
+    "html": "<html lang=\"en\"><head><title>kompass.com</title><style>#cmsg{animation: A 1.5s;}@keyframes A{0%{opacity:0;}99%{opacity:0;}100%{opacity:1;}}</style><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"></head><body style=\"margin:0\"><script data-cfasync=\"false\">var dd={'rt':'i','cid':'AHrlqAAAAAMA6FerLEMVxyAAImA0Ng==','hsh':'DC8D59238BB987E41E51119402D05A','b':1484011,'s':39890,'e':'38da1a5cdfb9e84b6656c3f573c034664398f9a6c31a09c7235255f48736a1484ae1ca0dd1d37c3db05add33d35ddbee','qp':'','host':'geo.captcha-delivery.com','cookie':'XWFzKT2HoH~lLnHHDea_0OYB_5HPMeHodCeg9Q4asRvoTd1j1LRpsPCRvYAhzQ5hv9UghzsEV4WrTTv0_YSUuEN1HPznPAWFolslhWqb4bbwsWknFC91e1X2e5~JgWP5'}</script><script data-cfasync=\"false\" src=\"https://ct.captcha-delivery.com/i.js\"></script><iframe src=\"https://geo.captcha-delivery.com/interstitial/?initialCid=AHrlqAAAAAMA6FerLEMVxyAAImA0Ng%3D%3D&amp;hash=DC8D59238BB987E41E51119402D05A&amp;cid=XWFzKT2HoH~lLnHHDea_0OYB_5HPMeHodCeg9Q4asRvoTd1j1LRpsPCRvYAhzQ5hv9UghzsEV4WrTTv0_YSUuEN1HPznPAWFolslhWqb4bbwsWknFC91e1X2e5~JgWP5&amp;referer=https%3A%2F%2Fdz.kompass.com%2Fr%2Fwilaya-jijel%2Fdz_dz18&amp;s=39890&amp;e=38da1a5cdfb9e84b6656c3f573c034664398f9a6c31a09c7235255f48736a1484ae1ca0dd1d37c3db05add33d35ddbee&amp;b=1484011&amp;dm=cd\" sandbox=\"allow-scripts allow-same-origin allow-forms\" allow=\"accelerometer; gyroscope; magnetometer\" title=\"DataDome Device Check\" width=\"100%\" height=\"100%\" style=\"height:100vh;\" frameborder=\"0\" border=\"0\" scrolling=\"yes\"></iframe></body></html>",
+    "httpStatus": 200,
+    "httpStatusText": "OK",
+    "metadata": {
+      "lang": "en",
+      "viewport": "width=device-width, initial-scale=1.0"
+    },
+    "title": "kompass.com",
+    "url": "https://dz.kompass.com/r/wilaya-jijel/dz_dz18",
+    "usage": {
+      "tokens": 671
+    }
+  },
+  "meta": {
+    "usage": {
+      "tokens": 671
+    }
+  },
+  "status": 200
+}

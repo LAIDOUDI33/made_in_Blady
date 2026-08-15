@@ -1,0 +1,25 @@
+{
+  "code": 200,
+  "data": {
+    "description": "",
+    "external": {},
+    "html": "<html lang=\"en\"><head><title>kompass.com</title><style>#cmsg{animation: A 1.5s;}@keyframes A{0%{opacity:0;}99%{opacity:0;}100%{opacity:1;}}</style><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"></head><body style=\"margin:0\"><script data-cfasync=\"false\">var dd={'rt':'i','cid':'AHrlqAAAAAMANvVcK74DXf8AIiL9Tg==','hsh':'DC8D59238BB987E41E51119402D05A','b':1484011,'s':39890,'e':'6f6bdb440233743419c287f898c8dcfeddd1aafb3f9fdcee60de533956b4bb6ae7c4075225fa57a040e24f4739310523','qp':'','host':'geo.captcha-delivery.com','cookie':'Z6dbb4CfwiND18ibOIgCZaizAzyQgs35fYwO0x4szKSj3Fi29Kkb3_YWSTUYkDsVYCPVc7DvQX8j__A439QnjMZzBrsBxrWCuWVAl1Pu9GMbWTR5ekzGnGDbmEuiKG4M'}</script><script data-cfasync=\"false\" src=\"https://ct.captcha-delivery.com/i.js\"></script><iframe src=\"https://geo.captcha-delivery.com/interstitial/?initialCid=AHrlqAAAAAMANvVcK74DXf8AIiL9Tg%3D%3D&amp;hash=DC8D59238BB987E41E51119402D05A&amp;cid=Z6dbb4CfwiND18ibOIgCZaizAzyQgs35fYwO0x4szKSj3Fi29Kkb3_YWSTUYkDsVYCPVc7DvQX8j__A439QnjMZzBrsBxrWCuWVAl1Pu9GMbWTR5ekzGnGDbmEuiKG4M&amp;referer=https%3A%2F%2Fdz.kompass.com%2Fr%2Fwilaya-el-tarf%2Fdz_dz36&amp;s=39890&amp;e=6f6bdb440233743419c287f898c8dcfeddd1aafb3f9fdcee60de533956b4bb6ae7c4075225fa57a040e24f4739310523&amp;b=1484011&amp;dm=cd\" sandbox=\"allow-scripts allow-same-origin allow-forms\" allow=\"accelerometer; gyroscope; magnetometer\" title=\"DataDome Device Check\" width=\"100%\" height=\"100%\" style=\"height:100vh;\" frameborder=\"0\" border=\"0\" scrolling=\"yes\"></iframe></body></html>",
+    "httpStatus": 200,
+    "httpStatusText": "OK",
+    "metadata": {
+      "lang": "en",
+      "viewport": "width=device-width, initial-scale=1.0"
+    },
+    "title": "kompass.com",
+    "url": "https://dz.kompass.com/r/wilaya-el-tarf/dz_dz36",
+    "usage": {
+      "tokens": 674
+    }
+  },
+  "meta": {
+    "usage": {
+      "tokens": 674
+    }
+  },
+  "status": 200
+}

@@ -1,0 +1,25 @@
+{
+  "code": 200,
+  "data": {
+    "description": "",
+    "external": {},
+    "html": "<html lang=\"en\"><head><title>kompass.com</title><style>#cmsg{animation: A 1.5s;}@keyframes A{0%{opacity:0;}99%{opacity:0;}100%{opacity:1;}}</style><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"></head><body style=\"margin:0\"><script data-cfasync=\"false\">var dd={'rt':'i','cid':'AHrlqAAAAAMAbYZN55vdlooAIiL9Mg==','hsh':'DC8D59238BB987E41E51119402D05A','b':1484011,'s':39890,'e':'ddd558fb5777e1fd3c9ea4cd18657ae8d04ffb65ac5a681f5372aaf19e178c8bb601c3dbb37836c5b29e14df00fae8ac','qp':'','host':'geo.captcha-delivery.com','cookie':'f_LGt1dY2qUM5Xxsjn72Cjmrg9eZsS4j0xtHB~a5aGbK6_4eRZM5QjGI0cgDPC2811GEIVnQTwmfFJPG0ZBMksw_mg8LGKiq3IzX58TVdyEIdxh~4QBH8Je5x_kELt0f'}</script><script data-cfasync=\"false\" src=\"https://ct.captcha-delivery.com/i.js\"></script><iframe src=\"https://geo.captcha-delivery.com/interstitial/?initialCid=AHrlqAAAAAMAbYZN55vdlooAIiL9Mg%3D%3D&amp;hash=DC8D59238BB987E41E51119402D05A&amp;cid=f_LGt1dY2qUM5Xxsjn72Cjmrg9eZsS4j0xtHB~a5aGbK6_4eRZM5QjGI0cgDPC2811GEIVnQTwmfFJPG0ZBMksw_mg8LGKiq3IzX58TVdyEIdxh~4QBH8Je5x_kELt0f&amp;referer=https%3A%2F%2Fdz.kompass.com%2Fr%2Fwilaya-tindouf%2Fdz_dz37&amp;s=39890&amp;e=ddd558fb5777e1fd3c9ea4cd18657ae8d04ffb65ac5a681f5372aaf19e178c8bb601c3dbb37836c5b29e14df00fae8ac&amp;b=1484011&amp;dm=cd\" sandbox=\"allow-scripts allow-same-origin allow-forms\" allow=\"accelerometer; gyroscope; magnetometer\" title=\"DataDome Device Check\" width=\"100%\" height=\"100%\" style=\"height:100vh;\" frameborder=\"0\" border=\"0\" scrolling=\"yes\"></iframe></body></html>",
+    "httpStatus": 200,
+    "httpStatusText": "OK",
+    "metadata": {
+      "lang": "en",
+      "viewport": "width=device-width, initial-scale=1.0"
+    },
+    "title": "kompass.com",
+    "url": "https://dz.kompass.com/r/wilaya-tindouf/dz_dz37",
+    "usage": {
+      "tokens": 684
+    }
+  },
+  "meta": {
+    "usage": {
+      "tokens": 684
+    }
+  },
+  "status": 200
+}

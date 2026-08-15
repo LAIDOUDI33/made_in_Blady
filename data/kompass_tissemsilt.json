@@ -1,0 +1,25 @@
+{
+  "code": 200,
+  "data": {
+    "description": "",
+    "external": {},
+    "html": "<html lang=\"en\"><head><title>kompass.com</title><style>#cmsg{animation: A 1.5s;}@keyframes A{0%{opacity:0;}99%{opacity:0;}100%{opacity:1;}}</style><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"></head><body style=\"margin:0\"><script data-cfasync=\"false\">var dd={'rt':'i','cid':'AHrlqAAAAAMAqbRJntav4IoAImA0Kg==','hsh':'DC8D59238BB987E41E51119402D05A','b':1484011,'s':40115,'e':'d0a4c810da34e0fec602880b60c24ce6d8c0bf4fbb3a8f4ec5e3195fc8f8967fa60daab18ce9629edbbaa905ce224fac','qp':'','host':'geo.captcha-delivery.com','cookie':'htjscOkAjme5u5oEjEaUoYl0D4c~O3HJG5~kv9q_j1fR91IzX18aoL_Gf_OeNMfjnJR74L8RBSZ1XIVY_SRt_3Voe9h_RbA0BVgaft5IYA0~aezvoJWcsOW_Ad4XJHe5'}</script><script data-cfasync=\"false\" src=\"https://ct.captcha-delivery.com/i.js\"></script><iframe src=\"https://geo.captcha-delivery.com/interstitial/?initialCid=AHrlqAAAAAMAqbRJntav4IoAImA0Kg%3D%3D&amp;hash=DC8D59238BB987E41E51119402D05A&amp;cid=htjscOkAjme5u5oEjEaUoYl0D4c~O3HJG5~kv9q_j1fR91IzX18aoL_Gf_OeNMfjnJR74L8RBSZ1XIVY_SRt_3Voe9h_RbA0BVgaft5IYA0~aezvoJWcsOW_Ad4XJHe5&amp;referer=https%3A%2F%2Fdz.kompass.com%2FsocietesAlgerie%2Fc%2FTissemsilt%2F&amp;s=40115&amp;e=d0a4c810da34e0fec602880b60c24ce6d8c0bf4fbb3a8f4ec5e3195fc8f8967fa60daab18ce9629edbbaa905ce224fac&amp;b=1484011&amp;dm=cd\" sandbox=\"allow-scripts allow-same-origin allow-forms\" allow=\"accelerometer; gyroscope; magnetometer\" title=\"DataDome Device Check\" width=\"100%\" height=\"100%\" style=\"height:100vh;\" frameborder=\"0\" border=\"0\" scrolling=\"yes\"></iframe></body></html>",
+    "httpStatus": 200,
+    "httpStatusText": "OK",
+    "metadata": {
+      "lang": "en",
+      "viewport": "width=device-width, initial-scale=1.0"
+    },
+    "title": "kompass.com",
+    "url": "https://dz.kompass.com/societesAlgerie/c/Tissemsilt/",
+    "usage": {
+      "tokens": 689
+    }
+  },
+  "meta": {
+    "usage": {
+      "tokens": 689
+    }
+  },
+  "status": 200
+}

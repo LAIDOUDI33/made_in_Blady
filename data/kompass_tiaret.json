@@ -1,0 +1,25 @@
+{
+  "code": 200,
+  "data": {
+    "description": "",
+    "external": {},
+    "html": "<html lang=\"en\"><head><title>kompass.com</title><style>#cmsg{animation: A 1.5s;}@keyframes A{0%{opacity:0;}99%{opacity:0;}100%{opacity:1;}}</style><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"></head><body style=\"margin:0\"><script data-cfasync=\"false\">var dd={'rt':'c','cid':'AHrlqAAAAAMAmfWXViHU6MUAIiL9-w==','hsh':'DC8D59238BB987E41E51119402D05A','t':'fe','qp':'','s':39890,'e':'722cfa4aa47eb3aa76eb596776c00d9242b04ca7606784637a2dbb84647824c5c47e1e5608192b76f95c0934675d2c58','host':'geo.captcha-delivery.com','cookie':'HBqkpccjqwW6MBxAHPLZuAhaibOF~iIilS42ZBoeibqpvLoI2JbDvIqyWXxPiopeTNEw7IICpGA1gzu1yeZu3mwSta34ElpsHVP3Zc_DUyHh~CDOsSESdAGeWdGN0ObG'}</script><script data-cfasync=\"false\" src=\"https://ct.captcha-delivery.com/c.js\"></script><iframe src=\"https://geo.captcha-delivery.com/captcha/?initialCid=AHrlqAAAAAMAmfWXViHU6MUAIiL9-w%3D%3D&amp;hash=DC8D59238BB987E41E51119402D05A&amp;cid=HBqkpccjqwW6MBxAHPLZuAhaibOF~iIilS42ZBoeibqpvLoI2JbDvIqyWXxPiopeTNEw7IICpGA1gzu1yeZu3mwSta34ElpsHVP3Zc_DUyHh~CDOsSESdAGeWdGN0ObG&amp;t=fe&amp;referer=https%3A%2F%2Fwww.kompass.com%2Fdirectory%2Fal%2F015%2Ftiaret%2F&amp;s=39890&amp;e=722cfa4aa47eb3aa76eb596776c00d9242b04ca7606784637a2dbb84647824c5c47e1e5608192b76f95c0934675d2c58&amp;dm=cd\" sandbox=\"allow-scripts allow-same-origin allow-forms\" allow=\"accelerometer; gyroscope; magnetometer\" title=\"DataDome CAPTCHA\" width=\"100%\" height=\"100%\" style=\"height:100vh;\" frameborder=\"0\" border=\"0\" scrolling=\"yes\"></iframe></body></html>",
+    "httpStatus": 200,
+    "httpStatusText": "OK",
+    "metadata": {
+      "lang": "en",
+      "viewport": "width=device-width, initial-scale=1.0"
+    },
+    "title": "kompass.com",
+    "url": "https://www.kompass.com/directory/al/015/tiaret/",
+    "usage": {
+      "tokens": 668
+    }
+  },
+  "meta": {
+    "usage": {
+      "tokens": 668
+    }
+  },
+  "status": 200
+}
