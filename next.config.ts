@@ -17,36 +17,22 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
 
   // =============================================================================
-  // Performance Optimizations
+  // Performance Optimizations (Updated for Next.js 16 compatibility)
   // =============================================================================
   
-  // Enable SWC minification (faster than Terser)
-  swcMinify: true,
+  // NOTE: swcMinify is now default behavior in Next.js 16 - removed deprecated option
   
-  // Experimental features for better performance
-  experimental: {
-    // Optimize package imports
-    optimizePackageImports: [
-      'lucide-react',
-      '@radix-ui/react-icons',
-      'date-fns',
-      'lodash',
-      'recharts',
-    ],
-    
-    // Enable server actions
-    serverComponentsExternalPackages: [],
-    
-    // Bundle optimizer
-    turbo: {
-      rules: {
-        '*.svg': {
-          loaders: ['@svgr/webpack'],
-          as: '*.js',
-        },
-      },
-    },
-  },
+  // Package import optimization (moved from experimental)
+  optimizePackageImports: [
+    'lucide-react',
+    '@radix-ui/react-icons',
+    'date-fns',
+    'lodash',
+    'recharts',
+  ],
+  
+  // Server packages externalization (updated location for Next.js 16)
+  serverExternalPackages: [],
 
   // =============================================================================
   // Image Optimization
@@ -111,6 +97,11 @@ const nextConfig: NextConfig = {
           {
             key: 'Permissions-Policy',
             value: 'camera=(), microphone=(), geolocation=(), payment=()'
+          },
+          // HSTS header (added for security)
+          {
+            key: 'Strict-Transport-Security',
+            value: 'max-age=31536000; includeSubDomains; preload'
           },
           // Cache Control for API routes (no cache)
           {

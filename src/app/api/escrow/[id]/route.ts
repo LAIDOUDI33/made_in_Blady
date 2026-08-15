@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { EscrowStatus, DisputeStatus, DisputeReason } from '@prisma/client';
+import { EscrowStatus, DisputeStatus, DisputeReason, UserRole } from '@prisma/client';
 
 // POST /api/escrow/[id]/fund - Fund escrow account
 export async function fundEscrow(escrowId: string) {
@@ -158,9 +160,47 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // CRITICAL FIX: Authentication check for all financial operations
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { success: false, error: 'Authentication required. Please log in.' },
+        { status: 401 }
+      );
+    }
+
+    const userId = session.user.id;
+    const userRole = session.user.role;
+    
     const { id } = await params;
     const body = await request.json();
     const { action } = body;
+    
+    // Verify escrow exists and user has access
+    const escrow = await db.escrowAccount.findUnique({
+      where: { id },
+    });
+    
+    if (!escrow) {
+      return NextResponse.json(
+        { success: false, error: 'Escrow account not found' },
+        { status: 404 }
+      );
+    }
+    
+    // Authorization: Only buyer or admin can perform actions
+    const isBuyer = escrow.buyerId === userId;
+    const isAdmin = userRole === UserRole.ADMIN || userRole === UserRole.SUPER_ADMIN;
+    const isSupplier = escrow.supplierCompanyId && (
+      (await db.company.findUnique({ where: { id: escrow.supplierCompanyId } }))?.userId === userId
+    );
+    
+    if (!isBuyer && !isAdmin && !isSupplier) {
+      return NextResponse.json(
+        { success: false, error: 'You do not have permission to perform actions on this escrow account' },
+        { status: 403 }
+      );
+    }
 
     let result;
 

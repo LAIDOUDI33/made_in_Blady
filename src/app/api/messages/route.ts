@@ -70,57 +70,69 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    // Format conversations
-    let conversations: ConversationWithDetails[] = await Promise.all(
-      participants.map(async (participant) => {
-        const conversation = participant.conversation;
-        
-        // Get other participant
-        const otherParticipant = conversation.participants.find(p => p.userId !== userId);
-        
-        // Count unread messages
-        const unreadCount = await db.message.count({
-          where: {
-            conversationId: conversation.id,
-            toUserId: userId,
-            isRead: false,
-          },
-        });
-
-        // Get last message
-        const lastMessage = conversation.messages[0];
-
-        return {
-          id: conversation.id,
-          type: conversation.type,
-          participants: conversation.participants.map(p => ({
-            id: p.id,
-            userId: p.user.id,
-            user: p.user,
-            joinedAt: p.joinedAt,
-          })),
-          lastMessage: lastMessage ? {
-            id: lastMessage.id,
-            content: lastMessage.content,
-            fileType: lastMessage.fileType,
-            fileUrl: lastMessage.fileUrl,
-            fileName: lastMessage.fileName,
-            createdAt: lastMessage.createdAt,
-            fromUser: lastMessage.fromUser,
-          } : undefined,
-          unreadCount,
-          lastMessageAt: conversation.lastMessageAt,
-          createdAt: conversation.createdAt,
-          updatedAt: conversation.updatedAt,
-          otherParticipant: otherParticipant ? {
-            id: otherParticipant.id,
-            userId: otherParticipant.user.id,
-            user: otherParticipant.user,
-            joinedAt: otherParticipant.joinedAt,
-          } : undefined,
-        };
-      })
+    // PERFORMANCE FIX: Batch all unread counts in ONE query instead of N+1 queries
+    // This reduces database queries from (N+1) to just 2 total
+    const conversationIds = participants.map(p => p.conversation.id);
+    
+    // Single batch query for all unread counts
+    const unreadCountsBatch = await db.message.groupBy({
+      by: ['conversationId'],
+      where: {
+        conversationId: { in: conversationIds },
+        toUserId: userId,
+        isRead: false,
+      },
+      _count: { id: true },
+    });
+    
+    // Convert to Map for O(1) lookup
+    const unreadCountMap = new Map(
+      unreadCountsBatch.map(u => [u.conversationId, u._count.id])
     );
+
+    // Format conversations (now with O(1) unread count lookup)
+    let conversations: ConversationWithDetails[] = participants.map((participant) => {
+      const conversation = participant.conversation;
+      
+      // Get other participant
+      const otherParticipant = conversation.participants.find(p => p.userId !== userId);
+      
+      // Get unread count from pre-fetched map (no additional query!)
+      const unreadCount = unreadCountMap.get(conversation.id) || 0;
+
+      // Get last message
+      const lastMessage = conversation.messages[0];
+
+      return {
+        id: conversation.id,
+        type: conversation.type,
+        participants: conversation.participants.map(p => ({
+          id: p.id,
+          userId: p.user.id,
+          user: p.user,
+          joinedAt: p.joinedAt,
+        })),
+        lastMessage: lastMessage ? {
+          id: lastMessage.id,
+          content: lastMessage.content,
+          fileType: lastMessage.fileType,
+          fileUrl: lastMessage.fileUrl,
+          fileName: lastMessage.fileName,
+          createdAt: lastMessage.createdAt,
+          fromUser: lastMessage.fromUser,
+        } : undefined,
+        unreadCount,
+        lastMessageAt: conversation.lastMessageAt,
+        createdAt: conversation.createdAt,
+        updatedAt: conversation.updatedAt,
+        otherParticipant: otherParticipant ? {
+          id: otherParticipant.id,
+          userId: otherParticipant.user.id,
+          user: otherParticipant.user,
+          joinedAt: otherParticipant.joinedAt,
+        } : undefined,
+      };
+    });
 
     // Apply search filter if provided
     if (search) {

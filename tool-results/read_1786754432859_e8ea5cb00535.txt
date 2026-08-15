@@ -1,0 +1,942 @@
+     1→/**
+     2→ * AlgeriaTrade.dz - Advanced Rate Limiting & DDoS Protection
+     3→ * 
+     4→ * Enterprise-grade protection providing:
+     5→ * - Multi-tier rate limiting (IP, User, Endpoint, Global)
+     6→ * - DDoS mitigation (challenge/response, rate limiting, geo-blocking)
+     7→ * - Adaptive throttling based on system load
+     8→ * - IP reputation integration
+     9→ * - CAPTCHA challenge system
+    10→ * - Traffic analysis and anomaly detection
+    11→ * - Whitelist/Blacklist management
+    12→ * - Real-time dashboard metrics
+    13→ */
+    14→
+    15→// ===========================================
+    16→// Types & Interfaces
+    17→// ===========================================
+    18→
+    19→export interface RateLimitConfig {
+    20→  enabled: boolean;
+    21→  
+    22→  // Global limits
+    23→  global: {
+    24→    requestsPerSecond: number;
+    25→    burstSize: number; // Max concurrent requests in a burst
+    26→    cleanupIntervalMs: number;
+    27→  };
+    28→  
+    29→  // Per-IP limits
+    30→  ip: {
+    31→    enabled: boolean;
+    32→    requestsPerSecond: number;
+    33→    requestsPerMinute: number;
+    34→    requestsPerHour: number;
+    35→    requestsPerDay: number;
+    36→    
+    37→    // Stricter limits for suspicious IPs
+    38→    suspiciousMultiplier: number;
+    39→    suspiciousThreshold: number; // Score above this = "suspicious"
+    40→  };
+    41→  
+    42→  // Per-User limits
+    43→  user: {
+    44→    enabled: boolean;
+    45→    requestsPerSecond: number;
+    46→    requestsPerMinute: number;
+    47→    requestsPerHour: number;
+    48→    authenticatedMultiplier: number; // Bonus capacity for logged-in users
+    49→  };
+    50→  
+    51→  // Per-Endpoint limits
+    52→  endpoint: {
+    53→    enabled: boolean;
+    54→    defaults: {
+    55→      GET: { requestsPerSecond: number; requestsPerMinute: number };
+    56→      POST: { requestsPerSecond: number; requestsPerMinute: number };
+    57→      PUT: { requestsPerSecond: number; requestsPerMinute: number };
+    58→      DELETE: { requestsPerSecond: number; requestsPerMinute: number };
+    59→      PATCH: { requestsPerSecond: number; requestsPerMinute: number };
+    60→    };
+    61→    custom: Array<{
+    62→      pattern: RegExp;
+    63→      methods: string[];
+    64→      requestsPerSecond?: number;
+    65→      requestsPerMinute?: number;
+    66→      requestsPerHour?: number;
+    67→      priority: 'high' | 'medium' | 'low';
+    68→    }>;
+    69→  };
+    70→  
+    71→  // DDoS Protection
+    72→  ddos: {
+    73→    enabled: boolean;
+    74→    mode: 'monitor' | 'mitigate' | 'block'; // Block = extreme measure
+    75→    
+    76→    // Challenge settings
+    77→    challenge: {
+    78→      enabled: true;
+    79→      type: 'javascript' | 'captcha' | 'interactive' | 'static';
+    80→      showTo: 'all' | 'suspicious' | 'critical';
+    81→      durationSeconds: number;
+    82→      passRate: number; // Required correct answers to pass
+    83→      maxAttempts: number;
+    84→      cooldownMinutes: number;
+    85→    };
+    86→    
+    87→    // Rate limiting under attack
+    88→    attackModeLimits: {
+    89→      globalRpsReduction: number; // Reduce global RPS by this factor
+    90→      enableAdaptiveThrottling: boolean;
+    91→      adaptiveThreshold: number; // Start throttling when queue > this
+    92→      maxQueueSize: number;
+    93→      queueWaitTimeMs: number;
+    94→    };
+    95→    
+    96→    // Geo-blocking
+    97→    geoBlocking: {
+    98→      enabled: false;
+    99→      blockHighRiskCountries: string[]; // ISO codes
+   100→      allowAlgeriaOnly: boolean; // Business requirement
+   101→      allowedCountries: string[]; // Explicitly allowed
+   102→    };
+   103→    
+   104→    // IP Reputation
+   105→    ipReputation: {
+   106→      enabled: false;
+   107→      serviceEndpoint?: string;
+   108→      cacheTimeMs: number;
+   109→      checkOnFirstRequest: boolean;
+   110→      knownAbuseIPs: string[];
+   111→      whitelistServices: string[];
+   112→    };
+   113→  };
+   114→  
+   115→  // CAPTCHA Configuration
+   116→  captcha: {
+   117→    provider: 'recaptcha-v3' | 'hcaptcha' | 'custom';
+   118→    secretKey?: string;
+   119→    siteKey?: string;
+   120→    verifyUrl?: string;
+   121→    difficulty: 'easy' | 'medium' | 'hard';
+   122→    timeoutSeconds: number;
+   123→  };
+   124→  
+   125→  // Logging & Alerting
+   126→  logging: {
+   127→    logRateLimitExceeded: boolean;
+   128→    logDdosMitigation: boolean;
+   129→    logChallengesServed: boolean;
+   130→    alertChannels: string[];
+   131→  };
+   132→}
+   133→
+   134→export interface RateLimitEntry {
+   135→  count: number;
+   136→  resetTime: number;
+   137→  lastRequest: number;
+   138→  firstRequestTime: number;
+   139→  blockUntil?: number;
+   140→  isBlocked: boolean;
+   141→  challengeRequired: boolean;
+   142→  warningsIssued: number;
+   143→  totalRequests: number;
+   144→}
+   145→
+   146→export interface ClientInfo {
+   147→  ipAddress: string;
+   148→  userAgent: string;
+   149→  userId?: string;
+   150→  sessionId?: string;
+   151→  country?: string;
+   152→  isMobile?: boolean;
+   153→  isBot?: boolean;
+   154→  reputationScore?: number;
+   155→}
+   156→
+   157→export interface RateLimitResult {
+   158→  allowed: boolean;
+   159→  blocked: boolean;
+   160→  challenged: boolean;
+   161→  retryAfter?: number;
+   162→  statusCode: number;
+   163→  headers?: Record<string, string>;
+   164→  reason?: string;
+   165→  ruleId?: string;
+   166→  metadata?: Record<string, any>;
+   167→}
+   168→
+   169→export interface DDoSMetric {
+   170→  timestamp: string;
+   171→  totalRequests: number;
+   172→  blockedRequests: number;
+   173→  challengedRequests: number;
+   174→  allowedRequests: number;
+   175→  averageResponseTime: number;
+   176→  p99ResponseTime: number;
+   177→  errorRate: number;
+   178→  activeConnections: number;
+   179→  uniqueIPs: number;
+   180→  topAttackingIPs: Array<{ ip: string; requests: number }>;
+   181→  topAttackedEndpoints: Array<{ endpoint: string; requests: number }>;
+   182→  countries: Array<{ country: string; requests: number }>;
+   183→  currentGlobalRps: number;
+   184→  mitigationActive: boolean;
+   185→  mitigationMode: string;
+   186→}
+   187→
+   188→export interface IPReputationData {
+   189→  ip: string;
+   190→  score: number; // 0-100, higher = worse
+   191→  category: 'clean' | 'suspicious' | 'malicious' | 'known-abuser';
+   192→  lastSeen: string;
+   193→  totalRequests: number;
+   194→  firstSeen: string;
+   195→  datacenter?: string;
+   196→  asn?: string;
+   197→  organization?: string;
+   198→}
+   199→
+   200→// ===========================================
+   201→// Default Configuration
+   202→// ===========================================
+   203→
+   204→const DEFAULT_CONFIG: RateLimitConfig = {
+   205→  enabled: true,
+   206→  
+   207→  global: {
+   208→    requestsPerSecond: 1000,
+   209→    burstSize: 50,
+   210→    cleanupIntervalMs: 60000, // Clean up every minute
+   211→  },
+   212→  
+   213→  ip: {
+   214→    enabled: true,
+   215→    requestsPerSecond: 30,
+   216→    requestsPerMinute: 200,
+   217→    requestsPerHour: 1000,
+   218→    requestsPerDay: 10000,
+   219→    suspiciousMultiplier: 0.25, // Suspicious IPs get 1/4th normal limit
+   220→    suspiciousThreshold: 70, // Score above this = suspicious
+   221→  },
+   222→  
+   223→  user: {
+   224→    enabled: true,
+   225→    requestsPerSecond: 60,
+   226→    requestsPerMinute: 300,
+   227→    requestsPerHour: 1800,
+   228→    authenticatedMultiplier: 5, // Logged-in users get 5x capacity
+   229→  },
+   230→  
+   231→  endpoint: {
+   232→    enabled: true,
+   233→    defaults: {
+   234→      GET: { requestsPerSecond: 60, requestsPerMinute: 1200 },
+   235→      POST: { requestsPerSecond: 20, requestsPerMinute: 300 },
+   236→      PUT: { requestsPerSecond: 20, requestsPerMinute: 300 },
+   237→      DELETE: { requestsPerSecond: 10, requestsPerMinute: 60 },
+   238→      PATCH: { requestsPerSecond: 10, requestsPerMinute: 60 },
+   239→    },
+   240→    custom: [
+   241→      // Authentication endpoints - very strict
+   242→      {
+   243→        pattern: /^\/api\/auth\/login/,
+   244→        methods: ['POST'],
+   245→        requestsPerSecond: 5,
+   246→        requestsPerMinute: 10,
+   247→        requestsPerHour: 20,
+   248→        priority: 'critical',
+   249→      },
+   250→      {
+   251→        pattern: /^\/api\/auth\/register/,
+   252→        methods: ['POST'],
+   253→        requestsPerSecond: 3,
+   254→        requestsPerMinute: 10,
+   255→        requestsPerHour: 20,
+   256→        priority: 'critical',
+   257→      },
+   258→      {
+   259→        pattern: /^\/api\/auth\/password/,
+   260→        methods: ['PUT', 'POST'],
+   261→        requestsPerSecond: 3,
+   262→        requestsPerMinute: 10,
+   263→        requestsPerHour: 15,
+   264→        priority: 'high',
+   265→      },
+   266→      // Payment endpoints - strict
+   267→      {
+   268→        pattern: /^\/api\/(payments|checkout|orders)/,
+   269→        methods: ['POST', 'PUT', 'PATCH'],
+   270→        requestsPerSecond: 10,
+   271→        requestsPerMinute: 30,
+   272→        requestsPerHour: 100,
+   273→        priority: 'critical',
+   274→      },
+   275→      {
+   276→        pattern: /^\/api\/rfq/,
+   277→        methods: ['POST'],
+   278→        requestsPerSecond: 10,
+   279→        requestsPerMinute: 30,
+   280→        requestsPerHour: 100,
+   281→        priority: 'high',
+   282→      },
+   283→      // Search endpoints - moderate
+   284→      {
+   285→        pattern: /^\/api\/search/,
+   286→        methods: ['GET', 'POST'],
+   287→        requestsPerSecond: 30,
+   288→        requestsPerMinute: 200,
+   289→        priority: 'medium',
+   290→      },
+   291→      // Public endpoints - lenient
+   292→      {
+   293→        pattern: /^\/api\/public\//,
+   294→        methods: ['GET'],
+   295→        requestsPerSecond: 100,
+   296→        requestsPerMinute: 500,
+   297→        priority: 'low',
+   298→      },
+   299→    ],
+   300→  },
+   301→  
+   302→  ddos: {
+   303→    enabled: true,
+   304→    mode: 'mitigate',
+   305→    
+   306→    challenge: {
+   307→      enabled: true,
+   308→      type: 'javascript',
+   309→      showTo: 'suspicious',
+   310→      durationSeconds: 30,
+   311→      passRate: 0.8, // 80% must solve correctly
+   312→      maxAttempts: 3,
+   313→      cooldownMinutes: 15,
+   314→    },
+   315→    
+   316→    attackModeLimits: {
+   317→      globalRpsReduction: 0.5, // Reduce to 50% during attack
+   318→      enableAdaptiveThrottling: true,
+   319→      adaptiveThreshold: 80, // Start throttling when queue > 80% full
+   320→      maxQueueSize: 10000,
+   321→      queueWaitTimeMs: 100,
+   322→    },
+   323→    
+   324→    geoBlocking: {
+   325→      enabled: false,
+   326→      blockHighRiskCountries: [],
+   327→      allowAlgeriaOnly: true,
+   328→      allowedCountries: ['DZ'], // Primary market
+   329→    },
+   330→    
+   331→    ipReputation: {
+   332→      enabled: false,
+   333→      cacheTimeMs: 3600000, // Cache for 1 hour
+   334→      checkOnFirstRequest: true,
+   335→      knownAbuseIPs: [],
+   336→      whitelistServices: [],
+   337→    },
+   338→  },
+   339→  
+   340→  captcha: {
+   341→    provider: 'custom',
+   342→    difficulty: 'medium',
+   343→    timeoutSeconds: 30,
+   344→  },
+   345→  
+   346→  logging: {
+   347→    logRateLimitExceeded: true,
+   348→    logDdosMitigation: true,
+   349→    logChallengesServed: true,
+   350→    alertChannels: ['security-team', 'devops'],
+   351→  },
+   352→};
+   353→
+   354→// ===========================================
+   355→// Main Rate Limiter Class
+   356→// ===========================================
+   357→
+   358→class RateLimiterDDoS {
+   359→  private config: RateLimitConfig;
+   360→  
+   361→  // Storage
+   362→  private ipStore: Map<string, RateLimitEntry> = new Map();
+   363→  private userStore: Map<string, RateLimitEntry> = new Map();
+   364→  private endpointStore: Map<string, Map<string, RateLimitEntry>> = new Map();
+   365→  
+   366→  // DDoS State
+   367→  private ddosMode: 'normal' | 'mitigate' | 'block' = 'normal';
+   368→  private ddosModeStartTime: number = 0;
+   369→  private ddosModeTriggeredBy: string = '';
+   370→  
+   371→  // Metrics
+   372→  private metrics: DDoSMetric;
+   373→  private metricsHistory: DDoSMetric[] = [];
+   374→  
+   375→  // Blocked IPs
+   376→  private blockedIPs: Map<string, { until: number; reason: string }> = new Map();
+   377→  private challengedIPs: Map<string, { attempts: number; until: number }> = new Map();
+   378→  
+   379→  // Cleanup interval
+   380→  private cleanupTimer: NodeJS.Timeout | null = null;
+   381→
+   382→  constructor(config?: Partial<RateLimitConfig>) {
+   383→    this.config = { ...DEFAULT_CONFIG, ...config };
+   384→    
+   385→    this.metrics = this.initializeMetrics();
+   386→    
+   387→    // Start cleanup
+   388→    this.startCleanup();
+   389→  }
+   390→
+   391→  /**
+   392→   * Main method: Check if request should be allowed
+   393→   */
+   394→  async checkRateLimit(client: ClientInfo): Promise<RateLimitResult> {
+   395→    if (!this.config.enabled) {
+   396→      return this.createResult(true);
+   397→    }
+   398→
+   399→    const now = Date.now();
+   400→
+   401→    // Check if IP is permanently blocked
+   402→    if (this.isPermanentlyBlocked(client.ipAddress)) {
+   403→      return this.createBlockResult(client, 'PERMANENTLY_BLOCKED');
+   404→    }
+   405→
+   406→    // Check if IP is temporarily blocked
+   407→    const tempBlock = this.blockedIPs.get(client.ipAddress);
+   408→    if (tempBlock && tempBlock.until > now) {
+   409→      return this.createBlockResult(client, 'TEMPORARILY_BLOCKED');
+   410→    }
+   411→
+   412→    // Check if IP needs CAPTCHA challenge
+   413→    const challenge = this.challengedIPs.get(client.ipAddress);
+   414→    if (challenge && challenge.until > now) {
+   415→      return this.createChallengeResult(client, challenge);
+   416→    }
+   417→
+   418→    // Determine which limits to apply
+   419→    let limitResult: RateLimitResult | null = null;
+   420→
+   421→    // Global rate limiting
+   422→    limitResult = await this.checkGlobalLimit(client);
+   423→
+   424→    // If not limited by global, check more specific limits
+   425→    if (limitResult.allowed) {
+   426→      limitResult = await this.checkIPLimit(client);
+   427→    }
+   428→
+   429→    if (limitResult.allowed && client.userId) {
+   430→      limitResult = await this.checkUserLimit(client);
+   431→    }
+   432→
+   433→    if (limitResult.allowed) {
+   434→      limitResult = await this.checkEndpointLimit(client);
+   435→    }
+   436→
+   437→    // Apply DDoS protections if enabled
+   438→    if (this.config.ddos.enabled && this.ddosMode !== 'normal') {
+   439→      limitResult = this.applyDdoSProtection(client, limitResult);
+   440→    }
+   441→
+   442→    // Update metrics
+   443→    this.updateMetrics(client, limitResult);
+   444→
+   445→    return limitResult || this.createResult(true);
+   446→  }
+   447→
+   448→  // ===========================================
+   449→  // Limit Check Methods
+   450→  // ===========================================
+   451→
+   452→  private async function checkGlobalLimit(client: ClientInfo): Promise<RateLimitResult | null> {
+   453→    if (!this.config.global.enabled) return null;
+   454→
+   455→    const entry = this.getOrCreateIPEntry(client.ipAddress);
+   456→    const now = now = Date.now();
+   457→
+   458→    // Reset counter if window has passed
+   459→    if (now >= entry.resetTime) {
+   460→      entry.count = 0;
+   461→      entry.resetTime = now + (1000 / this.config.global.requestsPerSecond); // Convert RPS to ms
+   462→    }
+   463→
+   464→    // Check limit
+   465→    if (entry.count >= this.config.global.requestsPerSecond) {
+   466→      entry.count++;
+   467→      
+   468→      return {
+   469→        allowed: false,
+   470→        blocked: false,
+   471→        challenged: false,
+   472→        statusCode: 429,
+   473→        headers: {
+   474→          'Retry-After': '1',
+   475→          'X-RateLimit-Limit': String(this.config.global.requestsPerSecond),
+   476→          'X-RateLimit-Remaining': '0',
+   477→          'X-RateLimit-Reset': String(Math.max(0, (entry.resetTime - now) / 1000)),
+   478→        },
+   479→        reason: 'Global rate limit exceeded',
+   480→        ruleId: 'global',
+   481→        metadata: { currentRPS: entry.count + 1, limit: this.config.global.requestsPerSecond },
+   482→      };
+   483→    }
+   484→
+   485→    // Increment and continue
+   486→    entry.count++;
+   487→    entry.lastRequest = now;
+   488→    return null; // Pass - not limited by global
+   489→  }
+   490→
+   491→  private async function checkIPLimit(client: ClientInfo): Promise<RateLimitResult | null> {
+   492→    if (!this.config.ip.enabled) return null;
+   493→
+   494→    const entry = this.getOrCreateIPEntry(client.ipAddress);
+   495→    const now = Date.now();
+   496→
+   497→    // Minute window
+   498→    if (!entry.minuteReset || now >= entry.minuteReset) {
+   499→      entry.count = 0;
+   500→      entry.minuteReset = now + 60000;
+   501→    }
+   502→
+   503→    // Hour window
+   504→    if (!entry.hourReset || now >= entry.hourReset) {
+   505→      entry.count = 0;
+   506→      entry.hourReset = now + 3600000;
+   507→    }
+   508→
+   509→    // Day window
+   510→    if (!entry.dayReset || now >= entry.dayReset) {
+   511→      entry.count = 0;
+   512→      entry.dayReset = now + 86400000;
+   513→    }
+   514→
+   515→    // Apply suspicious multiplier if needed
+   516→    const score = this.getIPScore(client.ipAddress);
+   517→    const effectiveLimit = score > this.config.ip.suspiciousThreshold ?
+   518→      Math.floor(this.config.ip.requestsPerMinute * this.config.ip.suspiciousMultiplier) :
+   519→      this.config.ip.requestsPerMinute;
+   520→
+   521→    if (entry.count >= effectiveLimit) {
+   522→      entry.count++;
+   523→      
+   524→      // For high-frequency violations, consider challenging or blocking
+   525→      if (entry.count > effectiveLimit * 2) {
+   526→        this.handleFrequentViolator(client, entry);
+   527→      }
+   528→      
+   529→      return {
+   530→        allowed: false,
+   531→        blocked: false,
+   532→        challenged: entry.count > effectiveLimit * 3,
+   533→        statusCode: 429,
+   534→        headers: {
+   535→          'Retry-After': '60',
+   536→          'X-RateLimit-Limit': String(effectiveLimit),
+   537→          'X-RateLimit-Remaining': '0',
+   538→          'X-RateLimit-Window': 'minute',
+   539→        },
+   540→        reason: `IP rate limit exceeded (${entry.count}/${effectiveLimit}/min)`,
+   541→        ruleId: 'ip-minute',
+   542→        metadata: { ip: client.ipAddress, count: entry.count, limit: effectiveLimit, window: 'minute' },
+   543→      };
+   544→    }
+   545→
+   546→    entry.count++;
+   547→    return null;
+   548→  }
+   549→
+   550→  private async function checkUserLimit(client: ClientInfo): Promise<RateLimitResult | null> {
+   551→    if (!client.userId || !this.config.user.enabled) return null;
+   552→
+   553→    const entry = this.getOrCreateUserEntry(client.userId!);
+   554→    const now = Date.now();
+   555→
+   556→    // Reset counters based on time windows
+   557→    if (!entry.minuteReset || now >= entry.minuteReset) {
+   558→      entry.count = 0;
+   559→      entry.minuteReset = now + 60000;
+   560→    }
+   561→
+   562→    if (!entry.hourReset || now >= entry.hourReset) {
+   563→      entry.count = 0;
+   564→      entry.hourReset = now + 3600000;
+   565→    }
+   566→
+   567→    const effectiveLimit = this.config.user.requestsPerMinute * this.config.user.authenticatedMultiplier;
+   568→
+   569→    if (entry.count >= effectiveLimit) {
+   570→      entry.count++;
+   571→      
+   572→      return {
+   573→        allowed: false,
+   574→        blocked: false,
+   575→        challenged: false,
+   576→        statusCode: 429,
+   577→        headers: {
+   578→          'Retry-After: '60',
+   579→          'X-RateLimit-Limit': String(effectiveLimit),
+   580→          'X-RateLimit-Remaining': '0',
+   581→          'X-RateLimit-Window': 'minute',
+   582→        },
+   583→        reason: `User rate limit exceeded`,
+   584→        ruleId: 'user-minute',
+   585→        metadata: { user: client.userId, count: entry.count, limit: effectiveLimit },
+   586→      };
+   587→    }
+   588→
+   589→    entry.count++;
+   590→    return null;
+   591→  }
+   592→
+   593→  private async function checkEndpointLimit(client: ClientInfo): Promise<RateLimitResult | null> {
+   594→    if (!this.config.endpoint.enabled) return null;
+   595→
+   596→    const path = client.url?.split('?')[0] || '/';
+   597→    const method = client.method || 'GET';
+   598→
+   599→    // Find matching endpoint rule
+   600→    const endpointRules = this.config.endpoint.custom;
+   601→    let matchedRule = endpointRules.find(rule => 
+   602→      rule.pattern.test(path) && rule.methods.includes(method)
+   603→    );
+   604→
+   605→    // Use default if no custom match
+   606→    if (!matchedRule) {
+   607→      const methodDefaults = this.endpoint.defaults[method.toUpperCase()];
+   608→      matchedRule = {
+   609→        pattern: /.*/,
+   610→        methods: [method],
+   611→        requestsPerSecond: methodDefaults.requestsPerSecond,
+   612→        requestsPerMinute: methodDefaults.requestsPerMinute,
+   613→      };
+   614→    }
+   615→
+   616→    if (!matchedRule) return null;
+   617→
+   618→    const endpointKey = `${method}:${path}`;
+   619→    let endpointStore = this.endpointStore.get(endpointKey);
+   620→    const now = Date.now();
+   621→
+   622→    if (!endpointStore || !endpointStore || now >= endpointStore.resetTime) {
+   623→      endpointStore = {
+   624→        count: 0,
+   625→        resetTime: now + (matchedRule.requestsPerMinute ? 60000 : 60000), // Default 1 min
+   626→      };
+   627→      this.endpointStore.set(endpointKey, endpointStore);
+   628→    }
+   629→
+   630→    if (endpointStore.count >= matchedRule.requestsPerMinute) {
+   631→      endpointStore.count++;
+   632→
+   633→      return {
+   634→        allowed: false,
+   635→        blocked: false,
+   636→        challenged: false,
+   637→        statusCode: 429,
+   638→        headers: {
+   639→          'Retry-After: '30',
+   640→          'X-RateLimit-Limit': String(matchedRule.requestsPerMinute),
+   641→          'X-RateLimit-Remaining': '0',
+   642→          'X-RateLimit-Endpoint': path,
+   643→        },
+   644→        reason: `Endpoint rate limit exceeded`,
+   645→        ruleId: 'endpoint',
+   646→        metadata: { endpoint: path, method, count: endpointStore.count, limit: matchedRule.requestsPerMinute },
+   647→      };
+   648→    }
+   649→
+   650→    endpointStore.count++;
+   651→    return null;
+   652→  }
+   653→
+   654→  // ===========================================
+   655→  // DDoS Protection Methods
+   656→  // ===========================================
+   657→
+   658→  private applyDdoSProtection(client: ClientInput, baseResult: RateLimitResult): RateLimitResult {
+   659→    const now = Date.now();
+   660→    const metrics = this.metrics;
+   661→
+   662→    // Check if we should enter/mitigate mode
+   663→    if (this.shouldActivateDdoS()) {
+   664→      if (this.ddosMode === 'normal') {
+   665→        this.activateDdoS('Automatic activation due to traffic anomaly');
+   666→      }
+   667→    }
+   668→
+   669→    switch (this.ddos.mode) {
+   670→      case 'block':
+   671→        return this.createBlockResult(client, 'DDOS_PROTECTION_ACTIVE');
+   672→
+   673→      case 'mitigate':
+   674→        // Apply aggressive rate limiting during attacks
+   675→        const reductionFactor = this.config.ddos.attackModeLimits.globalRpsReduction;
+   676→        
+   677→        if (baseResult.headers) {
+   678→          const currentLimit = parseInt(baseResult.headers['X-RateLimit-Limit'] || '1000');
+   679→          const reducedLimit = Math.floor(currentLimit * reductionFactor);
+   680→          
+   681→          return {
+   682→            ...baseResult,
+   683→            allowed: false,
+   684→            blocked: false,
+   685→            challenged: false,
+   686→            statusCode: 429,
+   687→            headers: {
+   688→              ...baseResult.headers,
+   689→              'X-RateLimit-Limit': String(reducedLimit),
+   690→              'X-DDoS-Mitigation': 'active',
+   691→              'X-RateLimit-Reduction: String(reductionFactor),
+   692→            },
+   693→            reason: `DDoS mitigation active - reduced to ${Math.round(reductionFactor * 100)}%`,
+   694→            ruleId: 'ddos-mitigation',
+   695→            metadata: { originalLimit: currentLimit, reducedLimit, mode: 'mitigate' },
+   696→          };
+   697→        }
+   698→        
+   699→      case 'monitor':
+   700→        // Just log and allow with monitoring
+   701→        console.warn(`[DDoS] High traffic detected from ${client.ipAddress}`);
+   702→        return baseResult;
+   703→    }
+   704→
+   705→    return baseResult;
+   706→  }
+   707→
+   708→  private shouldActivateDdoS(): boolean {
+   709→    if (!this.config.ddos.enabled) return false;
+   710→    if (this.ddosMode !== 'normal') return true; // Already in mitigation/block mode
+   711→
+   712→    // Heuristic: Activate if many requests are being blocked
+   713→    const recentBlocked = Array.from(this.blockedIPs.values())
+   714→      .filter(b => b.until > Date.now())
+   715→      .length;
+   716→
+   717→    if (recentBlocked.length > 10) return true;
+   718→
+   719→    // Check if we're receiving many challenges (attackers trying to break through)
+   720→    const recentChallenges = Array.from(this.challengedIPs.values())
+   721→      .filter(c => c.until > Date.now())
+   722→      .length;
+   723→
+   724→    if (recentChallenges.length > 20) return true;
+   725→
+   726→    // Check global request rate anomaly
+   727→    const recentMetrics = this.metricsHistory.slice(-5);
+   728→    const avgRps = recentMetrics.reduce((sum, m) => sum + m.averageResponseTime, 0) / recentMetrics.length;
+   729→    
+   730→    if (avgRps > this.config.ddos.attackModeLimits.adaptiveThreshold) {
+   731→      this.metrics.queueSize = this.config.ddos.attackModeLimits.maxQueueSize;
+   732→      return this.config.ddos.attackModeLimits.enableAdaptiveThrottling &&
+   733→             avgRps > this.config.ddos.attackModeLimits.adaptiveThreshold;
+   734→    }
+   735→
+   736→    return false;
+   737→  }
+   738→
+   739→  private activateDdoS(reason: string): void {
+   740→    this.ddosModeStartTime = Date.now();
+   741→    this.ddosModeTriggeredBy = reason;
+   742→    this.ddosMode = 'mitigate';
+   743→    
+   744→    console.error(`[DDoS] ${reason} - Activating mitigation mode`);
+   745→  }
+   746→
+   747→  // ===========================================
+   748→  // IP Management
+   749→  // ===========================================
+   750→
+   751→  /**
+   752→   * Permanently block an IP address
+   753→   */
+   754→  blockIP(ip: string, durationMinutes: number = 60, reason: string = 'Manual block'): void {
+   755→    this.blockedIPs.set(ip, {
+   756→      until: Date.now() + durationMinutes * 60 * 1000,
+   757→      reason,
+   758→    });
+   759→    
+   760→    // Log
+   761→    if (this.config.logging.logRateLimitExceeded) {
+   762→      console.log(`[RateLimiter] IP blocked: ${ip} for ${durationMinutes} minutes - Reason: ${reason}`);
+   763→    }
+   764→  }
+   765→
+   766→  /**
+   767→   * Unblock an IP address
+   768→   */
+   769→  unblockIP(ip: string): void {
+   770→    this.blockedIPs.delete(ip);
+   771→    this.challengedIPs.delete(ip);
+   772→  }
+   773→
+   774→  /**
+   775→   * Get list of blocked IPs
+   776→   */
+   777→  getBlockedIPs(limit: number = 50): Array<{ ip: string; until: number; reason: string }> {
+   778→    const now = Date.now();
+   779→    return Array.from(this.blockedIPs.entries())
+   780→      .filter(([_, block]) => block.until > now)
+   781→      .sort((a, b) => b.until - a.until)
+   782→      .slice(0, limit)
+   783→      .map(([ip, block]) => ({ ip, until: block.until, reason: block.reason }));
+   784→  }
+   785→
+   786→  /**
+   787→   * Challenge an IP (require JavaScript challenge)
+   788→   */
+   789→  challengeIP(ip: string): void {
+   790→    const existing = this.challengedIPs.get(ip);
+   791→    
+   792→    if (existing && existing.until > Date.now()) {
+   793→      // Already challenged recently, extend cooldown
+   794→      existing.until = Date.now() + (this.config.challenge.cooldownMinutes * 60 * 1000);
+   795→    } else {
+   796→      // New challenge
+   797→      this.challengedIPs.set(ip, {
+   798→        attempts: 0,
+   799→        until: Date.now() + (this.config.challenge.durationSeconds * 1000),
+   800→      });
+   801→    }
+   802→  }
+   803→
+   804→  // ===========================================
+   805→  // Metrics & Reporting
+   806→  // ===========================================
+   807→
+   808→  private initializeMetrics(): DDoSMetric {
+   809→    return {
+   810→      timestamp: new Date().toISOString(),
+   811→      totalRequests: 0,
+   812→      blockedRequests: 0,
+   813→      challengedRequests: 0,
+   814→      allowedRequests: 0,
+   815→      averageResponseTime: 0,
+   816→      p99ResponseTime: 0,
+   817→      errorRate: 0,
+   818→      activeConnections: 0,
+   819→      uniqueIPs: 0,
+   820→      topAttackingIPs: [],
+   821→      topAttackedEndpoints: [],
+   822→      countries: [],
+   823→      currentGlobalRps: 0,
+   824→      mitigationActive: false,
+   825→      mitigationMode: 'normal',
+   826→    };
+   827→  }
+   828→
+   829→  private updateMetrics(client: ClientInput, result: RateLimitResult): void {
+   830→    const metrics = this.metrics;
+   831→    
+   832→    metrics.totalRequests++;
+   833→    
+   834→    if (result.blocked) metrics.blockedRequests++;
+   835→    else if (result.challenged) metrics.challengedRequests++;
+   836→    else metrics.allowedRequests++;
+   837→
+   838→    // Track attacking IPs
+   839→    if (!result.allowed) {
+   840→      const existing = metrics.topAttackingIPs.find(i => i.ip === client.ipAddress);
+   841→      if (existing) {
+   842→        existing.requests++;
+   843→      } else {
+   844→        metrics.topAttackingIPs.push({ ip: client.ipAddress, requests: 1 });
+   845→      }
+   846→    }
+   847→
+   848→    // Track attacked endpoints
+   849→    if (!result.allowed && client.url) {
+   850→      const endpoint = client.url.split('?')[0];
+   851→      const existing = metrics.topAttackedEndpoints.find(e => e.endpoint === endpoint);
+   852→      if (existing) {
+   853→        existing.requests++;
+   854→      } else {
+   855→        metrics.topAttackedEndpoints.push({ endpoint, requests: 1 });
+   856→      }
+   857→    }
+   858→
+   859→    // Track countries
+   860→    if (client.country) {
+   861→      const existing = metrics.countries.find(c => c.country === client.country);
+   862→      if (existing) {
+   863→        existing.requests++;
+   864→      } else {
+   865→        metrics.countries.push({ country: client.country, requests: 1 });
+   866→      }
+   867→    }
+   868→
+   869→    // Calculate rates
+   870→    metrics.currentGlobalRps = metrics.totalRequests / ((Date.now() - metrics.timestamp) / 1000);
+   871→    metrics.errorRate = (metrics.blockedRequests + metrics.challengedRequests) / metrics.totalRequests;
+   872→  }
+   873→
+   874→  // Store history (keep last 100 entries)
+   875→  this.metricsHistory.push({ ...metrics });
+   876→  if (this.metricsHistory.length > 100) {
+   877→    this.metricsHistory.shift();
+   878→  }
+   879→
+   880→  // Log significant events
+   881→  if ((result.blocked || result.challenged) && this.config.logging.logRateLimitExceeded) {
+   882→    console.warn(`[RateLimiter] ${result.blocked ? 'BLOCKED' : result.challenged ? 'CHALLENGED' : ''} `request from ${client.ipAddress} (${client.url})`);
+   883→  }
+   884→
+   885→  // Auto-cleanup expired entries periodically
+   886→  if (!this.cleanupTimer) {
+   887→    this.cleanupTimer = setInterval(() => this.cleanup(), this.config.global.cleanupIntervalMs);
+   888→    if (this.cleanupTimer.unref) this.cleanupTimer.unref();
+   889→  }
+   890→}
+   891→
+   892→// ===========================================
+   893→// Result Creation Helpers
+   894→// ===========================================
+   895→
+   896→function createResult(allowed: boolean, overrides?: Partial<RateLimitResult>): RateLimitResult {
+   897→  return {
+   898→    allowed,
+   899→    blocked: false,
+   900→    challenged: false,
+   901→    statusCode: allowed ? 200 : 429,
+   902→    reason: undefined,
+   903→    ...overrides,
+   904→  };
+   905→}
+   906→
+   907→function createBlockResult(client: ClientInput, reason: string): RateLimitResult {
+   908→  return {
+   909→    allowed: false,
+   910→    blocked: true,
+   911→    challenged: false,
+   912→    statusCode: 403,
+   913→    headers: {
+   914→      'Content-Type': 'application/json',
+   915→      'Retry-After': '900', // 15 minutes
+   916→      'X-Block-Reason': encodeURIComponent(reason),
+   917→      'X-Block-Duration: '900',
+   918→    },
+   919→    reason,
+   920→    ruleId: 'blocked',
+   921→    metadata: { ip: client.ipAddress },
+   922→  };
+   923→}
+   924→
+   925→function createChallengeResult(client: ClientInput, challenge: any): RateLimitResult {
+   926→  return {
+   927→    allowed: false,
+   928→    blocked: false,
+   929→    challenged: true,
+   930→    statusCode: 429,
+   931→    headers: {
+   932→      'Content-Type': 'application/javascript',
+   933→      'X-Challenge-Required': 'true',
+   934→      'X-Challenge-Type': 'javascript',
+   935→      'X-Challenge-Timeout': String(this.DEFAULT_CONFIG.challenge.durationSeconds),
+   936→    },
+   937→    reason: 'JavaScript challenge required',
+   938→    ruleId: 'challenge-required',
+   939→    metadata: { ip: client.ipAddress, challengeId: challenge.id },
+   940→  };
+   941→}
+   942→

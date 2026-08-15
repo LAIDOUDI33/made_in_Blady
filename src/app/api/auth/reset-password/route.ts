@@ -76,8 +76,11 @@ export async function POST(request: NextRequest) {
     const token = generateResetToken(user.id, user.email, ip);
 
     // In production, send actual email here using emailService
-    console.log(`[DEV] Password reset token for ${email}: ${token}`);
-    console.log(`[DEV] Reset URL: ${process.env.APP_URL || 'https://algeriatrade.dz'}/reset-password?token=${token}`);
+    // SECURITY FIX: Removed token logging in production - only log non-sensitive info
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[DEV] Password reset initiated for email: ${email}`);
+      console.log(`[DEV] Reset URL would be sent via email`);
+    }
 
     // Create notification about password reset request
     await db.notification.create({
@@ -93,7 +96,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       message: 'Un email de réinitialisation a été envoyé si ce compte existe.',
-      devToken: process.env.NODE_ENV === 'development' ? token : undefined,
+      // SECURITY FIX: Removed devToken from response - token should never be exposed
+      // In development, check server logs or use debugging tools instead
     });
 
   } catch (error: any) {

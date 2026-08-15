@@ -3,6 +3,7 @@
 import React from 'react';
 import { Bot, User, ThumbsUp, ThumbsDown, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { sanitizeHTML } from '@/lib/utils';
 
 interface ChatMessageProps {
   message: {
@@ -20,19 +21,30 @@ export default function ChatbotMessage({ message, onFeedback }: ChatMessageProps
   const isUser = message.role === 'user';
   const isBot = message.role === 'bot';
 
-  // Simple markdown-like rendering
+  /**
+   * Render markdown-like content safely
+   * Uses sanitizeHTML() to prevent XSS attacks before rendering
+   */
   const renderContent = (text: string) => {
-    // Bold text
-    let html = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    // First escape any existing HTML to prevent injection
+    let escaped = text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
     
-    // Line breaks
-    html = html.replace(/\n/g, '<br/>');
+    // Now apply safe formatting (these are the ONLY HTML conversions allowed)
+    let html = escaped
+      // Bold text
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      // Line breaks
+      .replace(/\n/g, '<br/>')
+      // Lists (convert • to <li>)
+      .replace(/^• (.*)$/gm, '<li class="ml-2">$1</li>')
+      // Italic text
+      .replace(/\*(.*?)\*/g, '<em>$1</em>');
     
-    // Lists
-    html = html.replace(/• (.*)/g, '<li class="ml-2">$1</li>');
-    
-    // Emoji preservation
-    return html;
+    // Final sanitization pass to catch any edge cases
+    return sanitizeHTML(html);
   };
 
   // Format time

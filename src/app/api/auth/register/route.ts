@@ -1,7 +1,19 @@
+/**
+ * User Registration API Route
+ * 
+ * POST /api/auth/register - Create new user account
+ * 
+ * SECURITY:
+ * - Rate limited to prevent bot account creation
+ * - Password validation enforced server-side
+ * - Email enumeration prevented (generic error messages)
+ */
+
 import { NextRequest, NextResponse } from "next/server";
 import { hash } from "bcryptjs";
 import { db } from "@/lib/db";
 import { UserRole } from "@prisma/client";
+import { checkRateLimit, getRateLimitHeaders, createRateLimitResponse, RATE_LIMITS } from "@/lib/security/rateLimiter";
 
 // Zod-like validation (using simple validation for now)
 function validateEmail(email: string): boolean {
@@ -9,20 +21,29 @@ function validateEmail(email: string): boolean {
   return emailRegex.test(email);
 }
 
+// Enhanced password validation aligned with security policy
 function validatePassword(password: string): { valid: boolean; errors: string[] } {
   const errors: string[] = [];
   
+  // Minimum length (aligned with passwordPolicy.ts)
   if (password.length < 8) {
     errors.push("Le mot de passe doit contenir au moins 8 caractères");
   }
+  // Uppercase requirement
   if (!/[A-Z]/.test(password)) {
     errors.push("Le mot de passe doit contenir au moins une majuscule");
   }
+  // Lowercase requirement
   if (!/[a-z]/.test(password)) {
     errors.push("Le mot de passe doit contenir au moins une minuscule");
   }
+  // Digit requirement
   if (!/[0-9]/.test(password)) {
     errors.push("Le mot de passe doit contenir au moins un chiffre");
+  }
+  // Special character recommendation (not required but encouraged)
+  if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
+    // Only warn, don't block - allows simpler passwords while encouraging strength
   }
   
   return { valid: errors.length === 0, errors };
@@ -54,6 +75,25 @@ function validateNIS(nis: string): boolean {
 
 export async function POST(request: NextRequest) {
   try {
+    // ========================================================================
+    // CRITICAL FIX: Rate limiting to prevent automated account creation
+    // ========================================================================
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 
+               request.headers.get('x-real-ip') || 
+               'unknown';
+    
+    const rateLimitResult = checkRateLimit(ip, 'register');
+    
+    if (!rateLimitResult.allowed) {
+      return NextResponse.json(
+        createRateLimitResponse(RATE_LIMITS.register!, rateLimitResult),
+        { 
+          status: 429,
+          headers: getRateLimitHeaders(rateLimitResult),
+        }
+      );
+    }
+
     const body = await request.json();
     const {
       firstName,
@@ -139,7 +179,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if email already exists
+    // Check if email already exists (use generic message to prevent enumeration)
     const existingUser = await db.user.findUnique({
       where: { email: email.toLowerCase() },
     });
@@ -151,7 +191,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Hash password
+    // Hash password with strong work factor
     const hashedPassword = await hash(password, 12);
 
     // Create user
@@ -199,6 +239,18 @@ export async function POST(request: NextRequest) {
           userId: user.id,
         },
       });
+    }
+
+    // Log registration event for audit trail
+    try {
+      const { auditLogger } = await import('@/lib/security/auditLog');
+      await auditLogger.logSecurity('USER_REGISTER' as any, user.id, {
+        success: true,
+        ipAddress: ip,
+        metadata: { role, email: email.toLowerCase() },
+      });
+    } catch (logError) {
+      console.error('Failed to log registration audit:', logError);
     }
 
     // Return user without password

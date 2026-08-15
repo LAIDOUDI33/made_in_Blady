@@ -2,9 +2,13 @@
  * POST /api/auth/2fa/setup
  * Generate new 2FA secret + backup codes
  * Returns QR code URI + secret (encrypted)
+ * 
+ * SECURITY: Requires authenticated session - userId extracted from session, not request body
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 import { db } from '@/lib/db';
 import {
   generateSecret,
@@ -16,12 +20,24 @@ import { checkRateLimit, getRateLimitHeaders, createRateLimitResponse, RATE_LIMI
 
 export async function POST(request: NextRequest) {
   try {
+    // CRITICAL FIX: Authenticate user first - get userId from session, NOT request body
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { error: 'Non authentifié. Veuillez vous connecter.', code: 'UNAUTHORIZED' },
+        { status: 401 }
+      );
+    }
+    
+    // Use userId from authenticated session (prevents IDOR attacks)
+    const userId = session.user.id;
+    
     // Get client IP for rate limiting
     const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 
                 request.headers.get('x-real-ip') || 
                 'unknown';
     
-    // Check rate limit
+    // Rate limit check (after auth to avoid bypass)
     const rateLimitResult = checkRateLimit(ip, 'twoFactorSetup');
     
     if (!rateLimitResult.allowed) {
@@ -34,16 +50,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Parse request body
-    const body = await request.json();
-    const { userId } = body;
-
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'ID utilisateur requis', code: 'MISSING_USER_ID' },
-        { status: 400 }
-      );
-    }
+    // Note: userId is now from the authenticated session, not request body
+    // This prevents attackers from setting up 2FA on other users' accounts
 
     // Get user
     const user = await db.user.findUnique({
