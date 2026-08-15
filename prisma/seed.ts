@@ -3,66 +3,359 @@ import { hash } from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
-// 58 Algerian Wilayas
+// Complete Algerian Wilayas (58 official + 11 proposed = 69)
+// Data source: Official Algerian administrative data (2008 census)
 const WILAYAS = [
-  { code: "01", name: "Adrar", nameAr: "أدرار" },
-  { code: "02", name: "Chlef", nameAr: "الشلف" },
-  { code: "03", name: "Laghouat", nameAr: "الأغواط" },
-  { code: "04", name: "Oum El Bouaghi", nameAr: "أم البواقي" },
-  { code: "05", name: "Batna", nameAr: "باتنة" },
-  { code: "06", name: "Béjaïa", nameAr: "بجاية" },
-  { code: "07", name: "Biskra", nameAr: "بسكرة" },
-  { code: "08", name: "Béchar", nameAr: "بشار" },
-  { code: "09", name: "Blida", nameAr: "البليدة" },
-  { code: "10", name: "Bouira", nameAr: "البويرة" },
-  { code: "11", name: "Tamanrasset", nameAr: "تمنراست" },
-  { code: "12", name: "Tébessa", nameAr: "تبسة" },
-  { code: "13", name: "Tlemcen", nameAr: "تلمسان" },
-  { code: "14", name: "Tiaret", nameAr: "تيارت" },
-  { code: "15", name: "Tizi Ouzou", nameAr: "تيزي وزو" },
-  { code: "16", name: "Alger", nameAr: "الجزائر" },
-  { code: "17", name: "Djelfa", nameAr: "الجلفة" },
-  { code: "18", name: "Jijel", nameAr: "جيجل" },
-  { code: "19", name: "Sétif", nameAr: "سطيف" },
-  { code: "20", name: "Saïda", nameAr: "سعيدة" },
-  { code: "21", name: "Skikda", nameAr: "سكيكدة" },
-  { code: "22", name: "Sidi Bel Abbès", nameAr: "سيدي بلعباس" },
-  { code: "23", name: "Annaba", nameAr: "عنابة" },
-  { code: "24", name: "Guelma", nameAr: "قالة" },
-  { code: "25", name: "Constantine", nameAr: "قسنطينة" },
-  { code: "26", name: "Médéa", nameAr: "المدية" },
-  { code: "27", name: "Mostaganem", nameAr: "مستغانم" },
-  { code: "28", name: "M'Sila", nameAr: "المسيلة" },
-  { code: "29", name: "Mascara", nameAr: "معسكر" },
-  { code: "30", name: "Ouargla", nameAr: "ورقلة" },
-  { code: "31", name: "Oran", nameAr: "وهران" },
-  { code: "32", name: "El Bayadh", nameAr: " البيض" },
-  { code: "33", name: "Illizi", nameAr: "إليزي" },
-  { code: "34", name: "Bordj Bou Arréridj", nameAr: "برج بوعريريج" },
-  { code: "35", name: "Boumerdès", nameAr: "بومرداس" },
-  { code: "36", name: "El Tarf", nameAr: "الطارف" },
-  { code: "37", name: "Tindouf", nameAr: "تندوف" },
-  { code: "38", name: "Tissemsilt", nameAr: "تيسمسيلت" },
-  { code: "39", name: "El Oued", nameAr: "الوادي" },
-  { code: "40", name: "Khenchela", nameAr: "خنشلة" },
-  { code: "41", name: "Souk Ahras", nameAr: "سوق أهراس" },
-  { code: "42", name: "Tipaza", nameAr: "تيبازة" },
-  { code: "43", name: "Mila", nameAr: "ميلة" },
-  { code: "44", name: "Aïn Defla", nameAr: "عين الدفلى" },
-  { code: "45", name: "Naâma", nameAr: "النعامة" },
-  { code: "46", name: "Aïn Témouchent", nameAr: "عين تموشنت" },
-  { code: "47", name: "Ghardaïa", nameAr: "غداية" },
-  { code: "48", name: "Relizane", nameAr: "غليزان" },
-  { code: "49", name: "El M'Ghair", nameAr: "المغير" },
-  { code: "50", name: "El Meniaa", nameAr: "المنيعة" },
-  { code: "51", name: "Ouled Djellal", nameAr: "أولاد جلال" },
-  { code: "52", name: "Bordj Baji Mokhtar", nameAr: "برج باجي مختار" },
-  { code: "53", name: "Béni Abbès", nameAr: "بنى عباس" },
-  { code: "54", name: "Timimoun", nameAr: "تيميمون" },
-  { code: "55", name: "Touggourt", nameAr: "تقرت" },
-  { code: "56", name: "Djanet", nameAr: "جانيت" },
-  { code: "57", name: "In Salah", nameAr: "إن سلام" },
-  { code: "58", name: "In Guezzam", nameAr: "إن قزام" }
+  // ===== ORIGINAL 48 WILAYAS (1984-2019) =====
+  { 
+    code: "01", name: "Adrar", nameAr: "أدرار",
+    numberOfDairas: 6, numberOfCommunes: 16, surfaceAreaKm2: 242942,
+    population2008: 399714, density: 0.94, isNewWilaya: false, isProposed: false
+  },
+  { 
+    code: "02", name: "Chlef", nameAr: "الشلف",
+    numberOfDairas: 13, numberOfCommunes: 35, surfaceAreaKm2: 4795,
+    population2008: 1002088, density: 209, isNewWilaya: false, isProposed: false
+  },
+  { 
+    code: "03", name: "Laghouat", nameAr: "الأغواط",
+    numberOfDairas: 5, numberOfCommunes: 12, surfaceAreaKm2: 18404,
+    population2008: 273402, density: 15, isNewWilaya: false, isProposed: false
+  },
+  { 
+    code: "04", name: "Oum El Bouaghi", nameAr: "أم البواقي",
+    numberOfDairas: 12, numberOfCommunes: 29, surfaceAreaKm2: 7638,
+    population2008: 621612, density: 81, isNewWilaya: false, isProposed: false
+  },
+  { 
+    code: "05", name: "Batna", nameAr: "باتنة",
+    numberOfDairas: 18, numberOfCommunes: 53, surfaceAreaKm2: 8681,
+    population2008: 938075, density: 108, isNewWilaya: false, isProposed: false
+  },
+  { 
+    code: "06", name: "Béjaïa", nameAr: "بجاية",
+    numberOfDairas: 19, numberOfCommunes: 52, surfaceAreaKm2: 3268,
+    population2008: 912577, density: 279, isNewWilaya: false, isProposed: false
+  },
+  { 
+    code: "07", name: "Biskra", nameAr: "بسكرة",
+    numberOfDairas: 7, numberOfCommunes: 22, surfaceAreaKm2: 19543,
+    population2008: 678246, density: 35, isNewWilaya: false, isProposed: false
+  },
+  { 
+    code: "08", name: "Béchar", nameAr: "بشار",
+    numberOfDairas: 6, numberOfCommunes: 11, surfaceAreaKm2: 162200,
+    population2008: 270061, density: 1.7, isNewWilaya: false, isProposed: false
+  },
+  { 
+    code: "09", name: "Blida", nameAr: "البليدة",
+    numberOfDairas: 10, numberOfCommunes: 25, surfaceAreaKm2: 1575,
+    population2008: 1002937, density: 591, isNewWilaya: false, isProposed: false
+  },
+  { 
+    code: "10", name: "Bouira", nameAr: "البويرة",
+    numberOfDairas: 12, numberOfCommunes: 45, surfaceAreaKm2: 4439,
+    population2008: 695583, density: 157, isNewWilaya: false, isProposed: false
+  },
+  { 
+    code: "11", name: "Tamanrasset", nameAr: "تمنراست",
+    numberOfDairas: 3, numberOfCommunes: 5, surfaceAreaKm2: 335563,
+    population2008: 176637, density: 0.32, isNewWilaya: false, isProposed: false
+  },
+  { 
+    code: "12", name: "Tébessa", nameAr: "تبسة",
+    numberOfDairas: 10, numberOfCommunes: 24, surfaceAreaKm2: 9168,
+    population2008: 550262, density: 60, isNewWilaya: false, isProposed: false
+  },
+  { 
+    code: "13", name: "Tlemcen", nameAr: "تلمسان",
+    numberOfDairas: 19, numberOfCommunes: 49, surfaceAreaKm2: 6131,
+    population2008: 918521, density: 150, isNewWilaya: false, isProposed: false
+  },
+  { 
+    code: "14", name: "Tiaret", nameAr: "تيارت",
+    numberOfDairas: 11, numberOfCommunes: 36, surfaceAreaKm2: 20673,
+    population2008: 846823, density: 41, isNewWilaya: false, isProposed: false
+  },
+  { 
+    code: "15", name: "Tizi Ouzou", nameAr: "تيزي وزو",
+    numberOfDairas: 21, numberOfCommunes: 67, surfaceAreaKm2: 2956,
+    population2008: 1127608, density: 316, isNewWilaya: false, isProposed: false
+  },
+  { 
+    code: "16", name: "Alger", nameAr: "الجزائر",
+    numberOfDairas: 13, numberOfCommunes: 57, surfaceAreaKm2: 1190,
+    population2008: 2988145, density: 2511, isNewWilaya: false, isProposed: false
+  },
+  { 
+    code: "17", name: "Djelfa", nameAr: "الجلفة",
+    numberOfDairas: 6, numberOfCommunes: 18, surfaceAreaKm2: 10461,
+    population2008: 621077, density: 46, isNewWilaya: false, isProposed: false
+  },
+  { 
+    code: "18", name: "Jijel", nameAr: "جيجل",
+    numberOfDairas: 11, numberOfCommunes: 28, surfaceAreaKm2: 2577,
+    population2008: 636948, density: 247, isNewWilaya: false, isProposed: false
+  },
+  { 
+    code: "19", name: "Sétif", nameAr: "سطيف",
+    numberOfDairas: 20, numberOfCommunes: 60, surfaceAreaKm2: 6504,
+    population2008: 1489979, density: 229, isNewWilaya: false, isProposed: false
+  },
+  { 
+    code: "20", name: "Saïda", nameAr: "سعيدة",
+    numberOfDairas: 6, numberOfCommunes: 16, surfaceAreaKm2: 6764,
+    population2008: 330641, density: 49, isNewWilaya: false, isProposed: false
+  },
+  { 
+    code: "21", name: "Skikda", nameAr: "سكيكدة",
+    numberOfDairas: 13, numberOfCommunes: 38, surfaceAreaKm2: 4026,
+    population2008: 898680, density: 223, isNewWilaya: false, isProposed: false
+  },
+  { 
+    code: "22", name: "Sidi Bel Abbès", nameAr: "سيدي بلعباس",
+    numberOfDairas: 15, numberOfCommunes: 52, surfaceAreaKm2: 9096,
+    population2008: 604744, density: 66, isNewWilaya: false, isProposed: false
+  },
+  { 
+    code: "23", name: "Annaba", nameAr: "عنابة",
+    numberOfDairas: 6, numberOfCommunes: 12, surfaceAreaKm2: 1439,
+    population2008: 609499, density: 424, isNewWilaya: false, isProposed: false
+  },
+  { 
+    code: "24", name: "Guelma", nameAr: "قالمة",
+    numberOfDairas: 10, numberOfCommunes: 34, surfaceAreaKm2: 4101,
+    population2008: 482430, density: 118, isNewWilaya: false, isProposed: false
+  },
+  { 
+    code: "25", name: "Constantine", nameAr: "قسنطينة",
+    numberOfDairas: 7, numberOfCommunes: 12, surfaceAreaKm2: 2187,
+    population2008: 938475, density: 427, isNewWilaya: false, isProposed: false
+  },
+  { 
+    code: "26", name: "Médéa", nameAr: "المدية",
+    numberOfDairas: 13, numberOfCommunes: 43, surfaceAreaKm2: 4142,
+    population2008: 563012, density: 136, isNewWilaya: false, isProposed: false
+  },
+  { 
+    code: "27", name: "Mostaganem", nameAr: "مستغانم",
+    numberOfDairas: 10, numberOfCommunes: 32, surfaceAreaKm2: 2175,
+    population2008: 737118, density: 325, isNewWilaya: false, isProposed: false
+  },
+  { 
+    code: "28", name: "M'Sila", nameAr: "المسيلة",
+    numberOfDairas: 7, numberOfCommunes: 24, surfaceAreaKm2: 18718,
+    population2008: 574462, density: 30.69, isNewWilaya: false, isProposed: false
+  },
+  { 
+    code: "29", name: "Mascara", nameAr: "معسكر",
+    numberOfDairas: 16, numberOfCommunes: 47, surfaceAreaKm2: 5941,
+    population2008: 784073, density: 132, isNewWilaya: false, isProposed: false
+  },
+  { 
+    code: "30", name: "Ouargla", nameAr: "ورقلة",
+    numberOfDairas: 5, numberOfCommunes: 8, surfaceAreaKm2: 145805,
+    population2008: 558558, density: 2.6, isNewWilaya: false, isProposed: false
+  },
+  { 
+    code: "31", name: "Oran", nameAr: "وهران",
+    numberOfDairas: 9, numberOfCommunes: 26, surfaceAreaKm2: 2121,
+    population2008: 1584607, density: 688, isNewWilaya: false, isProposed: false
+  },
+  { 
+    code: "32", name: "El Bayadh", nameAr: "البيض",
+    numberOfDairas: 5, numberOfCommunes: 15, surfaceAreaKm2: 42038,
+    population2008: 185347, density: 4.40, isNewWilaya: false, isProposed: false
+  },
+  { 
+    code: "33", name: "Illizi", nameAr: "إليزي",
+    numberOfDairas: 4, numberOfCommunes: 4, surfaceAreaKm2: 198433,
+    population2008: 52333, density: 0.18, isNewWilaya: false, isProposed: false
+  },
+  { 
+    code: "34", name: "Bordj Bou Arreridj", nameAr: "برج بوعريريج",
+    numberOfDairas: 10, numberOfCommunes: 34, surfaceAreaKm2: 4115,
+    population2008: 628475, density: 160, isNewWilaya: false, isProposed: false
+  },
+  { 
+    code: "35", name: "Boumerdès", nameAr: "بومرداس",
+    numberOfDairas: 9, numberOfCommunes: 32, surfaceAreaKm2: 1356,
+    population2008: 802083, density: 504, isNewWilaya: false, isProposed: false
+  },
+  { 
+    code: "36", name: "El Tarf", nameAr: "الطارف",
+    numberOfDairas: 7, numberOfCommunes: 24, surfaceAreaKm2: 3339,
+    population2008: 408414, density: 122, isNewWilaya: false, isProposed: false
+  },
+  { 
+    code: "37", name: "Tindouf", nameAr: "تندوف",
+    numberOfDairas: 1, numberOfCommunes: 2, surfaceAreaKm2: 159000,
+    population2008: 49149, density: 0.31, isNewWilaya: false, isProposed: false
+  },
+  { 
+    code: "38", name: "Tissemsilt", nameAr: "تيسمسيلت",
+    numberOfDairas: 8, numberOfCommunes: 22, surfaceAreaKm2: 3152,
+    population2008: 294476, density: 93, isNewWilaya: false, isProposed: false
+  },
+  { 
+    code: "39", name: "El Oued", nameAr: "الوادي",
+    numberOfDairas: 10, numberOfCommunes: 22, surfaceAreaKm2: 54573,
+    population2008: 647548, density: 12, isNewWilaya: false, isProposed: false
+  },
+  { 
+    code: "40", name: "Khenchela", nameAr: "خنشلة",
+    numberOfDairas: 8, numberOfCommunes: 21, surfaceAreaKm2: 9811,
+    population2008: 386683, density: 40, isNewWilaya: false, isProposed: false
+  },
+  { 
+    code: "41", name: "Souk Ahras", nameAr: "سوق أهراس",
+    numberOfDairas: 10, numberOfCommunes: 26, surfaceAreaKm2: 4541,
+    population2008: 438127, density: 95, isNewWilaya: false, isProposed: false
+  },
+  { 
+    code: "42", name: "Tipaza", nameAr: "تيبازة",
+    numberOfDairas: 10, numberOfCommunes: 28, surfaceAreaKm2: 1605,
+    population2008: 591010, density: 273, isNewWilaya: false, isProposed: false
+  },
+  { 
+    code: "43", name: "Mila", nameAr: "ميلة",
+    numberOfDairas: 13, numberOfCommunes: 32, surfaceAreaKm2: 3407,
+    population2008: 766886, density: 220, isNewWilaya: false, isProposed: false
+  },
+  { 
+    code: "44", name: "Aïn Defla", nameAr: "عين الدفلى",
+    numberOfDairas: 14, numberOfCommunes: 36, surfaceAreaKm2: 4891,
+    population2008: 766013, density: 156, isNewWilaya: false, isProposed: false
+  },
+  { 
+    code: "45", name: "Naâma", nameAr: "النعامة",
+    numberOfDairas: 7, numberOfCommunes: 12, surfaceAreaKm2: 29950,
+    population2008: 192891, density: 6.5, isNewWilaya: false, isProposed: false
+  },
+  { 
+    code: "46", name: "Aïn Témouchent", nameAr: "عين تموشنت",
+    numberOfDairas: 8, numberOfCommunes: 28, surfaceAreaKm2: 2379,
+    population2008: 371239, density: 156, isNewWilaya: false, isProposed: false
+  },
+  { 
+    code: "47", name: "Ghardaïa", nameAr: "غرداية",
+    numberOfDairas: 8, numberOfCommunes: 10, surfaceAreaKm2: 86105,
+    population2008: 363598, density: 4.2, isNewWilaya: false, isProposed: false
+  },
+  { 
+    code: "48", name: "Relizane", nameAr: "غليزان",
+    numberOfDairas: 13, numberOfCommunes: 38, surfaceAreaKm2: 4870,
+    population2008: 726180, density: 152, isNewWilaya: false, isProposed: false
+  },
+
+  // ===== NEW WILAYAS CREATED IN 2019 (49-58) =====
+  { 
+    code: "49", name: "Timimoun", nameAr: "تيميمون",
+    numberOfDairas: 4, numberOfCommunes: 10, surfaceAreaKm2: 65203,
+    population2008: 122019, density: 1.87, isNewWilaya: true, isProposed: false
+  },
+  { 
+    code: "50", name: "Bordj Badji Mokhtar", nameAr: "برج باجي مختار",
+    numberOfDairas: 1, numberOfCommunes: 2, surfaceAreaKm2: 120026,
+    population2008: 16437, density: 0.13, isNewWilaya: true, isProposed: false
+  },
+  { 
+    code: "51", name: "Ouled Djellal", nameAr: "أولاد جلال",
+    numberOfDairas: 2, numberOfCommunes: 6, surfaceAreaKm2: 11410,
+    population2008: 174219, density: 15.26, isNewWilaya: true, isProposed: false
+  },
+  { 
+    code: "52", name: "Béni Abbès", nameAr: "بني عباس",
+    numberOfDairas: 6, numberOfCommunes: 10, surfaceAreaKm2: 101350,
+    population2008: 50163, density: 0.49, isNewWilaya: true, isProposed: false
+  },
+  { 
+    code: "53", name: "In Salah", nameAr: "إن سلام",
+    numberOfDairas: 2, numberOfCommunes: 3, surfaceAreaKm2: 134218,
+    population2008: 50392, density: 0.38, isNewWilaya: true, isProposed: false
+  },
+  { 
+    code: "54", name: "In Guezzam", nameAr: "إن قزام",
+    numberOfDairas: 2, numberOfCommunes: 2, surfaceAreaKm2: 88126,
+    population2008: 11202, density: 0.12, isNewWilaya: true, isProposed: false
+  },
+  { 
+    code: "55", name: "Touggourt", nameAr: "تقرت",
+    numberOfDairas: 5, numberOfCommunes: 13, surfaceAreaKm2: 17428,
+    population2008: 247221, density: 14.18, isNewWilaya: true, isProposed: false
+  },
+  { 
+    code: "56", name: "Djanet", nameAr: "جانيت",
+    numberOfDairas: 1, numberOfCommunes: 2, surfaceAreaKm2: 86185,
+    population2008: 17618, density: 0.2, isNewWilaya: true, isProposed: false
+  },
+  { 
+    code: "57", name: "El M'Ghair", nameAr: "المغير",
+    numberOfDairas: 2, numberOfCommunes: 8, surfaceAreaKm2: 8835,
+    population2008: 162267, density: 18.36, isNewWilaya: true, isProposed: false
+  },
+  { 
+    code: "58", name: "El Meniaa", nameAr: "المنيعة",
+    numberOfDairas: 2, numberOfCommunes: 3, surfaceAreaKm2: 62215,
+    population2008: 57276, density: 0.92, isNewWilaya: true, isProposed: false
+  },
+
+  // ===== PROPOSED NEW WILAYAS (59-69) - Administrative Reform Project =====
+  { 
+    code: "59", name: "Aflou", nameAr: "الأفلو",
+    numberOfDairas: 5, numberOfCommunes: 12, surfaceAreaKm2: 6653,
+    population2008: 182938, density: 27, isNewWilaya: true, isProposed: true
+  },
+  { 
+    code: "60", name: "Barika", nameAr: "البريكة",
+    numberOfDairas: 3, numberOfCommunes: 8, surfaceAreaKm2: 3511,
+    population2008: 181716, density: 58, isNewWilaya: true, isProposed: true
+  },
+  { 
+    code: "61", name: "El Kantara", nameAr: "القنطرة",
+    numberOfDairas: 3, numberOfCommunes: 5, surfaceAreaKm2: 1443,
+    population2008: 43110, density: 29, isNewWilaya: true, isProposed: true
+  },
+  { 
+    code: "62", name: "Bir El Ater", nameAr: "بئر العاتر",
+    numberOfDairas: 2, numberOfCommunes: 4, surfaceAreaKm2: 5059,
+    population2008: 98441, density: 19.45, isNewWilaya: true, isProposed: true
+  },
+  { 
+    code: "63", name: "El Aricha", nameAr: "العريشة",
+    numberOfDairas: 2, numberOfCommunes: 4, surfaceAreaKm2: 2930,
+    population2008: 30614, density: 10.44, isNewWilaya: true, isProposed: true
+  },
+  { 
+    code: "64", name: "Ksar Chellala", nameAr: "قصر الشلالة",
+    numberOfDairas: 3, numberOfCommunes: 6, surfaceAreaKm2: 0,
+    population2008: null, density: null, isNewWilaya: true, isProposed: true
+  },
+  { 
+    code: "65", name: "Aïn Ouessara", nameAr: "عين وسارة",
+    numberOfDairas: 4, numberOfCommunes: 10, surfaceAreaKm2: 6265,
+    population2008: 251038, density: 40, isNewWilaya: true, isProposed: true
+  },
+  { 
+    code: "66", name: "Messaad", nameAr: "مسعد",
+    numberOfDairas: 2, numberOfCommunes: 8, surfaceAreaKm2: 15530,
+    population2008: 220069, density: 14.17, isNewWilaya: true, isProposed: true
+  },
+  { 
+    code: "67", name: "Ksar El Boukhari", nameAr: "قصر البخاري",
+    numberOfDairas: 6, numberOfCommunes: 21, surfaceAreaKm2: 4724,
+    population2008: 256920, density: 54, isNewWilaya: true, isProposed: true
+  },
+  { 
+    code: "68", name: "Bou Saâda", nameAr: "بو سعادة",
+    numberOfDairas: 8, numberOfCommunes: 23, surfaceAreaKm2: 0,
+    population2008: 416129, density: null, isNewWilaya: true, isProposed: true
+  },
+  { 
+    code: "69", name: "El Abiodh Sidi Cheikh", nameAr: "الأبيض سيدي الشيخ",
+    numberOfDairas: 3, numberOfCommunes: 7, surfaceAreaKm2: 36832,
+    population2008: 43277, density: 1.17, isNewWilaya: true, isProposed: true
+  }
 ];
 
 // Product Categories for Algerian Market
@@ -376,14 +669,46 @@ const PRODUCTS = [
 async function main() {
   console.log('🌱 Seeding AlgeriaTrade database...\n');
 
-  // 1. Seed Wilayas
-  console.log('📍 Seeding 58 Wilayas...');
+  // 1. Seed Wilayas (69 total: 48 original + 10 new 2019 + 11 proposed)
+  console.log(`📍 Seeding ${WILAYAS.length} Wilayas...`);
   for (const wilaya of WILAYAS) {
     await prisma.wilaya.upsert({
       where: { code: wilaya.code },
-      update: {},
-      create: wilaya
+      update: {
+        name: wilaya.name,
+        nameAr: wilaya.nameAr,
+        numberOfDairas: wilaya.numberOfDairas,
+        numberOfCommunes: wilaya.numberOfCommunes,
+        surfaceAreaKm2: wilaya.surfaceAreaKm2,
+        population2008: wilaya.population2008,
+        density: wilaya.density,
+        isNewWilaya: wilaya.isNewWilaya,
+        isProposed: wilaya.isProposed,
+      },
+      create: {
+        code: wilaya.code,
+        name: wilaya.name,
+        nameAr: wilaya.nameAr,
+        numberOfDairas: wilaya.numberOfDairas,
+        numberOfCommunes: wilaya.numberOfCommunes,
+        surfaceAreaKm2: wilaya.surfaceAreaKm2,
+        population2008: wilaya.population2008,
+        density: wilaya.density,
+        isActive: true,
+        isNewWilaya: wilaya.isNewWilaya,
+        isProposed: wilaya.isProposed,
+      }
     });
+  }
+  
+  // Log summary
+  const originalCount = WILAYAS.filter(w => !w.isNewWilaya).length;
+  const newWilayas = WILAYAS.filter(w => w.isNewWilaya && !w.isProposed).length;
+  const proposed = WILAYAS.filter(w => w.isProposed).length;
+  console.log(`   ✓ ${originalCount} original wilayas (1984)`);
+  console.log(`   ✓ ${newWilayas} new wilayas (2019)`);
+  if (proposed > 0) {
+    console.log(`   ✓ ${proposed} proposed wilayas`);
   }
 
   // 2. Seed Categories

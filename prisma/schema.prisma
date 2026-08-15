@@ -901,12 +901,25 @@ model TransactionLog {
 // ============================================
 
 model Wilaya {
-  id          String   @id @default(cuid())
-  name        String
-  nameAr      String
-  code        String   @unique
+  id                String   @id @default(cuid())
+  name              String   // French name
+  nameAr            String   // Arabic name
+  code              String   @unique // 01-69
+  
+  // Administrative data
+  numberOfDairas    Int      // Number of districts (daïras)
+  numberOfCommunes  Int      // Number of communes
+  surfaceAreaKm2    Float    // Surface area in km²
+  population2008    Int?     // Population census 2008
+  density           Float?   // Population density (hab./km²)
+  
+  // Metadata
+  isActive          Boolean  @default(true)
+  isNewWilaya       Boolean  @default(false) // Created after 1984 (2019 new wilayas: 49-58)
+  isProposed        Boolean  @default(false) // Proposed wilayas (59-69)
 
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@map("wilayas")
 }
