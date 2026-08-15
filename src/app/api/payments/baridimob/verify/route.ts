@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { generateTransactionId, simulateProcessingDelay } from '@/lib/payments/utils'
 import { otpStore } from '../baridimob/route'
@@ -11,6 +13,15 @@ interface BaridiMobVerifyRequest {
 // POST: Verify OTP and complete BaridiMob payment
 export async function POST(request: NextRequest) {
   try {
+    // SECURITY: Authenticate user
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { error: 'Authentification requise' },
+        { status: 401 }
+      )
+    }
+
     const body = await request.json()
     const { paymentId, otp }: BaridiMobVerifyRequest = body
 
@@ -30,16 +41,33 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Get payment record
+    // Get payment record with ownership verification
     const payment = await db.payment.findUnique({
       where: { id: paymentId },
-      include: { order: true }
+      include: { order: { select: { buyerId: true, orderNumber: true } } }
     })
 
     if (!payment) {
       return NextResponse.json(
         { error: 'Paiement non trouvé' },
         { status: 404 }
+      )
+    }
+
+    // SECURITY: Verify payment belongs to authenticated user (IDOR protection)
+    if (payment.order?.buyerId !== session.user.id) {
+      await db.securityEvent.create({
+        data: {
+          eventType: 'UNAUTHORIZED_PAYMENT_ATTEMPT',
+          userId: session.user.id,
+          ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
+          details: JSON.stringify({ paymentId, action: 'baridimob_verify_attempt' }),
+        }
+      }).catch(() => {})
+      
+      return NextResponse.json(
+        { error: 'Non autorisé à accéder à ce paiement' },
+        { status: 403 }
       )
     }
 

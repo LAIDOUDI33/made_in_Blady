@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { validateAlgerianPhone, normalizePhoneNumber, generateOTP } from '@/lib/payments/utils'
 
@@ -13,6 +15,15 @@ interface BaridiMobInitiateRequest {
 // POST: Initiate BaridiMob payment - send OTP
 export async function POST(request: NextRequest) {
   try {
+    // SECURITY: Authenticate user
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { error: 'Authentification requise' },
+        { status: 401 }
+      )
+    }
+
     const body = await request.json()
     const { paymentId, phoneNumber }: BaridiMobInitiateRequest = body
 
@@ -32,16 +43,33 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Get payment record
+    // Get payment record with ownership verification
     const payment = await db.payment.findUnique({
       where: { id: paymentId },
-      include: { order: true }
+      include: { order: { select: { buyerId: true, orderNumber: true } } }
     })
 
     if (!payment) {
       return NextResponse.json(
         { error: 'Paiement non trouvé' },
         { status: 404 }
+      )
+    }
+
+    // SECURITY: Verify payment belongs to authenticated user (IDOR protection)
+    if (payment.order?.buyerId !== session.user.id) {
+      await db.securityEvent.create({
+        data: {
+          eventType: 'UNAUTHORIZED_PAYMENT_ATTEMPT',
+          userId: session.user.id,
+          ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
+          details: JSON.stringify({ paymentId, action: 'baridimob_initiate_attempt' }),
+        }
+      }).catch(() => {})
+      
+      return NextResponse.json(
+        { error: 'Non autorisé à accéder à ce paiement' },
+        { status: 403 }
       )
     }
 
@@ -81,7 +109,7 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    // Log transaction
+    // Log transaction (NEVER log actual OTP)
     await db.transactionLog.create({
       data: {
         paymentId: payment.id,
@@ -89,7 +117,6 @@ export async function POST(request: NextRequest) {
         details: JSON.stringify({
           phoneNumber: normalizedPhone.replace(/(\d{3})(\d{2})(\d{2})(\d{2})(\d{2})/, '$1 $2 $3 $4 $5'),
           step: 'otp_sent',
-          otpMasked: `***${otp.slice(-2)}`,
         }),
         ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
         userAgent: request.headers.get('user-agent') || 'unknown',
@@ -97,7 +124,10 @@ export async function POST(request: NextRequest) {
     })
 
     // In production, send SMS via BaridiMob API
-    console.log(`[BaridiMob Mock] OTP for ${normalizedPhone}: ${otp}`)
+    // SECURITY: Never log OTP in production - use structured logging service instead
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[BaridiMob Mock] OTP generated for ${normalizedPhone}`)
+    }
 
     return NextResponse.json({
       success: true,
@@ -113,15 +143,14 @@ export async function POST(request: NextRequest) {
       otpInfo: {
         sent: true,
         expiresIn: 300, // 5 minutes in seconds
-        maskedCode: `***${otp.slice(-2)}`, // For demo only!
+        // SECURITY: Never expose OTP or partial OTP in response
       },
       nextSteps: [
         'Entrez le code OTP reçu par SMS',
         'Le code expire dans 5 minutes',
         'Confirmez le paiement après validation',
       ],
-      // For demo purposes - show OTP (REMOVE IN PRODUCTION)
-      _demoOtp: process.env.NODE_ENV === 'development' ? otp : undefined,
+      // SECURITY REMOVED: _demoOtp field removed - never expose OTP even in development
     })
   } catch (error) {
     console.error('BaridiMob Initiate error:', error)

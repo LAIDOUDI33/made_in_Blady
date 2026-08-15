@@ -15,7 +15,7 @@ const IV_LENGTH = 16;
 const TAG_LENGTH = 16;
 
 // Get encryption key from environment - REQUIRED for production
-// NEVER use hardcoded fallback keys - this is a security vulnerability
+// SECURITY: Never use hardcoded fallback keys - this is a critical security vulnerability
 function getEncryptionKey(): Buffer {
   const key = process.env.TWO_FACTOR_ENCRYPTION_KEY;
   
@@ -26,8 +26,15 @@ function getEncryptionKey(): Buffer {
     );
   }
   
-  // Use unique salt per deployment via environment or generate deterministic one
-  const salt = process.env.ENCRYPTION_SALT || 'algeriatrade-salt-2024-v1';
+  // SECURITY: ENCRYPTION_SALT is REQUIRED - no fallback for production safety
+  const salt = process.env.ENCRYPTION_SALT;
+  if (!salt) {
+    throw new Error(
+      'INVALID CONFIGURATION: ENCRYPTION_SALT environment variable is required. '
+      + 'Generate one with: openssl rand -hex 16'
+    );
+  }
+  
   return crypto.scryptSync(key, salt, ENCRYPTION_KEY_LENGTH);
 }
 

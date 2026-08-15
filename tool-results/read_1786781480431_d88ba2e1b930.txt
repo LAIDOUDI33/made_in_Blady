@@ -1,0 +1,918 @@
+     1→'use client';
+     2→
+     3→import React, { useState, useCallback, useRef } from 'react';
+     4→import { Star, Upload, X, Plus, AlertCircle, CheckCircle2, Eye, Send } from 'lucide-react';
+     5→import { Button } from '@/components/ui/button';
+     6→import { Textarea } from '@/components/ui/textarea';
+     7→import { Input } from '@/components/ui/input';
+     8→import { Label } from '@/components/ui/label';
+     9→import { Switch } from '@/components/ui/switch';
+    10→import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+    11→import {
+    12→  Dialog,
+    13→  DialogContent,
+    14→  DialogHeader,
+    15→  DialogTitle,
+    16→  DialogDescription,
+    17→} from '@/components/ui/dialog';
+    18→import {
+    19→  AlertDialog,
+    20→  AlertDialogAction,
+    21→  AlertDialogCancel,
+    22→  AlertDialogContent,
+    23→  AlertDialogDescription,
+    24→  AlertDialogFooter,
+    25→  AlertDialogHeader,
+    26→  AlertDialogTitle,
+    27→  AlertDialogTrigger,
+    28→} from '@/components/ui/alert-dialog';
+    29→import { toast } from 'sonner';
+    30→import StarRating from './StarRating';
+    31→import cn from 'classnames';
+    32→
+    33→// Types
+    34→interface ReviewFormProps {
+    35→  /** Product or Company ID */
+    36→  targetId: string;
+    37→  /** Type of review: 'product' or 'company' */
+    38→  reviewType: 'product' | 'company';
+    39→  /** Slug for API calls (product slug or company slug) */
+    40→  slug: string;
+    41→  /** Whether user has verified purchase */
+    42→  isVerifiedPurchase?: boolean;
+    43→  /** Callback on successful submission */
+    44→  onSuccess?: () => void;
+    45→  /** Cancel callback */
+    46→  onCancel?: () => void;
+    47→  /** Show company category ratings */
+    48→  showCategoryRatings?: boolean;
+    49→}
+    50→
+    51→// Category definitions for company reviews
+    52→const REVIEW_CATEGORIES = [
+    53→  { key: 'quality', label: 'Qualité des produits', labelAr: 'الجودة' },
+    54→  { key: 'communication', label: 'Communication', labelAr: 'التواصل' },
+    55→  { key: 'delivery', label: 'Délai de livraison', labelAr: 'وقت التسليم' },
+    56→  { key: 'value', label: 'Rapport qualité-prix', labelAr: 'القيمة مقابل المال' },
+    57→  { key: 'afterSales', label: 'Service après-vente', labelAr: 'خدمة ما بعد البيع' },
+    58→];
+    59→
+    60→// Form state interface
+    61→interface FormData {
+    62→  rating: number;
+    63→  title: string;
+    64→  comment: string;
+    65→  pros: string[];
+    66→  cons: string[];
+    67→  images: File[];
+    68→  imagePreviews: string[];
+    69→  isAnonymous: boolean;
+    70→  categoryRatings: Record<string, number>;
+    71→}
+    72→
+    73→const INITIAL_FORM_DATA: FormData = {
+    74→  rating: 0,
+    75→  title: '',
+    76→  comment: '',
+    77→  pros: [],
+    78→  cons: [],
+    79→  images: [],
+    80→  imagePreviews: [],
+    81→  isAnonymous: false,
+    82→  categoryRatings: {},
+    83→};
+    84→
+    85→/**
+    86→ * ReviewForm Component
+    87→ * 
+    88→ * Multi-step form for submitting product/company reviews:
+    89→ * 1. Select rating (required)
+    90→ * 2. Write review (title + comment)
+    91→ * 3. Add pros/cons (optional)
+    92→ * 4. Upload photos (optional)
+    93→ * 5. Anonymity toggle
+    94→ * 6. Preview & submit
+    95→ */
+    96→export function ReviewForm({
+    97→  targetId,
+    98→  reviewType,
+    99→  slug,
+   100→  isVerifiedPurchase = false,
+   101→  onSuccess,
+   102→  onCancel,
+   103→  showCategoryRatings = false,
+   104→}: ReviewFormProps) {
+   105→  // Form state
+   106→  const [formData, setFormData] = useState<FormData>(INITIAL_FORM_DATA);
+   107→  const [currentStep, setCurrentStep] = useState(0);
+   108→  const [isSubmitting, setIsSubmitting] = useState(false);
+   109→  const [showPreview, setShowPreview] = useState(false);
+   110→  const [errors, setErrors] = useState<Record<string, string>>({});
+   111→  
+   112→  const fileInputRef = useRef<HTMLInputElement>(null);
+   113→
+   114→  // Steps definition
+   115→  const steps = [
+   116→    { title: 'Note', description: 'Donnez votre note globale' },
+   117→    ...(showCategoryRatings ? [{ title: 'Catégories', description: 'Évaluez chaque aspect' }] : []),
+   118→    { title: 'Avis', description: 'Rédigez votre avis' },
+   119→    { title: 'Détails', description: 'Points positifs et négatifs' },
+   120→    { title: 'Photos', description: 'Ajoutez des photos (optionnel)' },
+   121→    { title: 'Confirmation', description: 'Vérifiez et publiez' },
+   122→  ];
+   123→
+   124→  // Update field helper
+   125→  const updateField = useCallback(<K extends keyof FormData>(
+   126→    field: K,
+   127→    value: FormData[K]
+   128→  ) => {
+   129→    setFormData(prev => ({ ...prev, [field]: value }));
+   130→    // Clear error for this field
+   131→    if (errors[field]) {
+   132→      setErrors(prev => ({ ...prev, [field]: '' }));
+   133→    }
+   134→  }, [errors]);
+   135→
+   136→  // Add pro/con item
+   137→  const addItem = useCallback((type: 'pros' | 'cons', value: string) => {
+   138→    if (!value.trim()) return;
+   139→    setFormData(prev => ({
+   140→      ...prev,
+   141→      [type]: [...prev[type], value.trim()],
+   142→    }));
+   143→  }, []);
+   144→
+   145→  // Remove pro/con item
+   146→  const removeItem = useCallback((type: 'pros' | 'cons', index: number) => {
+   147→    setFormData(prev => ({
+   148→      ...prev,
+   149→      [type]: prev[type].filter((_, i) => i !== index),
+   150→    }));
+   151→  }, []);
+   152→
+   153→  // Handle image upload
+   154→  const handleImageUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+   155→    const files = Array.from(e.target.files || []);
+   156→    
+   157→    if (formData.images.length + files.length > 5) {
+   158→      toast.error('Maximum 5 photos autorisées');
+   159→      return;
+   160→    }
+   161→
+   162→    const validFiles = files.filter(file => {
+   163→      if (!file.type.startsWith('image/')) {
+   164→        toast.error(`${file.name} n'est pas une image valide`);
+   165→        return false;
+   166→      }
+   167→      if (file.size > 5 * 1024 * 1024) {
+   168→        toast.error(`${file.name} dépasse la limite de 5MB`);
+   169→        return false;
+   170→      }
+   171→      return true;
+   172→    });
+   173→
+   174→    const newPreviews = validFiles.map(file => URL.createObjectURL(file));
+   175→    
+   176→    setFormData(prev => ({
+   177→      ...prev,
+   178→      images: [...prev.images, ...validFiles],
+   179→      imagePreviews: [...prev.imagePreviews, ...newPreviews],
+   180→    }));
+   181→
+   182→    // Reset input
+   183→    if (fileInputRef.current) {
+   184→      fileInputRef.current.value = '';
+   185→    }
+   186→  }, [formData.images.length]);
+   187→
+   188→  // Remove image
+   189→  const removeImage = useCallback((index: number) => {
+   190→    setFormData(prev => {
+   191→      const newImages = prev.images.filter((_, i) => i !== index);
+   192→      const newPreviews = prev.imagePreviews.filter((_, i) => i !== index);
+   193→      
+   194→      // Revoke object URL to prevent memory leak
+   195→      URL.revokeObjectURL(prev.imagePreviews[index]);
+   196→      
+   197→      return { ...prev, images: newImages, imagePreviews: newPreviews };
+   198→    });
+   199→  }, []);
+   200→
+   201→  // Validate current step
+   202→  const validateStep = useCallback((): boolean => {
+   203→    const newErrors: Record<string, string> = {};
+   204→
+   205→    if (currentStep === 0 && !showCategoryRatings) {
+   206→      // Rating step
+   207→      if (formData.rating === 0) {
+   208→        newErrors.rating = 'Veuillez sélectionner une note';
+   209→      }
+   210→    }
+   211→
+   212→    if ((currentStep === 1 && !showCategoryRatings) || (currentStep === 2 && showCategoryRatings)) {
+   213→      // Comment step
+   214→      if (!formData.comment.trim()) {
+   215→        newErrors.comment = 'Le commentaire est requis';
+   216→      } else if (formData.comment.trim().length < 10) {
+   217→        newErrors.comment = 'Le commentaire doit contenir au moins 10 caractères';
+   218→      }
+   219→    }
+   220→
+   221→    setErrors(newErrors);
+   222→    return Object.keys(newErrors).length === 0;
+   223→  }, [currentStep, formData.rating, formData.comment, showCategoryRatings]);
+   224→
+   225→  // Next step
+   226→  const nextStep = useCallback(() => {
+   227→    if (validateStep()) {
+   228→      setCurrentStep(prev => Math.min(prev + 1, steps.length - 1));
+   229→    }
+   230→  }, [validateStep, steps.length]);
+   231→
+   232→  // Previous step
+   233→  const prevStep = useCallback(() => {
+   234→    setCurrentStep(prev => Math.max(prev - 1, 0));
+   235→  }, []);
+   236→
+   237→  // Submit review
+   238→  const handleSubmit = useCallback(async () => {
+   239→    setIsSubmitting(true);
+   240→    
+   241→    try {
+   242→      // Upload images first if any
+   243→      let imageUrls: string[] = [];
+   244→      if (formData.images.length > 0) {
+   245→        const uploadPromises = formData.images.map(async (file) => {
+   246→          const uploadData = new FormData();
+   247→          uploadData.append('file', file);
+   248→          
+   249→          const response = await fetch('/api/upload?XTransformPort=3000', {
+   250→            method: 'POST',
+   251→            body: uploadData,
+   252→          });
+   253→          
+   254→          const data = await response.json();
+   255→          if (!response.ok) throw new Error(data.error || 'Upload failed');
+   256→          return data.url;
+   257→        });
+   258→        
+   259→        imageUrls = await Promise.all(uploadPromises);
+   260→      }
+   261→
+   262→      // Prepare payload
+   263→      const payload: Record<string, any> = {
+   264→        rating: formData.rating,
+   265→        title: formData.title || undefined,
+   266→        comment: formData.comment,
+   267→        pros: formData.pros.length > 0 ? formData.pros : undefined,
+   268→        cons: formData.cons.length > 0 ? formData.cons : undefined,
+   269→        images: imageUrls.length > 0 ? imageUrls : undefined,
+   270→        isAnonymous: formData.isAnonymous,
+   271→      };
+   272→
+   273→      // Add category ratings for company reviews
+   274→      if (showCategoryRatings && Object.keys(formData.categoryRatings).length > 0) {
+   275→        payload.categoryRatings = formData.categoryRatings;
+   276→      }
+   277→
+   278→      // Submit to appropriate API
+   279→      const apiUrl = reviewType === 'product'
+   280→        ? `/api/products/${slug}/reviews?XTransformPort=3000`
+   281→        : `/api/companies/${slug}/reviews?XTransformPort=3000`;
+   282→
+   283→      const response = await fetch(apiUrl, {
+   284→        method: 'POST',
+   285→        headers: { 'Content-Type': 'application/json' },
+   286→        body: JSON.stringify(payload),
+   287→      });
+   288→
+   289→      const data = await response.json();
+   290→
+   291→      if (!response.ok) {
+   292→        throw new Error(data.error || 'Erreur lors de la soumission');
+   293→      }
+   294→
+   295→      toast.success('Avis publié avec succès ! Merci pour votre contribution.');
+   296→      onSuccess?.();
+   297→    } catch (error) {
+   298→      console.error('Submit error:', error);
+   299→      toast.error(error instanceof Error ? error.message : 'Erreur lors de la soumission');
+   300→    } finally {
+   301→      setIsSubmitting(false);
+   302→    }
+   303→  }, [formData, reviewType, slug, showCategoryRatings, onSuccess]);
+   304→
+   305→  // Render step content
+   306→  const renderStepContent = () => {
+   307→    switch (steps[currentStep]?.title) {
+   308→      case 'Note':
+   309→        return (
+   310→          <div className="space-y-6 text-center py-8">
+   311→            <div>
+   312→              <h3 className="text-lg font-semibold mb-2">Comment évaluez-vous ce produit ?</h3>
+   313→              <p className="text-gray-500">Cliquez sur les étoiles pour donner votre note</p>
+   314→            </div>
+   315→            
+   316→            <div className="flex justify-center">
+   317→              <StarRating
+   318→                rating={formData.rating}
+   319→                onRatingChange={(rating) => updateField('rating', rating)}
+   320→                size="xl"
+   321→                readonly={false}
+   322→              />
+   323→            </div>
+   324→
+   325→            {isVerifiedPurchase && (
+   326→              <div className="inline-flex items-center gap-2 bg-green-50 text-green-700 px-3 py-2 rounded-full text-sm">
+   327→                <CheckCircle2 size={16} />
+   328→                Achat vérifié - Vous avez acheté ce produit
+   329→              </div>
+   330→            )}
+   331→
+   332→            {errors.rating && (
+   333→              <p className="text-red-500 text-sm flex items-center justify-center gap-1">
+   334→                <AlertCircle size={16} />
+   335→                {errors.rating}
+   336→              </p>
+   337→            )}
+   338→
+   339→            {/* Quick rating buttons */}
+   340→            <div className="flex justify-center gap-2 pt-4">
+   341→              {[1, 2, 3, 4, 5].map(value => (
+   342→                <Button
+   343→                  key={value}
+   344→                  variant={formData.rating === value ? 'default' : 'outline'}
+   345→                  size="sm"
+   346→                  onClick={() => updateField('rating', value)}
+   347→                  className={cn(
+   348→                    formData.rating === value && 'bg-amber-500 hover:bg-amber-600'
+   349→                  )}
+   350→                >
+   351→                  {value}★
+   352→                </Button>
+   353→              ))}
+   354→            </div>
+   355→          </div>
+   356→        );
+   357→
+   358→      case 'Catégories':
+   359→        return (
+   360→          <div className="space-y-6 py-4">
+   361→            <div className="text-center mb-6">
+   362→              <h3 className="text-lg font-semibold mb-2">Évaluation détaillée</h3>
+   363→              <p className="text-gray-500">Notez chaque aspect du service</p>
+   364→            </div>
+   365→
+   366→            <div className="space-y-4">
+   367→              {REVIEW_CATEGORIES.map(category => (
+   368→                <div key={category.key} className="bg-gray-50 rounded-lg p-4">
+   369→                  <div className="flex items-center justify-between mb-2">
+   370→                    <Label className="font-medium">{category.label}</Label>
+   371→                    <span className="font-semibold text-lg">
+   372→                      {formData.categoryRatings[category.key] || '-'}
+   373→                    </span>
+   374→                  </div>
+   375→                  <div className="flex gap-2">
+   376→                    {[1, 2, 3, 4, 5].map(value => (
+   377→                      <button
+   378→                        key={value}
+   379→                        type="button"
+   380→                        onClick={() => {
+   381→                          setFormData(prev => ({
+   382→                            ...prev,
+   383→                            categoryRatings: {
+   384→                              ...prev.categoryRatings,
+   385→                              [category.key]: value,
+   386→                            },
+   387→                          }));
+   388→                        }}
+   389→                        className={cn(
+   390→                          'w-10 h-10 rounded-full flex items-center justify-center transition-all',
+   391→                          formData.categoryRatings[category.key] >= value
+   392→                            ? 'bg-blue-500 text-white'
+   393→                            : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+   394→                        )}
+   395→                      >
+   396→                        {value}
+   397→                      </button>
+   398→                    ))}
+   399→                  </div>
+   400→                  <div className="flex justify-between text-xs text-gray-400 mt-1 px-1">
+   401→                    <span>Mauvais</span>
+   402→                    <span>Excellent</span>
+   403→                  </div>
+   404→                </div>
+   405→              ))}
+   406→            </div>
+   407→          </div>
+   408→        );
+   409→
+   410→      case 'Avis':
+   411→        return (
+   412→          <div className="space-y-4 py-4">
+   413→            <div className="mb-4">
+   414→              <h3 className="text-lg font-semibold mb-2">Votre avis</h3>
+   415→              <p className="text-gray-500 text-sm">
+   416→                Partagez votre expérience avec d&apos;autres acheteurs
+   417→              </p>
+   418→            </div>
+   419→
+   420→            {/* Title */}
+   421→            <div className="space-y-2">
+   422→              <Label htmlFor="title">Titre (optionnel)</Label>
+   423→              <Input
+   424→                id="title"
+   425→                placeholder="Résumez votre avis en quelques mots"
+   426→                value={formData.title}
+   427→                onChange={(e) => updateField('title', e.target.value)}
+   428→                maxLength={100}
+   429→              />
+   430→              <p className="text-xs text-gray-400 text-right">
+   431→                {formData.title.length}/100
+   432→              </p>
+   433→            </div>
+   434→
+   435→            {/* Comment */}
+   436→            <div className="space-y-2">
+   437→              <Label htmlFor="comment">
+   438→                Commentaire <span className="text-red-500">*</span>
+   439→              </Label>
+   440→              <Textarea
+   441→                id="comment"
+   442→                placeholder="Décrivez votre expérience en détail..."
+   443→                value={formData.comment}
+   444→                onChange={(e) => updateField('comment', e.target.value)}
+   445→                rows={6}
+   446→                maxLength={5000}
+   447→                className={cn(errors.comment && 'border-red-500')}
+   448→              />
+   449→              <div className="flex justify-between text-xs">
+   450→                <p className={cn(errors.comment ? 'text-red-500' : 'text-gray-400')}>
+   451→                  {errors.comment || `Minimum 10 caractères`}
+   452→                </p>
+   453→                <p className="text-gray-400">{formData.comment.length}/5000</p>
+   454→              </div>
+   455→            </div>
+   456→          </div>
+   457→        );
+   458→
+   459→      case 'Détails':
+   460→        return (
+   461→          <div className="space-y-6 py-4">
+   462→            <div className="mb-4">
+   463→              <h3 className="text-lg font-semibold mb-2">Points forts et faiblesses</h3>
+   464→              <p className="text-gray-500 text-sm">
+   465→                Aidez les autres acheteurs avec vos observations (optionnel)
+   466→              </p>
+   467→            </div>
+   468→
+   469→            {/* Pros */}
+   470→            <div className="space-y-2">
+   471→              <Label className="text-green-700 font-medium flex items-center gap-1">
+   472→                <Plus size={16} /> Points positifs
+   473→              </Label>
+   474→              <ProConList
+   475→                items={formData.pros}
+   476→                onAdd={(value) => addItem('pros', value)}
+   477→                onRemove={(index) => removeItem('pros', index)}
+   478→                placeholder="Ex: Bonne qualité"
+   479→                color="green"
+   480→              />
+   481→            </div>
+   482→
+   483→            {/* Cons */}
+   484→            <div className="space-y-2">
+   485→              <Label className="text-red-700 font-medium flex items-center gap-1">
+   486→                <X size={16} /> Points négatifs
+   487→              </Label>
+   488→              <ProConList
+   489→                items={formData.cons}
+   490→                onAdd={(value) => addItem('cons', value)}
+   491→                onRemove={(index) => removeItem('cons', index)}
+   492→                placeholder="Ex: Livraison lente"
+   493→                color="red"
+   494→              />
+   495→            </div>
+   496→          </div>
+   497→        );
+   498→
+   499→      case 'Photos':
+   500→        return (
+   501→          <div className="space-y-4 py-4">
+   502→            <div className="mb-4">
+   503→              <h3 className="text-lg font-semibold mb-2">Photos</h3>
+   504→              <p className="text-gray-500 text-sm">
+   505→                Ajoutez des photos du produit (jusqu'à 5)
+   506→              </p>
+   507→            </div>
+   508→
+   509→            {/* Image grid */}
+   510→            {formData.imagePreviews.length > 0 && (
+   511→              <div className="grid grid-cols-3 md:grid-cols-5 gap-3 mb-4">
+   512→                {formData.imagePreviews.map((preview, index) => (
+   513→                  <div
+   514→                    key={index}
+   515→                    className="relative aspect-square rounded-lg overflow-hidden bg-gray-100 group"
+   516→                  >
+   517→                    <img
+   518→                      src={preview}
+   519→                      alt={`Photo ${index + 1}`}
+   520→                      className="w-full h-full object-cover"
+   521→                    />
+   522→                    <button
+   523→                      type="button"
+   524→                      onClick={() => removeImage(index)}
+   525→                      className="absolute top-1 right-1 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+   526→                    >
+   527→                      <X size={14} />
+   528→                    </button>
+   529→                  </div>
+   530→                ))}
+   531→              </div>
+   532→            )}
+   533→
+   534→            {/* Upload button */}
+   535→            {formData.imagePreviews.length < 5 && (
+   536→              <div>
+   537→                <input
+   538→                  ref={fileInputRef}
+   539→                  type="file"
+   540→                  accept="image/*"
+   541→                  multiple
+   542→                  onChange={handleImageUpload}
+   543→                  className="hidden"
+   544→                />
+   545→                <Button
+   546→                  type="button"
+   547→                  variant="outline"
+   548→                  onClick={() => fileInputRef.current?.click()}
+   549→                  className="w-full h-24 border-dashed border-2 border-gray-300 hover:border-blue-400 hover:bg-blue-50"
+   550→                >
+   551→                  <div className="flex flex-col items-center gap-2">
+   552→                    <Upload size={24} className="text-gray-400" />
+   553→                    <span className="text-sm text-gray-500">
+   554→                      Cliquez ou glissez des images ici
+   555→                    </span>
+   556→                    <span className="text-xs text-gray-400">
+   557→                      JPG, PNG, WebP • Max 5MB • Max 5 photos
+   558→                    </span>
+   559→                  </div>
+   560→                </Button>
+   561→              </div>
+   562→            )}
+   563→          </div>
+   564→        );
+   565→
+   566→      case 'Confirmation':
+   567→        return (
+   568→          <div className="space-y-6 py-4">
+   569→            <div className="text-center mb-6">
+   570→              <h3 className="text-lg font-semibold mb-2">Vérifiez votre avis</h3>
+   571→              <p className="text-gray-500 text-sm">
+   572→                Confirmez que tout est correct avant publication
+   573→              </p>
+   574→            </div>
+   575→
+   576→            {/* Preview card */}
+   577→            <Card className="bg-gray-50">
+   578→              <CardContent className="p-4 space-y-3">
+   579→                <div className="flex items-center gap-3">
+   580→                  <AvatarFallback className="bg-blue-100 text-blue-700">
+   581→                    {formData.isAnonymous ? 'Anonyme' : 'Vous'}
+   582→                  </AvatarFallback>
+   583→                  <div>
+   584→                    <p className="font-medium">{formData.isAnonymous ? 'Anonyme' : 'Vous'}</p>
+   585→                    <StarRating rating={formData.rating} size="sm" readonly />
+   586→                  </div>
+   587→                </div>
+   588→
+   589→                {formData.title && (
+   590→                  <h4 className="font-semibold">{formData.title}</h4>
+   591→                )}
+   592→
+   593→                <p className="text-gray-700 whitespace-pre-wrap">
+   594→                  {formData.comment}
+   595→                </p>
+   596→
+   597→                {(formData.pros.length > 0 || formData.cons.length > 0) && (
+   598→                  <div className="grid grid-cols-2 gap-2 text-sm">
+   599→                    {formData.pros.length > 0 && (
+   600→                      <div className="text-green-600">
+   601→                        <strong>+</strong> {formData.pros.join(', ')}
+   602→                      </div>
+   603→                    )}
+   604→                    {formData.cons.length > 0 && (
+   605→                      <div className="text-red-600">
+   606→                        <strong>-</strong> {formData.cons.join(', ')}
+   607→                      </div>
+   608→                    )}
+   609→                  </div>
+   610→                )}
+   611→
+   612→                {formData.imagePreviews.length > 0 && (
+   613→                  <div className="flex gap-2">
+   614→                    {formData.imagePreviews.slice(0, 3).map((preview, index) => (
+   615→                      <img
+   616→                        key={index}
+   617→                        src={preview}
+   618→                        alt={`Preview ${index + 1}`}
+   619→                        className="w-16 h-16 object-cover rounded"
+   620→                      />
+   621→                    ))}
+   622→                    {formData.imagePreviews.length > 3 && (
+   623→                      <div className="w-16 h-16 bg-gray-200 rounded flex items-center justify-center text-sm text-gray-500">
+   624→                        +{formData.imagePreviews.length - 3}
+   625→                      </div>
+   626→                    )}
+   627→                  </div>
+   628→                )}
+   629→              </CardContent>
+   630→            </Card>
+   631→
+   632→            {/* Anonymity toggle */}
+   633→            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+   634→              <div>
+   635→                <Label htmlFor="anonymous" className="font-medium">
+   636→                  Publier anonymement
+   637→                </Label>
+   638→                <p className="text-sm text-gray-500">
+   639→                  Votre nom ne sera pas affiché publiquement
+   640→                </p>
+   641→              </div>
+   642→              <Switch
+   643→                id="anonymous"
+   644→                checked={formData.isAnonymous}
+   645→                onCheckedChange={(checked) => updateField('isAnonymous', checked)}
+   646→              />
+   647→            </div>
+   648→
+   649→            {/* Terms acknowledgment */}
+   650→            <div className="text-xs text-gray-500 bg-yellow-50 p-3 rounded-lg">
+   651→              <p>
+   652→                En publiant cet avis, vous acceptez nos{' '}
+   653→                <a href="/conditions-utilisation" className="underline text-blue-600">
+   654→                  conditions d&apos;utilisation
+   655→                </a>{' '}
+   656→                et notre{' '}
+   657→                <a href="/charte-communautaire" className="underline text-blue-600">
+   658→                  charte communautaire
+   659→                </a>
+   660→                . Les avis faux ou offensants seront supprimés.
+   661→              </p>
+   662→            </div>
+   663→          </div>
+   664→        );
+   665→
+   666→      default:
+   667→        return null;
+   668→    }
+   669→  };
+   670→
+   671→  return (
+   672→    <Card className="w-full max-w-2xl mx-auto">
+   673→      <CardHeader>
+   674→        <CardTitle>Rédiger un avis</CardTitle>
+   675→        <CardDescription>
+   676→          Partagez votre expérience avec la communauté AlgeriaTrade
+   677→        </CardDescription>
+   678→      </CardHeader>
+   679→
+   680→      <CardContent>
+   681→        {/* Progress indicator */}
+   682→        <div className="flex items-center justify-between mb-6 px-4">
+   683→          {steps.map((step, index) => (
+   684→            <React.Fragment key={index}>
+   685→              <button
+   686→                type="button"
+   687→                onClick={() => index < currentStep && setCurrentStep(index)}
+   688→                disabled={index > currentStep}
+   689→                className={cn(
+   690→                  'flex flex-col items-center',
+   691→                  index <= currentStep ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'
+   692→                )}
+   693→              >
+   694→                <div
+   695→                  className={cn(
+   696→                    'w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-colors',
+   697→                    index < currentStep
+   698→                      ? 'bg-green-500 text-white'
+   699→                      : index === currentStep
+   700→                        ? 'bg-blue-500 text-white'
+   701→                        : 'bg-gray-200 text-gray-600'
+   702→                  )}
+   703→                >
+   704→                  {index < currentStep ? <CheckCircle2 size={16} /> : index + 1}
+   705→                </div>
+   706→                <span className="text-xs mt-1 hidden sm:block">{step.title}</span>
+   707→              </button>
+   708→              
+   709→              {index < steps.length - 1 && (
+   710→                <div
+   711→                  className={cn(
+   712→                    'flex-1 h-0.5 mx-2',
+   713→                    index < currentStep ? 'bg-green-500' : 'bg-gray-200'
+   714→                  )}
+   715→                />
+   716→              )}
+   717→            </React.Fragment>
+   718→          ))}
+   719→        </div>
+   720→
+   721→        {/* Step content */}
+   722→        <div className="min-h-[300px]">
+   723→          {renderStepContent()}
+   724→        </div>
+   725→
+   726→        {/* Navigation buttons */}
+   727→        <div className="flex justify-between mt-6 pt-4 border-t">
+   728→          <div>
+   729→            {onCancel && (
+   730→              <Button variant="ghost" onClick={onCancel}>
+   731→                Annuler
+   732→              </Button>
+   733→            )}
+   734→            {currentStep > 0 && (
+   735→              <Button variant="outline" onClick={prevStep} className="ml-2">
+   736→                Précédent
+   737→              </Button>
+   738→            )}
+   739→          </div>
+   740→
+   741→          <div className="flex gap-2">
+   742→            {currentStep < steps.length - 1 ? (
+   743→              <>
+   744→                {currentStep === steps.length - 2 ? (
+   745→                  <Button onClick={() => setShowPreview(true)} variant="outline">
+   746→                    <Eye size={16} className="mr-2" />
+   747→                    Aperçu
+   748→                  </Button>
+   749→                ) : null}
+   750→                <Button onClick={nextStep}>
+   751→                  Suivant
+   752→                </Button>
+   753→              </>
+   754→            ) : (
+   755→              <AlertDialog>
+   756→                <AlertDialogTrigger asChild>
+   757→                  <Button disabled={isSubmitting} className="bg-green-600 hover:bg-green-700">
+   758→                    <Send size={16} className="mr-2" />
+   759→                    {isSubmitting ? 'Publication...' : 'Publier mon avis'}
+   760→                  </Button>
+   761→                </AlertDialogTrigger>
+   762→                <AlertDialogContent>
+   763→                  <AlertDialogHeader>
+   764→                    <AlertDialogTitle>Confirmer la publication</AlertDialogTitle>
+   765→                    <AlertDialogDescription>
+   766→                      Êtes-vous sûr de vouloir publier cet avis ? Il sera visible par tous les utilisateurs.
+   767→                    </AlertDialogDescription>
+   768→                  </AlertDialogHeader>
+   769→                  <AlertDialogFooter>
+   770→                    <AlertDialogCancel>Modifier</AlertDialogCancel>
+   771→                    <AlertDialogAction onClick={handleSubmit} className="bg-green-600 hover:bg-green-700">
+   772→                      Publier
+   773→                    </AlertDialogAction>
+   774→                  </AlertDialogFooter>
+   775→                </AlertDialogContent>
+   776→              </AlertDialog>
+   777→            )}
+   778→          </div>
+   779→        </div>
+   780→      </CardContent>
+   781→
+   782→      {/* Preview dialog */}
+   783→      <Dialog open={showPreview} onOpenChange={setShowPreview}>
+   784→        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+   785→          <DialogHeader>
+   786→            <DialogTitle>Aperçu de votre avis</DialogTitle>
+   787→            <DialogDescription>
+   788→              Voici à quoi ressemblera votre avis une fois publié
+   789→            </DialogDescription>
+   790→          </DialogHeader>
+   791→          <div className="mt-4">
+   792→            {/* This would use ReviewCard in production */}
+   793→            <Card>
+   794→              <CardContent className="p-4 space-y-3">
+   795→                <div className="flex items-center gap-3">
+   796→                  <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-700 font-medium">
+   797→                    V
+   798→                  </div>
+   799→                  <div>
+   800→                    <p className="font-medium">{formData.isAnonymous ? 'Anonyme' : 'Vous'}</p>
+   801→                    <StarRating rating={formData.rating} size="sm" readonly />
+   802→                  </div>
+   803→                </div>
+   804→                {formData.title && <h4 className="font-semibold">{formData.title}</h4>}
+   805→                <p className="text-gray-700">{formData.comment}</p>
+   806→              </CardContent>
+   807→            </Card>
+   808→          </div>
+   809→          <div className="flex justify-end gap-2 mt-4">
+   810→            <Button variant="outline" onClick={() => setShowPreview(false)}>
+   811→              Modifier
+   812→            </Button>
+   813→            <Button onClick={() => {
+   814→              setShowPreview(false);
+   815→              setCurrentStep(steps.length - 1);
+   816→            }}>
+   817→              Continuer vers publication
+   818→            </Button>
+   819→          </div>
+   820→        </DialogContent>
+   821→      </Dialog>
+   822→    </Card>
+   823→  );
+   824→}
+   825→
+   826→// Sub-component for pro/con list input
+   827→function ProConList({
+   828→  items,
+   829→  onAdd,
+   830→  onRemove,
+   831→  placeholder,
+   832→  color,
+   833→}: {
+   834→  items: string[];
+   835→  onAdd: (value: string) => void;
+   836→  onRemove: (index: number) => void;
+   837→  placeholder: string;
+   838→  color: 'green' | 'red';
+   839→}) {
+   840→  const [inputValue, setInputValue] = useState('');
+   841→
+   842→  const handleKeyDown = (e: React.KeyboardEvent) => {
+   843→    if (e.key === 'Enter') {
+   844→      e.preventDefault();
+   845→      if (inputValue.trim()) {
+   846→        onAdd(inputValue);
+   847→        setInputValue('');
+   848→      }
+   849→    }
+   850→  };
+   851→
+   852→  return (
+   853→    <div className="space-y-2">
+   854→      {/* Items list */}
+   855→      {items.length > 0 && (
+   856→        <div className="flex flex-wrap gap-2">
+   857→          {items.map((item, index) => (
+   858→            <span
+   859→              key={index}
+   860→              className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-sm ${
+   861→                color === 'green'
+   862→                  ? 'bg-green-100 text-green-700'
+   863→                  : 'bg-red-100 text-red-700'
+   864→              }`}
+   865→            >
+   866→              {item}
+   867→              <button
+   868→                type="button"
+   869→                onClick={() => onRemove(index)}
+   870→                className="hover:bg-black/10 rounded-full p-0.5"
+   871→              >
+   872→                <X size={12} />
+   873→              </button>
+   874→            </span>
+   875→          ))}
+   876→        </div>
+   877→      )}
+   878→
+   879→      {/* Input */}
+   880→      <div className="flex gap-2">
+   881→        <Input
+   882→          value={inputValue}
+   883→          onChange={(e) => setInputValue(e.target.value)}
+   884→          onKeyDown={handleKeyDown}
+   885→          placeholder={placeholder}
+   886→          className="flex-1"
+   887→          maxLength={100}
+   888→        />
+   889→        <Button
+   890→          type="button"
+   891→          variant="outline"
+   892→          size="icon"
+   893→          onClick={() => {
+   894→            if (inputValue.trim()) {
+   895→              onAdd(inputValue);
+   896→              setInputValue('');
+   897→            }
+   898→          }}
+   899→          disabled={!inputValue.trim()}
+   900→        >
+   901→          <Plus size={16} />
+   902→        </Button>
+   903→      </div>
+   904→    </div>
+   905→  );
+   906→}
+   907→
+   908→// Avatar fallback component
+   909→function AvatarFallback({ children, className }: { children: React.ReactNode; className?: string }) {
+   910→  return (
+   911→    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${className}`}>
+   912→      {children}
+   913→    </div>
+   914→  );
+   915→}
+   916→
+   917→export default ReviewForm;
+   918→
