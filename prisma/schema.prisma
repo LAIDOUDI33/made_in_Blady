@@ -185,6 +185,8 @@ model Company {
   wilaya              String
   commune             String?
   address             String?
+  latitude            Float?   // GPS coordinates for map display
+  longitude           Float?   // GPS coordinates for map display
   
   // Contact
   contactEmail        String
