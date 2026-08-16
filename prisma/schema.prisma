@@ -112,7 +112,7 @@ model User {
   
   // Relations
   tenant        Tenant   @relation(fields: [tenantId], references: [id])
-  company       Company?
+  companies     Company[] @relation("UserCompanies")
   reviews      Review[]
   reviewVotes  ReviewVote[]
   favorites    Favorite[]
@@ -196,10 +196,12 @@ model Company {
   // Multi-tenant
   tenantId            String
   
+  // User relation (one-to-many: one user can have many companies)
+  userId              String
+  
   // Relations
   tenant              Tenant             @relation(fields: [tenantId], references: [id])
-  userId              String             @unique
-  user                User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user                User               @relation("UserCompanies", fields: [userId], references: [id], onDelete: Cascade)
   products            Product[]
   ordersReceived      Order[] @relation("SupplierOrders")
   quotations          Quotation[]
