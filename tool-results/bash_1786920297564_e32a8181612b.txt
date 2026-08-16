@@ -1,0 +1,2223 @@
+🌍 AlgeriaTrade - Seeding Missing Wilayas
+=======================================================
+
+📦 Tenant: AlgeriaTrade (cmsvm93et0000p52pahexb8k9)
+
+👤 User: test@test.dz (cmsv3pa9f0002t9lu1f1kj0hm)
+
+
+📍 Processing Wilaya 01: 32 companies
+   ❌ Error importing Hôtel Touat Adrar: 
+Invalid `prisma.company.findUnique()` invocation in
+/home/z/my-project/scripts/seed-missing-wilayas.js:113:51
+
+  110 for (const company of companies) {
+  111   try {
+  112     // Check if company already exists by slug
+→ 113     const existing = await prisma.company.findUnique({
+            where: {
+              slug_tenantId: {
+              ~~~~~~~~~~~~~
+                slug: "hotel-touat-adrar",
+                tenantId: "cmsvm93et0000p52pahexb8k9"
+              },
+          ?   id?: String,
+          ?   slug?: String,
+          ?   AND?: CompanyWhereInput | CompanyWhereInput[],
+          ?   OR?: CompanyWhereInput[],
+          ?   NOT?: CompanyWhereInput | CompanyWhereInput[],
+          ?   name?: StringFilter | String,
+          ?   legalForm?: StringFilter | String,
+          ?   rcNumber?: StringFilter | String,
+          ?   nif?: StringFilter | String,
+          ?   nis?: StringFilter | String,
+          ?   website?: StringNullableFilter | String | Null,
+          ?   description?: StringNullableFilter | String | Null,
+          ?   logo?: StringNullableFilter | String | Null,
+          ?   coverImage?: StringNullableFilter | String | Null,
+          ?   yearEstablished?: IntNullableFilter | Int | Null,
+          ?   employeeCount?: IntNullableFilter | Int | Null,
+          ?   productionCapacity?: StringNullableFilter | String | Null,
+          ?   exportCapability?: BoolFilter | Boolean,
+          ?   verificationStatus?: EnumVerificationStatusFilter | VerificationStatus,
+          ?   rating?: FloatFilter | Float,
+          ?   reviewCount?: IntFilter | Int,
+          ?   responseRate?: FloatFilter | Float,
+          ?   verificationLevel?: EnumVerificationLevelFilter | VerificationLevel,
+          ?   wilaya?: StringFilter | String,
+          ?   commune?: StringNullableFilter | String | Null,
+          ?   address?: StringNullableFilter | String | Null,
+          ?   latitude?: FloatNullableFilter | Float | Null,
+          ?   longitude?: FloatNullableFilter | Float | Null,
+          ?   contactEmail?: StringFilter | String,
+          ?   contactPhone?: StringFilter | String,
+          ?   isVerified?: BoolFilter | Boolean,
+          ?   isActive?: BoolFilter | Boolean,
+          ?   tenantId?: StringFilter | String,
+          ?   userId?: StringFilter | String,
+          ?   createdAt?: DateTimeFilter | DateTime,
+          ?   updatedAt?: DateTimeFilter | DateTime,
+          ?   verifications?: SupplierVerificationListRelationFilter,
+          ?   badges?: CompanyBadgeListRelationFilter,
+          ?   videos?: CompanyVideoListRelationFilter,
+          ?   virtualTours?: VirtualTourListRelationFilter,
+          ?   booths?: ExhibitionBoothListRelationFilter,
+          ?   tenant?: TenantScalarRelationFilter | TenantWhereInput,
+          ?   user?: UserScalarRelationFilter | UserWhereInput,
+          ?   products?: ProductListRelationFilter,
+          ?   ordersReceived?: OrderListRelationFilter,
+          ?   quotations?: QuotationListRelationFilter,
+          ?   companyReviews?: ReviewListRelationFilter
+            }
+          })
+
+Unknown argument `slug_tenantId`. Available options are marked with ?.
+   ❌ Error importing Gourara Hotel Timimoun: 
+Invalid `prisma.company.findUnique()` invocation in
+/home/z/my-project/scripts/seed-missing-wilayas.js:113:51
+
+  110 for (const company of companies) {
+  111   try {
+  112     // Check if company already exists by slug
+→ 113     const existing = await prisma.company.findUnique({
+            where: {
+              slug_tenantId: {
+              ~~~~~~~~~~~~~
+                slug: "gourara-hotel-timimoun",
+                tenantId: "cmsvm93et0000p52pahexb8k9"
+              },
+          ?   id?: String,
+          ?   slug?: String,
+          ?   AND?: CompanyWhereInput | CompanyWhereInput[],
+          ?   OR?: CompanyWhereInput[],
+          ?   NOT?: CompanyWhereInput | CompanyWhereInput[],
+          ?   name?: StringFilter | String,
+          ?   legalForm?: StringFilter | String,
+          ?   rcNumber?: StringFilter | String,
+          ?   nif?: StringFilter | String,
+          ?   nis?: StringFilter | String,
+          ?   website?: StringNullableFilter | String | Null,
+          ?   description?: StringNullableFilter | String | Null,
+          ?   logo?: StringNullableFilter | String | Null,
+          ?   coverImage?: StringNullableFilter | String | Null,
+          ?   yearEstablished?: IntNullableFilter | Int | Null,
+          ?   employeeCount?: IntNullableFilter | Int | Null,
+          ?   productionCapacity?: StringNullableFilter | String | Null,
+          ?   exportCapability?: BoolFilter | Boolean,
+          ?   verificationStatus?: EnumVerificationStatusFilter | VerificationStatus,
+          ?   rating?: FloatFilter | Float,
+          ?   reviewCount?: IntFilter | Int,
+          ?   responseRate?: FloatFilter | Float,
+          ?   verificationLevel?: EnumVerificationLevelFilter | VerificationLevel,
+          ?   wilaya?: StringFilter | String,
+          ?   commune?: StringNullableFilter | String | Null,
+          ?   address?: StringNullableFilter | String | Null,
+          ?   latitude?: FloatNullableFilter | Float | Null,
+          ?   longitude?: FloatNullableFilter | Float | Null,
+          ?   contactEmail?: StringFilter | String,
+          ?   contactPhone?: StringFilter | String,
+          ?   isVerified?: BoolFilter | Boolean,
+          ?   isActive?: BoolFilter | Boolean,
+          ?   tenantId?: StringFilter | String,
+          ?   userId?: StringFilter | String,
+          ?   createdAt?: DateTimeFilter | DateTime,
+          ?   updatedAt?: DateTimeFilter | DateTime,
+          ?   verifications?: SupplierVerificationListRelationFilter,
+          ?   badges?: CompanyBadgeListRelationFilter,
+          ?   videos?: CompanyVideoListRelationFilter,
+          ?   virtualTours?: VirtualTourListRelationFilter,
+          ?   booths?: ExhibitionBoothListRelationFilter,
+          ?   tenant?: TenantScalarRelationFilter | TenantWhereInput,
+          ?   user?: UserScalarRelationFilter | UserWhereInput,
+          ?   products?: ProductListRelationFilter,
+          ?   ordersReceived?: OrderListRelationFilter,
+          ?   quotations?: QuotationListRelationFilter,
+          ?   companyReviews?: ReviewListRelationFilter
+            }
+          })
+
+Unknown argument `slug_tenantId`. Available options are marked with ?.
+   ❌ Error importing ADRAR Tours: 
+Invalid `prisma.company.findUnique()` invocation in
+/home/z/my-project/scripts/seed-missing-wilayas.js:113:51
+
+  110 for (const company of companies) {
+  111   try {
+  112     // Check if company already exists by slug
+→ 113     const existing = await prisma.company.findUnique({
+            where: {
+              slug_tenantId: {
+              ~~~~~~~~~~~~~
+                slug: "adrar-tours",
+                tenantId: "cmsvm93et0000p52pahexb8k9"
+              },
+          ?   id?: String,
+          ?   slug?: String,
+          ?   AND?: CompanyWhereInput | CompanyWhereInput[],
+          ?   OR?: CompanyWhereInput[],
+          ?   NOT?: CompanyWhereInput | CompanyWhereInput[],
+          ?   name?: StringFilter | String,
+          ?   legalForm?: StringFilter | String,
+          ?   rcNumber?: StringFilter | String,
+          ?   nif?: StringFilter | String,
+          ?   nis?: StringFilter | String,
+          ?   website?: StringNullableFilter | String | Null,
+          ?   description?: StringNullableFilter | String | Null,
+          ?   logo?: StringNullableFilter | String | Null,
+          ?   coverImage?: StringNullableFilter | String | Null,
+          ?   yearEstablished?: IntNullableFilter | Int | Null,
+          ?   employeeCount?: IntNullableFilter | Int | Null,
+          ?   productionCapacity?: StringNullableFilter | String | Null,
+          ?   exportCapability?: BoolFilter | Boolean,
+          ?   verificationStatus?: EnumVerificationStatusFilter | VerificationStatus,
+          ?   rating?: FloatFilter | Float,
+          ?   reviewCount?: IntFilter | Int,
+          ?   responseRate?: FloatFilter | Float,
+          ?   verificationLevel?: EnumVerificationLevelFilter | VerificationLevel,
+          ?   wilaya?: StringFilter | String,
+          ?   commune?: StringNullableFilter | String | Null,
+          ?   address?: StringNullableFilter | String | Null,
+          ?   latitude?: FloatNullableFilter | Float | Null,
+          ?   longitude?: FloatNullableFilter | Float | Null,
+          ?   contactEmail?: StringFilter | String,
+          ?   contactPhone?: StringFilter | String,
+          ?   isVerified?: BoolFilter | Boolean,
+          ?   isActive?: BoolFilter | Boolean,
+          ?   tenantId?: StringFilter | String,
+          ?   userId?: StringFilter | String,
+          ?   createdAt?: DateTimeFilter | DateTime,
+          ?   updatedAt?: DateTimeFilter | DateTime,
+          ?   verifications?: SupplierVerificationListRelationFilter,
+          ?   badges?: CompanyBadgeListRelationFilter,
+          ?   videos?: CompanyVideoListRelationFilter,
+          ?   virtualTours?: VirtualTourListRelationFilter,
+          ?   booths?: ExhibitionBoothListRelationFilter,
+          ?   tenant?: TenantScalarRelationFilter | TenantWhereInput,
+          ?   user?: UserScalarRelationFilter | UserWhereInput,
+          ?   products?: ProductListRelationFilter,
+          ?   ordersReceived?: OrderListRelationFilter,
+          ?   quotations?: QuotationListRelationFilter,
+          ?   companyReviews?: ReviewListRelationFilter
+            }
+          })
+
+Unknown argument `slug_tenantId`. Available options are marked with ?.
+   ✅ Imported: 0, Skipped: 0, Errors: 32
+
+📍 Processing Wilaya 03: 28 companies
+   ❌ Error importing ECBRL - Entreprise de Construction Bâtiments Routes & Location: 
+Invalid `prisma.company.findUnique()` invocation in
+/home/z/my-project/scripts/seed-missing-wilayas.js:113:51
+
+  110 for (const company of companies) {
+  111   try {
+  112     // Check if company already exists by slug
+→ 113     const existing = await prisma.company.findUnique({
+            where: {
+              slug_tenantId: {
+              ~~~~~~~~~~~~~
+                slug: "ecbrl-construction-batiments-routes-location",
+                tenantId: "cmsvm93et0000p52pahexb8k9"
+              },
+          ?   id?: String,
+          ?   slug?: String,
+          ?   AND?: CompanyWhereInput | CompanyWhereInput[],
+          ?   OR?: CompanyWhereInput[],
+          ?   NOT?: CompanyWhereInput | CompanyWhereInput[],
+          ?   name?: StringFilter | String,
+          ?   legalForm?: StringFilter | String,
+          ?   rcNumber?: StringFilter | String,
+          ?   nif?: StringFilter | String,
+          ?   nis?: StringFilter | String,
+          ?   website?: StringNullableFilter | String | Null,
+          ?   description?: StringNullableFilter | String | Null,
+          ?   logo?: StringNullableFilter | String | Null,
+          ?   coverImage?: StringNullableFilter | String | Null,
+          ?   yearEstablished?: IntNullableFilter | Int | Null,
+          ?   employeeCount?: IntNullableFilter | Int | Null,
+          ?   productionCapacity?: StringNullableFilter | String | Null,
+          ?   exportCapability?: BoolFilter | Boolean,
+          ?   verificationStatus?: EnumVerificationStatusFilter | VerificationStatus,
+          ?   rating?: FloatFilter | Float,
+          ?   reviewCount?: IntFilter | Int,
+          ?   responseRate?: FloatFilter | Float,
+          ?   verificationLevel?: EnumVerificationLevelFilter | VerificationLevel,
+          ?   wilaya?: StringFilter | String,
+          ?   commune?: StringNullableFilter | String | Null,
+          ?   address?: StringNullableFilter | String | Null,
+          ?   latitude?: FloatNullableFilter | Float | Null,
+          ?   longitude?: FloatNullableFilter | Float | Null,
+          ?   contactEmail?: StringFilter | String,
+          ?   contactPhone?: StringFilter | String,
+          ?   isVerified?: BoolFilter | Boolean,
+          ?   isActive?: BoolFilter | Boolean,
+          ?   tenantId?: StringFilter | String,
+          ?   userId?: StringFilter | String,
+          ?   createdAt?: DateTimeFilter | DateTime,
+          ?   updatedAt?: DateTimeFilter | DateTime,
+          ?   verifications?: SupplierVerificationListRelationFilter,
+          ?   badges?: CompanyBadgeListRelationFilter,
+          ?   videos?: CompanyVideoListRelationFilter,
+          ?   virtualTours?: VirtualTourListRelationFilter,
+          ?   booths?: ExhibitionBoothListRelationFilter,
+          ?   tenant?: TenantScalarRelationFilter | TenantWhereInput,
+          ?   user?: UserScalarRelationFilter | UserWhereInput,
+          ?   products?: ProductListRelationFilter,
+          ?   ordersReceived?: OrderListRelationFilter,
+          ?   quotations?: QuotationListRelationFilter,
+          ?   companyReviews?: ReviewListRelationFilter
+            }
+          })
+
+Unknown argument `slug_tenantId`. Available options are marked with ?.
+   ❌ Error importing SARL MOTA: 
+Invalid `prisma.company.findUnique()` invocation in
+/home/z/my-project/scripts/seed-missing-wilayas.js:113:51
+
+  110 for (const company of companies) {
+  111   try {
+  112     // Check if company already exists by slug
+→ 113     const existing = await prisma.company.findUnique({
+            where: {
+              slug_tenantId: {
+              ~~~~~~~~~~~~~
+                slug: "mota-sarl",
+                tenantId: "cmsvm93et0000p52pahexb8k9"
+              },
+          ?   id?: String,
+          ?   slug?: String,
+          ?   AND?: CompanyWhereInput | CompanyWhereInput[],
+          ?   OR?: CompanyWhereInput[],
+          ?   NOT?: CompanyWhereInput | CompanyWhereInput[],
+          ?   name?: StringFilter | String,
+          ?   legalForm?: StringFilter | String,
+          ?   rcNumber?: StringFilter | String,
+          ?   nif?: StringFilter | String,
+          ?   nis?: StringFilter | String,
+          ?   website?: StringNullableFilter | String | Null,
+          ?   description?: StringNullableFilter | String | Null,
+          ?   logo?: StringNullableFilter | String | Null,
+          ?   coverImage?: StringNullableFilter | String | Null,
+          ?   yearEstablished?: IntNullableFilter | Int | Null,
+          ?   employeeCount?: IntNullableFilter | Int | Null,
+          ?   productionCapacity?: StringNullableFilter | String | Null,
+          ?   exportCapability?: BoolFilter | Boolean,
+          ?   verificationStatus?: EnumVerificationStatusFilter | VerificationStatus,
+          ?   rating?: FloatFilter | Float,
+          ?   reviewCount?: IntFilter | Int,
+          ?   responseRate?: FloatFilter | Float,
+          ?   verificationLevel?: EnumVerificationLevelFilter | VerificationLevel,
+          ?   wilaya?: StringFilter | String,
+          ?   commune?: StringNullableFilter | String | Null,
+          ?   address?: StringNullableFilter | String | Null,
+          ?   latitude?: FloatNullableFilter | Float | Null,
+          ?   longitude?: FloatNullableFilter | Float | Null,
+          ?   contactEmail?: StringFilter | String,
+          ?   contactPhone?: StringFilter | String,
+          ?   isVerified?: BoolFilter | Boolean,
+          ?   isActive?: BoolFilter | Boolean,
+          ?   tenantId?: StringFilter | String,
+          ?   userId?: StringFilter | String,
+          ?   createdAt?: DateTimeFilter | DateTime,
+          ?   updatedAt?: DateTimeFilter | DateTime,
+          ?   verifications?: SupplierVerificationListRelationFilter,
+          ?   badges?: CompanyBadgeListRelationFilter,
+          ?   videos?: CompanyVideoListRelationFilter,
+          ?   virtualTours?: VirtualTourListRelationFilter,
+          ?   booths?: ExhibitionBoothListRelationFilter,
+          ?   tenant?: TenantScalarRelationFilter | TenantWhereInput,
+          ?   user?: UserScalarRelationFilter | UserWhereInput,
+          ?   products?: ProductListRelationFilter,
+          ?   ordersReceived?: OrderListRelationFilter,
+          ?   quotations?: QuotationListRelationFilter,
+          ?   companyReviews?: ReviewListRelationFilter
+            }
+          })
+
+Unknown argument `slug_tenantId`. Available options are marked with ?.
+   ❌ Error importing CIC LAGHOUAT - Complexe Industriel & Commercial De Laghouat: 
+Invalid `prisma.company.findUnique()` invocation in
+/home/z/my-project/scripts/seed-missing-wilayas.js:113:51
+
+  110 for (const company of companies) {
+  111   try {
+  112     // Check if company already exists by slug
+→ 113     const existing = await prisma.company.findUnique({
+            where: {
+              slug_tenantId: {
+              ~~~~~~~~~~~~~
+                slug: "cic-laghouat-complexe-industriel-commercial",
+                tenantId: "cmsvm93et0000p52pahexb8k9"
+              },
+          ?   id?: String,
+          ?   slug?: String,
+          ?   AND?: CompanyWhereInput | CompanyWhereInput[],
+          ?   OR?: CompanyWhereInput[],
+          ?   NOT?: CompanyWhereInput | CompanyWhereInput[],
+          ?   name?: StringFilter | String,
+          ?   legalForm?: StringFilter | String,
+          ?   rcNumber?: StringFilter | String,
+          ?   nif?: StringFilter | String,
+          ?   nis?: StringFilter | String,
+          ?   website?: StringNullableFilter | String | Null,
+          ?   description?: StringNullableFilter | String | Null,
+          ?   logo?: StringNullableFilter | String | Null,
+          ?   coverImage?: StringNullableFilter | String | Null,
+          ?   yearEstablished?: IntNullableFilter | Int | Null,
+          ?   employeeCount?: IntNullableFilter | Int | Null,
+          ?   productionCapacity?: StringNullableFilter | String | Null,
+          ?   exportCapability?: BoolFilter | Boolean,
+          ?   verificationStatus?: EnumVerificationStatusFilter | VerificationStatus,
+          ?   rating?: FloatFilter | Float,
+          ?   reviewCount?: IntFilter | Int,
+          ?   responseRate?: FloatFilter | Float,
+          ?   verificationLevel?: EnumVerificationLevelFilter | VerificationLevel,
+          ?   wilaya?: StringFilter | String,
+          ?   commune?: StringNullableFilter | String | Null,
+          ?   address?: StringNullableFilter | String | Null,
+          ?   latitude?: FloatNullableFilter | Float | Null,
+          ?   longitude?: FloatNullableFilter | Float | Null,
+          ?   contactEmail?: StringFilter | String,
+          ?   contactPhone?: StringFilter | String,
+          ?   isVerified?: BoolFilter | Boolean,
+          ?   isActive?: BoolFilter | Boolean,
+          ?   tenantId?: StringFilter | String,
+          ?   userId?: StringFilter | String,
+          ?   createdAt?: DateTimeFilter | DateTime,
+          ?   updatedAt?: DateTimeFilter | DateTime,
+          ?   verifications?: SupplierVerificationListRelationFilter,
+          ?   badges?: CompanyBadgeListRelationFilter,
+          ?   videos?: CompanyVideoListRelationFilter,
+          ?   virtualTours?: VirtualTourListRelationFilter,
+          ?   booths?: ExhibitionBoothListRelationFilter,
+          ?   tenant?: TenantScalarRelationFilter | TenantWhereInput,
+          ?   user?: UserScalarRelationFilter | UserWhereInput,
+          ?   products?: ProductListRelationFilter,
+          ?   ordersReceived?: OrderListRelationFilter,
+          ?   quotations?: QuotationListRelationFilter,
+          ?   companyReviews?: ReviewListRelationFilter
+            }
+          })
+
+Unknown argument `slug_tenantId`. Available options are marked with ?.
+   ✅ Imported: 0, Skipped: 0, Errors: 28
+
+📍 Processing Wilaya 08: 31 companies
+   ❌ Error importing EPTP Béchar - Entreprise Publique des Travaux Publics: 
+Invalid `prisma.company.findUnique()` invocation in
+/home/z/my-project/scripts/seed-missing-wilayas.js:113:51
+
+  110 for (const company of companies) {
+  111   try {
+  112     // Check if company already exists by slug
+→ 113     const existing = await prisma.company.findUnique({
+            where: {
+              slug_tenantId: {
+              ~~~~~~~~~~~~~
+                slug: "eptp-bechar-travaux-publics",
+                tenantId: "cmsvm93et0000p52pahexb8k9"
+              },
+          ?   id?: String,
+          ?   slug?: String,
+          ?   AND?: CompanyWhereInput | CompanyWhereInput[],
+          ?   OR?: CompanyWhereInput[],
+          ?   NOT?: CompanyWhereInput | CompanyWhereInput[],
+          ?   name?: StringFilter | String,
+          ?   legalForm?: StringFilter | String,
+          ?   rcNumber?: StringFilter | String,
+          ?   nif?: StringFilter | String,
+          ?   nis?: StringFilter | String,
+          ?   website?: StringNullableFilter | String | Null,
+          ?   description?: StringNullableFilter | String | Null,
+          ?   logo?: StringNullableFilter | String | Null,
+          ?   coverImage?: StringNullableFilter | String | Null,
+          ?   yearEstablished?: IntNullableFilter | Int | Null,
+          ?   employeeCount?: IntNullableFilter | Int | Null,
+          ?   productionCapacity?: StringNullableFilter | String | Null,
+          ?   exportCapability?: BoolFilter | Boolean,
+          ?   verificationStatus?: EnumVerificationStatusFilter | VerificationStatus,
+          ?   rating?: FloatFilter | Float,
+          ?   reviewCount?: IntFilter | Int,
+          ?   responseRate?: FloatFilter | Float,
+          ?   verificationLevel?: EnumVerificationLevelFilter | VerificationLevel,
+          ?   wilaya?: StringFilter | String,
+          ?   commune?: StringNullableFilter | String | Null,
+          ?   address?: StringNullableFilter | String | Null,
+          ?   latitude?: FloatNullableFilter | Float | Null,
+          ?   longitude?: FloatNullableFilter | Float | Null,
+          ?   contactEmail?: StringFilter | String,
+          ?   contactPhone?: StringFilter | String,
+          ?   isVerified?: BoolFilter | Boolean,
+          ?   isActive?: BoolFilter | Boolean,
+          ?   tenantId?: StringFilter | String,
+          ?   userId?: StringFilter | String,
+          ?   createdAt?: DateTimeFilter | DateTime,
+          ?   updatedAt?: DateTimeFilter | DateTime,
+          ?   verifications?: SupplierVerificationListRelationFilter,
+          ?   badges?: CompanyBadgeListRelationFilter,
+          ?   videos?: CompanyVideoListRelationFilter,
+          ?   virtualTours?: VirtualTourListRelationFilter,
+          ?   booths?: ExhibitionBoothListRelationFilter,
+          ?   tenant?: TenantScalarRelationFilter | TenantWhereInput,
+          ?   user?: UserScalarRelationFilter | UserWhereInput,
+          ?   products?: ProductListRelationFilter,
+          ?   ordersReceived?: OrderListRelationFilter,
+          ?   quotations?: QuotationListRelationFilter,
+          ?   companyReviews?: ReviewListRelationFilter
+            }
+          })
+
+Unknown argument `slug_tenantId`. Available options are marked with ?.
+   ❌ Error importing Sonatrach Direction Régionale Béchar: 
+Invalid `prisma.company.findUnique()` invocation in
+/home/z/my-project/scripts/seed-missing-wilayas.js:113:51
+
+  110 for (const company of companies) {
+  111   try {
+  112     // Check if company already exists by slug
+→ 113     const existing = await prisma.company.findUnique({
+            where: {
+              slug_tenantId: {
+              ~~~~~~~~~~~~~
+                slug: "sonatrach-bechar-hydrocarbures",
+                tenantId: "cmsvm93et0000p52pahexb8k9"
+              },
+          ?   id?: String,
+          ?   slug?: String,
+          ?   AND?: CompanyWhereInput | CompanyWhereInput[],
+          ?   OR?: CompanyWhereInput[],
+          ?   NOT?: CompanyWhereInput | CompanyWhereInput[],
+          ?   name?: StringFilter | String,
+          ?   legalForm?: StringFilter | String,
+          ?   rcNumber?: StringFilter | String,
+          ?   nif?: StringFilter | String,
+          ?   nis?: StringFilter | String,
+          ?   website?: StringNullableFilter | String | Null,
+          ?   description?: StringNullableFilter | String | Null,
+          ?   logo?: StringNullableFilter | String | Null,
+          ?   coverImage?: StringNullableFilter | String | Null,
+          ?   yearEstablished?: IntNullableFilter | Int | Null,
+          ?   employeeCount?: IntNullableFilter | Int | Null,
+          ?   productionCapacity?: StringNullableFilter | String | Null,
+          ?   exportCapability?: BoolFilter | Boolean,
+          ?   verificationStatus?: EnumVerificationStatusFilter | VerificationStatus,
+          ?   rating?: FloatFilter | Float,
+          ?   reviewCount?: IntFilter | Int,
+          ?   responseRate?: FloatFilter | Float,
+          ?   verificationLevel?: EnumVerificationLevelFilter | VerificationLevel,
+          ?   wilaya?: StringFilter | String,
+          ?   commune?: StringNullableFilter | String | Null,
+          ?   address?: StringNullableFilter | String | Null,
+          ?   latitude?: FloatNullableFilter | Float | Null,
+          ?   longitude?: FloatNullableFilter | Float | Null,
+          ?   contactEmail?: StringFilter | String,
+          ?   contactPhone?: StringFilter | String,
+          ?   isVerified?: BoolFilter | Boolean,
+          ?   isActive?: BoolFilter | Boolean,
+          ?   tenantId?: StringFilter | String,
+          ?   userId?: StringFilter | String,
+          ?   createdAt?: DateTimeFilter | DateTime,
+          ?   updatedAt?: DateTimeFilter | DateTime,
+          ?   verifications?: SupplierVerificationListRelationFilter,
+          ?   badges?: CompanyBadgeListRelationFilter,
+          ?   videos?: CompanyVideoListRelationFilter,
+          ?   virtualTours?: VirtualTourListRelationFilter,
+          ?   booths?: ExhibitionBoothListRelationFilter,
+          ?   tenant?: TenantScalarRelationFilter | TenantWhereInput,
+          ?   user?: UserScalarRelationFilter | UserWhereInput,
+          ?   products?: ProductListRelationFilter,
+          ?   ordersReceived?: OrderListRelationFilter,
+          ?   quotations?: QuotationListRelationFilter,
+          ?   companyReviews?: ReviewListRelationFilter
+            }
+          })
+
+Unknown argument `slug_tenantId`. Available options are marked with ?.
+   ❌ Error importing Sonelgaz Direction Régionale Béchar: 
+Invalid `prisma.company.findUnique()` invocation in
+/home/z/my-project/scripts/seed-missing-wilayas.js:113:51
+
+  110 for (const company of companies) {
+  111   try {
+  112     // Check if company already exists by slug
+→ 113     const existing = await prisma.company.findUnique({
+            where: {
+              slug_tenantId: {
+              ~~~~~~~~~~~~~
+                slug: "sonelgaz-bechar-electricite",
+                tenantId: "cmsvm93et0000p52pahexb8k9"
+              },
+          ?   id?: String,
+          ?   slug?: String,
+          ?   AND?: CompanyWhereInput | CompanyWhereInput[],
+          ?   OR?: CompanyWhereInput[],
+          ?   NOT?: CompanyWhereInput | CompanyWhereInput[],
+          ?   name?: StringFilter | String,
+          ?   legalForm?: StringFilter | String,
+          ?   rcNumber?: StringFilter | String,
+          ?   nif?: StringFilter | String,
+          ?   nis?: StringFilter | String,
+          ?   website?: StringNullableFilter | String | Null,
+          ?   description?: StringNullableFilter | String | Null,
+          ?   logo?: StringNullableFilter | String | Null,
+          ?   coverImage?: StringNullableFilter | String | Null,
+          ?   yearEstablished?: IntNullableFilter | Int | Null,
+          ?   employeeCount?: IntNullableFilter | Int | Null,
+          ?   productionCapacity?: StringNullableFilter | String | Null,
+          ?   exportCapability?: BoolFilter | Boolean,
+          ?   verificationStatus?: EnumVerificationStatusFilter | VerificationStatus,
+          ?   rating?: FloatFilter | Float,
+          ?   reviewCount?: IntFilter | Int,
+          ?   responseRate?: FloatFilter | Float,
+          ?   verificationLevel?: EnumVerificationLevelFilter | VerificationLevel,
+          ?   wilaya?: StringFilter | String,
+          ?   commune?: StringNullableFilter | String | Null,
+          ?   address?: StringNullableFilter | String | Null,
+          ?   latitude?: FloatNullableFilter | Float | Null,
+          ?   longitude?: FloatNullableFilter | Float | Null,
+          ?   contactEmail?: StringFilter | String,
+          ?   contactPhone?: StringFilter | String,
+          ?   isVerified?: BoolFilter | Boolean,
+          ?   isActive?: BoolFilter | Boolean,
+          ?   tenantId?: StringFilter | String,
+          ?   userId?: StringFilter | String,
+          ?   createdAt?: DateTimeFilter | DateTime,
+          ?   updatedAt?: DateTimeFilter | DateTime,
+          ?   verifications?: SupplierVerificationListRelationFilter,
+          ?   badges?: CompanyBadgeListRelationFilter,
+          ?   videos?: CompanyVideoListRelationFilter,
+          ?   virtualTours?: VirtualTourListRelationFilter,
+          ?   booths?: ExhibitionBoothListRelationFilter,
+          ?   tenant?: TenantScalarRelationFilter | TenantWhereInput,
+          ?   user?: UserScalarRelationFilter | UserWhereInput,
+          ?   products?: ProductListRelationFilter,
+          ?   ordersReceived?: OrderListRelationFilter,
+          ?   quotations?: QuotationListRelationFilter,
+          ?   companyReviews?: ReviewListRelationFilter
+            }
+          })
+
+Unknown argument `slug_tenantId`. Available options are marked with ?.
+   ✅ Imported: 0, Skipped: 0, Errors: 31
+
+📍 Processing Wilaya 12: 31 companies
+   ❌ Error importing Somiphos - Société des Mines de Phosphates: 
+Invalid `prisma.company.findUnique()` invocation in
+/home/z/my-project/scripts/seed-missing-wilayas.js:113:51
+
+  110 for (const company of companies) {
+  111   try {
+  112     // Check if company already exists by slug
+→ 113     const existing = await prisma.company.findUnique({
+            where: {
+              slug_tenantId: {
+              ~~~~~~~~~~~~~
+                slug: "somiphos-societe-mines-phosphates",
+                tenantId: "cmsvm93et0000p52pahexb8k9"
+              },
+          ?   id?: String,
+          ?   slug?: String,
+          ?   AND?: CompanyWhereInput | CompanyWhereInput[],
+          ?   OR?: CompanyWhereInput[],
+          ?   NOT?: CompanyWhereInput | CompanyWhereInput[],
+          ?   name?: StringFilter | String,
+          ?   legalForm?: StringFilter | String,
+          ?   rcNumber?: StringFilter | String,
+          ?   nif?: StringFilter | String,
+          ?   nis?: StringFilter | String,
+          ?   website?: StringNullableFilter | String | Null,
+          ?   description?: StringNullableFilter | String | Null,
+          ?   logo?: StringNullableFilter | String | Null,
+          ?   coverImage?: StringNullableFilter | String | Null,
+          ?   yearEstablished?: IntNullableFilter | Int | Null,
+          ?   employeeCount?: IntNullableFilter | Int | Null,
+          ?   productionCapacity?: StringNullableFilter | String | Null,
+          ?   exportCapability?: BoolFilter | Boolean,
+          ?   verificationStatus?: EnumVerificationStatusFilter | VerificationStatus,
+          ?   rating?: FloatFilter | Float,
+          ?   reviewCount?: IntFilter | Int,
+          ?   responseRate?: FloatFilter | Float,
+          ?   verificationLevel?: EnumVerificationLevelFilter | VerificationLevel,
+          ?   wilaya?: StringFilter | String,
+          ?   commune?: StringNullableFilter | String | Null,
+          ?   address?: StringNullableFilter | String | Null,
+          ?   latitude?: FloatNullableFilter | Float | Null,
+          ?   longitude?: FloatNullableFilter | Float | Null,
+          ?   contactEmail?: StringFilter | String,
+          ?   contactPhone?: StringFilter | String,
+          ?   isVerified?: BoolFilter | Boolean,
+          ?   isActive?: BoolFilter | Boolean,
+          ?   tenantId?: StringFilter | String,
+          ?   userId?: StringFilter | String,
+          ?   createdAt?: DateTimeFilter | DateTime,
+          ?   updatedAt?: DateTimeFilter | DateTime,
+          ?   verifications?: SupplierVerificationListRelationFilter,
+          ?   badges?: CompanyBadgeListRelationFilter,
+          ?   videos?: CompanyVideoListRelationFilter,
+          ?   virtualTours?: VirtualTourListRelationFilter,
+          ?   booths?: ExhibitionBoothListRelationFilter,
+          ?   tenant?: TenantScalarRelationFilter | TenantWhereInput,
+          ?   user?: UserScalarRelationFilter | UserWhereInput,
+          ?   products?: ProductListRelationFilter,
+          ?   ordersReceived?: OrderListRelationFilter,
+          ?   quotations?: QuotationListRelationFilter,
+          ?   companyReviews?: ReviewListRelationFilter
+            }
+          })
+
+Unknown argument `slug_tenantId`. Available options are marked with ?.
+   ❌ Error importing SCT - Société des Ciments de Tébessa: 
+Invalid `prisma.company.findUnique()` invocation in
+/home/z/my-project/scripts/seed-missing-wilayas.js:113:51
+
+  110 for (const company of companies) {
+  111   try {
+  112     // Check if company already exists by slug
+→ 113     const existing = await prisma.company.findUnique({
+            where: {
+              slug_tenantId: {
+              ~~~~~~~~~~~~~
+                slug: "sct-societe-ciments-tebessa",
+                tenantId: "cmsvm93et0000p52pahexb8k9"
+              },
+          ?   id?: String,
+          ?   slug?: String,
+          ?   AND?: CompanyWhereInput | CompanyWhereInput[],
+          ?   OR?: CompanyWhereInput[],
+          ?   NOT?: CompanyWhereInput | CompanyWhereInput[],
+          ?   name?: StringFilter | String,
+          ?   legalForm?: StringFilter | String,
+          ?   rcNumber?: StringFilter | String,
+          ?   nif?: StringFilter | String,
+          ?   nis?: StringFilter | String,
+          ?   website?: StringNullableFilter | String | Null,
+          ?   description?: StringNullableFilter | String | Null,
+          ?   logo?: StringNullableFilter | String | Null,
+          ?   coverImage?: StringNullableFilter | String | Null,
+          ?   yearEstablished?: IntNullableFilter | Int | Null,
+          ?   employeeCount?: IntNullableFilter | Int | Null,
+          ?   productionCapacity?: StringNullableFilter | String | Null,
+          ?   exportCapability?: BoolFilter | Boolean,
+          ?   verificationStatus?: EnumVerificationStatusFilter | VerificationStatus,
+          ?   rating?: FloatFilter | Float,
+          ?   reviewCount?: IntFilter | Int,
+          ?   responseRate?: FloatFilter | Float,
+          ?   verificationLevel?: EnumVerificationLevelFilter | VerificationLevel,
+          ?   wilaya?: StringFilter | String,
+          ?   commune?: StringNullableFilter | String | Null,
+          ?   address?: StringNullableFilter | String | Null,
+          ?   latitude?: FloatNullableFilter | Float | Null,
+          ?   longitude?: FloatNullableFilter | Float | Null,
+          ?   contactEmail?: StringFilter | String,
+          ?   contactPhone?: StringFilter | String,
+          ?   isVerified?: BoolFilter | Boolean,
+          ?   isActive?: BoolFilter | Boolean,
+          ?   tenantId?: StringFilter | String,
+          ?   userId?: StringFilter | String,
+          ?   createdAt?: DateTimeFilter | DateTime,
+          ?   updatedAt?: DateTimeFilter | DateTime,
+          ?   verifications?: SupplierVerificationListRelationFilter,
+          ?   badges?: CompanyBadgeListRelationFilter,
+          ?   videos?: CompanyVideoListRelationFilter,
+          ?   virtualTours?: VirtualTourListRelationFilter,
+          ?   booths?: ExhibitionBoothListRelationFilter,
+          ?   tenant?: TenantScalarRelationFilter | TenantWhereInput,
+          ?   user?: UserScalarRelationFilter | UserWhereInput,
+          ?   products?: ProductListRelationFilter,
+          ?   ordersReceived?: OrderListRelationFilter,
+          ?   quotations?: QuotationListRelationFilter,
+          ?   companyReviews?: ReviewListRelationFilter
+            }
+          })
+
+Unknown argument `slug_tenantId`. Available options are marked with ?.
+   ❌ Error importing EIM - Entreprise des Industries de Métaux de Tébessa: 
+Invalid `prisma.company.findUnique()` invocation in
+/home/z/my-project/scripts/seed-missing-wilayas.js:113:51
+
+  110 for (const company of companies) {
+  111   try {
+  112     // Check if company already exists by slug
+→ 113     const existing = await prisma.company.findUnique({
+            where: {
+              slug_tenantId: {
+              ~~~~~~~~~~~~~
+                slug: "eim-industries-metaux-tebessa",
+                tenantId: "cmsvm93et0000p52pahexb8k9"
+              },
+          ?   id?: String,
+          ?   slug?: String,
+          ?   AND?: CompanyWhereInput | CompanyWhereInput[],
+          ?   OR?: CompanyWhereInput[],
+          ?   NOT?: CompanyWhereInput | CompanyWhereInput[],
+          ?   name?: StringFilter | String,
+          ?   legalForm?: StringFilter | String,
+          ?   rcNumber?: StringFilter | String,
+          ?   nif?: StringFilter | String,
+          ?   nis?: StringFilter | String,
+          ?   website?: StringNullableFilter | String | Null,
+          ?   description?: StringNullableFilter | String | Null,
+          ?   logo?: StringNullableFilter | String | Null,
+          ?   coverImage?: StringNullableFilter | String | Null,
+          ?   yearEstablished?: IntNullableFilter | Int | Null,
+          ?   employeeCount?: IntNullableFilter | Int | Null,
+          ?   productionCapacity?: StringNullableFilter | String | Null,
+          ?   exportCapability?: BoolFilter | Boolean,
+          ?   verificationStatus?: EnumVerificationStatusFilter | VerificationStatus,
+          ?   rating?: FloatFilter | Float,
+          ?   reviewCount?: IntFilter | Int,
+          ?   responseRate?: FloatFilter | Float,
+          ?   verificationLevel?: EnumVerificationLevelFilter | VerificationLevel,
+          ?   wilaya?: StringFilter | String,
+          ?   commune?: StringNullableFilter | String | Null,
+          ?   address?: StringNullableFilter | String | Null,
+          ?   latitude?: FloatNullableFilter | Float | Null,
+          ?   longitude?: FloatNullableFilter | Float | Null,
+          ?   contactEmail?: StringFilter | String,
+          ?   contactPhone?: StringFilter | String,
+          ?   isVerified?: BoolFilter | Boolean,
+          ?   isActive?: BoolFilter | Boolean,
+          ?   tenantId?: StringFilter | String,
+          ?   userId?: StringFilter | String,
+          ?   createdAt?: DateTimeFilter | DateTime,
+          ?   updatedAt?: DateTimeFilter | DateTime,
+          ?   verifications?: SupplierVerificationListRelationFilter,
+          ?   badges?: CompanyBadgeListRelationFilter,
+          ?   videos?: CompanyVideoListRelationFilter,
+          ?   virtualTours?: VirtualTourListRelationFilter,
+          ?   booths?: ExhibitionBoothListRelationFilter,
+          ?   tenant?: TenantScalarRelationFilter | TenantWhereInput,
+          ?   user?: UserScalarRelationFilter | UserWhereInput,
+          ?   products?: ProductListRelationFilter,
+          ?   ordersReceived?: OrderListRelationFilter,
+          ?   quotations?: QuotationListRelationFilter,
+          ?   companyReviews?: ReviewListRelationFilter
+            }
+          })
+
+Unknown argument `slug_tenantId`. Available options are marked with ?.
+   ✅ Imported: 0, Skipped: 0, Errors: 31
+
+📍 Processing Wilaya 15: 34 companies
+   ❌ Error importing Novo Nordisk Algérie Tizi Ouzou: 
+Invalid `prisma.company.findUnique()` invocation in
+/home/z/my-project/scripts/seed-missing-wilayas.js:113:51
+
+  110 for (const company of companies) {
+  111   try {
+  112     // Check if company already exists by slug
+→ 113     const existing = await prisma.company.findUnique({
+            where: {
+              slug_tenantId: {
+              ~~~~~~~~~~~~~
+                slug: "novo-nordisk-algerie-tizi-ouzou",
+                tenantId: "cmsvm93et0000p52pahexb8k9"
+              },
+          ?   id?: String,
+          ?   slug?: String,
+          ?   AND?: CompanyWhereInput | CompanyWhereInput[],
+          ?   OR?: CompanyWhereInput[],
+          ?   NOT?: CompanyWhereInput | CompanyWhereInput[],
+          ?   name?: StringFilter | String,
+          ?   legalForm?: StringFilter | String,
+          ?   rcNumber?: StringFilter | String,
+          ?   nif?: StringFilter | String,
+          ?   nis?: StringFilter | String,
+          ?   website?: StringNullableFilter | String | Null,
+          ?   description?: StringNullableFilter | String | Null,
+          ?   logo?: StringNullableFilter | String | Null,
+          ?   coverImage?: StringNullableFilter | String | Null,
+          ?   yearEstablished?: IntNullableFilter | Int | Null,
+          ?   employeeCount?: IntNullableFilter | Int | Null,
+          ?   productionCapacity?: StringNullableFilter | String | Null,
+          ?   exportCapability?: BoolFilter | Boolean,
+          ?   verificationStatus?: EnumVerificationStatusFilter | VerificationStatus,
+          ?   rating?: FloatFilter | Float,
+          ?   reviewCount?: IntFilter | Int,
+          ?   responseRate?: FloatFilter | Float,
+          ?   verificationLevel?: EnumVerificationLevelFilter | VerificationLevel,
+          ?   wilaya?: StringFilter | String,
+          ?   commune?: StringNullableFilter | String | Null,
+          ?   address?: StringNullableFilter | String | Null,
+          ?   latitude?: FloatNullableFilter | Float | Null,
+          ?   longitude?: FloatNullableFilter | Float | Null,
+          ?   contactEmail?: StringFilter | String,
+          ?   contactPhone?: StringFilter | String,
+          ?   isVerified?: BoolFilter | Boolean,
+          ?   isActive?: BoolFilter | Boolean,
+          ?   tenantId?: StringFilter | String,
+          ?   userId?: StringFilter | String,
+          ?   createdAt?: DateTimeFilter | DateTime,
+          ?   updatedAt?: DateTimeFilter | DateTime,
+          ?   verifications?: SupplierVerificationListRelationFilter,
+          ?   badges?: CompanyBadgeListRelationFilter,
+          ?   videos?: CompanyVideoListRelationFilter,
+          ?   virtualTours?: VirtualTourListRelationFilter,
+          ?   booths?: ExhibitionBoothListRelationFilter,
+          ?   tenant?: TenantScalarRelationFilter | TenantWhereInput,
+          ?   user?: UserScalarRelationFilter | UserWhereInput,
+          ?   products?: ProductListRelationFilter,
+          ?   ordersReceived?: OrderListRelationFilter,
+          ?   quotations?: QuotationListRelationFilter,
+          ?   companyReviews?: ReviewListRelationFilter
+            }
+          })
+
+Unknown argument `slug_tenantId`. Available options are marked with ?.
+   ❌ Error importing OVO GIDKY: 
+Invalid `prisma.company.findUnique()` invocation in
+/home/z/my-project/scripts/seed-missing-wilayas.js:113:51
+
+  110 for (const company of companies) {
+  111   try {
+  112     // Check if company already exists by slug
+→ 113     const existing = await prisma.company.findUnique({
+            where: {
+              slug_tenantId: {
+              ~~~~~~~~~~~~~
+                slug: "ovo-gidky",
+                tenantId: "cmsvm93et0000p52pahexb8k9"
+              },
+          ?   id?: String,
+          ?   slug?: String,
+          ?   AND?: CompanyWhereInput | CompanyWhereInput[],
+          ?   OR?: CompanyWhereInput[],
+          ?   NOT?: CompanyWhereInput | CompanyWhereInput[],
+          ?   name?: StringFilter | String,
+          ?   legalForm?: StringFilter | String,
+          ?   rcNumber?: StringFilter | String,
+          ?   nif?: StringFilter | String,
+          ?   nis?: StringFilter | String,
+          ?   website?: StringNullableFilter | String | Null,
+          ?   description?: StringNullableFilter | String | Null,
+          ?   logo?: StringNullableFilter | String | Null,
+          ?   coverImage?: StringNullableFilter | String | Null,
+          ?   yearEstablished?: IntNullableFilter | Int | Null,
+          ?   employeeCount?: IntNullableFilter | Int | Null,
+          ?   productionCapacity?: StringNullableFilter | String | Null,
+          ?   exportCapability?: BoolFilter | Boolean,
+          ?   verificationStatus?: EnumVerificationStatusFilter | VerificationStatus,
+          ?   rating?: FloatFilter | Float,
+          ?   reviewCount?: IntFilter | Int,
+          ?   responseRate?: FloatFilter | Float,
+          ?   verificationLevel?: EnumVerificationLevelFilter | VerificationLevel,
+          ?   wilaya?: StringFilter | String,
+          ?   commune?: StringNullableFilter | String | Null,
+          ?   address?: StringNullableFilter | String | Null,
+          ?   latitude?: FloatNullableFilter | Float | Null,
+          ?   longitude?: FloatNullableFilter | Float | Null,
+          ?   contactEmail?: StringFilter | String,
+          ?   contactPhone?: StringFilter | String,
+          ?   isVerified?: BoolFilter | Boolean,
+          ?   isActive?: BoolFilter | Boolean,
+          ?   tenantId?: StringFilter | String,
+          ?   userId?: StringFilter | String,
+          ?   createdAt?: DateTimeFilter | DateTime,
+          ?   updatedAt?: DateTimeFilter | DateTime,
+          ?   verifications?: SupplierVerificationListRelationFilter,
+          ?   badges?: CompanyBadgeListRelationFilter,
+          ?   videos?: CompanyVideoListRelationFilter,
+          ?   virtualTours?: VirtualTourListRelationFilter,
+          ?   booths?: ExhibitionBoothListRelationFilter,
+          ?   tenant?: TenantScalarRelationFilter | TenantWhereInput,
+          ?   user?: UserScalarRelationFilter | UserWhereInput,
+          ?   products?: ProductListRelationFilter,
+          ?   ordersReceived?: OrderListRelationFilter,
+          ?   quotations?: QuotationListRelationFilter,
+          ?   companyReviews?: ReviewListRelationFilter
+            }
+          })
+
+Unknown argument `slug_tenantId`. Available options are marked with ?.
+   ❌ Error importing MIS Moulins Industriels du Sebaou: 
+Invalid `prisma.company.findUnique()` invocation in
+/home/z/my-project/scripts/seed-missing-wilayas.js:113:51
+
+  110 for (const company of companies) {
+  111   try {
+  112     // Check if company already exists by slug
+→ 113     const existing = await prisma.company.findUnique({
+            where: {
+              slug_tenantId: {
+              ~~~~~~~~~~~~~
+                slug: "mis-moulins-industriels-du-sebaou",
+                tenantId: "cmsvm93et0000p52pahexb8k9"
+              },
+          ?   id?: String,
+          ?   slug?: String,
+          ?   AND?: CompanyWhereInput | CompanyWhereInput[],
+          ?   OR?: CompanyWhereInput[],
+          ?   NOT?: CompanyWhereInput | CompanyWhereInput[],
+          ?   name?: StringFilter | String,
+          ?   legalForm?: StringFilter | String,
+          ?   rcNumber?: StringFilter | String,
+          ?   nif?: StringFilter | String,
+          ?   nis?: StringFilter | String,
+          ?   website?: StringNullableFilter | String | Null,
+          ?   description?: StringNullableFilter | String | Null,
+          ?   logo?: StringNullableFilter | String | Null,
+          ?   coverImage?: StringNullableFilter | String | Null,
+          ?   yearEstablished?: IntNullableFilter | Int | Null,
+          ?   employeeCount?: IntNullableFilter | Int | Null,
+          ?   productionCapacity?: StringNullableFilter | String | Null,
+          ?   exportCapability?: BoolFilter | Boolean,
+          ?   verificationStatus?: EnumVerificationStatusFilter | VerificationStatus,
+          ?   rating?: FloatFilter | Float,
+          ?   reviewCount?: IntFilter | Int,
+          ?   responseRate?: FloatFilter | Float,
+          ?   verificationLevel?: EnumVerificationLevelFilter | VerificationLevel,
+          ?   wilaya?: StringFilter | String,
+          ?   commune?: StringNullableFilter | String | Null,
+          ?   address?: StringNullableFilter | String | Null,
+          ?   latitude?: FloatNullableFilter | Float | Null,
+          ?   longitude?: FloatNullableFilter | Float | Null,
+          ?   contactEmail?: StringFilter | String,
+          ?   contactPhone?: StringFilter | String,
+          ?   isVerified?: BoolFilter | Boolean,
+          ?   isActive?: BoolFilter | Boolean,
+          ?   tenantId?: StringFilter | String,
+          ?   userId?: StringFilter | String,
+          ?   createdAt?: DateTimeFilter | DateTime,
+          ?   updatedAt?: DateTimeFilter | DateTime,
+          ?   verifications?: SupplierVerificationListRelationFilter,
+          ?   badges?: CompanyBadgeListRelationFilter,
+          ?   videos?: CompanyVideoListRelationFilter,
+          ?   virtualTours?: VirtualTourListRelationFilter,
+          ?   booths?: ExhibitionBoothListRelationFilter,
+          ?   tenant?: TenantScalarRelationFilter | TenantWhereInput,
+          ?   user?: UserScalarRelationFilter | UserWhereInput,
+          ?   products?: ProductListRelationFilter,
+          ?   ordersReceived?: OrderListRelationFilter,
+          ?   quotations?: QuotationListRelationFilter,
+          ?   companyReviews?: ReviewListRelationFilter
+            }
+          })
+
+Unknown argument `slug_tenantId`. Available options are marked with ?.
+   ✅ Imported: 0, Skipped: 0, Errors: 34
+
+📍 Processing Wilaya 20: 44 companies
+   ❌ Error importing Cevital Group - Sétif Operations: 
+Invalid `prisma.company.findUnique()` invocation in
+/home/z/my-project/scripts/seed-missing-wilayas.js:113:51
+
+  110 for (const company of companies) {
+  111   try {
+  112     // Check if company already exists by slug
+→ 113     const existing = await prisma.company.findUnique({
+            where: {
+              slug_tenantId: {
+              ~~~~~~~~~~~~~
+                slug: "cevital-group-setif",
+                tenantId: "cmsvm93et0000p52pahexb8k9"
+              },
+          ?   id?: String,
+          ?   slug?: String,
+          ?   AND?: CompanyWhereInput | CompanyWhereInput[],
+          ?   OR?: CompanyWhereInput[],
+          ?   NOT?: CompanyWhereInput | CompanyWhereInput[],
+          ?   name?: StringFilter | String,
+          ?   legalForm?: StringFilter | String,
+          ?   rcNumber?: StringFilter | String,
+          ?   nif?: StringFilter | String,
+          ?   nis?: StringFilter | String,
+          ?   website?: StringNullableFilter | String | Null,
+          ?   description?: StringNullableFilter | String | Null,
+          ?   logo?: StringNullableFilter | String | Null,
+          ?   coverImage?: StringNullableFilter | String | Null,
+          ?   yearEstablished?: IntNullableFilter | Int | Null,
+          ?   employeeCount?: IntNullableFilter | Int | Null,
+          ?   productionCapacity?: StringNullableFilter | String | Null,
+          ?   exportCapability?: BoolFilter | Boolean,
+          ?   verificationStatus?: EnumVerificationStatusFilter | VerificationStatus,
+          ?   rating?: FloatFilter | Float,
+          ?   reviewCount?: IntFilter | Int,
+          ?   responseRate?: FloatFilter | Float,
+          ?   verificationLevel?: EnumVerificationLevelFilter | VerificationLevel,
+          ?   wilaya?: StringFilter | String,
+          ?   commune?: StringNullableFilter | String | Null,
+          ?   address?: StringNullableFilter | String | Null,
+          ?   latitude?: FloatNullableFilter | Float | Null,
+          ?   longitude?: FloatNullableFilter | Float | Null,
+          ?   contactEmail?: StringFilter | String,
+          ?   contactPhone?: StringFilter | String,
+          ?   isVerified?: BoolFilter | Boolean,
+          ?   isActive?: BoolFilter | Boolean,
+          ?   tenantId?: StringFilter | String,
+          ?   userId?: StringFilter | String,
+          ?   createdAt?: DateTimeFilter | DateTime,
+          ?   updatedAt?: DateTimeFilter | DateTime,
+          ?   verifications?: SupplierVerificationListRelationFilter,
+          ?   badges?: CompanyBadgeListRelationFilter,
+          ?   videos?: CompanyVideoListRelationFilter,
+          ?   virtualTours?: VirtualTourListRelationFilter,
+          ?   booths?: ExhibitionBoothListRelationFilter,
+          ?   tenant?: TenantScalarRelationFilter | TenantWhereInput,
+          ?   user?: UserScalarRelationFilter | UserWhereInput,
+          ?   products?: ProductListRelationFilter,
+          ?   ordersReceived?: OrderListRelationFilter,
+          ?   quotations?: QuotationListRelationFilter,
+          ?   companyReviews?: ReviewListRelationFilter
+            }
+          })
+
+Unknown argument `slug_tenantId`. Available options are marked with ?.
+   ❌ Error importing Hyundai Motor Manufacturing Algeria (HMMAL): 
+Invalid `prisma.company.findUnique()` invocation in
+/home/z/my-project/scripts/seed-missing-wilayas.js:113:51
+
+  110 for (const company of companies) {
+  111   try {
+  112     // Check if company already exists by slug
+→ 113     const existing = await prisma.company.findUnique({
+            where: {
+              slug_tenantId: {
+              ~~~~~~~~~~~~~
+                slug: "hyundai-motor-manufacturing-algeria",
+                tenantId: "cmsvm93et0000p52pahexb8k9"
+              },
+          ?   id?: String,
+          ?   slug?: String,
+          ?   AND?: CompanyWhereInput | CompanyWhereInput[],
+          ?   OR?: CompanyWhereInput[],
+          ?   NOT?: CompanyWhereInput | CompanyWhereInput[],
+          ?   name?: StringFilter | String,
+          ?   legalForm?: StringFilter | String,
+          ?   rcNumber?: StringFilter | String,
+          ?   nif?: StringFilter | String,
+          ?   nis?: StringFilter | String,
+          ?   website?: StringNullableFilter | String | Null,
+          ?   description?: StringNullableFilter | String | Null,
+          ?   logo?: StringNullableFilter | String | Null,
+          ?   coverImage?: StringNullableFilter | String | Null,
+          ?   yearEstablished?: IntNullableFilter | Int | Null,
+          ?   employeeCount?: IntNullableFilter | Int | Null,
+          ?   productionCapacity?: StringNullableFilter | String | Null,
+          ?   exportCapability?: BoolFilter | Boolean,
+          ?   verificationStatus?: EnumVerificationStatusFilter | VerificationStatus,
+          ?   rating?: FloatFilter | Float,
+          ?   reviewCount?: IntFilter | Int,
+          ?   responseRate?: FloatFilter | Float,
+          ?   verificationLevel?: EnumVerificationLevelFilter | VerificationLevel,
+          ?   wilaya?: StringFilter | String,
+          ?   commune?: StringNullableFilter | String | Null,
+          ?   address?: StringNullableFilter | String | Null,
+          ?   latitude?: FloatNullableFilter | Float | Null,
+          ?   longitude?: FloatNullableFilter | Float | Null,
+          ?   contactEmail?: StringFilter | String,
+          ?   contactPhone?: StringFilter | String,
+          ?   isVerified?: BoolFilter | Boolean,
+          ?   isActive?: BoolFilter | Boolean,
+          ?   tenantId?: StringFilter | String,
+          ?   userId?: StringFilter | String,
+          ?   createdAt?: DateTimeFilter | DateTime,
+          ?   updatedAt?: DateTimeFilter | DateTime,
+          ?   verifications?: SupplierVerificationListRelationFilter,
+          ?   badges?: CompanyBadgeListRelationFilter,
+          ?   videos?: CompanyVideoListRelationFilter,
+          ?   virtualTours?: VirtualTourListRelationFilter,
+          ?   booths?: ExhibitionBoothListRelationFilter,
+          ?   tenant?: TenantScalarRelationFilter | TenantWhereInput,
+          ?   user?: UserScalarRelationFilter | UserWhereInput,
+          ?   products?: ProductListRelationFilter,
+          ?   ordersReceived?: OrderListRelationFilter,
+          ?   quotations?: QuotationListRelationFilter,
+          ?   companyReviews?: ReviewListRelationFilter
+            }
+          })
+
+Unknown argument `slug_tenantId`. Available options are marked with ?.
+   ❌ Error importing Eulyplast SARL: 
+Invalid `prisma.company.findUnique()` invocation in
+/home/z/my-project/scripts/seed-missing-wilayas.js:113:51
+
+  110 for (const company of companies) {
+  111   try {
+  112     // Check if company already exists by slug
+→ 113     const existing = await prisma.company.findUnique({
+            where: {
+              slug_tenantId: {
+              ~~~~~~~~~~~~~
+                slug: "eulyplast-sarl",
+                tenantId: "cmsvm93et0000p52pahexb8k9"
+              },
+          ?   id?: String,
+          ?   slug?: String,
+          ?   AND?: CompanyWhereInput | CompanyWhereInput[],
+          ?   OR?: CompanyWhereInput[],
+          ?   NOT?: CompanyWhereInput | CompanyWhereInput[],
+          ?   name?: StringFilter | String,
+          ?   legalForm?: StringFilter | String,
+          ?   rcNumber?: StringFilter | String,
+          ?   nif?: StringFilter | String,
+          ?   nis?: StringFilter | String,
+          ?   website?: StringNullableFilter | String | Null,
+          ?   description?: StringNullableFilter | String | Null,
+          ?   logo?: StringNullableFilter | String | Null,
+          ?   coverImage?: StringNullableFilter | String | Null,
+          ?   yearEstablished?: IntNullableFilter | Int | Null,
+          ?   employeeCount?: IntNullableFilter | Int | Null,
+          ?   productionCapacity?: StringNullableFilter | String | Null,
+          ?   exportCapability?: BoolFilter | Boolean,
+          ?   verificationStatus?: EnumVerificationStatusFilter | VerificationStatus,
+          ?   rating?: FloatFilter | Float,
+          ?   reviewCount?: IntFilter | Int,
+          ?   responseRate?: FloatFilter | Float,
+          ?   verificationLevel?: EnumVerificationLevelFilter | VerificationLevel,
+          ?   wilaya?: StringFilter | String,
+          ?   commune?: StringNullableFilter | String | Null,
+          ?   address?: StringNullableFilter | String | Null,
+          ?   latitude?: FloatNullableFilter | Float | Null,
+          ?   longitude?: FloatNullableFilter | Float | Null,
+          ?   contactEmail?: StringFilter | String,
+          ?   contactPhone?: StringFilter | String,
+          ?   isVerified?: BoolFilter | Boolean,
+          ?   isActive?: BoolFilter | Boolean,
+          ?   tenantId?: StringFilter | String,
+          ?   userId?: StringFilter | String,
+          ?   createdAt?: DateTimeFilter | DateTime,
+          ?   updatedAt?: DateTimeFilter | DateTime,
+          ?   verifications?: SupplierVerificationListRelationFilter,
+          ?   badges?: CompanyBadgeListRelationFilter,
+          ?   videos?: CompanyVideoListRelationFilter,
+          ?   virtualTours?: VirtualTourListRelationFilter,
+          ?   booths?: ExhibitionBoothListRelationFilter,
+          ?   tenant?: TenantScalarRelationFilter | TenantWhereInput,
+          ?   user?: UserScalarRelationFilter | UserWhereInput,
+          ?   products?: ProductListRelationFilter,
+          ?   ordersReceived?: OrderListRelationFilter,
+          ?   quotations?: QuotationListRelationFilter,
+          ?   companyReviews?: ReviewListRelationFilter
+            }
+          })
+
+Unknown argument `slug_tenantId`. Available options are marked with ?.
+   ✅ Imported: 0, Skipped: 0, Errors: 44
+
+📍 Processing Wilaya 22: 38 companies
+   ❌ Error importing Complexe de Skikda - Sonatrach: 
+Invalid `prisma.company.findUnique()` invocation in
+/home/z/my-project/scripts/seed-missing-wilayas.js:113:51
+
+  110 for (const company of companies) {
+  111   try {
+  112     // Check if company already exists by slug
+→ 113     const existing = await prisma.company.findUnique({
+            where: {
+              slug_tenantId: {
+              ~~~~~~~~~~~~~
+                slug: "complexe-skikda-sonatrach",
+                tenantId: "cmsvm93et0000p52pahexb8k9"
+              },
+          ?   id?: String,
+          ?   slug?: String,
+          ?   AND?: CompanyWhereInput | CompanyWhereInput[],
+          ?   OR?: CompanyWhereInput[],
+          ?   NOT?: CompanyWhereInput | CompanyWhereInput[],
+          ?   name?: StringFilter | String,
+          ?   legalForm?: StringFilter | String,
+          ?   rcNumber?: StringFilter | String,
+          ?   nif?: StringFilter | String,
+          ?   nis?: StringFilter | String,
+          ?   website?: StringNullableFilter | String | Null,
+          ?   description?: StringNullableFilter | String | Null,
+          ?   logo?: StringNullableFilter | String | Null,
+          ?   coverImage?: StringNullableFilter | String | Null,
+          ?   yearEstablished?: IntNullableFilter | Int | Null,
+          ?   employeeCount?: IntNullableFilter | Int | Null,
+          ?   productionCapacity?: StringNullableFilter | String | Null,
+          ?   exportCapability?: BoolFilter | Boolean,
+          ?   verificationStatus?: EnumVerificationStatusFilter | VerificationStatus,
+          ?   rating?: FloatFilter | Float,
+          ?   reviewCount?: IntFilter | Int,
+          ?   responseRate?: FloatFilter | Float,
+          ?   verificationLevel?: EnumVerificationLevelFilter | VerificationLevel,
+          ?   wilaya?: StringFilter | String,
+          ?   commune?: StringNullableFilter | String | Null,
+          ?   address?: StringNullableFilter | String | Null,
+          ?   latitude?: FloatNullableFilter | Float | Null,
+          ?   longitude?: FloatNullableFilter | Float | Null,
+          ?   contactEmail?: StringFilter | String,
+          ?   contactPhone?: StringFilter | String,
+          ?   isVerified?: BoolFilter | Boolean,
+          ?   isActive?: BoolFilter | Boolean,
+          ?   tenantId?: StringFilter | String,
+          ?   userId?: StringFilter | String,
+          ?   createdAt?: DateTimeFilter | DateTime,
+          ?   updatedAt?: DateTimeFilter | DateTime,
+          ?   verifications?: SupplierVerificationListRelationFilter,
+          ?   badges?: CompanyBadgeListRelationFilter,
+          ?   videos?: CompanyVideoListRelationFilter,
+          ?   virtualTours?: VirtualTourListRelationFilter,
+          ?   booths?: ExhibitionBoothListRelationFilter,
+          ?   tenant?: TenantScalarRelationFilter | TenantWhereInput,
+          ?   user?: UserScalarRelationFilter | UserWhereInput,
+          ?   products?: ProductListRelationFilter,
+          ?   ordersReceived?: OrderListRelationFilter,
+          ?   quotations?: QuotationListRelationFilter,
+          ?   companyReviews?: ReviewListRelationFilter
+            }
+          })
+
+Unknown argument `slug_tenantId`. Available options are marked with ?.
+   ❌ Error importing GL1Z - Usine de Liquéfaction Gaz N°1 Skikda: 
+Invalid `prisma.company.findUnique()` invocation in
+/home/z/my-project/scripts/seed-missing-wilayas.js:113:51
+
+  110 for (const company of companies) {
+  111   try {
+  112     // Check if company already exists by slug
+→ 113     const existing = await prisma.company.findUnique({
+            where: {
+              slug_tenantId: {
+              ~~~~~~~~~~~~~
+                slug: "gl1z-usine-liquefaction-gaz-skikda",
+                tenantId: "cmsvm93et0000p52pahexb8k9"
+              },
+          ?   id?: String,
+          ?   slug?: String,
+          ?   AND?: CompanyWhereInput | CompanyWhereInput[],
+          ?   OR?: CompanyWhereInput[],
+          ?   NOT?: CompanyWhereInput | CompanyWhereInput[],
+          ?   name?: StringFilter | String,
+          ?   legalForm?: StringFilter | String,
+          ?   rcNumber?: StringFilter | String,
+          ?   nif?: StringFilter | String,
+          ?   nis?: StringFilter | String,
+          ?   website?: StringNullableFilter | String | Null,
+          ?   description?: StringNullableFilter | String | Null,
+          ?   logo?: StringNullableFilter | String | Null,
+          ?   coverImage?: StringNullableFilter | String | Null,
+          ?   yearEstablished?: IntNullableFilter | Int | Null,
+          ?   employeeCount?: IntNullableFilter | Int | Null,
+          ?   productionCapacity?: StringNullableFilter | String | Null,
+          ?   exportCapability?: BoolFilter | Boolean,
+          ?   verificationStatus?: EnumVerificationStatusFilter | VerificationStatus,
+          ?   rating?: FloatFilter | Float,
+          ?   reviewCount?: IntFilter | Int,
+          ?   responseRate?: FloatFilter | Float,
+          ?   verificationLevel?: EnumVerificationLevelFilter | VerificationLevel,
+          ?   wilaya?: StringFilter | String,
+          ?   commune?: StringNullableFilter | String | Null,
+          ?   address?: StringNullableFilter | String | Null,
+          ?   latitude?: FloatNullableFilter | Float | Null,
+          ?   longitude?: FloatNullableFilter | Float | Null,
+          ?   contactEmail?: StringFilter | String,
+          ?   contactPhone?: StringFilter | String,
+          ?   isVerified?: BoolFilter | Boolean,
+          ?   isActive?: BoolFilter | Boolean,
+          ?   tenantId?: StringFilter | String,
+          ?   userId?: StringFilter | String,
+          ?   createdAt?: DateTimeFilter | DateTime,
+          ?   updatedAt?: DateTimeFilter | DateTime,
+          ?   verifications?: SupplierVerificationListRelationFilter,
+          ?   badges?: CompanyBadgeListRelationFilter,
+          ?   videos?: CompanyVideoListRelationFilter,
+          ?   virtualTours?: VirtualTourListRelationFilter,
+          ?   booths?: ExhibitionBoothListRelationFilter,
+          ?   tenant?: TenantScalarRelationFilter | TenantWhereInput,
+          ?   user?: UserScalarRelationFilter | UserWhereInput,
+          ?   products?: ProductListRelationFilter,
+          ?   ordersReceived?: OrderListRelationFilter,
+          ?   quotations?: QuotationListRelationFilter,
+          ?   companyReviews?: ReviewListRelationFilter
+            }
+          })
+
+Unknown argument `slug_tenantId`. Available options are marked with ?.
+   ❌ Error importing Raffinerie de Skikda - NAFTAL/Sonatrach: 
+Invalid `prisma.company.findUnique()` invocation in
+/home/z/my-project/scripts/seed-missing-wilayas.js:113:51
+
+  110 for (const company of companies) {
+  111   try {
+  112     // Check if company already exists by slug
+→ 113     const existing = await prisma.company.findUnique({
+            where: {
+              slug_tenantId: {
+              ~~~~~~~~~~~~~
+                slug: "raffinerie-skikda-naftal",
+                tenantId: "cmsvm93et0000p52pahexb8k9"
+              },
+          ?   id?: String,
+          ?   slug?: String,
+          ?   AND?: CompanyWhereInput | CompanyWhereInput[],
+          ?   OR?: CompanyWhereInput[],
+          ?   NOT?: CompanyWhereInput | CompanyWhereInput[],
+          ?   name?: StringFilter | String,
+          ?   legalForm?: StringFilter | String,
+          ?   rcNumber?: StringFilter | String,
+          ?   nif?: StringFilter | String,
+          ?   nis?: StringFilter | String,
+          ?   website?: StringNullableFilter | String | Null,
+          ?   description?: StringNullableFilter | String | Null,
+          ?   logo?: StringNullableFilter | String | Null,
+          ?   coverImage?: StringNullableFilter | String | Null,
+          ?   yearEstablished?: IntNullableFilter | Int | Null,
+          ?   employeeCount?: IntNullableFilter | Int | Null,
+          ?   productionCapacity?: StringNullableFilter | String | Null,
+          ?   exportCapability?: BoolFilter | Boolean,
+          ?   verificationStatus?: EnumVerificationStatusFilter | VerificationStatus,
+          ?   rating?: FloatFilter | Float,
+          ?   reviewCount?: IntFilter | Int,
+          ?   responseRate?: FloatFilter | Float,
+          ?   verificationLevel?: EnumVerificationLevelFilter | VerificationLevel,
+          ?   wilaya?: StringFilter | String,
+          ?   commune?: StringNullableFilter | String | Null,
+          ?   address?: StringNullableFilter | String | Null,
+          ?   latitude?: FloatNullableFilter | Float | Null,
+          ?   longitude?: FloatNullableFilter | Float | Null,
+          ?   contactEmail?: StringFilter | String,
+          ?   contactPhone?: StringFilter | String,
+          ?   isVerified?: BoolFilter | Boolean,
+          ?   isActive?: BoolFilter | Boolean,
+          ?   tenantId?: StringFilter | String,
+          ?   userId?: StringFilter | String,
+          ?   createdAt?: DateTimeFilter | DateTime,
+          ?   updatedAt?: DateTimeFilter | DateTime,
+          ?   verifications?: SupplierVerificationListRelationFilter,
+          ?   badges?: CompanyBadgeListRelationFilter,
+          ?   videos?: CompanyVideoListRelationFilter,
+          ?   virtualTours?: VirtualTourListRelationFilter,
+          ?   booths?: ExhibitionBoothListRelationFilter,
+          ?   tenant?: TenantScalarRelationFilter | TenantWhereInput,
+          ?   user?: UserScalarRelationFilter | UserWhereInput,
+          ?   products?: ProductListRelationFilter,
+          ?   ordersReceived?: OrderListRelationFilter,
+          ?   quotations?: QuotationListRelationFilter,
+          ?   companyReviews?: ReviewListRelationFilter
+            }
+          })
+
+Unknown argument `slug_tenantId`. Available options are marked with ?.
+   ✅ Imported: 0, Skipped: 0, Errors: 38
+
+📍 Processing Wilaya 28: 32 companies
+   ❌ Error importing Entreprise Portuaire de Mostaganem (EPM): 
+Invalid `prisma.company.findUnique()` invocation in
+/home/z/my-project/scripts/seed-missing-wilayas.js:113:51
+
+  110 for (const company of companies) {
+  111   try {
+  112     // Check if company already exists by slug
+→ 113     const existing = await prisma.company.findUnique({
+            where: {
+              slug_tenantId: {
+              ~~~~~~~~~~~~~
+                slug: "entreprise-portuaire-mostaganem-epm",
+                tenantId: "cmsvm93et0000p52pahexb8k9"
+              },
+          ?   id?: String,
+          ?   slug?: String,
+          ?   AND?: CompanyWhereInput | CompanyWhereInput[],
+          ?   OR?: CompanyWhereInput[],
+          ?   NOT?: CompanyWhereInput | CompanyWhereInput[],
+          ?   name?: StringFilter | String,
+          ?   legalForm?: StringFilter | String,
+          ?   rcNumber?: StringFilter | String,
+          ?   nif?: StringFilter | String,
+          ?   nis?: StringFilter | String,
+          ?   website?: StringNullableFilter | String | Null,
+          ?   description?: StringNullableFilter | String | Null,
+          ?   logo?: StringNullableFilter | String | Null,
+          ?   coverImage?: StringNullableFilter | String | Null,
+          ?   yearEstablished?: IntNullableFilter | Int | Null,
+          ?   employeeCount?: IntNullableFilter | Int | Null,
+          ?   productionCapacity?: StringNullableFilter | String | Null,
+          ?   exportCapability?: BoolFilter | Boolean,
+          ?   verificationStatus?: EnumVerificationStatusFilter | VerificationStatus,
+          ?   rating?: FloatFilter | Float,
+          ?   reviewCount?: IntFilter | Int,
+          ?   responseRate?: FloatFilter | Float,
+          ?   verificationLevel?: EnumVerificationLevelFilter | VerificationLevel,
+          ?   wilaya?: StringFilter | String,
+          ?   commune?: StringNullableFilter | String | Null,
+          ?   address?: StringNullableFilter | String | Null,
+          ?   latitude?: FloatNullableFilter | Float | Null,
+          ?   longitude?: FloatNullableFilter | Float | Null,
+          ?   contactEmail?: StringFilter | String,
+          ?   contactPhone?: StringFilter | String,
+          ?   isVerified?: BoolFilter | Boolean,
+          ?   isActive?: BoolFilter | Boolean,
+          ?   tenantId?: StringFilter | String,
+          ?   userId?: StringFilter | String,
+          ?   createdAt?: DateTimeFilter | DateTime,
+          ?   updatedAt?: DateTimeFilter | DateTime,
+          ?   verifications?: SupplierVerificationListRelationFilter,
+          ?   badges?: CompanyBadgeListRelationFilter,
+          ?   videos?: CompanyVideoListRelationFilter,
+          ?   virtualTours?: VirtualTourListRelationFilter,
+          ?   booths?: ExhibitionBoothListRelationFilter,
+          ?   tenant?: TenantScalarRelationFilter | TenantWhereInput,
+          ?   user?: UserScalarRelationFilter | UserWhereInput,
+          ?   products?: ProductListRelationFilter,
+          ?   ordersReceived?: OrderListRelationFilter,
+          ?   quotations?: QuotationListRelationFilter,
+          ?   companyReviews?: ReviewListRelationFilter
+            }
+          })
+
+Unknown argument `slug_tenantId`. Available options are marked with ?.
+   ❌ Error importing Caves Coopératives Vinification de Mostaganem (CCVM): 
+Invalid `prisma.company.findUnique()` invocation in
+/home/z/my-project/scripts/seed-missing-wilayas.js:113:51
+
+  110 for (const company of companies) {
+  111   try {
+  112     // Check if company already exists by slug
+→ 113     const existing = await prisma.company.findUnique({
+            where: {
+              slug_tenantId: {
+              ~~~~~~~~~~~~~
+                slug: "caves-cooperatives-vinification-mostaganem-ccvm",
+                tenantId: "cmsvm93et0000p52pahexb8k9"
+              },
+          ?   id?: String,
+          ?   slug?: String,
+          ?   AND?: CompanyWhereInput | CompanyWhereInput[],
+          ?   OR?: CompanyWhereInput[],
+          ?   NOT?: CompanyWhereInput | CompanyWhereInput[],
+          ?   name?: StringFilter | String,
+          ?   legalForm?: StringFilter | String,
+          ?   rcNumber?: StringFilter | String,
+          ?   nif?: StringFilter | String,
+          ?   nis?: StringFilter | String,
+          ?   website?: StringNullableFilter | String | Null,
+          ?   description?: StringNullableFilter | String | Null,
+          ?   logo?: StringNullableFilter | String | Null,
+          ?   coverImage?: StringNullableFilter | String | Null,
+          ?   yearEstablished?: IntNullableFilter | Int | Null,
+          ?   employeeCount?: IntNullableFilter | Int | Null,
+          ?   productionCapacity?: StringNullableFilter | String | Null,
+          ?   exportCapability?: BoolFilter | Boolean,
+          ?   verificationStatus?: EnumVerificationStatusFilter | VerificationStatus,
+          ?   rating?: FloatFilter | Float,
+          ?   reviewCount?: IntFilter | Int,
+          ?   responseRate?: FloatFilter | Float,
+          ?   verificationLevel?: EnumVerificationLevelFilter | VerificationLevel,
+          ?   wilaya?: StringFilter | String,
+          ?   commune?: StringNullableFilter | String | Null,
+          ?   address?: StringNullableFilter | String | Null,
+          ?   latitude?: FloatNullableFilter | Float | Null,
+          ?   longitude?: FloatNullableFilter | Float | Null,
+          ?   contactEmail?: StringFilter | String,
+          ?   contactPhone?: StringFilter | String,
+          ?   isVerified?: BoolFilter | Boolean,
+          ?   isActive?: BoolFilter | Boolean,
+          ?   tenantId?: StringFilter | String,
+          ?   userId?: StringFilter | String,
+          ?   createdAt?: DateTimeFilter | DateTime,
+          ?   updatedAt?: DateTimeFilter | DateTime,
+          ?   verifications?: SupplierVerificationListRelationFilter,
+          ?   badges?: CompanyBadgeListRelationFilter,
+          ?   videos?: CompanyVideoListRelationFilter,
+          ?   virtualTours?: VirtualTourListRelationFilter,
+          ?   booths?: ExhibitionBoothListRelationFilter,
+          ?   tenant?: TenantScalarRelationFilter | TenantWhereInput,
+          ?   user?: UserScalarRelationFilter | UserWhereInput,
+          ?   products?: ProductListRelationFilter,
+          ?   ordersReceived?: OrderListRelationFilter,
+          ?   quotations?: QuotationListRelationFilter,
+          ?   companyReviews?: ReviewListRelationFilter
+            }
+          })
+
+Unknown argument `slug_tenantId`. Available options are marked with ?.
+   ❌ Error importing Coopérative Pêcheurs de Mostaganem (CPM): 
+Invalid `prisma.company.findUnique()` invocation in
+/home/z/my-project/scripts/seed-missing-wilayas.js:113:51
+
+  110 for (const company of companies) {
+  111   try {
+  112     // Check if company already exists by slug
+→ 113     const existing = await prisma.company.findUnique({
+            where: {
+              slug_tenantId: {
+              ~~~~~~~~~~~~~
+                slug: "cooperative-pecheurs-mostaganem-cpm",
+                tenantId: "cmsvm93et0000p52pahexb8k9"
+              },
+          ?   id?: String,
+          ?   slug?: String,
+          ?   AND?: CompanyWhereInput | CompanyWhereInput[],
+          ?   OR?: CompanyWhereInput[],
+          ?   NOT?: CompanyWhereInput | CompanyWhereInput[],
+          ?   name?: StringFilter | String,
+          ?   legalForm?: StringFilter | String,
+          ?   rcNumber?: StringFilter | String,
+          ?   nif?: StringFilter | String,
+          ?   nis?: StringFilter | String,
+          ?   website?: StringNullableFilter | String | Null,
+          ?   description?: StringNullableFilter | String | Null,
+          ?   logo?: StringNullableFilter | String | Null,
+          ?   coverImage?: StringNullableFilter | String | Null,
+          ?   yearEstablished?: IntNullableFilter | Int | Null,
+          ?   employeeCount?: IntNullableFilter | Int | Null,
+          ?   productionCapacity?: StringNullableFilter | String | Null,
+          ?   exportCapability?: BoolFilter | Boolean,
+          ?   verificationStatus?: EnumVerificationStatusFilter | VerificationStatus,
+          ?   rating?: FloatFilter | Float,
+          ?   reviewCount?: IntFilter | Int,
+          ?   responseRate?: FloatFilter | Float,
+          ?   verificationLevel?: EnumVerificationLevelFilter | VerificationLevel,
+          ?   wilaya?: StringFilter | String,
+          ?   commune?: StringNullableFilter | String | Null,
+          ?   address?: StringNullableFilter | String | Null,
+          ?   latitude?: FloatNullableFilter | Float | Null,
+          ?   longitude?: FloatNullableFilter | Float | Null,
+          ?   contactEmail?: StringFilter | String,
+          ?   contactPhone?: StringFilter | String,
+          ?   isVerified?: BoolFilter | Boolean,
+          ?   isActive?: BoolFilter | Boolean,
+          ?   tenantId?: StringFilter | String,
+          ?   userId?: StringFilter | String,
+          ?   createdAt?: DateTimeFilter | DateTime,
+          ?   updatedAt?: DateTimeFilter | DateTime,
+          ?   verifications?: SupplierVerificationListRelationFilter,
+          ?   badges?: CompanyBadgeListRelationFilter,
+          ?   videos?: CompanyVideoListRelationFilter,
+          ?   virtualTours?: VirtualTourListRelationFilter,
+          ?   booths?: ExhibitionBoothListRelationFilter,
+          ?   tenant?: TenantScalarRelationFilter | TenantWhereInput,
+          ?   user?: UserScalarRelationFilter | UserWhereInput,
+          ?   products?: ProductListRelationFilter,
+          ?   ordersReceived?: OrderListRelationFilter,
+          ?   quotations?: QuotationListRelationFilter,
+          ?   companyReviews?: ReviewListRelationFilter
+            }
+          })
+
+Unknown argument `slug_tenantId`. Available options are marked with ?.
+   ✅ Imported: 0, Skipped: 0, Errors: 32
+
+📍 Processing Wilaya 29: 33 companies
+   ❌ Error importing Complexe Céréalier de M'Sila (CCM): 
+Invalid `prisma.company.findUnique()` invocation in
+/home/z/my-project/scripts/seed-missing-wilayas.js:113:51
+
+  110 for (const company of companies) {
+  111   try {
+  112     // Check if company already exists by slug
+→ 113     const existing = await prisma.company.findUnique({
+            where: {
+              slug_tenantId: {
+              ~~~~~~~~~~~~~
+                slug: "complece-cerealier-msila-ccm",
+                tenantId: "cmsvm93et0000p52pahexb8k9"
+              },
+          ?   id?: String,
+          ?   slug?: String,
+          ?   AND?: CompanyWhereInput | CompanyWhereInput[],
+          ?   OR?: CompanyWhereInput[],
+          ?   NOT?: CompanyWhereInput | CompanyWhereInput[],
+          ?   name?: StringFilter | String,
+          ?   legalForm?: StringFilter | String,
+          ?   rcNumber?: StringFilter | String,
+          ?   nif?: StringFilter | String,
+          ?   nis?: StringFilter | String,
+          ?   website?: StringNullableFilter | String | Null,
+          ?   description?: StringNullableFilter | String | Null,
+          ?   logo?: StringNullableFilter | String | Null,
+          ?   coverImage?: StringNullableFilter | String | Null,
+          ?   yearEstablished?: IntNullableFilter | Int | Null,
+          ?   employeeCount?: IntNullableFilter | Int | Null,
+          ?   productionCapacity?: StringNullableFilter | String | Null,
+          ?   exportCapability?: BoolFilter | Boolean,
+          ?   verificationStatus?: EnumVerificationStatusFilter | VerificationStatus,
+          ?   rating?: FloatFilter | Float,
+          ?   reviewCount?: IntFilter | Int,
+          ?   responseRate?: FloatFilter | Float,
+          ?   verificationLevel?: EnumVerificationLevelFilter | VerificationLevel,
+          ?   wilaya?: StringFilter | String,
+          ?   commune?: StringNullableFilter | String | Null,
+          ?   address?: StringNullableFilter | String | Null,
+          ?   latitude?: FloatNullableFilter | Float | Null,
+          ?   longitude?: FloatNullableFilter | Float | Null,
+          ?   contactEmail?: StringFilter | String,
+          ?   contactPhone?: StringFilter | String,
+          ?   isVerified?: BoolFilter | Boolean,
+          ?   isActive?: BoolFilter | Boolean,
+          ?   tenantId?: StringFilter | String,
+          ?   userId?: StringFilter | String,
+          ?   createdAt?: DateTimeFilter | DateTime,
+          ?   updatedAt?: DateTimeFilter | DateTime,
+          ?   verifications?: SupplierVerificationListRelationFilter,
+          ?   badges?: CompanyBadgeListRelationFilter,
+          ?   videos?: CompanyVideoListRelationFilter,
+          ?   virtualTours?: VirtualTourListRelationFilter,
+          ?   booths?: ExhibitionBoothListRelationFilter,
+          ?   tenant?: TenantScalarRelationFilter | TenantWhereInput,
+          ?   user?: UserScalarRelationFilter | UserWhereInput,
+          ?   products?: ProductListRelationFilter,
+          ?   ordersReceived?: OrderListRelationFilter,
+          ?   quotations?: QuotationListRelationFilter,
+          ?   companyReviews?: ReviewListRelationFilter
+            }
+          })
+
+Unknown argument `slug_tenantId`. Available options are marked with ?.
+   ❌ Error importing Élevage Ovin Moderne M'Sila (EOMM): 
+Invalid `prisma.company.findUnique()` invocation in
+/home/z/my-project/scripts/seed-missing-wilayas.js:113:51
+
+  110 for (const company of companies) {
+  111   try {
+  112     // Check if company already exists by slug
+→ 113     const existing = await prisma.company.findUnique({
+            where: {
+              slug_tenantId: {
+              ~~~~~~~~~~~~~
+                slug: "elevage-ovin-moderne-msila-eomm",
+                tenantId: "cmsvm93et0000p52pahexb8k9"
+              },
+          ?   id?: String,
+          ?   slug?: String,
+          ?   AND?: CompanyWhereInput | CompanyWhereInput[],
+          ?   OR?: CompanyWhereInput[],
+          ?   NOT?: CompanyWhereInput | CompanyWhereInput[],
+          ?   name?: StringFilter | String,
+          ?   legalForm?: StringFilter | String,
+          ?   rcNumber?: StringFilter | String,
+          ?   nif?: StringFilter | String,
+          ?   nis?: StringFilter | String,
+          ?   website?: StringNullableFilter | String | Null,
+          ?   description?: StringNullableFilter | String | Null,
+          ?   logo?: StringNullableFilter | String | Null,
+          ?   coverImage?: StringNullableFilter | String | Null,
+          ?   yearEstablished?: IntNullableFilter | Int | Null,
+          ?   employeeCount?: IntNullableFilter | Int | Null,
+          ?   productionCapacity?: StringNullableFilter | String | Null,
+          ?   exportCapability?: BoolFilter | Boolean,
+          ?   verificationStatus?: EnumVerificationStatusFilter | VerificationStatus,
+          ?   rating?: FloatFilter | Float,
+          ?   reviewCount?: IntFilter | Int,
+          ?   responseRate?: FloatFilter | Float,
+          ?   verificationLevel?: EnumVerificationLevelFilter | VerificationLevel,
+          ?   wilaya?: StringFilter | String,
+          ?   commune?: StringNullableFilter | String | Null,
+          ?   address?: StringNullableFilter | String | Null,
+          ?   latitude?: FloatNullableFilter | Float | Null,
+          ?   longitude?: FloatNullableFilter | Float | Null,
+          ?   contactEmail?: StringFilter | String,
+          ?   contactPhone?: StringFilter | String,
+          ?   isVerified?: BoolFilter | Boolean,
+          ?   isActive?: BoolFilter | Boolean,
+          ?   tenantId?: StringFilter | String,
+          ?   userId?: StringFilter | String,
+          ?   createdAt?: DateTimeFilter | DateTime,
+          ?   updatedAt?: DateTimeFilter | DateTime,
+          ?   verifications?: SupplierVerificationListRelationFilter,
+          ?   badges?: CompanyBadgeListRelationFilter,
+          ?   videos?: CompanyVideoListRelationFilter,
+          ?   virtualTours?: VirtualTourListRelationFilter,
+          ?   booths?: ExhibitionBoothListRelationFilter,
+          ?   tenant?: TenantScalarRelationFilter | TenantWhereInput,
+          ?   user?: UserScalarRelationFilter | UserWhereInput,
+          ?   products?: ProductListRelationFilter,
+          ?   ordersReceived?: OrderListRelationFilter,
+          ?   quotations?: QuotationListRelationFilter,
+          ?   companyReviews?: ReviewListRelationFilter
+            }
+          })
+
+Unknown argument `slug_tenantId`. Available options are marked with ?.
+   ❌ Error importing Fromagerie de Bou Saâda (FBS): 
+Invalid `prisma.company.findUnique()` invocation in
+/home/z/my-project/scripts/seed-missing-wilayas.js:113:51
+
+  110 for (const company of companies) {
+  111   try {
+  112     // Check if company already exists by slug
+→ 113     const existing = await prisma.company.findUnique({
+            where: {
+              slug_tenantId: {
+              ~~~~~~~~~~~~~
+                slug: "fromagerie-bou-saada-fbs",
+                tenantId: "cmsvm93et0000p52pahexb8k9"
+              },
+          ?   id?: String,
+          ?   slug?: String,
+          ?   AND?: CompanyWhereInput | CompanyWhereInput[],
+          ?   OR?: CompanyWhereInput[],
+          ?   NOT?: CompanyWhereInput | CompanyWhereInput[],
+          ?   name?: StringFilter | String,
+          ?   legalForm?: StringFilter | String,
+          ?   rcNumber?: StringFilter | String,
+          ?   nif?: StringFilter | String,
+          ?   nis?: StringFilter | String,
+          ?   website?: StringNullableFilter | String | Null,
+          ?   description?: StringNullableFilter | String | Null,
+          ?   logo?: StringNullableFilter | String | Null,
+          ?   coverImage?: StringNullableFilter | String | Null,
+          ?   yearEstablished?: IntNullableFilter | Int | Null,
+          ?   employeeCount?: IntNullableFilter | Int | Null,
+          ?   productionCapacity?: StringNullableFilter | String | Null,
+          ?   exportCapability?: BoolFilter | Boolean,
+          ?   verificationStatus?: EnumVerificationStatusFilter | VerificationStatus,
+          ?   rating?: FloatFilter | Float,
+          ?   reviewCount?: IntFilter | Int,
+          ?   responseRate?: FloatFilter | Float,
+          ?   verificationLevel?: EnumVerificationLevelFilter | VerificationLevel,
+          ?   wilaya?: StringFilter | String,
+          ?   commune?: StringNullableFilter | String | Null,
+          ?   address?: StringNullableFilter | String | Null,
+          ?   latitude?: FloatNullableFilter | Float | Null,
+          ?   longitude?: FloatNullableFilter | Float | Null,
+          ?   contactEmail?: StringFilter | String,
+          ?   contactPhone?: StringFilter | String,
+          ?   isVerified?: BoolFilter | Boolean,
+          ?   isActive?: BoolFilter | Boolean,
+          ?   tenantId?: StringFilter | String,
+          ?   userId?: StringFilter | String,
+          ?   createdAt?: DateTimeFilter | DateTime,
+          ?   updatedAt?: DateTimeFilter | DateTime,
+          ?   verifications?: SupplierVerificationListRelationFilter,
+          ?   badges?: CompanyBadgeListRelationFilter,
+          ?   videos?: CompanyVideoListRelationFilter,
+          ?   virtualTours?: VirtualTourListRelationFilter,
+          ?   booths?: ExhibitionBoothListRelationFilter,
+          ?   tenant?: TenantScalarRelationFilter | TenantWhereInput,
+          ?   user?: UserScalarRelationFilter | UserWhereInput,
+          ?   products?: ProductListRelationFilter,
+          ?   ordersReceived?: OrderListRelationFilter,
+          ?   quotations?: QuotationListRelationFilter,
+          ?   companyReviews?: ReviewListRelationFilter
+            }
+          })
+
+Unknown argument `slug_tenantId`. Available options are marked with ?.
+   ✅ Imported: 0, Skipped: 0, Errors: 33
+
+📍 Processing Wilaya 42: 29 companies
+   ❌ Error importing SARL Sel de Naâma (SDN): 
+Invalid `prisma.company.findUnique()` invocation in
+/home/z/my-project/scripts/seed-missing-wilayas.js:113:51
+
+  110 for (const company of companies) {
+  111   try {
+  112     // Check if company already exists by slug
+→ 113     const existing = await prisma.company.findUnique({
+            where: {
+              slug_tenantId: {
+              ~~~~~~~~~~~~~
+                slug: "sar-sel-de-naama",
+                tenantId: "cmsvm93et0000p52pahexb8k9"
+              },
+          ?   id?: String,
+          ?   slug?: String,
+          ?   AND?: CompanyWhereInput | CompanyWhereInput[],
+          ?   OR?: CompanyWhereInput[],
+          ?   NOT?: CompanyWhereInput | CompanyWhereInput[],
+          ?   name?: StringFilter | String,
+          ?   legalForm?: StringFilter | String,
+          ?   rcNumber?: StringFilter | String,
+          ?   nif?: StringFilter | String,
+          ?   nis?: StringFilter | String,
+          ?   website?: StringNullableFilter | String | Null,
+          ?   description?: StringNullableFilter | String | Null,
+          ?   logo?: StringNullableFilter | String | Null,
+          ?   coverImage?: StringNullableFilter | String | Null,
+          ?   yearEstablished?: IntNullableFilter | Int | Null,
+          ?   employeeCount?: IntNullableFilter | Int | Null,
+          ?   productionCapacity?: StringNullableFilter | String | Null,
+          ?   exportCapability?: BoolFilter | Boolean,
+          ?   verificationStatus?: EnumVerificationStatusFilter | VerificationStatus,
+          ?   rating?: FloatFilter | Float,
+          ?   reviewCount?: IntFilter | Int,
+          ?   responseRate?: FloatFilter | Float,
+          ?   verificationLevel?: EnumVerificationLevelFilter | VerificationLevel,
+          ?   wilaya?: StringFilter | String,
+          ?   commune?: StringNullableFilter | String | Null,
+          ?   address?: StringNullableFilter | String | Null,
+          ?   latitude?: FloatNullableFilter | Float | Null,
+          ?   longitude?: FloatNullableFilter | Float | Null,
+          ?   contactEmail?: StringFilter | String,
+          ?   contactPhone?: StringFilter | String,
+          ?   isVerified?: BoolFilter | Boolean,
+          ?   isActive?: BoolFilter | Boolean,
+          ?   tenantId?: StringFilter | String,
+          ?   userId?: StringFilter | String,
+          ?   createdAt?: DateTimeFilter | DateTime,
+          ?   updatedAt?: DateTimeFilter | DateTime,
+          ?   verifications?: SupplierVerificationListRelationFilter,
+          ?   badges?: CompanyBadgeListRelationFilter,
+          ?   videos?: CompanyVideoListRelationFilter,
+          ?   virtualTours?: VirtualTourListRelationFilter,
+          ?   booths?: ExhibitionBoothListRelationFilter,
+          ?   tenant?: TenantScalarRelationFilter | TenantWhereInput,
+          ?   user?: UserScalarRelationFilter | UserWhereInput,
+          ?   products?: ProductListRelationFilter,
+          ?   ordersReceived?: OrderListRelationFilter,
+          ?   quotations?: QuotationListRelationFilter,
+          ?   companyReviews?: ReviewListRelationFilter
+            }
+          })
+
+Unknown argument `slug_tenantId`. Available options are marked with ?.
+   ❌ Error importing EURL Élevages Sahariens Benallouche: 
+Invalid `prisma.company.findUnique()` invocation in
+/home/z/my-project/scripts/seed-missing-wilayas.js:113:51
+
+  110 for (const company of companies) {
+  111   try {
+  112     // Check if company already exists by slug
+→ 113     const existing = await prisma.company.findUnique({
+            where: {
+              slug_tenantId: {
+              ~~~~~~~~~~~~~
+                slug: "eurl-elevages-sahariens-benallouche",
+                tenantId: "cmsvm93et0000p52pahexb8k9"
+              },
+          ?   id?: String,
+          ?   slug?: String,
+          ?   AND?: CompanyWhereInput | CompanyWhereInput[],
+          ?   OR?: CompanyWhereInput[],
+          ?   NOT?: CompanyWhereInput | CompanyWhereInput[],
+          ?   name?: StringFilter | String,
+          ?   legalForm?: StringFilter | String,
+          ?   rcNumber?: StringFilter | String,
+          ?   nif?: StringFilter | String,
+          ?   nis?: StringFilter | String,
+          ?   website?: StringNullableFilter | String | Null,
+          ?   description?: StringNullableFilter | String | Null,
+          ?   logo?: StringNullableFilter | String | Null,
+          ?   coverImage?: StringNullableFilter | String | Null,
+          ?   yearEstablished?: IntNullableFilter | Int | Null,
+          ?   employeeCount?: IntNullableFilter | Int | Null,
+          ?   productionCapacity?: StringNullableFilter | String | Null,
+          ?   exportCapability?: BoolFilter | Boolean,
+          ?   verificationStatus?: EnumVerificationStatusFilter | VerificationStatus,
+          ?   rating?: FloatFilter | Float,
+          ?   reviewCount?: IntFilter | Int,
+          ?   responseRate?: FloatFilter | Float,
+          ?   verificationLevel?: EnumVerificationLevelFilter | VerificationLevel,
+          ?   wilaya?: StringFilter | String,
+          ?   commune?: StringNullableFilter | String | Null,
+          ?   address?: StringNullableFilter | String | Null,
+          ?   latitude?: FloatNullableFilter | Float | Null,
+          ?   longitude?: FloatNullableFilter | Float | Null,
+          ?   contactEmail?: StringFilter | String,
+          ?   contactPhone?: StringFilter | String,
+          ?   isVerified?: BoolFilter | Boolean,
+          ?   isActive?: BoolFilter | Boolean,
+          ?   tenantId?: StringFilter | String,
+          ?   userId?: StringFilter | String,
+          ?   createdAt?: DateTimeFilter | DateTime,
+          ?   updatedAt?: DateTimeFilter | DateTime,
+          ?   verifications?: SupplierVerificationListRelationFilter,
+          ?   badges?: CompanyBadgeListRelationFilter,
+          ?   videos?: CompanyVideoListRelationFilter,
+          ?   virtualTours?: VirtualTourListRelationFilter,
+          ?   booths?: ExhibitionBoothListRelationFilter,
+          ?   tenant?: TenantScalarRelationFilter | TenantWhereInput,
+          ?   user?: UserScalarRelationFilter | UserWhereInput,
+          ?   products?: ProductListRelationFilter,
+          ?   ordersReceived?: OrderListRelationFilter,
+          ?   quotations?: QuotationListRelationFilter,
+          ?   companyReviews?: ReviewListRelationFilter
+            }
+          })
+
+Unknown argument `slug_tenantId`. Available options are marked with ?.
+   ❌ Error importing Coopérative Phoenicole Ain Ben Khelil: 
+Invalid `prisma.company.findUnique()` invocation in
+/home/z/my-project/scripts/seed-missing-wilayas.js:113:51
+
+  110 for (const company of companies) {
+  111   try {
+  112     // Check if company already exists by slug
+→ 113     const existing = await prisma.company.findUnique({
+            where: {
+              slug_tenantId: {
+              ~~~~~~~~~~~~~
+                slug: "cooperative-phoenicole-ain-ben-khelil",
+                tenantId: "cmsvm93et0000p52pahexb8k9"
+              },
+          ?   id?: String,
+          ?   slug?: String,
+          ?   AND?: CompanyWhereInput | CompanyWhereInput[],
+          ?   OR?: CompanyWhereInput[],
+          ?   NOT?: CompanyWhereInput | CompanyWhereInput[],
+          ?   name?: StringFilter | String,
+          ?   legalForm?: StringFilter | String,
+          ?   rcNumber?: StringFilter | String,
+          ?   nif?: StringFilter | String,
+          ?   nis?: StringFilter | String,
+          ?   website?: StringNullableFilter | String | Null,
+          ?   description?: StringNullableFilter | String | Null,
+          ?   logo?: StringNullableFilter | String | Null,
+          ?   coverImage?: StringNullableFilter | String | Null,
+          ?   yearEstablished?: IntNullableFilter | Int | Null,
+          ?   employeeCount?: IntNullableFilter | Int | Null,
+          ?   productionCapacity?: StringNullableFilter | String | Null,
+          ?   exportCapability?: BoolFilter | Boolean,
+          ?   verificationStatus?: EnumVerificationStatusFilter | VerificationStatus,
+          ?   rating?: FloatFilter | Float,
+          ?   reviewCount?: IntFilter | Int,
+          ?   responseRate?: FloatFilter | Float,
+          ?   verificationLevel?: EnumVerificationLevelFilter | VerificationLevel,
+          ?   wilaya?: StringFilter | String,
+          ?   commune?: StringNullableFilter | String | Null,
+          ?   address?: StringNullableFilter | String | Null,
+          ?   latitude?: FloatNullableFilter | Float | Null,
+          ?   longitude?: FloatNullableFilter | Float | Null,
+          ?   contactEmail?: StringFilter | String,
+          ?   contactPhone?: StringFilter | String,
+          ?   isVerified?: BoolFilter | Boolean,
+          ?   isActive?: BoolFilter | Boolean,
+          ?   tenantId?: StringFilter | String,
+          ?   userId?: StringFilter | String,
+          ?   createdAt?: DateTimeFilter | DateTime,
+          ?   updatedAt?: DateTimeFilter | DateTime,
+          ?   verifications?: SupplierVerificationListRelationFilter,
+          ?   badges?: CompanyBadgeListRelationFilter,
+          ?   videos?: CompanyVideoListRelationFilter,
+          ?   virtualTours?: VirtualTourListRelationFilter,
+          ?   booths?: ExhibitionBoothListRelationFilter,
+          ?   tenant?: TenantScalarRelationFilter | TenantWhereInput,
+          ?   user?: UserScalarRelationFilter | UserWhereInput,
+          ?   products?: ProductListRelationFilter,
+          ?   ordersReceived?: OrderListRelationFilter,
+          ?   quotations?: QuotationListRelationFilter,
+          ?   companyReviews?: ReviewListRelationFilter
+            }
+          })
+
+Unknown argument `slug_tenantId`. Available options are marked with ?.
+   ✅ Imported: 0, Skipped: 0, Errors: 29
+⚠️  No valid data in: ghardaia_companies_b2b.json
+
+📍 Processing Wilaya 45: 31 companies
+   ❌ Error importing Complexe de Transformation des Céréales de Relizane (CTCR): 
+Invalid `prisma.company.findUnique()` invocation in
+/home/z/my-project/scripts/seed-missing-wilayas.js:113:51
+
+  110 for (const company of companies) {
+  111   try {
+  112     // Check if company already exists by slug
+→ 113     const existing = await prisma.company.findUnique({
+            where: {
+              slug_tenantId: {
+              ~~~~~~~~~~~~~
+                slug: "ctcr-relizane",
+                tenantId: "cmsvm93et0000p52pahexb8k9"
+              },
+          ?   id?: String,
+          ?   slug?: String,
+          ?   AND?: CompanyWhereInput | CompanyWhereInput[],
+          ?   OR?: CompanyWhereInput[],
+          ?   NOT?: CompanyWhereInput | CompanyWhereInput[],
+          ?   name?: StringFilter | String,
+          ?   legalForm?: StringFilter | String,
+          ?   rcNumber?: StringFilter | String,
+          ?   nif?: StringFilter | String,
+          ?   nis?: StringFilter | String,
+          ?   website?: StringNullableFilter | String | Null,
+          ?   description?: StringNullableFilter | String | Null,
+          ?   logo?: StringNullableFilter | String | Null,
+          ?   coverImage?: StringNullableFilter | String | Null,
+          ?   yearEstablished?: IntNullableFilter | Int | Null,
+          ?   employeeCount?: IntNullableFilter | Int | Null,
+          ?   productionCapacity?: StringNullableFilter | String | Null,
+          ?   exportCapability?: BoolFilter | Boolean,
+          ?   verificationStatus?: EnumVerificationStatusFilter | VerificationStatus,
+          ?   rating?: FloatFilter | Float,
+          ?   reviewCount?: IntFilter | Int,
+          ?   responseRate?: FloatFilter | Float,
+          ?   verificationLevel?: EnumVerificationLevelFilter | VerificationLevel,
+          ?   wilaya?: StringFilter | String,
+          ?   commune?: StringNullableFilter | String | Null,
+          ?   address?: StringNullableFilter | String | Null,
+          ?   latitude?: FloatNullableFilter | Float | Null,
+          ?   longitude?: FloatNullableFilter | Float | Null,
+          ?   contactEmail?: StringFilter | String,
+          ?   contactPhone?: StringFilter | String,
+          ?   isVerified?: BoolFilter | Boolean,
+          ?   isActive?: BoolFilter | Boolean,
+          ?   tenantId?: StringFilter | String,
+          ?   userId?: StringFilter | String,
+          ?   createdAt?: DateTimeFilter | DateTime,
+          ?   updatedAt?: DateTimeFilter | DateTime,
+          ?   verifications?: SupplierVerificationListRelationFilter,
+          ?   badges?: CompanyBadgeListRelationFilter,
+          ?   videos?: CompanyVideoListRelationFilter,
+          ?   virtualTours?: VirtualTourListRelationFilter,
+          ?   booths?: ExhibitionBoothListRelationFilter,
+          ?   tenant?: TenantScalarRelationFilter | TenantWhereInput,
+          ?   user?: UserScalarRelationFilter | UserWhereInput,
+          ?   products?: ProductListRelationFilter,
+          ?   ordersReceived?: OrderListRelationFilter,
+          ?   quotations?: QuotationListRelationFilter,
+          ?   companyReviews?: ReviewListRelationFilter
+            }
+          })
+
+Unknown argument `slug_tenantId`. Available options are marked with ?.
+   ❌ Error importing Huilerie Moderne de Djidiouia (HMD): 
+Invalid `prisma.company.findUnique()` invocation in
+/home/z/my-project/scripts/seed-missing-wilayas.js:113:51
+
+  110 for (const company of companies) {
+  111   try {
+  112     // Check if company already exists by slug
+→ 113     const existing = await prisma.company.findUnique({
+            where: {
+              slug_tenantId: {
+              ~~~~~~~~~~~~~
+                slug: "huilerie-djidiouia",
+                tenantId: "cmsvm93et0000p52pahexb8k9"
+              },
+          ?   id?: String,
+          ?   slug?: String,
+          ?   AND?: CompanyWhereInput | CompanyWhereInput[],
+          ?   OR?: CompanyWhereInput[],
+          ?   NOT?: CompanyWhereInput | CompanyWhereInput[],
+          ?   name?: StringFilter | String,
+          ?   legalForm?: StringFilter | String,
+          ?   rcNumber?: StringFilter | String,
+          ?   nif?: StringFilter | String,
+          ?   nis?: StringFilter | String,
+          ?   website?: StringNullableFilter | String | Null,
+          ?   description?: StringNullableFilter | String | Null,
+          ?   logo?: StringNullableFilter | String | Null,
+          ?   coverImage?: StringNullableFilter | String | Null,
+          ?   yearEstablished?: IntNullableFilter | Int | Null,
+          ?   employeeCount?: IntNullableFilter | Int | Null,
+          ?   productionCapacity?: StringNullableFilter | String | Null,
+          ?   exportCapability?: BoolFilter | Boolean,
+          ?   verificationStatus?: EnumVerificationStatusFilter | VerificationStatus,
+          ?   rating?: FloatFilter | Float,
+          ?   reviewCount?: IntFilter | Int,
+          ?   responseRate?: FloatFilter | Float,
+          ?   verificationLevel?: EnumVerificationLevelFilter | VerificationLevel,
+          ?   wilaya?: StringFilter | String,
+          ?   commune?: StringNullableFilter | String | Null,
+          ?   address?: StringNullableFilter | String | Null,
+          ?   latitude?: FloatNullableFilter | Float | Null,
+          ?   longitude?: FloatNullableFilter | Float | Null,
+          ?   contactEmail?: StringFilter | String,
+          ?   contactPhone?: StringFilter | String,
+          ?   isVerified?: BoolFilter | Boolean,
+          ?   isActive?: BoolFilter | Boolean,
+          ?   tenantId?: StringFilter | String,
+          ?   userId?: StringFilter | String,
+          ?   createdAt?: DateTimeFilter | DateTime,
+          ?   updatedAt?: DateTimeFilter | DateTime,
+          ?   verifications?: SupplierVerificationListRelationFilter,
+          ?   badges?: CompanyBadgeListRelationFilter,
+          ?   videos?: CompanyVideoListRelationFilter,
+          ?   virtualTours?: VirtualTourListRelationFilter,
+          ?   booths?: ExhibitionBoothListRelationFilter,
+          ?   tenant?: TenantScalarRelationFilter | TenantWhereInput,
+          ?   user?: UserScalarRelationFilter | UserWhereInput,
+          ?   products?: ProductListRelationFilter,
+          ?   ordersReceived?: OrderListRelationFilter,
+          ?   quotations?: QuotationListRelationFilter,
+          ?   companyReviews?: ReviewListRelationFilter
+            }
+          })
+
+Unknown argument `slug_tenantId`. Available options are marked with ?.
+   ❌ Error importing Société de Tabac de Relizane (STR): 
+Invalid `prisma.company.findUnique()` invocation in
+/home/z/my-project/scripts/seed-missing-wilayas.js:113:51
+
+  110 for (const company of companies) {
+  111   try {
+  112     // Check if company already exists by slug
+→ 113     const existing = await prisma.company.findUnique({
+            where: {
+              slug_tenantId: {
+              ~~~~~~~~~~~~~
+                slug: "tabac-relizane",
+                tenantId: "cmsvm93et0000p52pahexb8k9"
+              },
+          ?   id?: String,
+          ?   slug?: String,
+          ?   AND?: CompanyWhereInput | CompanyWhereInput[],
+          ?   OR?: CompanyWhereInput[],
+          ?   NOT?: CompanyWhereInput | CompanyWhereInput[],
+          ?   name?: StringFilter | String,
+          ?   legalForm?: StringFilter | String,
+          ?   rcNumber?: StringFilter | String,
+          ?   nif?: StringFilter | String,
+          ?   nis?: StringFilter | String,
+          ?   website?: StringNullableFilter | String | Null,
+          ?   description?: StringNullableFilter | String | Null,
+          ?   logo?: StringNullableFilter | String | Null,
+          ?   coverImage?: StringNullableFilter | String | Null,
+          ?   yearEstablished?: IntNullableFilter | Int | Null,
+          ?   employeeCount?: IntNullableFilter | Int | Null,
+          ?   productionCapacity?: StringNullableFilter | String | Null,
+          ?   exportCapability?: BoolFilter | Boolean,
+          ?   verificationStatus?: EnumVerificationStatusFilter | VerificationStatus,
+          ?   rating?: FloatFilter | Float,
+          ?   reviewCount?: IntFilter | Int,
+          ?   responseRate?: FloatFilter | Float,
+          ?   verificationLevel?: EnumVerificationLevelFilter | VerificationLevel,
+          ?   wilaya?: StringFilter | String,
+          ?   commune?: StringNullableFilter | String | Null,
+          ?   address?: StringNullableFilter | String | Null,
+          ?   latitude?: FloatNullableFilter | Float | Null,
+          ?   longitude?: FloatNullableFilter | Float | Null,
+          ?   contactEmail?: StringFilter | String,
+          ?   contactPhone?: StringFilter | String,
+          ?   isVerified?: BoolFilter | Boolean,
+          ?   isActive?: BoolFilter | Boolean,
+          ?   tenantId?: StringFilter | String,
+          ?   userId?: StringFilter | String,
+          ?   createdAt?: DateTimeFilter | DateTime,
+          ?   updatedAt?: DateTimeFilter | DateTime,
+          ?   verifications?: SupplierVerificationListRelationFilter,
+          ?   badges?: CompanyBadgeListRelationFilter,
+          ?   videos?: CompanyVideoListRelationFilter,
+          ?   virtualTours?: VirtualTourListRelationFilter,
+          ?   booths?: ExhibitionBoothListRelationFilter,
+          ?   tenant?: TenantScalarRelationFilter | TenantWhereInput,
+          ?   user?: UserScalarRelationFilter | UserWhereInput,
+          ?   products?: ProductListRelationFilter,
+          ?   ordersReceived?: OrderListRelationFilter,
+          ?   quotations?: QuotationListRelationFilter,
+          ?   companyReviews?: ReviewListRelationFilter
+            }
+          })
+
+Unknown argument `slug_tenantId`. Available options are marked with ?.
+   ✅ Imported: 0, Skipped: 0, Errors: 31
+⚠️  No valid data in: bordj_badji_mokhtar_companies_b2b.json
+
+
+============================================================
+✅ SEEDING COMPLETE - MISSING WILAYAS
+============================================================
+
+📊 RESULTS BY WILAYA:
+--------------------------------------------------
+⚠️ Wilaya 12: +0 (31 in file)
+⚠️ Wilaya 15: +0 (34 in file)
+⚠️ Wilaya 20: +0 (44 in file)
+⚠️ Wilaya 22: +0 (38 in file)
+⚠️ Wilaya 28: +0 (32 in file)
+⚠️ Wilaya 29: +0 (33 in file)
+⚠️ Wilaya 42: +0 (29 in file)
+⚠️ Wilaya 45: +0 (31 in file)
+⚠️ Wilaya 01: +0 (32 in file)
+⚠️ Wilaya 03: +0 (28 in file)
+⚠️ Wilaya 08: +0 (31 in file)
+
+📈 TOTALS:
+----------------------------------------
+   ✅ New Companies Imported: 0
+   ⏭️  Already Existed:       0
+   ❌ Errors:                 363
+
+🗄️  DATABASE STATUS:
+----------------------------------------
+   Total Companies: 1348
+   Wilayas Covered: 46/58
+
+⚠️  Still Missing (13): 01, 03, 08, 12, 15, 20, 22, 28, 29, 42, 44, 45, 49
+
+🌟 AlgeriaTrade database is now comprehensive!
+
+✨ Seeding completed successfully.
