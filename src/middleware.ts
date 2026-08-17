@@ -63,6 +63,16 @@ const CONFIG = {
     },
   },
 
+  // Request size limits (NEW - prevents DoS attacks)
+  requestSizeLimits: {
+    enabled: true,
+    maxBodySizeBytes: 10 * 1024 * 1024, // 10MB max body size
+    maxUrlLength: 2048, // 2KB max URL length
+    // Stricter limits for sensitive endpoints
+    authMaxBodySize: 1024 * 1024, // 1MB for auth endpoints
+    uploadMaxBodySize: 50 * 1024 * 1024, // 50MB for upload endpoints
+  },
+
   // Bot detection - Updated to be more permissive for SEO
   bots: {
     blockBadBots: true,
@@ -173,6 +183,46 @@ function getClientIdentifier(request: NextRequest): string {
 }
 
 // ===========================================
+// Request Size Validation (DoS Prevention)
+// ===========================================
+
+function validateRequestSize(request: NextRequest, pathname: string): { valid: boolean; error?: string } {
+  if (!CONFIG.requestSizeLimits.enabled) return { valid: true };
+  
+  // Check URL length
+  const url = request.url;
+  if (url.length > CONFIG.requestSizeLimits.maxUrlLength) {
+    return {
+      valid: false,
+      error: `URL too long. Maximum length is ${CONFIG.requestSizeLimits.maxUrlLength} characters.`,
+    };
+  }
+  
+  // Check content length header for POST/PUT/PATCH requests
+  if (['POST', 'PUT', 'PATCH'].includes(request.method)) {
+    const contentLength = parseInt(request.headers.get('content-length') || '0', 10);
+    
+    // Determine appropriate limit based on endpoint
+    let maxSize = CONFIG.requestSizeLimits.maxBodySizeBytes;
+    
+    if (pathname.startsWith('/api/auth')) {
+      maxSize = CONFIG.requestSizeLimits.authMaxBodySize;
+    } else if (pathname.includes('/upload')) {
+      maxSize = CONFIG.requestSizeLimits.uploadMaxBodySize;
+    }
+    
+    if (contentLength > maxSize) {
+      return {
+        valid: false,
+        error: `Request body too large. Maximum size is ${Math.round(maxSize / 1024 / 1024)}MB for this endpoint.`,
+      };
+    }
+  }
+  
+  return { valid: true };
+}
+
+// ===========================================
 // Main Middleware Function
 // ===========================================
 
@@ -191,6 +241,19 @@ export async function middleware(request: NextRequest) {
         'cache-control': 'no-store',
       },
     });
+  }
+
+  // ===========================================
+  // Request Size Validation (DoS Prevention)
+  // ===========================================
+  if (CONFIG.requestSizeLimits.enabled) {
+    const sizeValidation = validateRequestSize(request, pathname);
+    if (!sizeValidation.valid) {
+      return NextResponse.json(
+        { error: 'Payload Too Large', message: sizeValidation.error },
+        { status: 413, headers: { 'cache-control': 'no-store' } }
+      );
+    }
   }
 
   // ===========================================
@@ -316,14 +379,16 @@ export async function middleware(request: NextRequest) {
   // Security Headers
   // ===========================================
   
-  // Content Security Policy
+  // Content Security Policy (Strengthened)
   if (CONFIG.security.enableCSP) {
     response.headers.set(
       'content-security-policy',
       [
         "default-src 'self'",
-        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://analytics.google.com",
-        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net",
+        // Removed 'unsafe-eval' - requires refactoring code that uses eval()/new Function()
+        // Removed 'unsafe-inline' - requires using nonces or hashes for inline scripts
+        "script-src 'self' 'nonce-${cspNonce}' https://cdn.jsdelivr.net https://analytics.google.com",
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net", // 'unsafe-inline' needed for CSS frameworks
         "img-src 'self' data: blob: https://res.cloudinary.com https://images.algeriatrade.dz https: *.googleapis.com *.gstatic.com",
         "font-src 'self' https://fonts.gstatic.com https://fonts.googleapis.com",
         "connect-src 'self' wss: https://api.stripe.com https://*.algeriatrade.dz",
@@ -333,6 +398,8 @@ export async function middleware(request: NextRequest) {
         "form-action 'self'",
         "frame-ancestors 'none'",
         "upgrade-insecure-requests",
+        // Additional security directives
+        "require-trusted-types-for 'script'", // Prevent DOM XSS
       ].join('; ')
     );
   }

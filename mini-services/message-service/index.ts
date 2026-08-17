@@ -10,23 +10,65 @@ import { PrismaClient } from '@prisma/client';
 import jwt from 'jsonwebtoken';
 
 const httpServer = createServer();
+
+// ============================================
+// SECURITY: Restrict CORS to allowed origins only
+// Prevents cross-origin attacks from malicious websites
+// ============================================
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || 'https://algeriatrade.dz,https://www.algeriatrade.dz')
+  .split(',')
+  .map(origin => origin.trim());
+
+function isOriginAllowed(origin: string | undefined): boolean {
+  if (!origin) return false; // Reject requests without origin header
+  if (process.env.NODE_ENV === 'development') {
+    return true; // Allow all in development
+  }
+  return ALLOWED_ORIGINS.some(allowed => 
+    origin === allowed || origin.endsWith('.' + allowed.replace('https://', ''))
+  );
+}
+
 const io = new Server(httpServer, {
   // DO NOT change the path, it is used by Caddy to forward the request to the correct port
   path: '/',
   cors: {
-    origin: "*",
-    methods: ["GET", "POST"]
+    origin: isOriginAllowed, // Dynamic origin validation
+    methods: ["GET", "POST"],
+    credentials: true, // Allow cookies/credentials for authenticated requests
+    allowedHeaders: ["Authorization", "Content-Type", "X-Requested-With"],
   },
   pingTimeout: 60000,
   pingInterval: 25000,
 });
 
+// ============================================
+// CRITICAL SECURITY: No fallback secrets allowed!
+// Environment variables MUST be set in production.
+// The application will fail to start if secrets are missing.
+// ============================================
+
+function validateEnvironmentVariables(): void {
+  const required = ['NEXTAUTH_SECRET', 'DATABASE_URL'];
+  const missing = required.filter(key => !process.env[key]);
+  
+  if (missing.length > 0) {
+    console.error(`[FATAL] Missing required environment variables: ${missing.join(', ')}`);
+    console.error('[FATAL] Application cannot start without these security-critical variables.');
+    console.error('[FATAL] Set them in your .env file or deployment configuration.');
+    process.exit(1);
+  }
+}
+
+// Validate on startup - fail fast and secure
+validateEnvironmentVariables();
+
 const prisma = new PrismaClient({
-  datasourceUrl: process.env.DATABASE_URL || 'file:/home/z/my-project/db/custom.db',
+  datasourceUrl: process.env.DATABASE_URL!, // Required, no fallback
 });
 
-// JWT Secret (same as NextAuth)
-const JWT_SECRET = process.env.NEXTAUTH_SECRET || 'algeriatrade-secret-key-2024-production-b2b-platform-secure';
+// JWT Secret from environment only - NO FALLBACK (security critical)
+const JWT_SECRET = process.env.NEXTAUTH_SECRET!;
 
 // Rate limiting store
 const rateLimitStore = new Map<string, { count: number; resetTime: number }>();

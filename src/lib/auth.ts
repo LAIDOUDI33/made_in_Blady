@@ -69,7 +69,11 @@ export const authOptions: NextAuthOptions = {
   ],
   session: {
     strategy: "jwt",
-    maxAge: 30 * 24 * 60 * 60, // 30 days
+    // SECURITY: Reduced from 30 days to 24 hours
+    // - Shorter sessions reduce window of opportunity for token theft
+    // - B2B platform handles sensitive business data and payments
+    // - Users can opt to "remember me" with refresh tokens in future
+    maxAge: 60 * 60 * 24, // 24 hours (was 30 days - security risk)
   },
   callbacks: {
     async jwt({ token, user }) {

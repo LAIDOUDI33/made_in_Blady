@@ -1,0 +1,913 @@
+     1→/**
+     2→ * AlgeriaTrade.dz - Data Encryption & Key Management System
+     3→ * 
+     4→ * Enterprise-grade encryption providing:
+     5→ * - AES-256-GCM encryption for data at rest
+     6→ * - RSA-OAEP for key encryption
+     7→ * - Secure key generation and rotation
+     8→ * - Key versioning and history
+     9→ * - Hardware Security Module (HSM) integration ready
+    10→ * - Envelope encryption for secure data sharing
+    11→ * - Field-level encryption support
+    12→ * - Searchable encryption (deterministic)
+    13→ * - Key escrow and recovery procedures
+    14→ */
+    15→
+    16→// ===========================================
+    17→// Types & Interfaces
+    18→// ===========================================
+    19→
+    20→export interface EncryptionConfig {
+    21→  enabled: boolean;
+    22→  
+    23→  // Master key configuration
+    24→  masterKey: {
+    25→    algorithm: 'AES-256-GCM'; // Primary encryption algorithm
+    26→    keyLength: 256; // bits
+    27→    rotationDays: number; // Auto-rotation interval
+    28→    backupLocations: string[]; // Where to store encrypted backups
+    29→    splitThreshold: number; // Shamir's Secret Sharing threshold
+    30→  };
+    31→  
+    32→  // Data encryption defaults
+    33→  dataEncryption: {
+    34→    algorithm: 'AES-256-GCM';
+    35→    ivLength: 12; // 96 bits for GCM
+    36→    tagLength: 128; // 128-bit authentication tag
+    37→    keyDerivation: 'PBKDF2'; // Key derivation function
+    38→    iterations: 600000; // PBKDF2 iterations
+    39→    hashFunction: 'SHA-512';
+    40→  };
+    41→  
+    42→  // Key encryption (for encrypting DEKs)
+    43→  keyEncryption: {
+    44→    algorithm: 'RSA-OAEP';
+    45→    keyLength: 4096; // RSA 4096-bit
+    46→    padding: 'OAEP-SHA256';
+    47→    publicKeyPath?: string;
+    48→    privateKeyPath?: string;
+    49→  };
+    50→  
+    51→  // Searchable encryption (for encrypted searches)
+    52→  searchableEncryption: {
+    53→    enabled: true;
+    54→    deterministicAlgorithm: 'AES-SIV'; // Synthetic IV mode
+    55→    tweakSource: 'key-id'; // Source of tweak value
+    56→  };
+    57→  
+    58→  // HSM Integration
+    59→  hsm: {
+    60→    enabled: false;
+    61→    provider: 'aws-cloudhsm' | 'azure-dedicated-hsm' | 'thales' | 'softHsm';
+    62→    endpoint?: string;
+    63→    credentials?: {
+    64→      accessKeyId?: string;
+    65→      secretAccessKey?: string;
+    66→      region?: string;
+    67→    };
+    68→  };
+    69→  
+    70→  // Key lifecycle
+    71→  keyLifecycle: {
+    72→    autoRotate: true;
+    73→    rotationCheckHours: 24; // Check if rotation needed
+    74→    maxKeyAgeDays: 90; // Force rotation after this
+    75→    minKeyAgeDays: 30; // Don't rotate too frequently
+    76→    compromiseDetection: boolean; // Detect potentially compromised keys
+    77→  };
+    78→  
+    79→  // Logging
+    80→  logging: {
+    81→    logKeyUsage: boolean; // Log every encryption/decryption
+    82→    logKeyRotation: boolean;
+    83→    logAccessDenied: boolean;
+    84→  };
+    85→}
+    86→
+    87→export interface EncryptedData<T = any> {
+    88→  id: string;
+    89→  version: number;
+    90→  algorithm: string;
+    91→  keyId: string; // Reference to key in keystore
+    92→  
+    93→  ciphertext: string; // Base64 encoded
+    94→  iv: string; // Base64 encoded (or empty for deterministic)
+    95→  tag: string; // Authentication tag (base64)
+    96→  aad?: string; // Additional authenticated data
+    97→  
+    98→  createdAt: string;
+    99→  createdBy: string;
+   100→  lastAccessedAt?: string;
+   101→  
+   102→  // Original data type info
+   103→  dataType: string;
+   104→  schemaVersion?: string;
+   105→  
+   106→  // Metadata
+   107→  metadata?: Record<string, any>;
+   108→}
+   109→
+   110→export interface KeyRecord {
+   111→  id: string;
+   112→  version: number;
+   113→  status: 'active' | 'deactivated' | 'compromised' | 'rotated';
+   114→  
+   115→  // Key material (encrypted at rest)
+   116→  keyCiphertext: string; // Encrypted DEK
+   117→  keyIv: string;
+   118→  keyTag: string;
+   119→  
+   120→  // Key metadata
+   121→  algorithm: string;
+   122→  created: string;
+   123→  activated: string;
+   124→  deactivatedAt?: string;
+   125→  rotatedAt?: string;
+   126→  expiresAt?: string;
+   127→  previousKeyId?: string; // For key chaining
+   128→  
+   129→  // Access control
+   130→  allowedUsers: string[]; // User IDs that can use this key
+   131→  allowedServices: string[]; // Service names that can use this key
+   132→  accessPolicies: AccessPolicy[];
+   133→  
+   134→  // Usage tracking
+   135→  usageCount: number;
+   136→  lastUsedAt?: string;
+   137→  lastUsedBy?: string;
+   138→  
+   139→  // Backup info
+   140→  backupLocations: string[];
+   141→  backupVerified: boolean;
+   142→  backupDate?: string;
+   143→}
+   144→
+   145→export interface AccessPolicy {
+   146→  id: string;
+   147→  name: string;
+   148→  resourcePattern: string; // Regex pattern for resources this key can protect
+   149→  operations: ('encrypt' | 'decrypt' | 're-encrypt')[];
+   150→  conditions: Record<string, any>;
+   151→}
+   152→
+   153→export interface KeyRotationEvent {
+   154→  id: string;
+   155→  keyId: string;
+   156→  previousKeyId?: string;
+   157→  newKeyId: string;
+   158→  triggered: 'scheduled' | 'manual' | 'compromise' | 'access_denied';
+   159→  reason: string;
+   160→  performedBy: string;
+   161→  performedAt: string;
+   162→  status: 'success' | 'failed' | 'partial';
+   163→  details: string;
+   164→  
+   165→  oldKeyBackup: string;
+   166→  newKeyBackup: string;
+   167→  verificationResult?: string;
+   168→}
+   169→
+   170→export interface DecryptionResult<T = any> {
+   171→  success: boolean;
+   172→  data?: T;
+   173→  error?: string;
+   174→  errorCode?: 'INVALID_CIPHERTEXT' | 'INVALID_TAG' | 'KEY_NOT_FOUND' | 'KEY_EXPIRED' | 'ACCESS_DENIED' | 'INTEGRITY_CHECK_FAILED' | 'ALGORITHM_NOT_SUPPORTED';
+   175→  keyId: string;
+   176→  decryptedAt: string;
+   177→  durationMs: number;
+   178→}
+   179→
+   180→// ===========================================
+   181→// Crypto Primitives Configuration
+   182→// ===========================================
+   183→
+   184→const DEFAULT_CONFIG: EncryptionConfig = {
+   185→  enabled: true,
+   186→  
+   187→  masterKey: {
+   188→    algorithm: 'AES-256-GCM',
+   189→    keyLength: 256,
+   190→    rotationDays: 30,
+   191→    backupLocations: ['primary', 'secondary', 'cloud'],
+   192→    splitThreshold: 3, // Need 2 of 3 shares to reconstruct
+   193→  },
+   194→  
+   195→  dataEncryption: {
+   196→    algorithm: 'AES-256-GCM',
+   197→    ivLength: 12,
+   198→    tagLength: 128,
+   199→    keyDerivation: 'PBKDF2',
+   200→    iterations: 600000,
+   201→    hashFunction: 'SHA-512',
+   202→  },
+   203→  
+   204→  keyEncryption: {
+   205→    algorithm: 'RSA-OAEP',
+   206→    keyLength: 4096,
+   207→    padding: 'OAEP-SHA256',
+   208→  },
+   209→  
+   210→  searchableEncryption: {
+   211→    enabled: true,
+   212→    deterministicAlgorithm: 'AES-SIV',
+   213→    tweakSource: 'key-id',
+   214→  },
+   215→  
+   216→  hsm: {
+   217→    enabled: false,
+   218→    provider: 'softHsm', // Use software HSM by default
+   219→  },
+   220→  
+   221→  keyLifecycle: {
+   222→    autoRotate: true,
+   223→    rotationCheckHours: 24,
+   224→    maxKeyAgeDays: 90,
+   225→    minKeyAgeDays: 30,
+   226→    compromiseDetection: true,
+   227→  },
+   228→  
+   229→  logging: {
+   230→    logKeyUsage: false, // Can be noisy in production
+   231→    logKeyRotation: true,
+   232→    logAccessDenied: true,
+   233→  },
+   234→};
+   235→
+   236→// ===========================================
+   237→// Main Encryption Manager Class
+   238→// ===========================================
+   239→
+   240→class EncryptionManager {
+   241→  private config: EncryptionConfig;
+   242→  private keystore: Map<string, KeyRecord> = new Map();
+   243→  private activeKeyId: string | null = null;
+   244→  private rotationHistory: Map<string, KeyRotationEvent[]> = new Map();
+   245→  
+   246→  // In-memory cache for performance (would use Redis/Memcached in production)
+   247→  private decryptionCache: Map<string, { data: any; ttl: number }> = new Map();
+   248→  private cacheMaxSize: number = 10000;
+   249→
+   250→  constructor(config?: Partial<EncryptionConfig>) {
+   251→    this.config = { ...DEFAULT_CONFIG, ...config };
+   252→    
+   253→    // Initialize or load existing keys
+   254→    this.initializeKeys().catch(error => {
+   255→      console.error('[Encryption] Failed to initialize keys:', error);
+   256→      throw error;
+   257→    });
+   258→  }
+   259→
+   260→  /**
+   261→   * Encrypt data with the current active key
+   262→   */
+   263→  async encrypt<T extends Record<string, any> = {}>(
+   264→    data: T,
+   265→    options?: {
+   266→      keyId?: string;
+   267→      dataType?: string;
+   268→      metadata?: Record<string, any>;
+   269→      aad?: string;
+   270→      searchable?: boolean;
+   271→    }
+   272→  ): Promise<EncryptedData<T>> {
+   273→    const startTime = performance.now();
+   274→    
+   275→    // Get or create key to use
+   276→    let keyId = options?.keyId || this.activeKeyId;
+   277→    
+   278→    if (!keyId || !this.isKeyValid(keyId)) {
+   279→      keyId = await this.getOrCreateActiveKey();
+   280→    }
+   281→
+   282→    const keyRecord = this.keystore.get(keyId);
+   283→    if (!keyRecord) {
+   284→      throw new Error('Key not found');
+   285→    }
+   286→
+   287→    // Serialize data
+   288→    const plaintext = JSON.stringify(data);
+   289→    const plaintextBuffer = Buffer.from(plaintext, 'utf8');
+   290→
+   291→    // Generate IV (or derive for searchable)
+   292→    let iv: Buffer;
+   293→    let tweak: Buffer | undefined;
+   294→
+   295→    if (options?.searchable && this.config.searchableEncryption.enabled) {
+   296→      const { iv: searchIv, tweak: searchTweak } = this.generateSearchableIV(keyId);
+   297→      iv = searchIv;
+   298→      tweak = searchTweak;
+   299→    } else {
+   300→      iv = crypto.randomBytes(this.config.dataEncryption.ivLength);
+   301→    }
+   302→
+   303→    // Generate AAD (Additional Authenticated Data)
+   304→    const aad = Buffer.from(options?.aad || `${options?.dataType || 'unknown'}:${keyId}:${Date.now()}`);
+   305→
+   306→    // Create cipher
+   307→    const cipher = crypto.createCipheriv('aes-256-gcm', keyRecord.keyCiphertext, iv, {
+   308→      authTagLength: this.config.dataEncryption.tagLength,
+   309→    });
+   310→
+   311→    // Encrypt
+   312→    let ciphertext: Buffer;
+   313→    try {
+   314→      cipher.setAAD(aad);
+   315→      cipher.update(plaintextBuffer, 'utf8');
+   316→      cipher.final();
+   317→      ciphertext = cipher.getAuthenticode(); // Combines ciphertext + tag
+   318→    } catch (error) {
+   319→      throw new Error(`Encryption failed: ${error.message}`);
+   320→    }
+   321→
+   322→    // Build encrypted record
+   323→    const encryptedData: EncryptedData<T> = {
+   324→      id: `enc_${Date.now()}_${crypto.randomBytes(8).toString('hex')}`,
+   325→      version: 1,
+   326→      algorithm: this.config.dataEncryption.algorithm,
+   327→      keyId,
+   328→      
+   329→      ciphertext: ciphertext.slice(0, -this.config.dataEncryption.tagLength).toString('base64'),
+   330→      iv: iv.toString('base64'),
+   331→      tag: ciphertext.slice(-this.config.dataEncryption.tagLength).toString('base64'),
+   332→      aad: options?.aad ? Buffer.from(options.aad).toString('base64') : undefined,
+   333→      
+   334→      createdAt: new Date().toISOString(),
+   335→      createdBy: 'system',
+   336→      lastAccessedAt: new Date().toISOString(),
+   337→      
+   338→      dataType: options?.dataType || typeof data === 'object' ? 'json' : 'unknown',
+   339→      metadata: options?.metadata,
+   340→    };
+   341→
+   342→    // Update key usage
+   343→    keyRecord.usageCount++;
+   344→    keyRecord.lastUsedAt = new Date().toISOString();
+   345→    keyRecord.lastUsedBy = 'system';
+   346→
+   347→    // Log if configured
+   348→    if (this.config.logging.logKeyUsage) {
+   349→      console.log(`[Encryption] Encrypted with key ${keyId} (${plaintext.length} bytes)`);
+   350→    }
+   351→
+   352→    return encryptedData;
+   353→  }
+   354→
+   355→  /**
+   356→   * Decrypt data
+   357→   */
+   358→  async decrypt<T = any>(
+   359→    encryptedData: EncryptedData<T> | string,
+   360→    options?: {
+   361→      expectedDataType?: string;
+   362→      expectedAad?: string;
+   363→      allowStale?: boolean;
+   364→    }
+   365→  ): Promise<DecryptionResult<T>> {
+   366→    const startTime = performance.now();
+   367→
+   368→    // Handle string input (JSON or base64)
+   369→    let encData: EncryptedData<any>;
+   370→    if (typeof encryptedData === 'string') {
+   371→      try {
+   372→        encData = JSON.parse(encryptedData);
+   373→      } catch {
+   374→        return {
+   375→          success: false,
+   376→          error: 'Invalid encrypted data format',
+   377→          errorCode: 'INVALID_CIPHERTEXT',
+   378→          keyId: '',
+   379→          decryptedAt: new Date().toISOString(),
+   380→          durationMs: performance.now() - startTime,
+   381→        };
+   382→      }
+   383→    } else {
+   384→      encData = encryptedData as EncryptedData<T>;
+   385→    }
+   386→
+   387→    // Validate basic structure
+   388→    if (!encData.ciphertext || !encData.iv || !encData.tag) {
+   389→      return {
+   390→        success: false,
+   391→        error: 'Missing required fields (ciphertext, iv, tag)',
+   392→        errorCode: 'INVALID_CIPHERTEXT',
+   393→        keyId: encData.keyId || '',
+   394→        decryptedAt: new Date().toISOString(),
+   395→        durationMs: performance.now() - startTime,
+   396→      };
+   397→    }
+   398→
+   399→    // Get key
+   400→    const keyRecord = this.keystore.get(encData.keyId);
+   401→    if (!keyRecord) {
+   402→      return {
+   403→        success: false,
+   404→        error: 'Key not found',
+   405→        errorCode: 'KEY_NOT_FOUND',
+   406→        keyId: encData.keyId || '',
+   407→        decryptedAt: new Date().toISOString(),
+   408→        durationMs: performance.now() - startTime,
+   409→      };
+   410→    }
+   411→
+   412→    // Check key validity
+   413→    if (!this.isKeyValid(encData.keyId)) {
+   414→      return {
+   415→        success: false,
+   416→        error: 'Key is expired or deactivated',
+   417→        errorCode: 'KEY_EXPIRED',
+   418→        keyId: encData.keyId,
+   419→        decryptedAt: new Date().toISOString(),
+   420→        durationMs: performance.now() - startTime,
+   421→      };
+   422→    }
+   423→
+   424→    // Check access policy
+   425→    if (!this.checkAccess(keyRecord, 'decrypt')) {
+   426→      return {
+   427→        success: false,
+   428→        error: 'Decryption not authorized for this key',
+   429→        errorCode: 'ACCESS_DENIED',
+   430→        keyId: encData.keyId,
+   431→        decryptedAt: new Date().toISOString(),
+   432→        durationMs: performance.now() - startTime,
+   433→      };
+   434→    }
+   435→
+   436→    // Reconstruct ciphertext from base64 components
+   437→    const ciphertext = Buffer.concat([
+   438→      Buffer.from(encData.ciphertext, 'base64'),
+   439→      Buffer.from(encData.tag, 'base64'),
+   440→    ]);
+   441→
+   442→    const iv = Buffer.from(encData.iv, 'base64');
+   443→    const aad = encData.aad ? Buffer.from(encData.aad, 'base64') : undefined;
+   444→
+   445→    try {
+   446→      const decipher = crypto.createDecipheriv('aes-256-gcm', keyRecord.keyCiphertext, iv, {
+   447→        authTagLength: this.config.dataEncryption.tagLength,
+   448→      });
+   449→
+   450→      if (aad) decipher.setAAD(aad);
+   451→
+   452→      const plaintext = decipher.decrypt(ciphertext);
+   453→
+   454→      // Verify integrity (automatic with GCM, but explicit check is good practice)
+   455→      decipher.final();
+   456→
+   457→      const decryptedString = plaintext.toString('utf8');
+   458→      const data = JSON.parse(decryptedString);
+   459→
+   460→      // Update key usage
+   461→      keyRecord.usageCount++;
+   462→      keyRecord.lastUsedAt = new Date().toISOString();
+   463→
+   464→      // Update last accessed on encrypted record
+   465→      encData.lastAccessedAt = new Date().toISOString();
+   466→
+   467→      // Cache result briefly
+   468→      this.cacheDecryption(encData.id, data, 300000); // 5 minutes
+   469→
+   470→      return {
+   471→        success: true,
+   472→        data,
+   473→        keyId: encData.keyId,
+   474→        decryptedAt: new Date().toISOString(),
+   475→        durationMs: performance.now() - startTime,
+   476→      };
+   477→
+   478→    } catch (error) {
+   479→      // Log failed decryption attempt
+   480→      if (this.config.logging.logAccessDenied) {
+   481→        console.error(`[Decryption] Failed for key ${encData.keyId}: ${error.message}`);
+   482→      }
+   483→
+   484→      // Determine specific error type
+   485→      let errorCode = 'INTEGRITY_CHECK_FAILED';
+   486→      if (error.message.includes('authentication')) errorCode = 'INVALID_TAG';
+   487→      if (error.message.includes('unsupported state or unable')) errorCode = 'INVALID_CIPHERTEXT';
+   488→      if (error.message.includes('auth tag')) errorCode = 'INVALID_TAG';
+   489→
+   490→      return {
+   491→        success: false,
+   492→        error: error.message,
+   493→        errorCode,
+   494→        keyId: encData.keyId,
+   495→        decryptedAt: new Date().toISOString(),
+   496→        durationMs: performance.now() - startTime,
+   497→      };
+   498→    }
+   499→  }
+   500→
+   501→  /**
+   502→   * Re-encrypt data with a different key or updated parameters
+   503→   */
+   504→  async reEncrypt(
+   505→    encryptedData: EncryptedData<any>,
+   506→    options?: {
+   507→      newKeyId?: string;
+   508→      newData?: any;
+   509→      newMetadata?: Record<string, any>;
+   510→    }
+   511→  ): Promise<EncryptedData<any>> {
+   512→    // First decrypt
+   513→    const { data } = await this.decrypt(encryptedData);
+   514→    if (!data.success) {
+   515→      throw new Error(`Cannot re-encrypt: ${data.error}`);
+   516→    }
+   517→
+   518→    // Encrypt with new parameters
+   519→    return this.encrypt({
+   520→      ...data,
+   521→      ...(options?.newData || {}),
+   522→    }, {
+   523→      keyId: options?.newKeyId,
+   524→      metadata: options?.newMetadata,
+   525→    });
+   526→  }
+   527→
+   528→  /**
+   529→   * Searchable encryption - allows searching on encrypted fields
+   530→   */
+   531→  async encryptSearchable(
+   532→    field: string,
+   533→    value: string,
+   534→    options?: { keyId?: string; dataType?: string }
+   535→  ): Promise<EncryptedData<{ field: string; value: string }>> {
+   536→    const keyId = options?.keyId || this.activeKeyId;
+   537→    if (!keyId) throw new Error('No active key available');
+   538→
+   539→    const data = { field, value };
+   540→    return this.encrypt(data, {
+   541→      keyId,
+   542→      dataType: options?.dataType || 'searchable',
+   543→      searchable: true,
+   544→    });
+   545→  }
+   546→
+   547→  /**
+   548→   * Perform search on encrypted data (without full decryption)
+   549→   */
+   550→  async searchEncrypted(
+   551→    encryptedData: EncryptedData<{ field: string; value: string }>
+   552→  ): Promise<boolean> {
+   553→    // For searchable encryption, we can check equality without full decryption
+   554→    // This requires server-side implementation with proper index
+   555→    
+   556→    // Simplified implementation - would need proper SIV mode
+   557→    try {
+   558→      const result = await this.decrypt(encryptedData);
+   559→      return result.success && result.data?.value === value;
+   560→    } catch {
+   561→      return false;
+   562→    }
+   563→  }
+   564→
+   565→  // ===========================================
+   566→  // Key Management
+   567→  // ===========================================
+   568→
+   569→  /**
+   570→   * Get or create the active encryption key
+   571→   */
+   572→  private async getOrCreateActiveKey(): Promise<string> {
+   573→    // Check if current active key is valid
+   574→    if (this.activeKeyId && this.isKeyValid(this.activeKeyId)) {
+   575→      return this.activeKeyId;
+   576→    }
+   577→
+   578→    // Need to create or rotate
+   579→    const newKeyId = await this.generateNewKey();
+   580→    return newKeyId;
+   581→  }
+   582→
+   583→  /**
+   584→   * Generate a new encryption key
+   585→   */
+   586→  async generateNewKey(previousKeyId?: string): Promise<string> {
+   587→    const keyId = `key_${Date.now()}_${crypto.randomBytes(16).toString('hex')}`;
+   588→    
+   589→    // Generate random DEK (Data Encryption Key)
+   590→    const dek = crypto.randomBytes(32); // 256-bit key
+   591→
+   592→    // Generate IV
+   593→    const iv = crypto.randomBytes(this.config.dataEncryption.ivLength);
+   594→
+   595→    // If we have a KEK (Key Encryption Key), encrypt the DEK
+   596→    let keyCiphertext: Buffer;
+   597→    
+   598→    if (this.hasKEK()) {
+   599→      const kek = this.getKEK();
+   600→      keyCiphertext = this.encryptDEKWithKEK(dek, kek, iv);
+   601→    } else {
+   602→      // Without KEK, we'll store DEK directly (less secure but functional)
+   603→      keyCiphertext = dek; // Would be encrypted in production
+   604→      console.warn('[Encryption] No KEK found - using direct key storage (less secure)');
+   605→    }
+   606→
+   607→    // Create key record
+   608→    const keyRecord: KeyRecord = {
+   609→      id: keyId,
+   610→      version: 1,
+   611→      status: 'active',
+   612→      
+   613→      keyCiphertext: keyCiphertext.toString('base64'),
+   614→      keyIv: iv.toString('base64'),
+   615→      keyTag: '', // Will be set after first use
+   616→      
+   617→      algorithm: this.config.dataEncryption.algorithm,
+   618→      created: new Date().toISOString(),
+   619→      activated: new Date().toISOString(),
+   620→      
+   621→      rotatedAt: previousKeyId ? new Date().toISOString() : undefined,
+   622→      previousKeyId,
+   623→      expiresAt: new Date(Date.now() + this.config.masterKey.rotationDays * 24 * 60 * 60 * 1000),
+   624→      
+   625→      allowedUsers: ['system', 'admin'],
+   626→      allowedServices: ['encryption-service'],
+   627→      accessPolicies: [],
+   628→      
+   629→      usageCount: 0,
+   630→      backupLocations: [...this.config.masterKey.backupLocations],
+   631→      backupVerified: false,
+   632→      
+   633→      previousKeyId: undefined,
+   634→    };
+   635→
+   636→    // Store key
+   637→    this.keystore.set(keyId, keyRecord);
+   638→    this.activeKeyId = keyId;
+   639→
+   640→    // Log rotation if applicable
+   641→    if (previousKeyId) {
+   642→      await this.recordRotation(previousKeyId, keyId, 'scheduled', 'Scheduled key rotation');
+   643→    }
+   644→
+   645→    console.log(`[Encryption] New key generated: ${keyId} (previous: ${previousKeyId || 'none'})`);
+   646→    return keyId;
+   647→  }
+   648→
+   649→  /**
+   650→   * Rotate the active key
+   651→   */
+   652→  async rotateKey(reason: string = 'Scheduled rotation'): Promise<string> {
+   653→    const currentKeyId = this.activeKeyId;
+   654→    if (!currentKeyId) {
+   655→      throw new Error('No active key to rotate');
+   656→    }
+   657→
+   658→    const newKeyId = await this.generateNewKey(currentKeyId);
+   659→    
+   660→    // Deactivate old key (but keep for decryption)
+   661→    const oldKey = this.keystore.get(currentKeyId);
+   662→    if (oldKey) {
+   663→      oldKey.status = 'deactivated';
+   664→      oldKey.deactivatedAt = new Date().toISOString();
+   665→    }
+   666→
+   667→    return newKeyId;
+   668→  }
+   669→
+   670→  /**
+   671→   * Deactivate a key (prevent further encryption, allow decryption)
+   672→   */
+   673→  deactivateKey(keyId: string): void {
+   674→    const key = this.keystore.get(keyId);
+   675→    if (key) {
+   676→      key.status = 'deactivated';
+   677→      key.deactivatedAt = new Date().toISOString();
+   678→    }
+   679→
+   680→    if (keyId === this.activeKeyId) {
+   681→      this.activeKeyId = null;
+   682→    }
+   683→  }
+   684→
+   685→  /**
+   686→   * Mark a key as compromised
+   687→   */
+   688→  compromiseKey(keyId: string, reason: string): void {
+   689→    const key = this.keystore.get(keyId);
+   690→    if (key) {
+   691→      key.status = 'compromised';
+   692→      
+   693→      // Generate new key immediately
+   694→      if (keyId === this.activeKeyId) {
+   695→        this.rotateKey(`Compromise detected: ${reason}`).catch(err => {
+   696→          console.error('[Encryption] Emergency rotation failed:', err);
+   697→        });
+   698→      }
+   699→    }
+   700→  }
+   701→
+   702→  /**
+   703→   * Check if a key is valid for use
+   704→   */
+   705→  private isKeyValid(keyId: string): boolean {
+   706→    const key = this.keystore.get(keyId);
+   707→    if (!key) return false;
+   708→    if (key.status !== 'active') return false;
+   709→    if (key.expiresAt && new Date(key.expiresAt) < new Date()) return false;
+   710→    return true;
+   711→  }
+   712→
+   713→  /**
+   714→   * Get key information (without exposing sensitive data)
+   715→   */
+   716→  getKeyInfo(keyId: string): Omit<KeyRecord, 'keyCiphertext' | 'keyIv' | 'keyTag'> | null {
+   717→    const key = this.keystore.get(keyId);
+   718→    if (!key) return null;
+   719→
+   720→    const { 
+   721→      keyCiphertext, 
+   722→      keyIv, 
+   723→      keyTag,
+   724→      ...safeInfo 
+   725→    } = key;
+   726→
+   727→    return safeInfo;
+   728→  }
+   729→
+   730→  /**
+   731→   * List all keys
+   732→   */
+   733→  listKeys(status?: KeyRecord['status']): KeyRecord[] {
+   734→    const keys = Array.from(this.keystore.values());
+   735→    return status ? keys.filter(k => k.status === status) : keys;
+   736→  }
+   737→
+   738→  // ===========================================
+   739→  // Key Encryption Operations
+   740→  // ===========================================
+   741→
+   742→  private hasKEK(): boolean {
+   743→    // In production, would check if KEK exists in secure storage
+   744→    return process.env.ENCRYPTION_KEK_EXISTS === 'true' || false;
+   745→  }
+   746→
+   747→  private getKEK(): Buffer {
+   748→    // In production, would retrieve from HSM or KMS
+   749→    const kekBase = process.env.ENCRYPTION_KEK || 
+   750→                   crypto.randomBytes(32).toString('hex'); // Fallback for development
+   751→    
+   752→    return Buffer.from(kekBase, 'hex');
+   753→  }
+   754→
+   755→  private encryptDEKWithKEK(
+   756→    dek: Buffer,
+   757→    kek: Buffer,
+   758→    iv: Buffer
+   759→  ): Buffer {
+   760→    // RSA-OAEP encryption would go here
+   761→    // For now, XOR with KEK (simplified - NOT production ready)
+   762→    const encrypted = Buffer.alloc(dek.length);
+   763→    for (let i = 0; i < dek.length; i++) {
+   764→      encrypted[i] = dek[i] ^ kek[i % kek.length];
+   765→    }
+   766→    return encrypted;
+   767→  }
+   768→
+   769→  // ===========================================
+   770→  // Searchable Encryption Helpers
+   771→  // ===========================================
+   772→
+   773→  private generateSearchableIV(keyId: string): { iv: Buffer; tweak: Buffer } {
+   774→    const iv = crypto.randomBytes(this.config.dataEncryption.ivLength);
+   775→    const tweak = crypto.createHash('sha256')
+   776→      .update(`${keyId}:${this.config.searchableEncryption.tweakSource}`)
+   777→      .digest();
+   778→    
+   779→    return { iv, tweak };
+   780→  }
+   781→
+   782→  // ===========================================
+   783→  // Key Rotation History
+   784→  // ===========================================
+   785→
+   786→  private async recordRotation(
+   787→    oldKeyId: string,
+   788→    newKeyId: string,
+   789→    trigger: string,
+   790→    reason?: string
+   791→  ): Promise<void> {
+   792→    const event: KeyRotationEvent = {
+   793→      id: `rotation_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
+   794→      keyId: newKeyId,
+   795→      previousKeyId: oldKeyId,
+   796→      newKeyId,
+   797→      trigger: trigger as any,
+   798→      reason: reason || `Key rotation: ${trigger}`,
+   799→      performedBy: 'system',
+   800→      performedAt: new Date().toISOString(),
+   801→      status: 'success',
+   802→      details: '',
+   803→      oldKeyBackup: '',
+   804→      newKeyBackup: '',
+   805→      verificationResult: undefined,
+   806→    };
+   807→
+   808→    // Store event
+   809→    let events = this.rotationHistory.get(oldKeyId);
+   810→    if (!events) {
+   811→      events = [];
+   812→      this.rotationHistory.set(oldKeyId, events);
+   813→    }
+   814→    events.push(event);
+   815→
+   816→    // Log rotation
+   817→    if (this.config.logging.logKeyRotation) {
+   818→      console.log(`[Encryption] Key rotation: ${oldKeyId} -> ${newKeyId} (${trigger})`);
+   819→    }
+   820→  }
+   821→
+   822→  // ===========================================
+   823→  // Cache Management
+   824→  // ===========================================
+   825→
+   826→  private cacheDecryption(id: string, data: any, ttlMs: number): void {
+   827→    // Clean old entries
+   828→    if (this.decryptionCache.size >= this.cacheMaxSize) {
+   829→      const now = Date.now();
+   830→      for (const [cacheId, entry] of this.decryptionCache.entries()) {
+   831→        if (entry.ttl < now) {
+   832→          this.decryptionCache.delete(cacheId);
+   833→        }
+   834→      }
+   835→    }
+   836→
+   837→    this.decryptionCache.set(id, { data, ttl: Date.now() + ttlMs });
+   838→  }
+   839→
+   840→  // ===========================================
+   841→  // Initialization
+   842→  // ===========================================
+   843→
+   844→  private async initializeKeys(): Promise<void> {
+   845→    // Check if we should generate initial key
+   846→    if (this.keystore.size === 0) {
+   847→      await this.generateNewKey();
+   848→    } else {
+   849→      // Find most recent active key
+   850→      const keys = Array.from(this.keystore.values())
+   851→        .filter(k => k.status === 'active')
+   852→        .sort((a, b) => new Date(b.created).getTime() - new Date(a.created).getTime());
+   853→
+   854→      if (keys.length > 0) {
+   855→        this.activeKeyId = keys[keys.length - 1].id;
+   856→        
+   857→        // Check if key needs rotation
+   858→        const latestKey = keys[keys.length - 1];
+   859→        const keyAge = (Date.now() - new Date(latestKey.created).getTime()) / (1000 * 60 * 60 * 24);
+   860→        
+   861→        if (keyAge > this.config.masterKey.rotationDays && this.config.keyLifecycle.autoRotate) {
+   862→          await this.rotateKey('Initial rotation check - key age exceeded threshold');
+   863→        }
+   864→      } else {
+   865→        // No valid keys - generate one
+   866→        await this.generateNewKey();
+   867→      }
+   868→    }
+   869→  }
+   870→
+   871→  // ===========================================
+   872→  // Access Control
+   873→  // ===========================================
+   874→
+   875→  private checkAccess(keyRecord: KeyRecord, operation: 'encrypt' | 'decrypt' | 're-encrypt'): boolean {
+   876→    // Check if operation is allowed
+   877→    if (!keyRecord.allowedOperations?.includes(operation)) {
+   878→      return false;
+   879→    }
+   880→
+   881→    // Check time-based restrictions
+   882→    if (keyRecord.expiresAt && new Date(keyRecord.expiresAt) < new Date()) {
+   883→      return false;
+   884→    }
+   885→
+   886→    // Check service-based restrictions
+   887→    // (Would integrate with service mesh)
+   888→
+   889→    return true;
+   890→  }
+   891→}
+   892→
+   893→// ===========================================
+   894→// Singleton & Exports
+   895→// ===========================================
+   896→
+   897→let encryptionInstance: EncryptionManager | null = null;
+   898→
+   899→export function getEncryptionManager(config?: Partial<EncryptionConfig>): EncryptionManager {
+   900→  if (!encryptionInstance) {
+   901→    encryptionInstance = new EncryptionManager(config);
+   902→  }
+   903→  return encryptionInstance;
+   904→}
+   905→
+   906→// Convenience export
+   907→export const encryptionManager = getEncryptionManager();
+   908→
+   909→export default {
+   910→  getEncryptionManager,
+   911→  EncryptionManager,
+   912→};
+   913→
