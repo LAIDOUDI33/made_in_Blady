@@ -1,0 +1,820 @@
+     1→/**
+     2→ * Security Monitoring & Alerting System
+     3→ * Real-time threat detection and automated response
+     4→ * For AlgeriaTrade.dz B2B Platform
+     5→ */
+     6→
+     7→import { db } from '@/lib/db';
+     8→
+     9→// ===========================================
+    10→// Types & Interfaces
+    11→// ===========================================
+    12→
+    13→export interface SecurityEvent {
+    14→  id: string;
+    15→  eventType: SecurityEventType;
+    16→  severity: 'info' | 'low' | 'medium' | 'high' | 'critical';
+    17→  source: string;
+    18→  ipAddress?: string;
+    19→  userId?: string;
+    20→  details: Record<string, unknown>;
+    21→  timestamp: Date;
+    22→  resolved: boolean;
+    23→}
+    24→
+    25→export type SecurityEventType = 
+    26→  | 'auth_success'
+    27→  | 'auth_failure'
+    28→  | 'brute_force_detected'
+    29→  | 'rate_limit_exceeded'
+    30→  | 'suspicious_activity'
+    31→  | 'permission_denied'
+    32→  | 'data_access_anomaly'
+    33→  | 'payment_fraud_risk'
+    34→  | 'injection_attempt'
+    35→  | 'xss_attempt'
+    36→  | 'csrf_attempt'
+    37→  | 'ddos_detected'
+    38→  | 'unusual_geolocation'
+    39→  | 'account_takeover_risk'
+    40→  | 'api_abuse'
+    41→  | 'file_upload_suspicious';
+    42→
+    43→export interface AlertRule {
+    44→  id: string;
+    45→  name: string;
+    46→  description: string;
+    47→  eventType: SecurityEventType;
+    48→  conditions: AlertCondition[];
+    49→  actions: AlertAction[];
+    50→  cooldownMs: number; // Prevent alert flooding
+    51→  enabled: boolean;
+    52→}
+    53→
+    54→export interface AlertCondition {
+    55→  field: keyof SecurityEvent;
+    56→  operator: 'equals' | 'not_equals' | 'contains' | 'greater_than' | 'less_than' | 'in';
+    57→  value: unknown;
+    58→}
+    59→
+    60→export interface AlertAction {
+    61→  type: 'email' | 'webhook' | 'block_ip' | 'lock_account' | 'log' | 'slack' | 'pagerduty';
+    62→  config: Record<string, unknown>;
+    63→  enabled: boolean;
+    64→}
+    65→
+    66→export interface MonitoringStats {
+    67→  totalEvents: number;
+    68→  eventsByType: Record<string, number>;
+    69→  eventsBySeverity: Record<string, number>;
+    70→  activeAlerts: number;
+    71→  blockedIPs: number;
+    72→  riskScore: number; // 0-100 overall platform risk
+    73→  topAttackerIPs: Array<{ ip: string; count: number }>;
+    74→  recentCriticalEvents: SecurityEvent[];
+    75→}
+    76→
+    77→// ===========================================
+    78→// Configuration
+    79→// ===========================================
+    80→
+    81→const MONITORING_CONFIG = {
+    82→  // Enable/disable monitoring
+    83→  enabled: process.env.SECURITY_MONITORING_ENABLED !== 'false',
+    84→  
+    85→  // Risk score thresholds for automated actions
+    86→  thresholds: {
+    87→    autoBlockIP: 85,        // Auto-block IP if risk score >= this
+    88→    lockAccount: 90,         // Lock account if risk score >= this
+    89→    alertAdmin: 70,          // Alert admins if risk score >= this
+    90→    criticalAlert: 95,       // Critical alert for very high risk
+    91→  },
+    92→  
+    93→  // Time windows for analysis
+    94→  windows: {
+    95→    shortTerm: 5 * 60 * 1000,    // 5 minutes
+    96→    mediumTerm: 60 * 60 * 1000,  // 1 hour
+    97→    longTerm: 24 * 60 * 60 * 1000, // 24 hours
+    98→  },
+    99→  
+   100→  // Rate limits for monitoring itself (prevent DoS of monitoring)
+   101→  selfRateLimit: {
+   102→    maxEventsPerSecond: 1000,
+   103→    maxAlertsPerMinute: 50,
+   104→  },
+   105→};
+   106→
+   107→// Default alert rules
+   108→const DEFAULT_ALERT_RULES: AlertRule[] = [
+   109→  {
+   110→    id: 'brute-force-detection',
+   111→    name: 'Brute Force Attack Detection',
+   112→    description: 'Detects potential brute force login attempts',
+   113→    eventType: 'brute_force_detected',
+   114→    conditions: [
+   115→      { field: 'severity', operator: 'in', value: ['high', 'critical'] },
+   116→    ],
+   117→    actions: [
+   118→      { type: 'block_ip', config: { durationHours: 24 }, enabled: true },
+   119→      { type: 'email', config: { recipients: ['security@algeriatrade.dz'] }, enabled: true },
+   120→      { type: 'log', config: { level: 'error' }, enabled: true },
+   121→    ],
+   122→    cooldownMs: 30 * 60 * 1000, // 30 minute cooldown
+   123→    enabled: true,
+   124→  },
+   125→  {
+   126→    id: 'rate-limit-abuse',
+   127→    name: 'API Rate Limit Abuse',
+   128→    description: 'Detects clients consistently hitting rate limits',
+   129→    eventType: 'rate_limit_exceeded',
+   130→    conditions: [
+   131→      { field: 'severity', operator: 'greater_than', value: 'medium' as unknown },
+   132→    ],
+   133→    actions: [
+   134→      { type: 'alert', config: {}, enabled: true },
+   135→      { type: 'log', config: { level: 'warn' }, enabled: true },
+   136→    ],
+   137→    cooldownMs: 15 * 60 * 1000,
+   138→    enabled: true,
+   139→  },
+   140→  {
+   141→    id: 'payment-fraud',
+   142→    name: 'Payment Fraud Risk',
+   143→    description: 'Detects suspicious payment patterns',
+   144→    eventType: 'payment_fraud_risk',
+   145→    conditions: [
+   146→      { field: 'severity', operator: 'greater_than', value: 'medium' as unknown },
+   147→    ],
+   148→    actions: [
+   149→      { type: 'email', config: { recipients: ['fraud@algeriatrade.dz', 'security@algeriatrade.dz'] }, enabled: true },
+   150→      { type: 'block_ip', config: { durationHours: 1 }, enabled: false }, // Manual review first
+   151→      { type: 'log', config: { level: 'error' }, enabled: true },
+   152→    ],
+   153→    cooldownMs: 10 * 60 * 1000,
+   154→    enabled: true,
+   155→  },
+   156→  {
+   157→    id: 'injection-attempt',
+   158→    name: 'Injection Attack Attempt',
+   159→    description: 'Detects SQL/NoSQL injection attempts',
+   160→    eventType: 'injection_attempt',
+   161→    conditions: [
+   162→      { field: 'severity', operator: 'in', value: ['medium', 'high', 'critical'] },
+   163→    ],
+   164→    actions: [
+   165→      { type: 'block_ip', config: { durationHours: 48 }, enabled: true },
+   166→      { type: 'email', config: { recipients: ['security@algeriatrade.dz'] }, enabled: true },
+   167→      { type: 'log', config: { level: 'error' }, enabled: true },
+   168→    ],
+   169→    cooldownMs: 0, // Always alert on injection attempts
+   170→    enabled: true,
+   171→  },
+   172→];
+   173→
+   174→// ===========================================
+   175→// In-Memory State (for real-time processing)
+   176→// ===========================================
+   177→
+   178→class SecurityMonitoringSystem {
+   179→  private eventBuffer: SecurityEvent[] = [];
+   180→  private alertCooldowns = new Map<string, number>();
+   181→  private recentEventsByIP = new Map<string, SecurityEvent[]>();
+   182→  private recentEventsByUser = new Map<string, SecurityEvent[]>();
+   183→  
+   184→  private rules: AlertRule[] = DEFAULT_ALERT_RULES;
+   185→  private isInitialized = false;
+   186→
+   187→  /**
+   188→   * Initialize the monitoring system
+   189→   */
+   190→  async initialize(): Promise<void> {
+   191→    if (this.isInitialized) return;
+   192→    
+   193→    try {
+   194→      // Load custom rules from database if available
+   195→      const customRules = await db.alertRule.findMany({
+   196→        where: { enabled: true },
+   197→      });
+   198→      
+   199→      if (customRules.length > 0) {
+   200→        this.rules = [...DEFAULT_ALERT_RULES, ...customRules.map(r => ({
+   201→          ...r,
+   202→          conditions: JSON.parse(r.conditions as string),
+   203→          actions: JSON.parse(r.actions as string),
+   204→        } as AlertRule))];
+   205→      }
+   206→      
+   207→      this.isInitialized = true;
+   208→      console.log('[SecurityMonitor] Initialized with', this.rules.length, 'active rules');
+   209→    } catch (error) {
+   210→      console.error('[SecurityMonitor] Initialization error:', error);
+   211→      // Continue with default rules
+   212→      this.isInitialized = true;
+   213→    }
+   214→  }
+   215→
+   216→  /**
+   217→   * Process a security event - main entry point
+   218→   */
+   219→  async recordEvent(eventData: Omit<SecurityEvent, 'id' | 'timestamp' | 'resolved'>): Promise<SecurityEvent> {
+   220→    if (!MONITORING_CONFIG.enabled) {
+   221→      return {} as SecurityEvent;
+   222→    }
+   223→
+   224→    await this.initialize();
+   225→
+   226→    const event: SecurityEvent = {
+   227→      ...eventData,
+   228→      id: `evt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+   229→      timestamp: new Date(),
+   230→      resolved: false,
+   231→    };
+   232→
+   233→    // Add to buffer for real-time analysis
+   234→    this.eventBuffer.push(event);
+   235→    if (this.eventBuffer.length > 10000) {
+   236→      this.eventBuffer = this.eventBuffer.slice(-5000); // Keep last 5000 in memory
+   237→    }
+   238→
+   239→    // Track by IP and user
+   240→    if (event.ipAddress) {
+   241→      const ipEvents = this.recentEventsByIP.get(event.ipAddress) || [];
+   242→      ipEvents.push(event);
+   243→      if (ipEvents.length > 1000) ipEvents.shift(); // Keep last 1000 per IP
+   244→      this.recentEventsByIP.set(event.ipAddress, ipEvents);
+   245→    }
+   246→
+   247→    if (event.userId) {
+   248→      const userEvents = this.recentEventsByUser.get(event.userId) || [];
+   249→      userEvents.push(event);
+   250→      if (userEvents.length > 500) userEvents.shift();
+   251→      this.recentEventsByUser.set(event.userId, userEvents);
+   252→    }
+   253→
+   254→    // Persist to database asynchronously
+   255→    this.persistEvent(event);
+   256→
+   257→    // Evaluate alert rules
+   258→    await this.evaluateRules(event);
+   259→
+   260→    return event;
+   261→  }
+   262→
+   263→  /**
+   264→   * Calculate risk score for an IP address (0-100)
+   265→   */
+   266→  calculateIPRiskScore(ipAddress: string): number {
+   267→    const events = this.recentEventsByIP.get(ipAddress) || [];
+   268→    if (events.length === 0) return 0;
+   269→
+   270→    let riskScore = 0;
+   271→    const now = Date.now();
+   272→    const oneHourAgo = now - MONITORING_CONFIG.windows.mediumTerm;
+   273→
+   274→    // Filter to recent events
+   275→    const recentEvents = events.filter(e => e.timestamp.getTime() > oneHourAgo);
+   276→
+   277→    // Weight different event types
+   278→    for (const event of recentEvents) {
+   279→      switch (event.eventType) {
+   280→        case 'brute_force_detected':
+   281→          riskScore += 25;
+   282→          break;
+   283→        case 'injection_attempt':
+   284→          riskScore += 35;
+   285→          break;
+   286→        case 'xss_attempt':
+   287→          riskScore += 20;
+   288→          break;
+   289→        case 'auth_failure':
+   290→          riskScore += 10;
+   291→          break;
+   292→        case 'rate_limit_exceeded':
+   293→          riskScore += 15;
+   294→          break;
+   295→        case 'payment_fraud_risk':
+   296→          riskScore += 30;
+   297→          break;
+   298→        case 'account_takeover_risk':
+   299→          riskScore += 40;
+   300→          break;
+   301→        default:
+   302→          riskScore += 5;
+   303→      }
+   304→    }
+   305→
+   306→    // Severity multiplier
+   307→    const highSeverityCount = recentEvents.filter(e => 
+   308→      e.severity === 'high' || e.severity === 'critical'
+   309→    ).length;
+   310→    riskScore *= (1 + highSeverityCount * 0.2);
+   311→
+   312→    // Frequency bonus (rapid attacks are worse)
+   313→    if (recentEvents.length > 20) {
+   314→      riskScore *= 1.3;
+   315→    }
+   316→    if (recentEvents.length > 50) {
+   317→      riskScore *= 1.5;
+   318→    }
+   319→
+   320→    return Math.min(100, Math.round(riskScore));
+   321→  }
+   322→
+   323→  /**
+   324→   * Calculate risk score for a user account (0-100)
+   325→   */
+   326→  calculateUserRiskScore(userId: string): number {
+   327→    const events = this.recentEventsByUser.get(userId) || [];
+   328→    if (events.length === 0) return 0;
+   329→
+   330→    let riskScore = 0;
+   331→    const now = Date.now();
+   332→    const twentyFourHoursAgo = now - MONITORING_CONFIG.windows.longTerm;
+   333→
+   334→    const recentEvents = events.filter(e => e.timestamp.getTime() > twentyFourHoursAgo);
+   335→
+   336→    for (const event of recentEvents) {
+   337→      switch (event.eventType) {
+   338→        case 'account_takeover_risk':
+   339→          riskScore += 40;
+   340→          break;
+   341→        case 'permission_denied':
+   342→          riskScore += 15;
+   343→          break;
+   344→        case 'data_access_anomaly':
+   345→          riskScore += 25;
+   346→          break;
+   347→        case 'unusual_geolocation':
+   348→          riskScore += 20;
+   349→          break;
+   350→        default:
+   351→          riskScore += 5;
+   352→      }
+   353→    }
+   354→
+   355→    // Check for multiple IPs (potential account sharing/takeover)
+   356→    const uniqueIPs = new Set(recentEvents.map(e => e.ipAddress).filter(Boolean));
+   357→    if (uniqueIPs.size > 5) {
+   358→      riskScore += 15;
+   359→    }
+   360→
+   361→    return Math.min(100, Math.round(riskScore));
+   362→  }
+   363→
+   364→  /**
+   365→   * Get current monitoring statistics
+   366→   */
+   367→  async getStats(): Promise<MonitoringStats> {
+   368→    const oneHourAgo = new Date(Date.now() - MONITORING_CONFIG.windows.mediumTerm);
+   369→    
+   370→    const [totalEvents, eventsByType, blockedIPsCount, recentCritical] = await Promise.all([
+   371→      db.securityEvent.count({
+   372→        where: { createdAt: { gte: oneHourAgo } },
+   373→      }),
+   374→      db.securityEvent.groupBy({
+   375→        by: ['eventType'],
+   376→        _count: { eventType: true },
+   377→        where: { createdAt: { gte: oneHourAgo } },
+   378→        orderBy: { _count: { eventType: 'desc' } },
+   379→        take: 10,
+   380→      }),
+   381→      db.blockedIP.count({ where: { expiresAt: { gt: new Date() } } }),
+   382→      db.securityEvent.findMany({
+   383→        where: {
+   384→          createdAt: { gte: oneHourAgo },
+   385→          severity: { in: ['critical', 'high'] },
+   386→          resolved: false,
+   387→        },
+   388→        orderBy: { createdAt: 'desc' },
+   389→        take: 10,
+   390→      }),
+   391→    ]);
+   392→
+   393→    // Calculate overall platform risk score
+   394→    const highRiskIPs = Array.from(this.recentEventsByIP.entries())
+   395→      .filter(([, events]) => this.calculateIPRiskScoreFromEvents(events) > 70);
+   396→    
+   397→    const overallRisk = Math.min(100, Math.round(
+   398→      (highRiskIPs.length * 10) + 
+   399→      (recentCritical.length * 15) +
+   400→      (totalEvents > 1000 ? 20 : totalEvents / 50)
+   401→    ));
+   402→
+   403→    // Top attacker IPs
+   404→    const topAttackers = Array.from(this.recentEventsByIP.entries())
+   405→      .map(([ip, events]) => ({ ip, count: events.length }))
+   406→      .sort((a, b) => b.count - a.count)
+   407→      .slice(0, 10);
+   408→
+   409→    return {
+   410→      totalEvents,
+   411→      eventsByType: Object.fromEntries(eventsByType.map(e => [e.eventType, e._count.eventType])),
+   412→      eventsBySeverity: {}, // Would need another query
+   413→      activeAlerts: recentCritical.length,
+   414→      blockedIPs: blockedIPsCount,
+   415→      riskScore: overallRisk,
+   416→      topAttackerIPs: topAttackers,
+   417→      recentCriticalEvents: recentCritical.map(e => ({
+   418→        ...e,
+   419→        details: typeof e.details === 'string' ? JSON.parse(e.details) : e.details,
+   420→      })),
+   421→    };
+   422→  }
+   423→
+   424→  /**
+   425→   * Get security recommendations based on current state
+   426→   */
+   427→  async getRecommendations(): Promise<Array<{
+   428→    priority: 'high' | 'medium' | 'low';
+   429→    category: string;
+   430→    recommendation: string;
+   431→    rationale: string;
+   432→  }>> {
+   433→    const stats = await this.getStats();
+   434→    const recommendations: Array<{
+   435→      priority: 'high' | 'medium' | 'low';
+   436→      category: string;
+   437→      recommendation: string;
+   438→      rationale: string;
+   439→    }> = [];
+   440→
+   441→    // High risk score
+   442→    if (stats.riskScore > 70) {
+   443→      recommendations.push({
+   444→        priority: 'high',
+   445→        category: 'Immediate Action',
+   446→        recommendation: 'Review and block high-risk IP addresses',
+   447→        rationale: `Platform risk score is ${stats.riskScore}/100, indicating active threats`,
+   448→      });
+   449→    }
+   450→
+   451→    // Many blocked IPs
+   452→    if (stats.blockedIPs > 50) {
+   453→      recommendations.push({
+   454→        priority: 'medium',
+   455→        category: 'Infrastructure',
+   456→        recommendation: 'Consider implementing DDoS protection service (Cloudflare, AWS Shield)',
+   457→        rationale: `${stats.blockedIPs} IPs currently blocked suggests ongoing attack`,
+   458→      });
+   459→    }
+   460→
+   461→    // Many auth failures
+   462→    const authFailures = stats.eventsByType['auth_failure'] || 0;
+   463→    if (authFailures > 100) {
+   464→      recommendations.push({
+   465→        priority: 'high',
+   466→        category: 'Authentication',
+   467→        recommendation: 'Enable CAPTCHA for all authentication endpoints',
+   468→        rationale: `${authFailures} authentication failures in past hour suggests brute force attack`,
+   469→      });
+   470→    }
+   471→
+   472→    // Critical events unresolved
+   473→    if (stats.activeAlerts > 5) {
+   474→      recommendations.push({
+   475→        priority: 'high',
+   476→        category: 'Operations',
+   477→        recommendation: 'Immediate review of unresolved critical security events',
+   478→        rationale: `${stats.activeAlerts} critical/high severity events require attention`,
+   479→      });
+   480→    }
+   481→
+   482→    // Default recommendations
+   483→    recommendations.push(
+   484→      {
+   485→        priority: 'low',
+   486→        category: 'Maintenance',
+   487→        recommendation: 'Schedule quarterly penetration testing',
+   488→        rationale: 'Regular testing helps identify vulnerabilities before attackers do',
+   489→      },
+   490→      {
+   491→        priority: 'low',
+   492→        category: 'Training',
+   493→        recommendation: 'Conduct security awareness training for all team members',
+   494→        rationale: 'Human error is a common cause of security incidents',
+   495→      }
+   496→    );
+   497→
+   498→    return recommendations;
+   499→  }
+   500→
+   501→  /**
+   502→   * Evaluate alert rules against an event
+   503→   */
+   504→  private async evaluateRules(event: SecurityEvent): Promise<void> {
+   505→    for (const rule of this.rules) {
+   506→      if (!rule.enabled) continue;
+   507→      if (rule.eventType !== event.eventType) continue;
+   508→
+   509→      // Check cooldown
+   510→      const cooldownKey = `${rule.id}_${event.ipAddress || event.userId || 'global'}`;
+   511→      const lastAlert = this.alertCooldowns.get(cooldownKey);
+   512→      if (lastAlert && Date.now() - lastAlert < rule.cooldownMs) continue;
+   513→
+   514→      // Evaluate conditions
+   515→      const conditionsMet = rule.conditions.every(condition =>
+   516→        this.evaluateCondition(event, condition)
+   517→      );
+   518→
+   519→      if (conditionsMet) {
+   520→        // Set cooldown
+   521→        this.alertCooldowns.set(cooldownKey, Date.now());
+   522→
+   523→        // Execute actions
+   524→        await this.executeActions(rule, event);
+   525→      }
+   526→    }
+   527→  }
+   528→
+   529→  /**
+   530→   * Evaluate a single condition
+   531→   */
+   532→  private evaluateCondition(event: SecurityEvent, condition: AlertCondition): boolean {
+   533→    const fieldValue = (event as Record<string, unknown>)[condition.field];
+   534→    
+   535→    switch (condition.operator) {
+   536→      case 'equals':
+   537→        return fieldValue === condition.value;
+   538→      case 'not_equals':
+   539→        return fieldValue !== condition.value;
+   540→      case 'contains':
+   541→        return String(fieldValue).includes(String(condition.value));
+   542→      case 'greater_than':
+   543→        return Number(fieldValue) > Number(condition.value);
+   544→      case 'less_than':
+   545→        return Number(fieldValue) < Number(condition.value);
+   546→      case 'in':
+   547→        return Array.isArray(condition.value) && condition.value.includes(fieldValue);
+   548→      default:
+   549→        return false;
+   550→    }
+   551→  }
+   552→
+   553→  /**
+   554→   * Execute alert actions
+   555→   */
+   556→  private async executeActions(rule: AlertRule, event: SecurityEvent): Promise<void> {
+   557→    console.log(`[SecurityMonitor] Rule "${rule.name}" triggered by event ${event.id}`);
+   558→
+   559→    for (const action of rule.actions) {
+   560→      if (!action.enabled) continue;
+   561→
+   562→      try {
+   563→        switch (action.type) {
+   564→          case 'block_ip':
+   565→            if (event.ipAddress) {
+   566→              await this.blockIPAddress(event.ipAddress, action.config.durationHours as number || 24);
+   567→            }
+   568→            break;
+   569→
+   570→          case 'lock_account':
+   571→            if (event.userId) {
+   572→              await this.lockUserAccount(event.userId);
+   573→            }
+   574→            break;
+   575→
+   576→          case 'email':
+   577→            await this.sendAlertEmail(rule.name, event, action.config.recipients as string[]);
+   578→            break;
+   579→
+   580→          case 'webhook':
+   581→            await this.sendWebhook(action.config.url as string, rule, event);
+   582→            break;
+   583→
+   584→          case 'log':
+   585→            console.log(`[SECURITY ALERT] [${rule.name}]`, {
+   586→              eventId: event.id,
+   587→              type: event.eventType,
+   588→              severity: event.severity,
+   589→              ip: event.ipAddress,
+   590→              user: event.userId,
+   591→              details: event.details,
+   592→            });
+   593→            break;
+   594→
+   595→          case 'slack':
+   596→            await this.sendSlackNotification(rule.name, event, action.config.webhookUrl as string);
+   597→            break;
+   598→        }
+   599→      } catch (error) {
+   600→        console.error(`[SecurityMonitor] Error executing action ${action.type}:`, error);
+   601→      }
+   602→    }
+   603→  }
+   604→
+   605→  /**
+   606→   * Block an IP address
+   607→   */
+   608→  private async blockIPAddress(ipAddress: string, durationHours: number): Promise<void> {
+   609→    const expiresAt = new Date(Date.now() + durationHours * 60 * 60 * 1000);
+   610→    
+   611→    await db.blockedIP.upsert({
+   612→      where: { ipAddress },
+   613→      update: { expiresAt, reason: 'Automated block by security monitor', updatedAt: new Date() },
+   614→      create: {
+   615→        ipAddress,
+   616→        expiresAt,
+   617→        reason: 'Automated block by security monitor',
+   618→      },
+   619→    });
+   620→
+   621→    console.log(`[SecurityMonitor] Blocked IP ${ipAddress} for ${durationHours} hours`);
+   622→  }
+   623→
+   624→  /**
+   625→   * Lock a user account
+   626→   */
+   627→  private async lockUserAccount(userId: string): Promise<void> {
+   628→    await db.user.update({
+   629→      where: { id: userId },
+   630→      data: { isActive: false },
+   631→    });
+   632→
+   633→    // Create security event for the lock
+   634→    await db.securityEvent.create({
+   635→      data: {
+   636→        eventType: 'ACCOUNT_LOCKED',
+   637→        severity: 'HIGH',
+   638→        userId,
+   639→        ipAddress: 'security-monitor',
+   640→        details: JSON.stringify({ reason: 'Automated lock due to suspicious activity' }),
+   641→      },
+   642→    });
+   643→
+   644→    console.log(`[SecurityMonitor] Locked user account ${userId}`);
+   645→  }
+   646→
+   647→  /**
+   648→   * Send alert email
+   649→   */
+   650→  private async sendAlertEmail(ruleName: string, event: SecurityEvent, recipients: string[]): Promise<void> {
+   651→    // Implementation would use email service
+   652→    console.log(`[SecurityMonitor] Email alert sent to ${recipients.join(', ')}`, {
+   653→      rule: ruleName,
+   654→      event: event.id,
+   655→    });
+   656→  }
+   657→
+   658→  /**
+   659→   * Send webhook notification
+   660→   */
+   661→  private async sendWebhook(url: string, rule: AlertRule, event: SecurityEvent): Promise<void> {
+   662→    // Implementation would call external webhook
+   663→    console.log(`[SecurityMonitor] Webhook notification to ${url}`);
+   664→  }
+   665→
+   666→  /**
+   667→   * Send Slack notification
+   668→   */
+   669→  private async sendSlackNotification(ruleName: string, event: SecurityEvent, webhookUrl: string): Promise<void> {
+   670→    // Implementation would post to Slack
+   671→    console.log(`[SecurityMonitor] Slack notification: ${ruleName}`);
+   672→  }
+   673→
+   674→  /**
+   675→   * Persist event to database (async, non-blocking)
+   676→   */
+   677→  private async persistEvent(event: SecurityEvent): Promise<void> {
+   678→    try {
+   679→      await db.securityEvent.create({
+   680→        data: {
+   681→          eventType: event.eventType,
+   682→          severity: event.severity.toUpperCase(),
+   683→          ipAddress: event.ipAddress,
+   684→          userId: event.userId,
+   685→          details: JSON.stringify(event.details),
+   686→          source: event.source || 'application',
+   687→          resolved: false,
+   688→        },
+   689→      });
+   690→    } catch (error) {
+   691→      console.error('[SecurityMonitor] Error persisting event:', error);
+   692→    }
+   693→  }
+   694→
+   695→  /**
+   696→   * Helper to calculate risk from events array
+   697→   */
+   698→  private calculateIPRiskScoreFromEvents(events: SecurityEvent[]): number {
+   699→    let risk = 0;
+   700→    for (const event of events) {
+   701→      switch (event.severity) {
+   702→        case 'critical': risk += 30; break;
+   703→        case 'high': risk += 20; break;
+   704→        case 'medium': risk += 10; break;
+   705→        case 'low': risk += 5; break;
+   706→      }
+   707→    }
+   708→    return Math.min(100, risk);
+   709→  }
+   710→}
+   711→
+   712→// Export singleton instance
+   713→export const securityMonitor = new SecurityMonitoringSystem();
+   714→
+   715→// Convenience functions for common operations
+   716→
+   717→/**
+   718→ * Record authentication attempt
+   719→ */
+   720→export async function recordAuthAttempt(params: {
+   721→  success: boolean;
+   722→  userId?: string;
+   723→  ipAddress: string;
+   724→  userAgent?: string;
+   725→  method?: 'password' | 'oauth' | '2fa';
+   726→}): Promise<void> {
+   727→  const { success, userId, ipAddress, userAgent, method } = params;
+   728→  
+   729→  // Check for brute force pattern
+   730→  const recentFailures = await db.securityEvent.count({
+   731→    where: {
+   732→      eventType: 'AUTH_FAILURE',
+   733→      ipAddress,
+   734→      createdAt: { gte: new Date(Date.now() - 15 * 60 * 1000) }, // Last 15 min
+   735→    },
+   736→  });
+   737→
+   738→  if (!success && recentFailures >= 5) {
+   739→    // Potential brute force attack
+   740→    await securityMonitor.recordEvent({
+   741→      eventType: 'brute_force_detected',
+   742→      severity: recentFailures >= 10 ? 'critical' : 'high',
+   743→      source: 'authentication',
+   744→      ipAddress,
+   745→      userId,
+   746→      details: {
+   747→        method,
+   748→        failureCount: recentFailures + 1,
+   749→        userAgent,
+   750→        windowMinutes: 15,
+   751→      },
+   752→    });
+   753→  } else {
+   754→    await securityMonitor.recordEvent({
+   755→      eventType: success ? 'auth_success' : 'auth_failure',
+   756→      severity: success ? 'info' : 'low',
+   757→      source: 'authentication',
+   758→      ipAddress,
+   759→      userId,
+   760→      details: { method, userAgent },
+   761→    });
+   762→  }
+   763→}
+   764→
+   765→/**
+   766→ * Record API abuse
+   767→ */
+   768→export async function recordAPIAbuse(params: {
+   769→  endpoint: string;
+   770→  method: string;
+   771→  ipAddress: string;
+   772→  userId?: string;
+   773→  reason: string;
+   774→}): Promise<void> {
+   775→  await securityMonitor.recordEvent({
+   776→    eventType: 'api_abuse',
+   777→    severity: 'medium',
+   778→    source: 'api-gateway',
+   779→    ipAddress: params.ipAddress,
+   780→    userId: params.userId,
+   781→    details: {
+   782→      endpoint: params.endpoint,
+   783→      httpMethod: params.method,
+   784→      reason: params.reason,
+   785→    },
+   786→  });
+   787→}
+   788→
+   789→/**
+   790→ * Record injection attempt
+   791→ */
+   792→export async function recordInjectionAttempt(params: {
+   793→  type: 'sql' | 'nosql' | 'xss' | 'command';
+   794→  ipAddress: string;
+   795→  userId?: string;
+   796→  payload?: string;
+   797→  endpoint?: string;
+   798→}): Promise<void> {
+   799→  await securityMonitor.recordEvent({
+   800→    eventType: params.type === 'xss' ? 'xss_attempt' : 'injection_attempt',
+   801→    severity: 'high',
+   802→    source: 'waf',
+   803→    ipAddress: params.ipAddress,
+   804→    userId: params.userId,
+   805→    details: {
+   806→      injectionType: params.type,
+   807→      payload: params.payload?.substring(0, 500), // Truncate for storage
+   808→      endpoint: params.endpoint,
+   809→    },
+   810→  });
+   811→
+   812→  // Auto-block for injection attempts
+   813→  const riskScore = securityMonitor.calculateIPRiskScore(params.ipAddress);
+   814→  if (riskScore >= MONITORING_CONFIG.thresholds.autoBlockIP) {
+   815→    await securityMonitor.blockIPAddress(params.ipAddress, 48); // 48 hours for injection
+   816→  }
+   817→}
+   818→
+   819→export default securityMonitor;
+   820→
