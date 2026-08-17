@@ -594,7 +594,4 @@ export const emailService = {
   },
 };
 
-// Export configuration for use in templates
-export { EMAIL_CONFIG };
-
 export default emailService;

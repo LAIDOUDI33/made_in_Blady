@@ -202,7 +202,7 @@ export default function LoginScreen() {
             </TouchableOpacity>
             
             <TouchableOpacity style={styles.socialButton} disabled={isLoading}>
-              <Ionicons name="logo-apple" size={24} Colors.text} />
+              <Ionicons name="logo-apple" size={24} color={Colors.text}} />
               <Text style={styles.socialButtonText}>Apple</Text>
             </TouchableOpacity>
           </View>

@@ -203,6 +203,5 @@ export function RFQCard({
 
 // RFQ List Card for the list view (more compact)
 export function RFQListCard({ rfq, ...props }: RFQCardProps) {
-  return (
-    <RFQCard {...props} rfq={rfq} />;
+  return <RFQCard {...props} rfq={rfq} />;
 }

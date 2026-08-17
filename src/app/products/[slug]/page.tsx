@@ -47,7 +47,6 @@ import {
   X,
 } from "lucide-react";
 import { ReviewList, ReviewForm } from "@/components/reviews";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 function ProductDetailContent() {
   const params = useParams();

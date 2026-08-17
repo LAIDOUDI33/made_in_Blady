@@ -9,7 +9,7 @@
  */
 
 // ===========================================
-# Next.js Configuration for Performance
+// Next.js Configuration for Performance
 // ===========================================
 
 /** next.config.ts additions for performance */
@@ -169,7 +169,7 @@ export const performanceNextConfig = {
 };
 
 // ===========================================
-# Compression Configuration
+// Compression Configuration
 // ===========================================
 
 export interface CompressionConfig {
@@ -227,7 +227,6 @@ export const DEFAULT_COMPRESSION_CONFIG: CompressionConfig = {
     'image/gif',
     'video/mp4',
     'audio/mpeg',
-    # Already compressed formats
     'application/gzip',
     'application/x-gzip',
     'application/brotli',
@@ -282,7 +281,7 @@ export function getNetlifyCompressionConfig() {
 }
 
 // ===========================================
-# Minification Settings
+// Minification Settings
 // ===========================================
 
 export interface MinificationConfig {
@@ -334,7 +333,7 @@ export const DEFAULT_MINIFICATION_CONFIG: MinificationConfig = {
 };
 
 // ===========================================
-# Bundle Analysis & Optimization
+// Bundle Analysis & Optimization
 // ===========================================
 
 export interface BundleOptimizationConfig {
@@ -389,7 +388,7 @@ export function getBundleRecommendations(bundleSize: number): string[] {
 }
 
 // ===========================================
-# Asset Pipeline Configuration
+// Asset Pipeline Configuration
 // ===========================================
 
 export interface AssetPipelineConfig {
@@ -433,7 +432,7 @@ export const ASSET_PIPELINE_CONFIG: AssetPipelineConfig = {
 };
 
 // ===========================================
-# Export All Configurations
+// Export All Configurations
 // ===========================================
 
 export {

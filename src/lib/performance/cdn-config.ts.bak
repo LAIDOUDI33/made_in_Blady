@@ -10,7 +10,7 @@
  */
 
 // ===========================================
-# CDN Configuration Types
+// CDN Configuration Types
 // ===========================================
 
 export interface CDNConfig {
@@ -48,7 +48,7 @@ export interface CacheRule {
 }
 
 // ===========================================
-# Default CDN Configurations
+// Default CDN Configurations
 // ===========================================
 
 export const VERCEL_CDN_CONFIG: CDNConfig = {
@@ -159,7 +159,7 @@ export const CLOUDFLARE_CDN_CONFIG: CDNConfig = {
 };
 
 // ===========================================
-# Edge Function Handlers
+// Edge Function Handlers
 // ===========================================
 
 /**
@@ -287,7 +287,7 @@ export function getCloudFrontPolicy(pathname: string): {
 }
 
 // ===========================================
-# Cache Invalidation Utilities
+// Cache Invalidation Utilities
 // ===========================================
 
 interface CacheInvalidationRequest {
@@ -343,7 +343,7 @@ export const INVALIDATION_PATTERNS = {
 };
 
 // ===========================================
-# Performance Headers Generator
+// Performance Headers Generator
 // ===========================================
 
 export function generatePerformanceHeaders(options: {
@@ -378,7 +378,7 @@ export function generatePerformanceHeaders(options: {
 }
 
 // ===========================================
-# Export All
+/ Export All
 // ===========================================
 
 export {

@@ -63,11 +63,22 @@ const CONFIG = {
     },
   },
 
-  // Bot detection
+  // Bot detection - Updated to be more permissive for SEO
   bots: {
     blockBadBots: true,
-    goodBots: ['googlebot', 'bingbot', 'slurp', 'duckduckbot', 'baiduspider'],
-    badBots: ['badbot', 'examplebadbot'], // Add known bad bots
+    goodBots: [
+      // Major search engines (allow these)
+      'googlebot', 'bingbot', 'slurp', 'duckduckbot', 'baiduspider',
+      'yandexbot', 'facebookexternalhit', 'twitterbot', 'linkedinbot',
+      'applebot', 'sogou', 'exabot', 'ahrefsbot', 'semrushbot',
+      'mj12bot', 'petalbot', 'ia_archiver', 'archive.org_bot'
+    ],
+    badBots: [
+      // Known malicious bots (block these)
+      'sqlmap', 'nikto', 'nmap', 'masscan', 'zgrab', 'gobuster',
+      'dirbuster', 'wfuzz', 'ffuf', 'hydra', 'medusa', 'patator',
+      'brute', 'acunetix', 'nessus', 'burpsuite', 'w3af', 'arachni'
+    ],
   },
 };
 
@@ -130,18 +141,23 @@ function getRouteCategory(pathname: string): string {
 function isBot(userAgent: string): boolean {
   const lowerUA = userAgent.toLowerCase();
   
-  // Check for good bots
+  // Always allow good bots (search engines, social media crawlers)
   if (CONFIG.bots.goodBots.some(bot => lowerUA.includes(bot))) {
     return false;
   }
   
-  // Check for bad bots
+  // Block known bad/malicious bots
   if (CONFIG.bots.blockBadBots && CONFIG.bots.badBots.some(bot => lowerUA.includes(bot))) {
     return true;
   }
   
-  // Generic bot detection
-  return /bot|crawl|spider|scraper/i.test(lowerUA);
+  // Only block if user-agent is empty or clearly fake (not generic bot detection)
+  if (!userAgent || userAgent.length < 10) {
+    return true; // Block requests with no/short user-agent
+  }
+  
+  // Allow all other user-agents (including benign bots and scrapers)
+  return false;
 }
 
 function getClientIdentifier(request: NextRequest): string {
@@ -366,7 +382,7 @@ export async function middleware(request: NextRequest) {
 }
 
 // ===========================================
-# Middleware Config
+// Middleware Config
 // ===========================================
 
 export const config = {

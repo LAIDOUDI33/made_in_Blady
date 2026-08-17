@@ -123,7 +123,7 @@ export async function GET(request: NextRequest) {
         // Import dynamique de Redis (optionnel)
         let Redis: any;
         try {
-          Redis = (await import('ioredio')).default;
+          Redis = (await import('ioredis')).default;
         } catch {
           // ioredis non installé, skip
           healthResponse.services.redis = { status: 'unknown' };

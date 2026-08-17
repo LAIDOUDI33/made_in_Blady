@@ -5,7 +5,11 @@ import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tab';
+
+// Pattern SVG URL broken into parts to avoid parser issues with long strings
+const SVG_PATH_DATA = "M50 50c0-5.523 4.477-10 10-10s10 4.477 10 10-4.477 10-10 10c0 5.523-4.477 10-10 10s-10-4.477-10-10 4.477-10 10-10zM10 10c0-5.523 4.477-10 10-10s10 4.477 10 10-4.477 10-10 10c0 5.523-4.477 10-10 10S0 25.523 0 20s4.477-10 10-10zm10 8c4.418 0 8-3.582 8-8s-3.582-8-8-8-8 3.582-8 8 3.582 8 8 8zm40 40c4.418 0 8-3.582 8-8s-3.582-8-8-8-8 3.582-8 8 3.582 8 8 8z";
+const PATTERN_SVG_URL = `url("data:image/svg+xml,%3Csvg width='80' height='80' viewBox='0 0 80 80' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.15'%3E%3Cpath d='${SVG_PATH_DATA}' /%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`;
 import { 
   Code2, BookOpen, Key, BarChart3, Plug, Zap, Shield, FileText,
   Copy, ExternalLink, CheckCircle, ArrowRight, Globe, Lock,
@@ -320,7 +324,7 @@ export default function ApiPortalPage() {
             <Card className="mt-8 bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 text-white overflow-hidden">
               <div className="absolute right-0 top-0 h-full w-1/3 opacity-20">
                 <div className="h-full w-full" style={{
-                  backgroundImage: `url("data:image/svg+xml,%3Csvg width='80' height='80' viewBox='0 0 80 80' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.15'%3E%3Cpath d='M50 50c0-5.523 4.477-10 10-10s10 4.477 10 10-4.477 10-10 10c0 5.523-4.477 10-10 10s-10-4.477-10-10 4.477-10 10-10zM10 10c0-5.523 4.477-10 10-10s10 4.477 10 10-4.477 10-10 10c0 5.523-4.477 10-10 10S0 25.523 0 20s4.477-10 10-10zm10 8c4.418 0 8-3.582 8-8s-3.582-8-8-8-8 3.582-8 8 3.582 8 8 8zm40 40c4.418 0 8-3.582 8-8s-3.582-8-8-8-8 3.582-8 8 3.582 8 8 8z' /%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+                  backgroundImage: PATTERN_SVG_URL,
                 }} />
               </div>
               <CardContent className="relative flex flex-col items-start justify-between gap-4 p-6 sm:flex-row sm:items-center">
@@ -791,47 +795,11 @@ curl -X POST "https://api.algeriatrade.dz/api/v1/rfqs" \\
             </Card>
 
             {/* Enterprise Tier */}
-            <Card className="relative group hover:shadow-xl transition-shadow duration-300">
-              <CardHeader className="text-center pb-4">
-                <div className="mx-auto mb-3 h-12 w-12 rounded-full bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center">
-                  <Globe className="h-6 w-6 text-white" />
-                </div>
-                <CardTitle className="text-xl">Enterprise</CardTitle>
-                <CardDescription>Pour les grandes organisations</CardDescription>
-              </CardHeader>
-              <CardContent className="text-center">
-                <div className="mb-6">
-                  <span className="text-5xl font-bold text-gray-900">Sur mesure</span>
-                </div>
-                <ul className="space-y-3 text-left mb-8">
-                  <li className="flex items-center text-sm">
-                    <CheckCircle className="mr-3 h-4 w-4 text-green-500 shrink-0" /> 
-                    <span>Requêtes illimitées</span>
-                  </li>
-                  <li className="flex items-center text-sm">
-                    <CheckCircle className="mr-3 h-4 w-4 text-green-500 shrink-0" /> 
-                    <span>SLA garanti <strong>99.9%</strong></span>
-                  </li>
-                  <li className="flex items-center text-sm">
-                    <CheckCircle className="mr-3 h-4 w-4 text-green-500 shrink-0" /> 
-                    <span>Support dédié <strong>24/7</strong></span>
-                  </li>
-                  <li className="flex items-center text-sm">
-                    <CheckCircle className="mr-3 h-4 w-4 text-green-500 shrink-0" /> 
-                    <span>Déploiement On-premise</span>
-                  </li>
-                  <li className="flex items-center text-sm">
-                    <CheckCircle className="mr-3 h-4 w-4 text-green-500 shrink-0" /> 
-                    <span>Intégrations personnalisées</span>
-                  </li>
-                  <li className="flex items-center text-sm">
-                    <CheckCircle className="mr-3 h-4 w-4 text-green-500 shrink-0" /> 
-                    <span>Account Manager dédié</span>
-                  </li>
-                </ul>
-                <Button variant="outline" className="w-full" size="lg>
-                  Nous Contacter
-                </Button>
+            <Card className="enterprise-card">
+              <CardContent className="text-center p-6">
+                <CardTitle className="text-xl mb-2">Enterprise</CardTitle>
+                <CardDescription>Sur mesure - Contactez-nous</CardDescription>
+                <Button className="mt-4" variant="outline">Nous Contacter</Button>
               </CardContent>
             </Card>
           </div>

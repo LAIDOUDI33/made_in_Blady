@@ -879,7 +879,7 @@ class RateLimiterDDoS {
 
   // Log significant events
   if ((result.blocked || result.challenged) && this.config.logging.logRateLimitExceeded) {
-    console.warn(`[RateLimiter] ${result.blocked ? 'BLOCKED' : result.challenged ? 'CHALLENGED' : ''} `request from ${client.ipAddress} (${client.url})`);
+    const action = result.blocked ? 'BLOCKED' : result.challenged ? 'CHALLENGED' : ''; console.warn(`[RateLimiter] ${action} request from ${client.ipAddress} (${client.url})`);
   }
 
   // Auto-cleanup expired entries periodically

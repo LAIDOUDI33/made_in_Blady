@@ -40,13 +40,31 @@ import {
   Building2,
 } from "lucide-react";
 
-// Default stats (can be overridden per tenant)
+// Default stats (overridden by API on mount)
 const defaultStats = [
-  { label: "Fournisseurs vérifiés", value: "2,500+", icon: Factory },
+  { label: "Fournisseurs vérifiés", value: "1,710+", icon: Factory },
   { label: "Produits référencés", value: "50,000+", icon: Package },
   { label: "Appels d'offres", value: "1,200+", icon: Handshake },
   { label: "Transactions", value: "15M+ DZD", icon: TrendingUp },
 ];
+
+// Dynamic stats state interface
+interface PlatformStats {
+  companies?: {
+    total: number;
+    verified: number;
+    exportReady: number;
+  };
+  products?: {
+    total: number;
+  };
+  rfqs?: {
+    active: number;
+  };
+  transactions?: {
+    formattedVolume: string;
+  };
+}
 
 const categories = [
   {
@@ -103,17 +121,47 @@ export default function HomePage() {
   const { t, isRTL } = useTranslation();
   const { tenant, theme, locale, formatCurrency, features } = useTenant();
   const [mounted, setMounted] = useState(false);
+  const [dynamicStats, setDynamicStats] = useState<PlatformStats | null>(null);
 
   // Avoid hydration mismatch
   useEffect(() => {
     setMounted(true);
+    
+    // Fetch real platform statistics
+    fetch('/api/stats/public')
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.data) {
+          setDynamicStats(data.data);
+        }
+      })
+      .catch(err => console.error('Failed to fetch stats:', err));
   }, []);
 
-  // Get tenant-specific stats or defaults
-  const stats = defaultStats.map(stat => ({
-    ...stat,
-    // In a real app, these would come from the API based on tenant
-  }));
+  // Get tenant-specific stats (prefer dynamic data)
+  const stats = defaultStats.map((stat, index) => {
+    let value = stat.value;
+    
+    // Override with real data if available
+    if (dynamicStats) {
+      switch(index) {
+        case 0: // Fournisseurs vérifiés
+          value = `${dynamicStats.companies?.total?.toLocaleString() || stat.value}+`;
+          break;
+        case 1: // Produits référencés
+          value = `${dynamicStats.products?.total?.toLocaleString() || stat.value}+`;
+          break;
+        case 2: // Appels d'offres
+          value = `${dynamicStats.rfqs?.active?.toLocaleString() || stat.value}+`;
+          break;
+        case 3: // Transactions
+          value = dynamicStats.transactions?.formattedVolume || stat.value;
+          break;
+      }
+    }
+    
+    return { ...stat, value };
+  });
 
   return (
     <div className="min-h-screen" style={{ 

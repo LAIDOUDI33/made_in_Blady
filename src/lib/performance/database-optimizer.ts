@@ -14,7 +14,7 @@ import { PrismaClient, Prisma } from '@prisma/client';
 import { getCacheManager } from '@/lib/performance/advanced-cache';
 
 // ===========================================
-# Configuration Types
+// Configuration Types
 // ===========================================
 
 export interface DatabaseConfig {
@@ -51,7 +51,7 @@ interface QueryMetrics {
 }
 
 // ===========================================
-# Default Configuration
+// Default Configuration
 // ===========================================
 
 const DEFAULT_CONFIG: DatabaseConfig = {
@@ -71,7 +71,7 @@ const DEFAULT_CONFIG: DatabaseConfig = {
 };
 
 // ===========================================
-# Enhanced Prisma Client with Caching
+// Enhanced Prisma Client with Caching
 // ===========================================
 
 class OptimizedPrismaClient {
@@ -432,7 +432,7 @@ class OptimizedPrismaClient {
 }
 
 // ===========================================
-# Singleton Instance
+// Singleton Instance
 // ===========================================
 
 let dbInstance: OptimizedPrismaClient | null = null;

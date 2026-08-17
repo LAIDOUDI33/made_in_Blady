@@ -14,9 +14,9 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     
-    // Parse query parameters
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '1000');
+    // Parse query parameters with security limits
+    const page = Math.max(1, Math.min(100, parseInt(searchParams.get('page') || '1')));
+    const limit = Math.max(10, Math.min(500, parseInt(searchParams.get('limit') || '100'))); // Reduced from 1000
     const wilaya = searchParams.get('wilaya') || '';
     const verificationStatus = searchParams.get('verificationStatus') || '';
     const exportCapable = searchParams.get('exportCapable') || '';

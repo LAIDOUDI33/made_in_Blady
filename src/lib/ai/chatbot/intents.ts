@@ -59,7 +59,7 @@ export const INTENTS: Intent[] = [
     id: 'search_products',
     category: 'product_search',
     patterns: [
-      /(?:cherche|rechercher|trouver|je\s*veux|je\s*cherche|j\')ai\s*besoin\s*de|où\s*trouver)\b.+(?:produit|article|marchandise|matériel|fourniture)/i,
+      /(?:cherche|rechercher|trouver|je\s*veux|je\s*cherche|j'ai\s*besoin\s*de|où\s*trouver)\b.+(?:produit|article|marchandise|matériel|fourniture)/i,
       /(?:cherche|rechercher|trouver|voir)\b.+(?:panneau\s*solaire|pompe|machine|outils?|matériaux?|acier|ciment|engrais)/i,
       /^(?:cherche|search|recherche)\b[:\s]+/i,
       /(?:avez\s*vous|tu\s*as)\b.+(?:ce\s*que|quelque\s*chose)\b/i,

@@ -295,7 +295,7 @@ export function prefetchResources(urls: string[]): void {
 }
 
 // ===========================================
-# Bundle Size Monitoring
+// Bundle Size Monitoring
 // ===========================================
 
 interface BundleInfo {

@@ -787,10 +787,7 @@ export function withErrorReporting<P extends object>(
 
   const WithErrorReporting: React.FC<P> = (props) => {
     return (
-      <WrappedComponent
-        {...props}
-        ref={null}
-      />
+      <WrappedComponent {...props} ref={null}></WrappedComponent>
     );
   };
 

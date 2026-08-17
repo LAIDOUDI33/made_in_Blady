@@ -20,17 +20,6 @@ const nextConfig: NextConfig = {
   // Performance Optimizations (Updated for Next.js 16 compatibility)
   // =============================================================================
   
-  // NOTE: swcMinify is now default behavior in Next.js 16 - removed deprecated option
-  
-  // Package import optimization (moved from experimental)
-  optimizePackageImports: [
-    'lucide-react',
-    '@radix-ui/react-icons',
-    'date-fns',
-    'lodash',
-    'recharts',
-  ],
-  
   // Server packages externalization (updated location for Next.js 16)
   serverExternalPackages: [],
 
@@ -154,10 +143,11 @@ const nextConfig: NextConfig = {
   },
 
   // =============================================================================
-  // Webpack Configuration
+  // Build System: Use Webpack for stability (Turbopack has CSS issues)
   // =============================================================================
+  
   webpack: (config, { isServer }) => {
-    // Optimize webpack bundle
+    // Path aliases
     config.resolve.alias = {
       ...config.resolve.alias,
       '@': __dirname + '/src',

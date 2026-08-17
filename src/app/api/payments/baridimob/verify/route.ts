@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { generateTransactionId, simulateProcessingDelay } from '@/lib/payments/utils'
-import { otpStore } from '../baridimob/route'
+import { otpStore } from '@/app/api/payments/baridimob/route'
 
 interface BaridiMobVerifyRequest {
   paymentId: string
