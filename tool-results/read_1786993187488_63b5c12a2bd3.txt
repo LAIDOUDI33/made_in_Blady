@@ -1,0 +1,1146 @@
+     1→'use client';
+     2→
+     3→import React, { useState, useMemo } from 'react';
+     4→import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+     5→import { Button } from '@/components/ui/button';
+     6→import { Badge } from '@/components/ui/badge';
+     7→import { Input } from '@/components/ui/input';
+     8→import { Label } from '@/components/ui/label';
+     9→import {
+    10→  Table,
+    11→  TableBody,
+    12→  TableCell,
+    13→  TableHead,
+    14→  TableHeader,
+    15→  TableRow,
+    16→} from '@/components/ui/table';
+    17→import {
+    18→  Select,
+    19→  SelectContent,
+    20→  SelectItem,
+    21→  SelectTrigger,
+    22→  SelectValue,
+    23→} from '@/components/ui/select';
+    24→import {
+    25→  Dialog,
+    26→  DialogContent,
+    27→  DialogDescription,
+    28→  DialogFooter,
+    29→  DialogHeader,
+    30→  DialogTitle,
+    31→} from '@/components/ui/dialog';
+    32→import {
+    33→  DropdownMenu,
+    34→  DropdownMenuContent,
+    35→  DropdownMenuItem,
+    36→  DropdownMenuSeparator,
+    37→  DropdownMenuTrigger,
+    38→} from '@/components/ui/dropdown-menu';
+    39→import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+    40→import { StatsCard } from '@/components/admin/StatsCard';
+    41→import {
+    42→  Truck,
+    43→  Package,
+    44→  MapPin,
+    45→  Search,
+    46→  Plus,
+    47→  Edit,
+    48→  Trash2,
+    49→  MoreHorizontal,
+    50→  Settings,
+    51→  TrendingUp,
+    52→  Clock,
+    53→  CheckCircle2,
+    54→  AlertTriangle,
+    55→  Navigation,
+    56→  DollarSign,
+    57→  Calendar,
+    58→  Filter,
+    59→  Download,
+    60→  RefreshCw,
+    61→  Ship,
+    62→  Plane,
+    63→  Train
+    64→} from 'lucide-react';
+    65→
+    66→// Types
+    67→type ShipmentStatus = 'PENDING' | 'PROCESSING' | 'IN_TRANSIT' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'RETURNED' | 'CANCELLED';
+    68→type CarrierStatus = 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
+    69→type Incoterm = 'EXW' | 'FCA' | 'CPT' | 'CIP' | 'DAP' | 'DPU' | 'DDP' | 'FAS' | 'FOB' | 'CFR' | 'CIF';
+    70→
+    71→interface ShippingRate {
+    72→  id: string;
+    73→  origin: string; // Wilaya code or region
+    74→  originName: string;
+    75→  destination: string;
+    76→  destinationName: string;
+    77→  carrierId: string;
+    78→  carrierName: string;
+    79→  method: 'GROUND' | 'AIR' | 'SEA' | 'EXPRESS';
+    80→  basePrice: number;
+    81→  currency: string;
+    82→  pricePerKg: number;
+    83→  estimatedDays: { min: number; max: number };
+    84→  isActive: boolean;
+    85→}
+    86→
+    87→interface Carrier {
+    88→  id: string;
+    89→  name: string;
+    90→  logo?: string;
+    91→  contactEmail: string;
+    92→  contactPhone: string;
+    93→  status: CarrierStatus;
+    94→  shippingMethods: ('GROUND' | 'AIR' | 'SEA' | 'EXPRESS')[];
+    95→  coverage: string[]; // Wilayas covered
+    96→  rating: number;
+    97→  totalDeliveries: number;
+    98→  onTimeRate: number;
+    99→}
+   100→
+   101→interface IncotermConfig {
+   102→  incoterm: Incoterm;
+   103→  description: string;
+   104→  isActive: boolean;
+   105→  sellerResponsibilities: string[];
+   106→  buyerResponsibilities: string[];
+   107→}
+   108→
+   109→interface ShipmentTracking {
+   110→  id: string;
+   111→  trackingNumber: string;
+   112→  orderId: string;
+   113→  customerName: string;
+   114→  carrierName: string;
+   115→  method: string;
+   116→  origin: string;
+   117→  destination: string;
+   118→  status: ShipmentStatus;
+   119→  weight: number;
+   120→  cost: number;
+   121→  currency: string;
+   122→  estimatedDelivery: string;
+   123→  actualDelivery?: string;
+   124→  events: TrackingEvent[];
+   125→  createdAt: string;
+   126→}
+   127→
+   128→interface TrackingEvent {
+   129→  timestamp: string;
+   130→  location: string;
+   131→  description: string;
+   132→  type: 'INFO' | 'LOCATION_UPDATE' | 'DELIVERY_ATTEMPT' | 'EXCEPTION' | 'DELIVERED';
+   133→}
+   134→
+   135→// Sample data
+   136→const sampleCarriers: Carrier[] = [
+   137→  {
+   138→    id: 'CAR001',
+   139→    name: 'Algerie Poste Express',
+   140→    contactEmail: 'express@algerieposte.dz',
+   141→    contactPhone: '+213 3000',
+   142→    status: 'ACTIVE',
+   143→    shippingMethods: ['GROUND', 'EXPRESS'],
+   144→    coverage: ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12', '13', '14', '15', '16'],
+   145→    rating: 4.2,
+   146→    totalDeliveries: 15420,
+   147→    onTimeRate: 87,
+   148→  },
+   149→  {
+   150→    id: 'CAR002',
+   151→    name: 'Yassir Logistics',
+   152→    contactEmail: 'business@yassir.dz',
+   153→    contactPhone: '+213 555 123 456',
+   154→    status: 'ACTIVE',
+   155→    shippingMethods: ['GROUND', 'EXPRESS'],
+   156→    coverage: ['16', '25', '31', '32', '33', '34', '35', '36', '37', '38', '39', '40', '41', '42', '43', '44', '45', '46', '47', '48'],
+   157→    rating: 4.5,
+   158→    totalDeliveries: 8930,
+   159→    onTimeRate: 92,
+   160→  },
+   161→  {
+   162→    id: 'CAR003',
+   163→    name: 'CTN Cargo',
+   164→    contactEmail: 'info@ctn.dz',
+   165→    contactPhone: '+213 661 987 654',
+   166→    status: 'ACTIVE',
+   167→    shippingMethods: ['GROUND', 'AIR', 'SEA'],
+   168→    coverage: ['*'], // National + International
+   169→    rating: 3.9,
+   170→    totalDeliveries: 5670,
+   171→    onTimeRate: 78,
+   172→  },
+   173→];
+   174→
+   175→const sampleRates: ShippingRate[] = [
+   176→  {
+   177→    id: 'RATE001',
+   178→    origin: '16',
+   179→    originName: 'Alger',
+   180→    destination: '31',
+   181→    destinationName: 'Oran',
+   182→    carrierId: 'CAR001',
+   183→    carrierName: 'Algerie Poste Express',
+   184→    method: 'GROUND',
+   185→    basePrice: 800,
+   186→    currency: 'DZD',
+   187→    pricePerKg: 50,
+   188→    estimatedDays: { min: 2, max: 3 },
+   189→    isActive: true,
+   190→  },
+   191→  {
+   192→    id: 'RATE002',
+   193→    origin: '16',
+   194→    originName: 'Alger',
+   195→    destination: '31',
+   196→    destinationName: 'Oran',
+   197→    carrierId: 'CAR002',
+   198→    carrierName: 'Yassir Logistics',
+   199→    method: 'EXPRESS',
+   200→    basePrice: 1200,
+   201→    currency: 'DZD',
+   202→    pricePerKg: 80,
+   203→    estimatedDays: { min: 1, max: 1 },
+   204→    isActive: true,
+   205→  },
+   206→  {
+   207→    id: 'RATE003',
+   208→    origin: '16',
+   209→    originName: 'Alger',
+   210→    destination: '04',
+   211→    destinationName: 'Ouargla',
+   212→    carrierId: 'CAR001',
+   213→    carrierName: 'Algerie Poste Express',
+   214→    method: 'GROUND',
+   215→    basePrice: 1500,
+   216→    currency: 'DZD',
+   217→    pricePerKg: 100,
+   218→    estimatedDays: { min: 4, max: 7 },
+   219→    isActive: true,
+   220→  },
+   221→  {
+   222→    id: 'RATE004',
+   223→    origin: '31',
+   224→    originName: 'Oran',
+   225→    destination: '16',
+   226→    destinationName: 'Alger',
+   227→    carrierId: 'CAR002',
+   228→    carrierName: 'Yassir Logistics',
+   229→    method: 'EXPRESS',
+   230→    basePrice: 1200,
+   231→    currency: 'DZD',
+   232→    pricePerKg: 80,
+   233→    estimatedDays: { min: 1, max: 1 },
+   234→    isActive: true,
+   235→  },
+   236→  {
+   237→    id: 'RATE005',
+   238→    origin: '16',
+   239→    originName: 'Alger',
+   240→    destination: '23',
+   241→    destinationName: 'Constantine',
+   242→    carrierId: 'CAR003',
+   243→    carrierName: 'CTN Cargo',
+   244→    method: 'AIR',
+   245→    basePrice: 2500,
+   246→    currency: 'DZD',
+   247→    pricePerKg: 150,
+   248→    estimatedDays: { min: 1, max: 2 },
+   249→    isActive: false,
+   250→  },
+   251→];
+   252→
+   253→const sampleIncoterms: IncotermConfig[] = [
+   254→  {
+   255→    incoterm: 'DDP',
+   256→    description: 'Rendu droits acquittés - Le vendeur assume tous les risques et coûts',
+   257→    isActive: true,
+   258→    sellerResponsibilities: ['Emballage', 'Export', 'Transport principal', 'Douane import', 'Livraison finale'],
+   259→    buyerResponsibilities: ['Déchargement', 'Importation formelle'],
+   260→  },
+   261→  {
+   262→    incoterm: 'DAP',
+   263→    description: 'Rendu au lieu de destination - Le vendeur livre au lieu convenu',
+   264→    isActive: true,
+   265→    sellerResponsibilities: ['Emballage', 'Export', 'Transport principal', 'Livraison finale'],
+   266→    buyerResponsibilities: ['Déchargement', 'Douane import', 'Taxes'],
+   267→  },
+   268→  {
+   269→    incoterm: 'EXW',
+   270→    description: 'À l\'usine (départ) - L\'acheteur assume tous les risques et coûts',
+   271→    isActive: true,
+   272→    sellerResponsibilities: ['Mise à disposition des marchandises'],
+   273→    buyerResponsibilities: ['Chargement', 'Transport principal', 'Assurance', 'Douane'],
+   274→  },
+   275→  {
+   276→    incoterm: 'FOB',
+   277→    description: 'Franco à bord - Le vendeur livre les marchandises à bord du navire',
+   278→    isActive: false,
+   279→    sellerResponsibilities: ['Emballage', 'Export', 'Livraison au port', 'Chargement'],
+   280→    buyerResponsibilities: ['Transport principal', 'Assurance', 'Douane import'],
+   281→  },
+   282→];
+   283→
+   284→const sampleShipments: ShipmentTracking[] = [
+   285→  {
+   286→    id: 'SH001',
+   287→    trackingNumber: 'AP20240001234',
+   288→    orderId: 'ORD-2024-001',
+   289→    customerName: 'Karim Meziani',
+   290→    carrierName: 'Algerie Poste Express',
+   291→    method: 'GROUND',
+   292→    origin: 'Alger',
+   293→    destination: 'Oran',
+   294→    status: 'IN_TRANSIT',
+   295→    weight: 5.5,
+   296→    cost: 1075,
+   297→    currency: 'DZD',
+   298→    estimatedDelivery: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+   299→    events: [
+   300→      { timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), location: 'Alger', description: 'Colis pris en charge', type: 'INFO' },
+   301→      { timestamp: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(), location: 'Blida', description: 'En transit vers Oran', type: 'LOCATION_UPDATE' },
+   302→    ],
+   303→    createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+   304→  },
+   305→  {
+   306→    id: 'SH002',
+   307→    trackingNumber: 'YL20240005678',
+   308→    orderId: 'ORD-2024-002',
+   309→    customerName: 'Fatima Zahra',
+   310→    carrierName: 'Yassir Logistics',
+   311→    method: 'EXPRESS',
+   312→    origin: 'Oran',
+   313→    destination: 'Alger',
+   314→    status: 'OUT_FOR_DELIVERY',
+   315→    weight: 2.3,
+   316→    cost: 1384,
+   317→    currency: 'DZD',
+   318→    estimatedDelivery: new Date().toISOString().split('T')[0],
+   319→    events: [
+   320→      { timestamp: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(), location: 'Oran', description: 'Colis expédié', type: 'INFO' },
+   321→      { timestamp: new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString(), location: 'Blida', description: 'Transit en cours', type: 'LOCATION_UPDATE' },
+   322→      { timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), location: 'Alger', description: 'Arrivé au centre de distribution', type: 'LOCATION_UPDATE' },
+   323→      { timestamp: new Date(Date.now() - 30 * 60 * 1000).toISOString(), location: 'Alger', description: 'En cours de livraison', type: 'LOCATION_UPDATE' },
+   324→    ],
+   325→    createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+   326→  },
+   327→  {
+   328→    id: 'SH003',
+   329→    trackingNumber: 'CTN20240009999',
+   330→    orderId: 'ORD-2024-003',
+   331→    customerName: 'Ahmed Benali',
+   332→    carrierName: 'CTN Cargo',
+   333→    method: 'GROUND',
+   334→    origin: 'Alger',
+   335→    destination: 'Ouargla',
+   336→    status: 'PENDING',
+   337→    weight: 15,
+   338→    cost: 3000,
+   339→    currency: 'DZD',
+   340→    estimatedDelivery: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+   341→    events: [
+   342→      { timestamp: new Date().toISOString(), location: 'Alger', description: 'Commande créée, en attente de prise en charge', type: 'INFO' },
+   343→    ],
+   344→    createdAt: new Date().toISOString(),
+   345→  },
+   346→];
+   347→
+   348→const statusConfig: Record<ShipmentStatus, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; color: string }> = {
+   349→  PENDING: { label: 'En attente', variant: 'outline', color: 'text-gray-700 bg-gray-100 border-gray-200' },
+   350→  PROCESSING: { label: 'Traitement', variant: 'secondary', color: 'text-blue-700 bg-blue-50 border-blue-200' },
+   351→  IN_TRANSIT: { label: 'En transit', variant: 'default', color: 'bg-purple-100 text-purple-800 border-purple-200' },
+   352→  OUT_FOR_DELIVERY: { label: 'En livraison', variant: 'default', color: 'bg-green-100 text-green-800 border-green-200' },
+   353→  DELIVERED: { label: 'Livré', variant: 'default', color: 'bg-green-100 text-green-800 border-green-200' },
+   354→  RETURNED: { label: 'Retourné', variant: 'secondary', color: 'text-orange-700 bg-orange-50 border-orange-200' },
+   355→  CANCELLED: { label: 'Annulé', variant: 'secondary', color: 'text-red-700 bg-red-50 border-red-200' },
+   356→};
+   357→
+   358→const methodConfig: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
+   359→  GROUND: { label: 'Terrestre', icon: <Truck className="h-4 w-4" />, color: 'bg-green-100 text-green-800' },
+   360→  AIR: { label: 'Aérien', icon: <Plane className="h-4 w-4" />, color: 'bg-blue-100 text-blue-800' },
+   361→  SEA: { label: 'Maritime', icon: <Ship className="h-4 w-4" />, color: 'bg-indigo-100 text-indigo-800' },
+   362→  EXPRESS: { label: 'Express', icon: <Package className="h-4 w-4" />, color: 'bg-orange-100 text-orange-800' },
+   363→};
+   364→
+   365→export default function ShippingManagementPage() {
+   366→  const [carriers] = useState<Carrier[]>(sampleCarriers);
+   367→  const [rates, setRates] = useState<ShippingRate[]>(sampleRates);
+   368→  const [incoterms] = useState<IncotermConfig[]>(sampleIncoterms);
+   369→  const [shipments] = useState<ShipmentTracking[]>(sampleShipments);
+   370→  
+   371→  const [activeTab, setActiveTab] = useState('tracking');
+   372→  const [searchQuery, setSearchQuery] = useState('');
+   373→  const [statusFilter, setStatusFilter] = useState<string>('ALL');
+   374→  
+   375→  // Dialog states
+   376→  const [rateDialogOpen, setRateDialogOpen] = useState(false);
+   377→  const [editingRate, setEditingRate] = useState<ShippingRate | null>(null);
+   378→  
+   379→  // Shipment detail dialog
+   380→  const [shipmentDetailOpen, setShipmentDetailOpen] = useState(false);
+   381→  const [selectedShipment, setSelectedShipment] = useState<ShipmentTracking | null>(null);
+   382→
+   383→  // Filter shipments
+   384→  const filteredShipments = useMemo(() => {
+   385→    let result = [...shipments];
+   386→    
+   387→    if (statusFilter !== 'ALL') {
+   388→      result = result.filter(s => s.status === statusFilter);
+   389→    }
+   390→    
+   391→    if (searchQuery.trim()) {
+   392→      const query = searchQuery.toLowerCase();
+   393→      result = result.filter(s => 
+   394→        s.trackingNumber.toLowerCase().includes(query) ||
+   395→        s.orderId.toLowerCase().includes(query) ||
+   396→        s.customerName.toLowerCase().includes(query)
+   397→      );
+   398→    }
+   399→    
+   400→    result.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+   401→    
+   402→    return result;
+   403→  }, [shipments, searchQuery, statusFilter]);
+   404→
+   405→  // Stats
+   406→  const inTransitCount = shipments.filter(s => s.status === 'IN_TRANSIT').length;
+   407→  const outForDelivery = shipments.filter(s => s.status === 'OUT_FOR_DELIVERY').length;
+   408→  const deliveredToday = shipments.filter(s => 
+   409→    s.status === 'DELIVERED' && 
+   410→    s.actualDelivery &&
+   411→    new Date(s.actualDelivery).toDateString() === new Date().toDateString()
+   412→  ).length;
+   413→  const avgOnTimeRate = carriers.length > 0 
+   414→    ? Math.round(carriers.reduce((sum, c) => sum + c.onTimeRate, 0) / carriers.length)
+   415→    : 0;
+   416→
+   417→  // Handlers
+   418→  const formatCurrency = (amount: number) => {
+   419→    return new Intl.NumberFormat('fr-DZ', { style: 'currency', currency: 'DZD' }).format(amount);
+   420→  };
+   421→
+   422→  const formatDate = (dateString: string) => {
+   423→    return new Date(dateString).toLocaleDateString('fr-FR', {
+   424→      day: '2-digit',
+   425→      month: '2-digit',
+   426→      year: 'numeric'
+   427→    });
+   428→  };
+   429→
+   430→  const formatDateTime = (dateString: string) => {
+   431→    return new Date(dateString).toLocaleDateString('fr-FR', {
+   432→      day: '2-digit',
+   433→      month: '2-digit',
+   434→      year: 'numeric',
+   435→      hour: '2-digit',
+   436→      minute: '2-digit'
+   437→    });
+   438→  };
+   439→
+   440→  const openRateDialog = (rate?: ShippingRate) => {
+   441→    setEditingRate(rate || {
+   442→      id: '',
+   443→      origin: '',
+   444→      originName: '',
+   445→      destination: '',
+   446→      destinationName: '',
+   447→      carrierId: '',
+   448→      carrierName: '',
+   449→      method: 'GROUND',
+   450→      basePrice: 0,
+   451→      currency: 'DZD',
+   452→      pricePerKg: 0,
+   453→      estimatedDays: { min: 1, max: 3 },
+   454→      isActive: true,
+   455→    });
+   456→    setRateDialogOpen(true);
+   457→  };
+   458→
+   459→  const handleSaveRate = async () => {
+   460→    if (!editingRate) return;
+   461→    await new Promise(resolve => setTimeout(resolve, 500));
+   462→    
+   463→    if (editingRate.id) {
+   464→      setRates(prev => prev.map(r => r.id === editingRate.id ? editingRate : r));
+   465→    } else {
+   466→      setRates(prev => [...prev, { ...editingRate, id: `RATE${Date.now()}` }]);
+   467→    }
+   468→    setRateDialogOpen(false);
+   469→  };
+   470→
+   471→  const openShipmentDetail = (shipment: ShipmentTracking) => {
+   472→    setSelectedShipment(shipment);
+   473→    setShipmentDetailOpen(true);
+   474→  };
+   475→
+   476→  const exportToCSV = () => {
+   477→    const headers = ['Tracking', 'Commande', 'Client', 'Transporteur', 'Origine', 'Destination', 'Statut', 'Poids', 'Coût', 'Est. livraison'];
+   478→    const csvRows = filteredShipments.map(s => [
+   479→      s.trackingNumber,
+   480→      s.orderId,
+   481→      s.customerName,
+   482→      s.carrierName,
+   483→      s.origin,
+   484→      s.destination,
+   485→      statusConfig[s.status].label,
+   486→      `${s.weight} kg`,
+   487→      formatCurrency(s.cost),
+   488→      s.estimatedDelivery
+   489→    ]);
+   490→    
+   491→    const csvContent = [headers, ...csvRows]
+   492→      .map(row => row.map(cell => `"${cell}"`).join(','))
+   493→      .join('\n');
+   494→    
+   495→    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+   496→    const link = document.createElement('a');
+   497→    link.href = URL.createObjectURL(blob);
+   498→    link.download = `expeditions_${new Date().toISOString().split('T')[0]}.csv`;
+   499→    link.click();
+   500→  };
+   501→
+   502→  return (
+   503→    <div className="space-y-6">
+   504→      {/* Header */}
+   505→      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+   506→        <div>
+   507→          <h1 className="text-2xl font-bold text-gray-900">Configuration Expédition</h1>
+   508→          <p className="text-gray-500 mt-1">Gérez les transporteurs, tarifs et suivez les expéditions</p>
+   509→        </div>
+   510→        <Button variant="outline" onClick={exportToCSV}>
+   511→          <Download className="mr-2 h-4 w-4" /> Exporter CSV
+   512→        </Button>
+   513→      </div>
+   514→
+   515→      {/* Stats Cards */}
+   516→      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+   517→        <StatsCard
+   518→          title="En transit"
+   519→          value={inTransitCount}
+   520→          description="Expéditions en cours"
+   521→          icon={Truck}
+   522→          iconClassName="bg-purple-100 text-purple-600"
+   523→        />
+   524→        <StatsCard
+   525→          title="En livraison"
+   526→          value={outForDelivery}
+   527→          description="Aujourd'hui"
+   528→          icon={Package}
+   529→          iconClassName="bg-green-100 text-green-600"
+   530→        />
+   531→        <StatsCard
+   532→          title="Livrées aujourd'hui"
+   533→          value={deliveredToday}
+   534→          description="Avec succès"
+   535→          icon={CheckCircle2}
+   536→          iconClassName="bg-blue-100 text-blue-600"
+   537→        />
+   538→        <StatsCard
+   539→          title="Taux ponctualité"
+   540→          value={`${avgOnTimeRate}%`}
+   541→          description="Moyenne transporteurs"
+   542→          icon={TrendingUp}
+   543→          iconClassName="bg-orange-100 text-orange-600"
+   544→        />
+   545→      </div>
+   546→
+   547→      {/* Main Tabs */}
+   548→      <Tabs value={activeTab} onValueChange={setActiveTab}>
+   549→        <TabsList>
+   550→          <TabsTrigger value="tracking" className="gap-1">
+   551→            <Navigation className="h-4 w-4" /> Suivi ({shipments.length})
+   552→          </TabsTrigger>
+   553→          <TabsTrigger value="rates" className="gap-1">
+   554→            <DollarSign className="h-4 w-4" /> Tarifs ({rates.length})
+   555→          </TabsTrigger>
+   556→          <TabsTrigger value="carriers" className="gap-1">
+   557→            <Truck className="h-4 w-4" /> Transporteurs ({carriers.length})
+   558→          </TabsTrigger>
+   559→          <TabsTrigger value="incoterms" className="gap-1">
+   560→            <Settings className="h-4 w-4" /> Incoterms ({incoterms.filter(i => i.isActive).length})
+   561→          </TabsTrigger>
+   562→        </TabsList>
+   563→
+   564→        {/* Tracking Tab */}
+   565→        <TabsContent value="tracking" className="mt-4 space-y-4">
+   566→          {/* Filters */}
+   567→          <Card>
+   568→            <CardContent className="pt-6">
+   569→              <div className="flex flex-col sm:flex-row gap-4">
+   570→                <div className="relative flex-1">
+   571→                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+   572→                  <Input
+   573→                    placeholder="Rechercher par numéro de suivi ou commande..."
+   574→                    value={searchQuery}
+   575→                    onChange={(e) => setSearchQuery(e.target.value)}
+   576→                    className="pl-10"
+   577→                  />
+   578→                </div>
+   579→                <Select value={statusFilter} onValueChange={setStatusFilter}>
+   580→                  <SelectTrigger className="w-[180px]">
+   581→                    <Filter className="mr-2 h-4 w-4" />
+   582→                    <SelectValue placeholder="Statut" />
+   583→                  </SelectTrigger>
+   584→                  <SelectContent>
+   585→                    <SelectItem value="ALL">Tous les statuts</SelectItem>
+   586→                    <SelectItem value="PENDING">En attente</SelectItem>
+   587→                    <SelectItem value="PROCESSING">Traitement</SelectItem>
+   588→                    <SelectItem value="IN_TRANSIT">En transit</SelectItem>
+   589→                    <SelectItem value="OUT_FOR_DELIVERY">En livraison</SelectItem>
+   590→                    <SelectItem value="DELIVERED">Livré</SelectItem>
+   591→                    <SelectItem value="RETURNED">Retourné</SelectItem>
+   592→                  </SelectContent>
+   593→                </Select>
+   594→              </div>
+   595→            </CardContent>
+   596→          </Card>
+   597→
+   598→          {/* Shipments Table */}
+   599→          <Card>
+   600→            <CardContent className="p-0">
+   601→              {filteredShipments.length > 0 ? (
+   602→                <div className="overflow-x-auto">
+   603→                  <Table>
+   604→                    <TableHeader>
+   605→                      <TableRow className="bg-gray-50 hover:bg-gray-50">
+   606→                        <TableHead>Numéro de suivi</TableHead>
+   607→                        <TableHead>Client</TableHead>
+   608→                        <TableHead>Itinéraire</TableHead>
+   609→                        <TableHead>Transporteur</TableHead>
+   610→                        <TableHead>Méthode</TableHead>
+   611→                        <TableHead>Statut</TableHead>
+   612→                        <TableHead className="hidden md:table-cell">Est. livraison</TableHead>
+   613→                        <TableHead className="w-12">Actions</TableHead>
+   614→                      </TableRow>
+   615→                    </TableHeader>
+   616→                    <TableBody>
+   617→                      {filteredShipments.map((shipment) => {
+   618→                        const status = statusConfig[shipment.status];
+   619→                        const method = methodConfig[shipment.method];
+   620→                        
+   621→                        return (
+   622→                          <TableRow key={shipment.id}>
+   623→                            <TableCell>
+   624→                              <code className="text-xs bg-gray-100 px-1.5 py-0.5 rounded">{shipment.trackingNumber}</code>
+   625→                            </TableCell>
+   626→                            <TableCell>
+   627→                              <p className="font-medium text-sm">{shipment.customerName}</p>
+   628→                              <p className="text-xs text-gray-500">{shipment.orderId}</p>
+   629→                            </TableCell>
+   630→                            <TableCell>
+   631→                              <div className="flex items-center gap-1 text-sm">
+   632→                                <MapPin className="h-3.5 w-3.5 text-gray-400" />
+   633→                                <span>{shipment.origin}</span>
+   634→                                <span className="text-gray-400">→</span>
+   635→                                <span>{shipment.destination}</span>
+   636→                              </div>
+   637→                            </TableCell>
+   638→                            <TableCell>
+   639→                              <span className="text-sm">{shipment.carrierName}</span>
+   640→                            </TableCell>
+   641→                            <TableCell>
+   642→                              <Badge className={method.color} variant="secondary">
+   643→                                {method.icon}
+   644→                                <span className="ml-1 hidden sm:inline">{method.label}</span>
+   645→                              </Badge>
+   646→                            </TableCell>
+   647→                            <TableCell>
+   648→                              <Badge variant={status.variant} className={status.color}>
+   649→                                {status.label}
+   650→                              </Badge>
+   651→                            </TableCell>
+   652→                            <TableCell className="hidden md:table-cell">
+   653→                              <span className="text-sm text-gray-600">{formatDate(shipment.estimatedDelivery)}</span>
+   654→                            </TableCell>
+   655→                            <TableCell>
+   656→                              <Button 
+   657→                                variant="ghost" 
+   658→                                size="icon" 
+   659→                                className="h-8 w-8"
+   660→                                onClick={() => openShipmentDetail(shipment)}
+   661→                              >
+   662→                                <Eye className="h-4 w-4" />
+   663→                                <span className="sr-only">Voir détails</span>
+   664→                              </Button>
+   665→                            </TableCell>
+   666→                          </TableRow>
+   667→                        );
+   668→                      })}
+   669→                    </TableBody>
+   670→                  </Table>
+   671→                </div>
+   672→              ) : (
+   673→                <div className="py-12 text-center">
+   674→                  <Truck className="h-12 w-12 mx-auto text-gray-300 mb-4" />
+   675→                  <h3 className="font-medium text-gray-900 mb-1">Aucune expédition trouvée</h3>
+   676→                  <p className="text-sm text-gray-500">Essayez de modifier vos filtres</p>
+   677→                </div>
+   678→              )}
+   679→            </CardContent>
+   680→          </Card>
+   681→        </TabsContent>
+   682→
+   683→        {/* Rates Tab */}
+   684→        <TabsContent value="rates" className="mt-4">
+   685→          <Card>
+   686→            <CardHeader className="flex flex-row items-center justify-between pb-4">
+   687→              <div>
+   688→                <CardTitle>Matrice tarifaire</CardTitle>
+   689→                <CardDescription>Gérez les tarifs d&apos;expédition par origine/destination</CardDescription>
+   690→              </div>
+   691→              <Button onClick={() => openRateDialog()}>
+   692→                <Plus className="mr-2 h-4 w-4" /> Ajouter un tarif
+   693→              </Button>
+   694→            </CardHeader>
+   695→            <CardContent>
+   696→              <div className="overflow-x-auto">
+   697→                <Table>
+   698→                  <TableHeader>
+   699→                    <TableRow>
+   700→                      <TableHead>Origine</TableHead>
+   701→                      <TableHead>Destination</TableHead>
+   702→                      <TableHead>Transporteur</TableHead>
+   703→                      <TableHead>Méthode</TableHead>
+   704→                      <TableHead>Prix de base</TableHead>
+   705→                      <TableHead>Prix/kg</TableHead>
+   706→                      <TableHead>Délai estimé</TableHead>
+   707→                      <TableHead>Statut</TableHead>
+   708→                      <TableHead className="w-12">Actions</TableHead>
+   709→                    </TableRow>
+   710→                  </TableHeader>
+   711→                  <TableBody>
+   712→                    {rates.map((rate) => (
+   713→                      <TableRow key={rate.id} className={!rate.isActive ? 'opacity-60' : ''}>
+   714→                        <TableCell className="font-medium">{rate.originName}</TableCell>
+   715→                        <TableCell>{rate.destinationName}</TableCell>
+   716→                        <TableCell>{rate.carrierName}</TableCell>
+   717→                        <TableCell>
+   718→                          <Badge className={methodConfig[rate.method]?.color} variant="secondary">
+   719→                            {methodConfig[rate.method]?.label}
+   720→                          </Badge>
+   721→                        </TableCell>
+   722→                        <TableCell>
+   723→                          <span className="font-semibold text-green-700">{formatCurrency(rate.basePrice)}</span>
+   724→                        </TableCell>
+   725→                        <TableCell>{formatCurrency(rate.pricePerKg)}/kg</TableCell>
+   726→                        <TableCell>
+   727→                          {rate.estimatedDays.min}-{rate.estimatedDays.max} jours
+   728→                        </TableCell>
+   729→                        <TableCell>
+   730→                          <Badge variant={rate.isActive ? 'default' : 'secondary'}>
+   731→                            {rate.isActive ? 'Actif' : 'Inactif'}
+   732→                          </Badge>
+   733→                        </TableCell>
+   734→                        <TableCell>
+   735→                          <Button 
+   736→                            variant="ghost" 
+   737→                            size="icon" 
+   738→                            className="h-8 w-8"
+   739→                            onClick={() => openRateDialog(rate)}
+   740→                          >
+   741→                            <Edit className="h-4 w-4" />
+   742→                          </Button>
+   743→                        </TableCell>
+   744→                      </TableRow>
+   745→                    ))}
+   746→                  </TableBody>
+   747→                </Table>
+   748→              </div>
+   749→            </CardContent>
+   750→          </Card>
+   751→        </TabsContent>
+   752→
+   753→        {/* Carriers Tab */}
+   754→        <TabsContent value="carriers" className="mt-4">
+   755→          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+   756→            {carriers.map((carrier) => (
+   757→              <Card key={carrier.id}>
+   758→                <CardContent className="pt-6">
+   759→                  <div className="flex items-start justify-between mb-4">
+   760→                    <div className="flex items-center gap-3">
+   761→                      <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${
+   762→                        carrier.status === 'ACTIVE' ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-400'
+   763→                      }`}>
+   764→                        <Truck className="h-6 w-6" />
+   765→                      </div>
+   766→                      <div>
+   767→                        <h3 className="font-semibold">{carrier.name}</h3>
+   768→                        <Badge variant={carrier.status === 'ACTIVE' ? 'default' : 'secondary'} 
+   769→                               className={carrier.status === 'ACTIVE' ? 'bg-green-100 text-green-800' : ''}>
+   770→                          {carrier.status === 'ACTIVE' ? 'Actif' : carrier.status}
+   771→                        </Badge>
+   772→                      </div>
+   773→                    </div>
+   774→                  </div>
+   775→                  
+   776→                  <div className="space-y-3 text-sm">
+   777→                    <div className="flex items-center gap-2 text-gray-600">
+   778→                      <span className="w-20 text-gray-500">Contact:</span>
+   779→                      <span>{carrier.contactEmail}</span>
+   780→                    </div>
+   781→                    
+   782→                    <div className="border-t pt-3 grid grid-cols-3 gap-2 text-center">
+   783→                      <div>
+   784→                        <p className="font-semibold">{carrier.totalDeliveries.toLocaleString()}</p>
+   785→                        <p className="text-xs text-gray-500">Livraisons</p>
+   786→                      </div>
+   787→                      <div>
+   788→                        <div className="flex items-center gap-1 justify-center">
+   789→                          <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
+   790→                          <span className="font-semibold">{carrier.rating}</span>
+   791→                        </div>
+   792→                        <p className="text-xs text-gray-500">Note</p>
+   793→                      </div>
+   794→                      <div>
+   795→                        <p className="font-semibold text-green-600">{carrier.onTimeRate}%</p>
+   796→                        <p className="text-xs text-gray-500">Ponctualité</p>
+   797→                      </div>
+   798→                    </div>
+   799→
+   800→                    <div>
+   801→                      <p className="text-xs text-gray-500 mb-1">Modes:</p>
+   802→                      <div className="flex flex-wrap gap-1">
+   803→                        {carrier.shippingMethods.map(method => (
+   804→                          <Badge key={method} variant="outline" className="text-xs">
+   805→                            {methodConfig[method]?.label || method}
+   806→                          </Badge>
+   807→                        ))}
+   808→                      </div>
+   809→                    </div>
+   810→                  </div>
+   811→
+   812→                  <div className="flex gap-2 mt-4 pt-4 border-t">
+   813→                    <Button variant="outline" size="sm" className="flex-1">
+   814→                      <Edit className="mr-1 h-3 w-3" /> Modifier
+   815→                    </Button>
+   816→                    <Button variant="outline" size="sm" className="flex-1">
+   817→                      Voir détails
+   818→                    </Button>
+   819→                  </div>
+   820→                </CardContent>
+   821→              </Card>
+   822→            ))}
+   823→          </div>
+   824→        </TabsContent>
+   825→
+   826→        {/* Incoterms Tab */}
+   827→        <TabsContent value="incoterms" className="mt-4">
+   828→          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+   829→            {incoterms.map((incoterm) => (
+   830→              <Card key={incoterm.incoterm} className={!incoterm.isActive ? 'opacity-60' : ''}>
+   831→                <CardHeader className="pb-3">
+   832→                  <div className="flex items-center justify-between">
+   833→                    <div className="flex items-center gap-3">
+   834→                      <div className="w-14 h-14 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
+   835→                        <span className="text-white font-bold text-lg">{incoterm.incoterm}</span>
+   836→                    </div>
+   837→                    <div>
+   838→                      <CardTitle className="text-base">{incoterm.incoterm}</CardTitle>
+   839→                      <Badge variant={incoterm.isActive ? 'default' : 'secondary'}>
+   840→                        {incoterm.isActive ? 'Actif' : 'Inactif'}
+   841→                      </Badge>
+   842→                    </div>
+   843→                  </div>
+   844→                </div>
+   845→              </CardHeader>
+   846→              <CardContent>
+   847→                <p className="text-sm text-gray-600 mb-4">{incoterm.description}</p>
+   848→                
+   849→                <div className="grid grid-cols-2 gap-4">
+   850→                  <div>
+   851→                    <p className="text-xs font-medium text-green-700 mb-2">Responsabilités vendeur</p>
+   852→                    <ul className="space-y-1">
+   853→                      {incoterm.sellerResponsibilities.map((resp, i) => (
+   854→                        <li key={i} className="text-xs text-gray-600 flex items-center gap-1">
+   855→                          <CheckCircle2 className="h-3 w-3 text-green-500" />
+   856→                          {resp}
+   857→                        </li>
+   858→                      ))}
+   859→                    </ul>
+   860→                  </div>
+   861→                  <div>
+   862→                    <p className="text-xs font-medium text-blue-700 mb-2">Responsibilités acheteur</p>
+   863→                    <ul className="space-y-1">
+   864→                      {incoterm.buyerResponsibilities.map((resp, i) => (
+   865→                        <li key={i} className="text-xs text-gray-600 flex items-center gap-1">
+   866→                          <AlertTriangle className="h-3 w-3 text-blue-500" />
+   867→                          {resp}
+   868→                        </li>
+   869→                      ))}
+   870→                    </ul>
+   871→                  </div>
+   872→                </div>
+   873→
+   874→                <div className="flex justify-end mt-4 pt-4 border-t">
+   875→                  <Button variant="outline" size="sm">
+   876→                    <Settings className="mr-1 h-3 w-3" /> Configurer
+   877→                  </Button>
+   878→                </div>
+   879→              </CardContent>
+   880→            </Card>
+   881→            ))}
+   882→          </div>
+   883→        </TabsContent>
+   884→      </Tabs>
+   885→
+   886→      {/* Rate Editor Dialog */}
+   887→      <Dialog open={rateDialogOpen} onOpenChange={setRateDialogOpen}>
+   888→        <DialogContent className="max-w-md">
+   889→          <DialogHeader>
+   890→            <DialogTitle>
+   891→              {editingRate?.id ? 'Modifier le tarif' : 'Ajouter un tarif'}
+   892→            </DialogTitle>
+   893→            <DialogDescription>
+   894→              Configurez le prix pour cet itinéraire d&apos;expédition
+   895→            </DialogDescription>
+   896→          </DialogHeader>
+   897→
+   898→          {editingRate && (
+   899→            <div className="space-y-4 py-4">
+   900→              <div className="grid grid-cols-2 gap-4">
+   901→                <div className="space-y-2">
+   902→                  <Label>Origine</Label>
+   903→                  <Input
+   904→                    value={editingRate.originName}
+   905→                    onChange={(e) => setEditingRate({ ...editingRate, originName: e.target.value })}
+   906→                    placeholder="Ex: Alger"
+   907→                  />
+   908→                </div>
+   909→                <div className="space-y-2">
+   910→                  <Label>Destination</Label>
+   911→                  <Input
+   912→                    value={editingRate.destinationName}
+   913→                    onChange={(e) => setEditingRate({ ...editingRate, destinationName: e.target.value })}
+   914→                    placeholder="Ex: Oran"
+   915→                  />
+   916→                </div>
+   917→              </div>
+   918→
+   919→              <div className="space-y-2">
+   920→                <Label>Transporteur</Label>
+   921→                <Select 
+   922→                  value={editingRate.carrierId} 
+   923→                  onValueChange={(val) => {
+   924→                    const carrier = carriers.find(c => c.id === val);
+   925→                    setEditingRate({ ...editingRate, carrierId: val, carrierName: carrier?.name || '' });
+   926→                  }}
+   927→                >
+   928→                  <SelectTrigger>
+   929→                    <SelectValue placeholder="Sélectionnez un transporteur" />
+   930→                  </SelectTrigger>
+   931→                  <SelectContent>
+   932→                    {carriers.map(carrier => (
+   933→                      <SelectItem key={carrier.id} value={carrier.id}>{carrier.name}</SelectItem>
+   934→                    ))}
+   935→                  </SelectContent>
+   936→                </Select>
+   937→              </div>
+   938→
+   939→              <div className="space-y-2">
+   940→                <Label>Méthode d&apos;expédition</Label>
+   941→                <Select 
+   942→                  value={editingRate.method} 
+   943→                  onValueChange={(val) => setEditingRate({ ...editingRate, method: val as any })}
+   944→                >
+   945→                  <SelectTrigger>
+   946→                    <SelectValue />
+   947→                  </SelectTrigger>
+   948→                  <SelectContent>
+   949→                    <SelectItem value="GROUND">Terrestre</SelectItem>
+   950→                    <SelectItem value="AIR">Aérien</SelectItem>
+   951→                    <SelectItem value="SEA">Maritime</SelectItem>
+   952→                    <SelectItem value="EXPRESS">Express</SelectItem>
+   953→                  </SelectContent>
+   954→                </Select>
+   955→              </div>
+   956→
+   957→              <div className="grid grid-cols-2 gap-4">
+   958→                <div className="space-y-2">
+   959→                  <Label>Prix de base (DZD)</Label>
+   960→                  <Input
+   961→                    type="number"
+   962→                    value={editingRate.basePrice}
+   963→                    onChange={(e) => setEditingRate({ ...editingRate, basePrice: Number(e.target.value) })}
+   964→                  />
+   965→                </div>
+   966→                <div className="space-y-2">
+   967→                  <Label>Prix par kg (DZD)</Label>
+   968→                  <Input
+   969→                    type="number"
+   970→                    value={editingRate.pricePerKg}
+   971→                    onChange={(e) => setEditingRate({ ...editingRate, pricePerKg: Number(e.target.value) })}
+   972→                  />
+   973→                </div>
+   974→              </div>
+   975→
+   976→              <div className="grid grid-cols-2 gap-4">
+   977→                <div className="space-y-2">
+   978→                  <Label>Délai min (jours)</Label>
+   979→                  <Input
+   980→                    type="number"
+   981→                    value={editingRate.estimatedDays.min}
+   982→                    onChange={(e) => setEditingRate({ 
+   983→                      editingRate, 
+   984→                      estimatedDays: { ...editingRate.estimatedDays, min: Number(e.target.value) }
+   985→                    })}
+   986→                  />
+   987→                </div>
+   988→                <div className="space-y-2">
+   989→                  <Label>Délai max (jours)</Label>
+   990→                  <Input
+   991→                    type="number"
+   992→                    value={editingRate.estimatedDays.max}
+   993→                    onChange={(e) => setEditingRate({ 
+   994→                      editingRate, 
+   995→                      estimatedDays: { ...editingRate.estimatedDays, max: Number(e.target.value) }
+   996→                    })}
+   997→                  />
+   998→                </div>
+   999→              </div>
+  1000→            </div>
+  1001→          )}
+  1002→
+  1003→          <DialogFooter className="flex gap-2">
+  1004→            <Button variant="outline" onClick={() => setRateDialogOpen(false)}>
+  1005→              Annuler
+  1006→            </Button>
+  1007→            <Button onClick={handleSaveRate}>
+  1008→              {editingRate?.id ? 'Sauvegarder' : 'Ajouter'}
+  1009→            </Button>
+  1010→          </DialogFooter>
+  1011→        </DialogContent>
+  1012→      </Dialog>
+  1013→
+  1014→      {/* Shipment Detail Dialog */}
+  1015→      <Dialog open={shipmentDetailOpen} onOpenChange={setShipmentDetailOpen}>
+  1016→        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+  1017→          <DialogHeader>
+  1018→            <DialogTitle className="flex items-center gap-2">
+  1019→              <Navigation className="h-5 w-5" />
+  1020→              Détail de l&apos;expédition {selectedShipment?.trackingNumber}
+  1021→            </DialogTitle>
+  1022→            <DialogDescription>
+  1023→              Suivi complet et historique de l&apos;expédition
+  1024→            </DialogDescription>
+  1025→          </DialogHeader>
+  1026→
+  1027→          {selectedShipment && (
+  1028→            <div className="space-y-6 py-4">
+  1029→              {/* Status and Key Info */}
+  1030→              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+  1031→                <Card>
+  1032→                  <CardContent className="pt-4 text-center">
+  1033→                    <p className="text-xs text-gray-500">Statut</p>
+  1034→                    <Badge variant={statusConfig[selectedShipment.status].variant} 
+  1035→                           className={`${statusConfig[selectedShipment.status].color} mt-1`}>
+  1036→                      {statusConfig[selectedShipment.status].label}
+  1037→                    </Badge>
+  1038→                  </CardContent>
+  1039→                </Card>
+  1040→                <Card>
+  1041→                  <CardContent className="pt-4 text-center">
+  1042→                    <p className="text-xs text-gray-500">Poids</p>
+  1043→                    <p className="text-lg font-bold mt-1">{selectedShipment.weight} kg</p>
+  1044→                  </CardContent>
+  1045→                </Card>
+  1046→                <Card>
+  1047→                  <CardContent className="pt-4 text-center">
+  1048→                    <p className="text-xs text-gray-500">Coût</p>
+  1049→                    <p className="text-lg font-bold text-green-700 mt-1">{formatCurrency(selectedShipment.cost)}</p>
+  1050→                  </CardContent>
+  1051→                </Card>
+  1052→                <Card>
+  1053→                  <CardContent className="pt-4 text-center">
+  1054→                    <p className="text-xs text-gray-500">Est. livraison</p>
+  1055→                    <p className="font-medium mt-1">{formatDate(selectedShipment.estimatedDelivery)}</p>
+  1056→                  </CardContent>
+  1057→                </Card>
+  1058→              </div>
+  1059→
+  1060→              {/* Route Info */}
+  1061→              <Card>
+  1062→                <CardContent className="pt-4 space-y-3">
+  1063→                  <h4 className="font-medium text-gray-900 flex items-center gap-2">
+  1064→                    <MapPin className="h-4 w-4" /> Itinéraire
+  1065→                  </h4>
+  1066→                  <div className="flex items-center gap-4">
+  1067→                    <div className="text-center">
+  1068→                      <p className="font-semibold">{selectedShipment.origin}</p>
+  1069→                      <p className="text-xs text-gray-500">Origine</p>
+  1070→                    </div>
+  1071→                    <div className="flex-1 flex items-center gap-2">
+  1072→                      <div className="h-0.5 flex-1 bg-gray-200" />
+  1073→                      <Badge className={methodConfig[selectedShipment.method]?.color} variant="secondary">
+  1074→                        {methodConfig[selectedShipment.method]?.icon}
+  1075→                        <span className="ml-1">{methodConfig[selectedShipment.method]?.label}</span>
+  1076→                      </Badge>
+  1077→                      <div className="h-0.5 flex-1 bg-gray-200" />
+  1078→                    </div>
+  1079→                    <div className="text-center">
+  1080→                      <p className="font-semibold">{selectedShipment.destination}</p>
+  1081→                      <p className="text-xs text-gray-500">Destination</p>
+  1082→                    </div>
+  1083→                  </div>
+  1084→                  <div className="text-sm text-gray-600">
+  1085→                    Transporteur: <strong>{selectedShipment.carrierName}</strong>
+  1086→                  </div>
+  1087→                </CardContent>
+  1088→              </Card>
+  1089→
+  1090→              {/* Timeline */}
+  1091→              <Card>
+  1092→                <CardHeader className="pb-3">
+  1093→                  <CardTitle className="text-base flex items-center gap-2">
+  1094→                    <Clock className="h-4 w-4" />
+  1095→                    Historique du suivi
+  1096→                  </CardTitle>
+  1097→                </CardHeader>
+  1098→                <CardContent>
+  1099→                  <div className="space-y-4">
+  1100→                    {selectedShipment.events.map((event, index) => (
+  1101→                      <div key={index} className="flex gap-4">
+  1102→                        <div className="flex flex-col items-center">
+  1103→                          <div className={`w-3 h-3 rounded-full ${
+  1104→                            event.type === 'DELIVERED' ? 'bg-green-500' :
+  1105→                            event.type === 'EXCEPTION' ? 'bg-red-500' :
+  1106→                            event.type === 'DELIVERY_ATTEMPT' ? 'bg-yellow-500' :
+  1107→                            'bg-blue-500'
+  1108→                          }`} />
+  1109→                          {index < selectedShipment.events.length - 1 && (
+  1110→                            <div className="w-0.5 h-full bg-gray-200 mt-1" />
+  1111→                          )}
+  1112→                        </div>
+  1113→                        <div className="flex-1 pb-4">
+  1114→                          <div className="flex items-center gap-2">
+  1115→                            <span className="font-medium text-sm">{event.description}</span>
+  1116→                          </div>
+  1117→                          <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
+  1118→                            <MapPin className="h-3 w-3" />
+  1119→                            <span>{event.location}</span>
+  1120→                            <span>•</span>
+  1121→                            <span>{formatDateTime(event.timestamp)}</span>
+  1122→                          </div>
+  1123→                        </div>
+  1124→                      </div>
+  1125→                    ))}
+  1126→                  </div>
+  1127→                </CardContent>
+  1128→              </Card>
+  1129→            </div>
+  1130→          )}
+  1131→        </DialogContent>
+  1132→      </Dialog>
+  1133→    </div>
+  1134→  );
+  1135→}
+  1136→
+  1137→// Eye icon for button
+  1138→function Eye(props: React.SVGProps<SVGSVGElement>) {
+  1139→  return (
+  1140→    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+  1141→      <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/>
+  1142→      <circle cx="12" cy="12" r="3"/>
+  1143→    </svg>
+  1144→  );
+  1145→}
+  1146→

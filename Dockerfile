@@ -1,136 +1,167 @@
 # =============================================================================
-# Dockerfile - AlgeriaTrade.dz
+# Dockerfile - AlgeriaTrade.dz Production Build
 # =============================================================================
-# Multi-stage build pour Next.js avec support standalone
-# Optimisé pour la production et le marché algérien
+# Multi-stage build for Next.js with production optimizations:
+# - Layer caching optimization for faster builds
+# - Non-root user for security
+# - Health check endpoint
+# - Proper signal handling
+# - Minimal image size
 # =============================================================================
 
 # -----------------------------------------------------------------------------
-# Stage 1: Base image
+# Stage 1: Base Image (shared across stages)
 # -----------------------------------------------------------------------------
 FROM node:20-alpine AS base
 
-# Installer les dépendances système requises pour bun
+# Install system dependencies required for native modules
 RUN apk add --no-cache \
     libc6-compat \
     openssl \
     ca-certificates \
-    curl
+    curl \
+    tini
 
 WORKDIR /app
 
 # -----------------------------------------------------------------------------
-# Stage 2: Dependencies installation
+# Stage 2: Dependencies Installation (optimized layer caching)
 # -----------------------------------------------------------------------------
 FROM base AS deps
 
-# Activer corepack (gestionnaire de packages inclus dans Node.js)
+# Enable corepack for bun package manager
 RUN corepack enable && corepack prepare bun@latest --activate
 
-# Copier les fichiers de gestion des dépendances
+# Copy dependency files first (better layer caching)
+# These change less frequently than source code
 COPY package.json bun.lockb ./
 
-# Installer les dépendances en mode production
+# Install dependencies with frozen lockfile for reproducible builds
+# --frozen-lockfile fails if lockfile is out of sync (CI safety)
 RUN bun install --frozen-lockfile --production=false
 
 # -----------------------------------------------------------------------------
-# Stage 3: Build
+# Stage 3: Source Code Build
 # -----------------------------------------------------------------------------
 FROM base AS builder
 
-# Activer bun
+# Enable corepack for bun
 RUN corepack enable && corepack prepare bun@latest --activate
 
-# Copier les dépendances depuis le stage précédent
+# Copy dependencies from deps stage (already installed)
 COPY --from=deps /app/node_modules ./node_modules
 
-# Copier les fichiers source
+# Copy remaining source code
 COPY . .
 
-# Variables d'environnement pour le build
-ENV NEXT_TELEMETRY_DISABLED=1
-ENV NODE_ENV=production
-ENV BUN_INSTALL_VERBOSE=0
+# Build environment variables
+ENV NEXT_TELEMETRY_DISABLED=1 \
+    NODE_ENV=production \
+    BUN_INSTALL_VERBOSE=0 \
+    # Optimize Next.js build for production
+    NEXT_DISABLE_GRPC=1
 
-# Build l'application Next.js en mode standalone
-# Le mode standalone crée un package auto-suffisant
+# Build the application in standalone mode
+# Standalone mode creates a self-contained bundle
 RUN bun run build
 
 # -----------------------------------------------------------------------------
-# Stage 4: Runner (Production)
+# Stage 4: Production Runtime (minimal image)
 # -----------------------------------------------------------------------------
 FROM node:20-alpine AS runner
 
-# Installer les utilitaires nécessaires
+# Install minimal runtime dependencies
 RUN apk add --no-cache \
     libc6-compat \
     openssl \
     curl \
     tzdata \
-    && rm -rf /var/cache/apk/*
+    tini \
+    && rm -rf /var/cache/apk/* \
+    /tmp/* \
+    /var/tmp/*
 
-# Configurer le fuseau horaire Algérie/Alger
+# Set timezone to Algeria/Algiers
 ENV TZ=Africa/Algiers
 
-# Variables d'environnement de production
-ENV NODE_ENV=production
-ENV NEXT_TELEMETRY_DISABLED=1
-ENV PORT=3000
-ENV HOSTNAME="0.0.0.0"
+# Production environment variables
+ENV NODE_ENV=production \
+    NEXT_TELEMETRY_DISABLED=1 \
+    PORT=3000 \
+    HOSTNAME="0.0.0.0" \
+    # Disable Next.js telemetry and unnecessary features
+    NEXT_DISABLE_GRPC=1
 
-# Créer un utilisateur non-root pour la sécurité
+# Create non-root user and group for security
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs
 
 WORKDIR /app
 
-# Copier les fichiers publics (images, fonts, etc.)
+# Copy public assets (images, fonts, icons, etc.)
 COPY --from=builder /app/public ./public
 
-# Copier le build standalone (auto-suffisant)
+# Copy standalone build output (self-contained)
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# Créer les répertoires nécessaires pour les uploads
+# Create necessary directories for uploads with proper permissions
 RUN mkdir -p /app/public/uploads/products \
              /app/public/uploads/companies \
              /app/public/uploads/documents \
+             /app/public/uploads/videos \
              /app/data \
-    && chown -R nextjs:nodejs /app/public/uploads /app/data
+             /app/logs \
+    && chown -R nextjs:nodejs /app/public/uploads /app/data /app/logs
 
-# Switcher vers l'utilisateur non-root
+# Switch to non-root user for security
 USER nextjs
 
-# Exposer le port HTTP
+# Expose the application port
 EXPOSE 3000
 
-# Health check pour Docker/Kubernetes
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:3000/api/health || exit 1
+# Health check for Docker/Kubernetes orchestration
+# Uses curl to hit the health endpoint
+HEALTHCHECK --interval=30s \
+            --timeout=10s \
+            --start-period=15s \
+            --retries=3 \
+            CMD curl -f http://localhost:3000/api/health || exit 1
 
-# Démarrer l'application
+# Use tinit as PID 1 for proper signal handling
+# This ensures graceful shutdown (SIGTERM, SIGINT)
+ENTRYPOINT ["tini", "--"]
+
+# Start the Next.js server
 CMD ["node", "server.js"]
 
 # -----------------------------------------------------------------------------
-# Stage 5: Development (optionnel)
+# Stage 5: Development Environment (optional, for local dev)
 # -----------------------------------------------------------------------------
 FROM base AS development
 
-# Activer bun
+# Enable corepack for bun
 RUN corepack enable && corepack prepare bun@latest --activate
 
-# Copier tout le code source
+# Copy entire source code for development
 COPY . .
 
-# Installer toutes les dépendances (y compris devDependencies)
+# Install all dependencies including devDependencies
 RUN bun install
 
-# Exposer le port de développement
+# Expose development port
 EXPOSE 3000
 
-# Variables d'environnement de développement
-ENV NODE_ENV=development
-ENV NEXT_TELEMETRY_DISABLED=1
+# Development environment variables
+ENV NODE_ENV=development \
+    NEXT_TELEMETRY_DISABLED=1
 
-# Démarrer en mode développement avec hot-reload
+# Start development server with hot-reload
 CMD ["bun", "run", "dev"]
+
+# =============================================================================
+# BUILD ARGUMENTS (for CI/CD customization)
+# =============================================================================
+# Usage: docker build --build-arg NODE_VERSION=20 .
+ARG NODE_VERSION=20
+ARG BUN_VERSION=latest

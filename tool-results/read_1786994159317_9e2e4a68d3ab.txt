@@ -1,0 +1,1421 @@
+     1→// Escrow Detail Screen - AlgeriaTrade Mobile
+     2→// Écran de détail du compte séquestre (Trade Assurance)
+     3→
+     4→import React, { useState, useEffect, useCallback } from 'react';
+     5→import {
+     6→  View,
+     7→  Text,
+     8→  StyleSheet,
+     9→  ScrollView,
+    10→  TouchableOpacity,
+    11→  Alert,
+    12→  ActivityIndicator,
+    13→  Platform,
+    14→  Modal,
+    15→  TextInput,
+    16→  Image,
+    17→} from 'react-native';
+    18→import { Ionicons } from '@expo/vector-icons';
+    19→import { useNavigation, RouteProp, useRoute } from '@react-navigation/native';
+    20→
+    21→// Services
+    22→import apiService from '../../services/api';
+    23→
+    24→// Constants
+    25→import { Colors, FontFamily, FontSize, Spacing, BorderRadius, Shadows } from '../../utils/constants';
+    26→
+    27→// Types
+    28→import { RootStackParamList } from '../../navigation';
+    29→
+    30→type EscrowDetailRouteProp = RouteProp<RootStackParamList, 'EscrowDetail'>;
+    31→
+    32→// ============================================
+    33→// Types & Interfaces
+    34→// ============================================
+    35→
+    36→export type EscrowStatus = 
+    37→  | 'pending'
+    38→  | 'funded'
+    39→  | 'in_escrow'
+    40→  | 'release_requested'
+    41→  | 'released'
+    42→  | 'refund_requested'
+    43→  | 'refunded'
+    44→  | 'disputed'
+    45→  | 'cancelled';
+    46→
+    47→export type DisputeStatus = 
+    48→  | 'open'
+    49→  | 'investigating'
+    50→  | 'mediation'
+    51→  | 'arbitration'
+    52→  | 'resolved'
+    53→  | 'closed';
+    54→
+    55→export type DisputeReason =
+    56→  | 'not_as_described'
+    57→  | 'quality_issues'
+    58→  | 'shipping_delay'
+    59→  | 'damaged_goods'
+    60→  | 'wrong_quantity'
+    61→  | 'counterfeit'
+    62→  | 'other';
+    63→
+    64→interface EscrowTimelineEvent {
+    65→  id: string;
+    66→  status: EscrowStatus;
+    67→  label: string;
+    68→  description?: string;
+    69→  timestamp: Date;
+    70→  completed: boolean;
+    71→}
+    72→
+    73→interface DisputeMessage {
+    74→  id: string;
+    75→  senderId: string;
+    76→  senderRole: 'buyer' | 'seller' | 'mediator';
+    77→  content: string;
+    78→  attachments?: Array<{ uri: string; name: string }>;
+    79→  createdAt: Date;
+    80→}
+    81→
+    82→interface Dispute {
+    83→  id: string;
+    84→  reason: DisputeReason;
+    85→  status: DisputeStatus;
+    86→  description: string;
+    87→  requestedAmount: number;
+    88→  evidencePhotos: Array<{ uri: string; name: string }>;
+    89→  messages: DisputeMessage[];
+    90→  mediatorId?: string;
+    91→  mediatorName?: string;
+    92→  deadline?: Date;
+    93→  resolvedAt?: Date;
+    94→  resolution?: string;
+    95→}
+    96→
+    97→interface EscrowData {
+    98→  id: string;
+    99→  orderId: string;
+   100→  accountNumber: string;
+   101→  amount: number;
+   102→  currency: string;
+   103→  status: EscrowStatus;
+   104→  buyerId: string;
+   105→  sellerId: string;
+   106→  fundedAt?: Date;
+   107→  releaseRequestedAt?: Date;
+   108→  releasedAt?: Date;
+   109→  refundedAt?: Date;
+   110→  autoReleaseDays: number;
+   111→  platformFee: number;
+   112→  dispute?: Dispute;
+   113→  timeline: EscrowTimelineEvent[];
+   114→}
+   115→
+   116→// ============================================
+   117→// Constants
+   118→// ============================================
+   119→
+   120→const ESCROW_STATUS_CONFIG: Record<EscrowStatus, { label: string; color: string; icon: string }> = {
+   121→  pending: { label: 'En attente', color: Colors.textTertiary, icon: 'time-outline' },
+   122→  funded: { label: 'Financé', color: Colors.info, icon: 'wallet-outline' },
+   123→  in_escrow: { label: 'En séquestre', color: Colors.primary, icon: 'shield-checkmark-outline' },
+   124→  release_requested: { label: 'Libération demandée', color: Colors.warning, icon: 'arrow-up-outline' },
+   125→  released: { label: 'Libéré', color: Colors.success, icon: 'checkmark-circle' },
+   126→  refund_requested: { label: 'Remboursement demandé', color: Colors.warning, icon: 'refresh-outline' },
+   127→  refunded: { label: 'Remboursé', color: Colors.info, icon: 'arrow-down-outline' },
+   128→  disputed: { label: 'En litige', color: Colors.error, icon: 'alert-circle-outline' },
+   129→  cancelled: { label: 'Annulé', color: Colors.error, icon: 'close-circle-outline' },
+   130→};
+   131→
+   132→const DISPUTE_REASONS: Array<{ value: DisputeReason; label: string; description: string }> = [
+   133→  { value: 'not_as_described', label: 'Produit non conforme', description: 'Le produit ne correspond pas à la description' },
+   134→  { value: 'quality_issues', label: 'Problèmes de qualité', description: 'Défauts ou problèmes de qualité constatés' },
+   135→  { value: 'shipping_delay', label: 'Retard de livraison', description: 'La livraison est en retard significatif' },
+   136→  { value: 'damaged_goods', label: 'Produits endommagés', description: 'Les produits ont été endommagés lors du transport' },
+   137→  { value: 'wrong_quantity', label: 'Quantité incorrecte', description: 'La quantité reçue ne correspond pas' },
+   138→  { value: 'counterfeit', label: 'Produit contrefait', description: 'Suspicion de contrefaçon' },
+   139→  { value: 'other', label: 'Autre raison', description: 'Autre motif de litige' },
+   140→];
+   141→
+   142→// ============================================
+   143→// Main Component
+   144→// ============================================
+   145→
+   146→export default function EscrowDetailScreen() {
+   147→  const route = useRoute<EscrowDetailRouteProp>();
+   148→  const navigation = useNavigation();
+   149→  
+   150→  const { escrowId } = route.params || {};
+   151→  
+   152→  // State
+   153→  const [loading, setLoading] = useState(true);
+   154→  const [escrowData, setEscrowData] = useState<EscrowData | null>(null);
+   155→  const [showDisputeModal, setShowDisputeModal] = useState(false);
+   156→  const [showFundModal, setShowFundModal] = useState(false);
+   157→  const [showChatModal, setShowChatModal] = useState(false);
+   158→  const [selectedReason, setSelectedReason] = useState<DisputeReason>('not_as_described');
+   159→  const [disputeDescription, setDisputeDescription] = useState('');
+   160→  const [fundAmount, setFundAmount] = useState('');
+   161→  const [chatMessage, setChatMessage] = useState('');
+   162→  const [actionLoading, setActionLoading] = useState(false);
+   163→
+   164→  // Load escrow data
+   165→  const loadEscrowData = useCallback(async () => {
+   166→    if (!escrowId) return;
+   167→    
+   168→    try {
+   169→      const data = await apiService.getEscrowDetail(escrowId);
+   170→      setEscrowData(data);
+   171→    } catch (error) {
+   172→      console.error('[EscrowDetailScreen] Error loading data:', error);
+   173→      Alert.alert('Erreur', 'Impossible de charger les détails du compte séquestre.');
+   174→    } finally {
+   175→      setLoading(false);
+   176→    }
+   177→  }, [escrowId]);
+   178→
+   179→  useEffect(() => {
+   180→    loadEscrowData();
+   181→  }, [loadEscrowData]);
+   182→
+   183→  // Fund escrow account
+   184→  const handleFundEscrow = async () => {
+   185→    if (!fundAmount || parseFloat(fundAmount) <= 0) {
+   186→      Alert.alert('Erreur', 'Veuillez entrer un montant valide.');
+   187→      return;
+   188→    }
+   189→
+   190→    setActionLoading(true);
+   191→    
+   192→    try {
+   193→      await apiService.fundEscrow(escrowId!, parseFloat(fundAmount));
+   194→      Alert.alert('Succès', 'Le compte a été financé avec succès.', [
+   195→        { text: 'OK', onPress: () => {
+   196→          setShowFundModal(false);
+   197→          loadEscrowData();
+   198→        }}
+   199→      ]);
+   200→    } catch (error) {
+   201→      console.error('[EscrowDetailScreen] Error funding escrow:', error);
+   202→      Alert.alert('Erreur', 'Impossible de financer le compte. Veuillez réessayer.');
+   203→    } finally {
+   204→      setActionLoading(false);
+   205→    }
+   206→  };
+   207→
+   208→  // Request release
+   209→  const handleRequestRelease = async () => {
+   210→    Alert.alert(
+   211→      'Confirmer la libération',
+   212→      'Êtes-vous sûr de vouloir demander la libération des fonds ? Cette action est irréversible.',
+   213→      [
+   214→        { text: 'Annuler', style: 'cancel' },
+   215→        {
+   216→          text: 'Confirmer',
+   217→          style: 'destructive',
+   218→          onPress: async () => {
+   219→            setActionLoading(true);
+   220→            try {
+   221→              await apiService.requestRelease(escrowId!);
+   222→              Alert.alert('Succès', 'La demande de libération a été envoyée.', [
+   223→                { text: 'OK', onPress: loadEscrowData }
+   224→              ]);
+   225→            } catch (error) {
+   226→              Alert.alert('Erreur', 'Impossible d\'envoyer la demande.');
+   227→            } finally {
+   228→              setActionLoading(false);
+   229→            }
+   230→          }
+   231→        }
+   232→      ]
+   233→    );
+   234→  };
+   235→
+   236→  // Request refund
+   237→  const handleRequestRefund = async () => {
+   238→    Alert.alert(
+   239→      'Demander un remboursement',
+   240→      'Souhaitez-vous ouvrir un litige pour ce remboursement ?',
+   241→      [
+   242→        { text: 'Annuler', style: 'cancel' },
+   243→        { text: 'Ouvrir un litige', onPress: () => setShowDisputeModal(true) },
+   244→        {
+   245→          text: 'Remboursement simple',
+   246→          onPress: async () => {
+   247→            setActionLoading(true);
+   248→            try {
+   249→              await apiService.requestRefund(escrowId!);
+   250→              Alert.alert('Succès', 'La demande de remboursement a été envoyée.', [
+   251→                { text: 'OK', onPress: loadEscrowData }
+   252→              ]);
+   253→            } catch (error) {
+   254→              Alert.alert('Erreur', 'Impossible d\'envoyer la demande.');
+   255→            } finally {
+   256→              setActionLoading(false);
+   257→            }
+   258→          }
+   259→        }
+   260→      ]
+   261→    );
+   262→  };
+   263→
+   264→  // Submit dispute
+   265→  const handleSubmitDispute = async () => {
+   266→    if (!disputeDescription.trim()) {
+   267→      Alert.alert('Erreur', 'Veuillez décrire le problème en détail.');
+   268→      return;
+   269→    }
+   270→
+   271→    setActionLoading(true);
+   272→    
+   273→    try {
+   274→      await apiService.openDispute(escrowId!, {
+   275→        reason: selectedReason,
+   276→        description: disputeDescription,
+   277→      });
+   278→      
+   279→      Alert.alert('Litige ouvert', 'Votre litige a été soumis. Un médiateur sera assigné sous 24h.', [
+   280→        { text: 'OK', onPress: () => {
+   281→          setShowDisputeModal(false);
+   282→          setDisputeDescription('');
+   283→          loadEscrowData();
+   284→        }}
+   285→      ]);
+   286→    } catch (error) {
+   287→      console.error('[EscrowDetailScreen] Error opening dispute:', error);
+   288→      Alert.alert('Erreur', 'Impossible d\'ouvrir le litige.');
+   289→    } finally {
+   290→      setActionLoading(false);
+   291→    }
+   292→  };
+   293→
+   294→  // Accept resolution
+   295→  const handleAcceptResolution = async (type: 'release' | 'refund') => {
+   296→    const actionText = type === 'release' ? 'accepter la libération' : 'accepter le remboursement';
+   297→    
+   298→    Alert.alert(
+   299→      `Confirmer`,
+   300→      `Êtes-vous sûr de vouloir ${actionText} ?`,
+   301→      [
+   302→        { text: 'Annuler', style: 'cancel' },
+   303→        {
+   304→          text: 'Confirmer',
+   305→          onPress: async () => {
+   306→            setActionLoading(true);
+   307→            try {
+   308→              if (type === 'release') {
+   309→                await apiService.acceptRelease(escrowId!);
+   310→              } else {
+   311→                await apiService.acceptRefund(escrowId!);
+   312→              }
+   313→              Alert.alert('Succès', 'La résolution a été acceptée.', [
+   314→                { text: 'OK', onPress: loadEscrowData }
+   315→              ]);
+   316→            } catch (error) {
+   317→              Alert.alert('Erreur', 'Une erreur est survenue.');
+   318→            } finally {
+   319→              setActionLoading(false);
+   320→            }
+   321→          }
+   322→        }
+   323→      ]
+   324→    );
+   325→  };
+   326→
+   327→  // Send message to mediator
+   328→  const handleSendMessage = async () => {
+   329→    if (!chatMessage.trim()) return;
+   330→
+   331→    try {
+   332→      await apiService.sendDisputeMessage(escrowId!, chatMessage);
+   333→      setChatMessage('');
+   334→      loadEscrowData(); // Reload to show new message
+   335→    } catch (error) {
+   336→      Alert.alert('Erreur', 'Impossible d\'envoyer le message.');
+   337→    }
+   338→  };
+   339→
+   340→  // Render loading state
+   341→  if (loading) {
+   342→    return (
+   343→      <View style={styles.loadingContainer}>
+   344→        <ActivityIndicator size="large" color={Colors.primary} />
+   345→        <Text style={styles.loadingText}>Chargement...</Text>
+   346→      </View>
+   347→    );
+   348→  }
+   349→
+   350→  if (!escrowData) {
+   351→    return (
+   352→      <View style={styles.errorContainer}>
+   353→        <Ionicons name="alert-circle-outline" size={48} color={Colors.error} />
+   354→        <Text style={styles.errorText}>Données non disponibles</Text>
+   355→        <TouchableOpacity style={styles.retryButton} onPress={loadEscrowData}>
+   356→          <Text style={styles.retryButtonText}>Réessayer</Text>
+   357→        </TouchableOpacity>
+   358→      </View>
+   359→    );
+   360→  }
+   361→
+   362→  const statusConfig = ESCROW_STATUS_CONFIG[escrowData.status];
+   363→
+   364→  return (
+   365→    <View style={styles.container}>
+   366→      {/* Header */}
+   367→      <View style={styles.header}>
+   368→        <TouchableOpacity 
+   369→          style={styles.backButton}
+   370→          onPress={() => navigation.goBack()}
+   371→        >
+   372→          <Ionicons name="arrow-back" size={24} color={Colors.text} />
+   373→        </TouchableOpacity>
+   374→        <Text style={styles.headerTitle}>Trade Assurance</Text>
+   375→        <View style={{ width: 40 }} />
+   376→      </View>
+   377→
+   378→      <ScrollView 
+   379→        style={styles.scrollView}
+   380→        showsVerticalScrollIndicator={false}
+   381→      >
+   382→        {/* Status Card */}
+   383→        <View style={[styles.statusCard, { borderLeftColor: statusConfig.color }]}>
+   384→          <View style={styles.statusHeader}>
+   385→            <View style={[styles.statusIconContainer, { backgroundColor: statusConfig.color + '20' }]}>
+   386→              <Ionicons name={statusConfig.icon as any} size={28} color={statusConfig.color} />
+   387→            </View>
+   388→            <View style={styles.statusInfo}>
+   389→              <Text style={styles.statusLabel}>Statut actuel</Text>
+   390→              <Text style={[styles.statusText, { color: statusConfig.color }]}>
+   391→                {statusConfig.label}
+   392→              </Text>
+   393→            </View>
+   394→          </View>
+   395→
+   396→          {/* Amount */}
+   397→          <View style={styles.amountSection}>
+   398→            <Text style={styles.amountLabel}>Montant en séquestre</Text>
+   399→            <Text style={styles.amountValue}>
+   400→              {escrowData.amount.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} {escrowData.currency}
+   401→            </Text>
+   402→          </View>
+   403→
+   404→          {/* Account Info */}
+   405→          <View style={styles.accountInfo}>
+   406→            <Text style={styles.accountNumber}>
+   407→              N° Compte: {escrowData.accountNumber}
+   408→            </Text>
+   409→            <Text style={styles.autoReleaseText}>
+   410→              Libération automatique dans {escrowData.autoReleaseDays} jours
+   411→            </Text>
+   412→          </View>
+   413→        </View>
+   414→
+   415→        {/* Timeline */}
+   416→        <View style={styles.section}>
+   417→          <Text style={styles.sectionTitle}>Historique</Text>
+   418→          
+   419→          <View style={styles.timeline}>
+   420→            {escrowData.timeline.map((event, index) => (
+   421→              <View key={event.id} style={styles.timelineItem}>
+   422→                <View style={styles.timelineDotContainer}>
+   423→                  <View style={[
+   424→                    styles.timelineDot,
+   425→                    event.completed 
+   426→                      ? { backgroundColor: Colors.primary } 
+   427→                      : { backgroundColor: Colors.surfaceVariant, borderWidth: 2, borderColor: Colors.border }
+   428→                  ]}/>
+   429→                  {index < escrowData.timeline.length - 1 && (
+   430→                    <View style={styles.timelineLine} />
+   431→                  )}
+   432→                </View>
+   433→                
+   434→                <View style={styles.timelineContent}>
+   435→                  <Text style={[
+   436→                    styles.timelineLabel,
+   437→                    !event.completed && styles.timelineLabelPending
+   438→                  ]}>
+   439→                    {event.label}
+   440→                  </Text>
+   441→                  <Text style={styles.timelineTime}>
+   442→                    {new Date(event.timestamp).toLocaleDateString('fr-FR', {
+   443→                      day: 'numeric',
+   444→                      month: 'short',
+   445→                      hour: '2-digit',
+   446→                      minute: '2-digit',
+   447→                    })}
+   448→                  </Text>
+   449→                  {event.description && (
+   450→                    <Text style={styles.timelineDescription}>{event.description}</Text>
+   451→                  )}
+   452→                </View>
+   453→              </View>
+   454→            ))}
+   455→          </View>
+   456→        </View>
+   457→
+   458→        {/* Action Buttons */}
+   459→        <View style={styles.actionsSection}>
+   460→          {escrowData.status === 'pending' && (
+   461→            <TouchableOpacity
+   462→              style={styles.actionButton}
+   463→              onPress={() => setShowFundModal(true)}
+   464→            >
+   465→              <Ionicons name="wallet-outline" size={20} color={Colors.white} />
+   466→              <Text style={styles.actionButtonText}>Financer le compte</Text>
+   467→            </TouchableOpacity>
+   468→          )}
+   469→
+   470→          {(escrowData.status === 'funded' || escrowData.status === 'in_escrow') && (
+   471→            <>
+   472→              <TouchableOpacity
+   473→                style={[styles.actionButton, styles.releaseButton]}
+   474→                onPress={handleRequestRelease}
+   475→              >
+   476→                <Ionicons name="checkmark-circle-outline" size={20} color={Colors.white} />
+   477→                <Text style={styles.actionButtonText}>Confirmer la réception</Text>
+   478→              </TouchableOpacity>
+   479→              
+   480→              <TouchableOpacity
+   481→                style={[styles.actionButton, styles.refundButton]}
+   482→                onPress={handleRequestRefund}
+   483→              >
+   484→                <Ionicons name="return-down-back-outline" size={20} color={Colors.white} />
+   485→                <Text style={styles.actionButtonText}>Demander un remboursement</Text>
+   486→              </TouchableOpacity>
+   487→            </>
+   488→          )}
+   489→
+   490→          {escrowData.status === 'released' && (
+   491→            <View style={styles.completedBanner}>
+   492→              <Ionicons name="checkmark-circle" size={24} color={Colors.success} />
+   493→              <Text style={styles.completedText}>Les fonds ont été libérés au vendeur</Text>
+   494→            </View>
+   495→          )}
+   496→
+   497→          {escrowData.status === 'refunded' && (
+   498→            <View style={styles.refundedBanner}>
+   499→              <Ionicons name="arrow-back-circle" size={24} color={Colors.info} />
+   500→              <Text style={styles.refundedText}>Vous avez été remboursé</Text>
+   501→            </View>
+   502→          )}
+   503→        </View>
+   504→
+   505→        {/* Dispute Section */}
+   506→        {escrowData.dispute && (
+   507→          <View style={[styles.disputeCard, { borderLeftColor: Colors.error }]}>
+   508→            <View style={styles.disputeHeader}>
+   509→              <Ionicons name="alert-triangle" size={24} color={Colors.error} />
+   510→              <View style={styles.disputeHeaderInfo}>
+   511→                <Text style={styles.disputeTitle}>Litige en cours</Text>
+   512→                <Text style={styles.disputeReason}>
+   513→                  {DISPUTE_REASONS.find(r => r.value === escrowData.dispute?.reason)?.label}
+   514→                </Text>
+   515→              </View>
+   516→            </View>
+   517→
+   518→            {/* Dispute Status */}
+   519→            <View style={styles.disputeStatusBadge}>
+   520→              <Text style={styles.disputeStatusText}>
+   521→                Statut: {escrowData.dispute.status.toUpperCase()}
+   522→              </Text>
+   523→            </View>
+   524→
+   525→            {/* Mediator Info */}
+   526→            {escrowData.dispute.mediatorName && (
+   527→              <View style={styles.mediatorInfo}>
+   528→                <Ionicons name="person-outline" size={16} color={Colors.textSecondary} />
+   529→                <Text style={styles.mediatorText}>
+   530→                  Médiateur: {escrowData.dispute.mediatorName}
+   531→                </Text>
+   532→              </View>
+   533→            )}
+   534→
+   535→            {/* Deadline */}
+   536→            {escrowData.dispute.deadline && (
+   537→              <View style={styles.deadlineInfo}>
+   538→                <Ionicons name="time-outline" size={16} color={Colors.warning} />
+   539→                <Text style={styles.deadlineText}>
+   540→                  Date limite: {new Date(escrowData.dispute.deadline).toLocaleDateString('fr-FR')}
+   541→                </Text>
+   542→              </View>
+   543→            )}
+   544→
+   545→            {/* Chat with Mediator */}
+   546→            <TouchableOpacity
+   547→              style={styles.chatButton}
+   548→              onPress={() => setShowChatModal(true)}
+   549→            >
+   550→              <Ionicons name="chatbubbles-outline" size={18} color={Colors.primary} />
+   551→              <Text style={styles.chatButtonText}>Contacter le médiateur</Text>
+   552→              <Ionicons name="chevron-forward" size={18} color={Colors.textTertiary} />
+   553→            </TouchableOpacity>
+   554→
+   555→            {/* Messages Preview */}
+   556→            {escrowData.dispute.messages.length > 0 && (
+   557→              <View style={styles.messagesPreview}>
+   558→                {escrowData.dispute.messages.slice(-3).map(msg => (
+   559→                  <View 
+   560→                    key={msg.id} 
+   561→                    style={[
+   562→                      styles.messageBubble,
+   563→                      msg.senderRole === 'mediator' ? styles.mediatorBubble : styles.userBubble
+   564→                    ]}
+   565→                  >
+   566→                    <Text style={styles.messageSender}>
+   567→                      {msg.senderRole === 'mediator' ? 'Médiateur' : 'Vous'}
+   568→                    </Text>
+   569→                    <Text style={styles.messageContent}>{msg.content}</Text>
+   570→                  </View>
+   571→                ))}
+   572→              </View>
+   573→            )}
+   574→
+   575→            {/* Resolution Actions */}
+   576→            {escrowData.dispute.status === 'resolved' && escrowData.dispute.resolution && (
+   577→              <View style={styles.resolutionSection}>
+   578→                <Text style={styles.resolutionTitle}>Résolution proposée:</Text>
+   579→                <Text style={styles.resolutionText}>{escrowData.dispute.resolution}</Text>
+   580→                <View style={styles.resolutionActions}>
+   581→                  <TouchableOpacity
+   582→                    style={[styles.resolutionButton, styles.acceptReleaseButton]}
+   583→                    onPress={() => handleAcceptResolution('release')}
+   584→                  >
+   585→                    <Text style={styles.resolutionButtonText}>Accepter la libération</Text>
+   586→                  </TouchableOpacity>
+   587→                  <TouchableOpacity
+   588→                    style={[styles.resolutionButton, styles.acceptRefundButton]}
+   589→                    onPress={() => handleAcceptResolution('refund')}
+   590→                  >
+   591→                    <Text style={styles.resolutionButtonText}>Accepter le remboursement</Text>
+   592→                  </TouchableOpacity>
+   593→                </View>
+   594→              </View>
+   595→            )}
+   596→          </View>
+   597→        )}
+   598→      </ScrollView>
+   599→
+   600→      {/* Fund Modal */}
+   601→      <Modal visible={showFundModal} transparent animationType="slide">
+   602→        <View style={styles.modalOverlay}>
+   603→          <View style={styles.modalContent}>
+   604→            <Text style={styles.modalTitle}>Financer le compte séquestre</Text>
+   605→            
+   606→            <View style={styles.amountInputContainer}>
+   607→              <Text style={styles.inputLabel}>Montant ({escrowData.currency})</Text>
+   608→              <TextInput
+   609→                style={styles.amountInput}
+   610→                value={fundAmount}
+   611→                onChangeText={setFundAmount}
+   612→                keyboardType="decimal-pad"
+   613→                placeholder="0.00"
+   614→                placeholderTextColor={Colors.textTertiary}
+   615→              />
+   616→            </View>
+   617→
+   618→            <Text style={styles.feeInfo}>
+   619→              Frais de plateforme: {escrowData.platformFee}%
+   620→            </Text>
+   621→
+   622→            <View style={styles.modalActions}>
+   623→              <TouchableOpacity
+   624→                style={styles.modalCancelButton}
+   625→                onPress={() => setShowFundModal(false)}
+   626→              >
+   627→                <Text style={styles.modalCancelText}>Annuler</Text>
+   628→              </TouchableOpacity>
+   629→              
+   630→              <TouchableOpacity
+   631→                style={styles.modalConfirmButton}
+   632→                onPress={handleFundEscrow}
+   633→                disabled={actionLoading}
+   634→              >
+   635→                {actionLoading ? (
+   636→                  <ActivityIndicator color={Colors.white} />
+   637→                ) : (
+   638→                  <Text style={styles.modalConfirmText}>Confirmer</Text>
+   639→                )}
+   640→              </TouchableOpacity>
+   641→            </View>
+   642→          </View>
+   643→        </View>
+   644→      </Modal>
+   645→
+   646→      {/* Dispute Modal */}
+   647→      <Modal visible={showDisputeModal} transparent animationType="slide">
+   648→        <View style={styles.modalOverlay}>
+   649→          <View style={[styles.modalContent, { maxHeight: '80%' }]}>
+   650→            <Text style={styles.modalTitle}>Ouvrir un litige</Text>
+   651→            
+   652→            <Text style={styles.inputLabel}>Motif du litige</Text>
+   653→            <ScrollView style={styles.reasonsList} showsVerticalScrollIndicator={false}>
+   654→              {DISPUTE_REASONS.map(reason => (
+   655→                <TouchableOpacity
+   656→                  key={reason.value}
+   657→                  style={[
+   658→                    styles.reasonItem,
+   659→                    selectedReason === reason.value && styles.reasonItemSelected
+   660→                  ]}
+   661→                  onPress={() => setSelectedReason(reason.value)}
+   662→                >
+   663→                  <View style={[
+   664→                    styles.reasonRadio,
+   665→                    selectedReason === reason.value && styles.reasonRadioSelected
+   666→                  ]}>
+   667→                    {selectedReason === reason.value && (
+   668→                      <View style={styles.reasonRadioInner} />
+   669→                    )}
+   670→                  </View>
+   671→                  <View style={styles.reasonContent}>
+   672→                    <Text style={styles.reasonLabel}>{reason.label}</Text>
+   673→                    <Text style={styles.reasonDescription}>{reason.description}</Text>
+   674→                  </View>
+   675→                </TouchableOpacity>
+   676→              ))}
+   677→            </ScrollView>
+   678→
+   679→            <Text style={styles.inputLabel}>Description détaillée</Text>
+   680→            <TextInput
+   681→              style={styles.descriptionInput}
+   682→              value={disputeDescription}
+   683→              onChangeText={setDisputeDescription}
+   684→              multiline
+   685→              numberOfLines={4}
+   686→              placeholder="Décrivez le problème en détail..."
+   687→              placeholderTextColor={Colors.textTertiary}
+   688→              textAlignVertical="top"
+   689→            />
+   690→
+   691→            <View style={styles.modalActions}>
+   692→              <TouchableOpacity
+   693→                style={styles.modalCancelButton}
+   694→                onPress={() => setShowDisputeModal(false)}
+   695→              >
+   696→                <Text style={styles.modalCancelText}>Annuler</Text>
+   697→              </TouchableOpacity>
+   698→              
+   699→              <TouchableOpacity
+   700→                style={[styles.modalConfirmButton, styles.disputeConfirmButton]}
+   701→                onPress={handleSubmitDispute}
+   702→                disabled={actionLoading}
+   703→              >
+   704→                {actionLoading ? (
+   705→                  <ActivityIndicator color={Colors.white} />
+   706→                ) : (
+   707→                  <Text style={styles.modalConfirmText}>Soumettre le litige</Text>
+   708→                )}
+   709→              </TouchableOpacity>
+   710→            </View>
+   711→          </View>
+   712→        </View>
+   713→      </Modal>
+   714→
+   715→      {/* Chat Modal */}
+   716→      <Modal visible={showChatModal} transparent animationType="slide">
+   717→        <View style={styles.modalOverlay}>
+   718→          <View style={[styles.modalContent, styles.chatModalContent]}>
+   719→            <View style={styles.chatHeader}>
+   720→              <TouchableOpacity onPress={() => setShowChatModal(false)}>
+   721→                <Ionicons name="close" size={24} color={Colors.text} />
+   722→              </TouchableOpacity>
+   723→              <Text style={styles.chatHeaderText}>Discussion avec le médiateur</Text>
+   724→              <View style={{ width: 24 }} />
+   725→            </View>
+   726→
+   727→            {/* Messages */}
+   728→            <ScrollView style={styles.chatMessages} showsVerticalScrollIndicator={false}>
+   729→              {escrowData.dispute?.messages.map(msg => (
+   730→                <View 
+   731→                  key={msg.id}
+   732→                  style={[
+   733→                    styles.chatMessageRow,
+   734→                    msg.senderRole === 'mediator' ? {} : styles.chatMessageRowOwn
+   735→                  ]}
+   736→                >
+   737→                  <View style={[
+   738→                    styles.chatBubble,
+   739→                    msg.senderRole === 'mediator' ? styles.chatBubbleMediator : styles.chatBubbleOwn
+   740→                  ]}>
+   741→                    <Text style={styles.chatSender}>
+   742→                      {msg.senderRole === 'mediator' ? 'Médiateur' : 'Vous'}
+   743→                    </Text>
+   744→                    <Text style={styles.chatText}>{msg.content}</Text>
+   745→                    <Text style={styles.chatTime}>
+   746→                      {new Date(msg.createdAt).toLocaleTimeString('fr-FR', {
+   747→                        hour: '2-digit',
+   748→                        minute: '2-digit',
+   749→                      })}
+   750→                    </Text>
+   751→                  </View>
+   752→                </View>
+   753→              ))}
+   754→            </ScrollView>
+   755→
+   756→            {/* Input */}
+   757→            <View style={styles.chatInputContainer}>
+   758→              <TextInput
+   759→                style={styles.chatInput}
+   760→                value={chatMessage}
+   761→                onChangeText={setChatMessage}
+   762→                placeholder="Écrivez votre message..."
+   763→                placeholderTextColor={Colors.textTertiary}
+   764→                multiline
+   765→              />
+   766→              <TouchableOpacity
+   767→                style={styles.sendButton}
+   768→                onPress={handleSendMessage}
+   769→                disabled={!chatMessage.trim()}
+   770→              >
+   771→                <Ionicons 
+   772→                  name="send" 
+   773→                  size={20} 
+   774→                  color={chatMessage.trim() ? Colors.primary : Colors.textTertiary} 
+   775→                />
+   776→              </TouchableOpacity>
+   777→            </View>
+   778→          </View>
+   779→        </View>
+   780→      </Modal>
+   781→    </View>
+   782→  );
+   783→}
+   784→
+   785→// ============================================
+   786→// Styles
+   787→// ============================================
+   788→
+   789→const styles = StyleSheet.create({
+   790→  container: {
+   791→    flex: 1,
+   792→    backgroundColor: Colors.background,
+   793→  },
+   794→  loadingContainer: {
+   795→    flex: 1,
+   796→    justifyContent: 'center',
+   797→    alignItems: 'center',
+   798→    backgroundColor: Colors.background,
+   799→  },
+   800→  loadingText: {
+   801→    marginTop: Spacing.md,
+   802→    fontSize: FontSize.base,
+   803→    color: Colors.textSecondary,
+   804→    fontFamily: FontFamily.medium,
+   805→  },
+   806→  errorContainer: {
+   807→    flex: 1,
+   808→    justifyContent: 'center',
+   809→    alignItems: 'center',
+   810→    backgroundColor: Colors.background,
+   811→    padding: Spacing.xl,
+   812→  },
+   813→  errorText: {
+   814→    marginTop: Spacing.md,
+   815→    fontSize: FontSize.lg,
+   816→    color: Colors.textSecondary,
+   817→    fontFamily: FontFamily.medium,
+   818→  },
+   819→  retryButton: {
+   820→    marginTop: Spacing.lg,
+   821→    paddingHorizontal: Spacing.xl,
+   822→    paddingVertical: Spacing.md,
+   823→    backgroundColor: Colors.primary,
+   824→    borderRadius: BorderRadius.lg,
+   825→  },
+   826→  retryButtonText: {
+   827→    color: Colors.white,
+   828→    fontWeight: '600',
+   829→    fontFamily: FontFamily.semiBold,
+   830→  },
+   831→  header: {
+   832→    flexDirection: 'row',
+   833→    alignItems: 'center',
+   834→    justifyContent: 'space-between',
+   835→    paddingHorizontal: Spacing.md,
+   836→    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+   837→    paddingBottom: Spacing.md,
+   838→    backgroundColor: Colors.white,
+   839→    borderBottomWidth: 1,
+   840→    borderBottomColor: Colors.borderLight,
+   841→  },
+   842→  backButton: {
+   843→    width: 40,
+   844→    height: 40,
+   845→    borderRadius: 20,
+   846→    backgroundColor: Colors.surface,
+   847→    justifyContent: 'center',
+   848→    alignItems: 'center',
+   849→  },
+   850→  headerTitle: {
+   851→    fontSize: FontSize.lg,
+   852→    fontWeight: '600',
+   853→    color: Colors.text,
+   854→    fontFamily: FontFamily.semiBold,
+   855→  },
+   856→  scrollView: {
+   857→    flex: 1,
+   858→  },
+   859→  statusCard: {
+   860→    margin: Spacing.md,
+   861→    padding: Spacing.lg,
+   862→    backgroundColor: Colors.white,
+   863→    borderRadius: BorderRadius.xl,
+   864→    borderLeftWidth: 4,
+   865→    ...Shadows.md,
+   866→  },
+   867→  statusHeader: {
+   868→    flexDirection: 'row',
+   869→    alignItems: 'center',
+   870→    marginBottom: Spacing.lg,
+   871→  },
+   872→  statusIconContainer: {
+   873→    width: 56,
+   874→    height: 56,
+   875→    borderRadius: 28,
+   876→    justifyContent: 'center',
+   877→    alignItems: 'center',
+   878→    marginRight: Spacing.md,
+   879→  },
+   880→  statusInfo: {
+   881→    flex: 1,
+   882→  },
+   883→  statusLabel: {
+   884→    fontSize: FontSize.sm,
+   885→    color: Colors.textSecondary,
+   886→    fontFamily: FontFamily.regular,
+   887→  },
+   888→  statusText: {
+   889→    fontSize: FontSize.xl,
+   890→    fontWeight: 'bold',
+   891→    fontFamily: FontFamily.bold,
+   892→  },
+   893→  amountSection: {
+   894→    paddingVertical: Spacing.md,
+   895→    borderTopWidth: 1,
+   896→    borderBottomWidth: 1,
+   897→    borderColor: Colors.borderLight,
+   898→  },
+   899→  amountLabel: {
+   900→    fontSize: FontSize.sm,
+   901→    color: Colors.textSecondary,
+   902→    fontFamily: FontFamily.regular,
+   903→    marginBottom: Spacing.xs,
+   904→  },
+   905→  amountValue: {
+   906→    fontSize: FontSize.xxxl,
+   907→    fontWeight: 'bold',
+   908→    color: Colors.primary,
+   909→    fontFamily: FontFamily.bold,
+   910→  },
+   911→  accountInfo: {
+   912→    marginTop: Spacing.md,
+   913→  },
+   914→  accountNumber: {
+   915→    fontSize: FontSize.sm,
+   916→    color: Colors.textTertiary,
+   917→    fontFamily: FontFamily.regular,
+   918→  },
+   919→  autoReleaseText: {
+   920→    fontSize: FontSize.xs,
+   921→    color: Colors.warning,
+   922→    marginTop: Spacing.xs,
+   923→    fontFamily: FontFamily.regular,
+   924→  },
+   925→  section: {
+   926→    marginHorizontal: Spacing.md,
+   927→    marginBottom: Spacing.md,
+   928→  },
+   929→  sectionTitle: {
+   930→    fontSize: FontSize.md,
+   931→    fontWeight: '600',
+   932→    color: Colors.text,
+   933→    fontFamily: FontFamily.semiBold,
+   934→    marginBottom: Spacing.md,
+   935→  },
+   936→  timeline: {
+   937→    paddingLeft: Spacing.xs,
+   938→  },
+   939→  timelineItem: {
+   940→    flexDirection: 'row',
+   941→    paddingBottom: Spacing.lg,
+   942→  },
+   943→  timelineDotContainer: {
+   944→    alignItems: 'center',
+   945→    marginRight: Spacing.md,
+   946→  },
+   947→  timelineDot: {
+   948→    width: 12,
+   949→    height: 12,
+   950→    borderRadius: 6,
+   951→  },
+   952→  timelineLine: {
+   953→    width: 2,
+   954→    flex: 1,
+   955→    backgroundColor: Colors.borderLight,
+   956→    marginTop: Spacing.xs,
+   957→  },
+   958→  timelineContent: {
+   959→    flex: 1,
+   960→    paddingTop: 1,
+   961→  },
+   962→  timelineLabel: {
+   963→    fontSize: FontSize.base,
+   964→    fontWeight: '500',
+   965→    color: Colors.text,
+   966→    fontFamily: FontFamily.medium,
+   967→  },
+   968→  timelineLabelPending: {
+   969→    color: Colors.textTertiary,
+   970→  },
+   971→  timelineTime: {
+   972→    fontSize: FontSize.xs,
+   973→    color: Colors.textTertiary,
+   974→    marginTop: 2,
+   975→    fontFamily: FontFamily.regular,
+   976→  },
+   977→  timelineDescription: {
+   978→    fontSize: FontSize.sm,
+   979→    color: Colors.textSecondary,
+   980→    marginTop: Spacing.xs,
+   981→    fontFamily: FontFamily.regular,
+   982→  },
+   983→  actionsSection: {
+   984→    marginHorizontal: Spacing.md,
+   985→    marginBottom: Spacing.lg,
+   986→  },
+   987→  actionButton: {
+   988→    flexDirection: 'row',
+   989→    justifyContent: 'center',
+   990→    alignItems: 'center',
+   991→    backgroundColor: Colors.primary,
+   992→    paddingVertical: Spacing.md,
+   993→    borderRadius: BorderRadius.lg,
+   994→    marginBottom: Spacing.sm,
+   995→    gap: Spacing.sm,
+   996→  },
+   997→  actionButtonText: {
+   998→    fontSize: FontSize.base,
+   999→    fontWeight: '600',
+  1000→    color: Colors.white,
+  1001→    fontFamily: FontFamily.semiBold,
+  1002→  },
+  1003→  releaseButton: {
+  1004→    backgroundColor: Colors.success,
+  1005→  },
+  1006→  refundButton: {
+  1007→    backgroundColor: Colors.warning,
+  1008→  },
+  1009→  completedBanner: {
+  1010→    flexDirection: 'row',
+  1011→    alignItems: 'center',
+  1012→    justifyContent: 'center',
+  1013→    padding: Spacing.md,
+  1014→    backgroundColor: Colors.successLight,
+  1015→    borderRadius: BorderRadius.lg,
+  1016→    gap: Spacing.sm,
+  1017→  },
+  1018→  completedText: {
+  1019→    fontSize: FontSize.base,
+  1020→    fontWeight: '500',
+  1021→    color: Colors.success,
+  1022→    fontFamily: FontFamily.medium,
+  1023→  },
+  1024→  refundedBanner: {
+  1025→    flexDirection: 'row',
+  1026→    alignItems: 'center',
+  1027→    justifyContent: 'center',
+  1028→    padding: Spacing.md,
+  1029→    backgroundColor: Colors.infoLight,
+  1030→    borderRadius: BorderRadius.lg,
+  1031→    gap: Spacing.sm,
+  1032→  },
+  1033→  refundedText: {
+  1034→    fontSize: FontSize.base,
+  1035→    fontWeight: '500',
+  1036→    color: Colors.info,
+  1037→    fontFamily: FontFamily.medium,
+  1038→  },
+  1039→  disputeCard: {
+  1040→    marginHorizontal: Spacing.md,
+  1041→    marginBottom: Spacing.md,
+  1042→    padding: Spacing.md,
+  1043→    backgroundColor: Colors.white,
+  1044→    borderRadius: BorderRadius.lg,
+  1045→    borderLeftWidth: 4,
+  1046→    ...Shadows.sm,
+  1047→  },
+  1048→  disputeHeader: {
+  1049→    flexDirection: 'row',
+  1050→    alignItems: 'center',
+  1051→    marginBottom: Spacing.md,
+  1052→  },
+  1053→  disputeHeaderInfo: {
+  1054→    marginLeft: Spacing.sm,
+  1055→    flex: 1,
+  1056→  },
+  1057→  disputeTitle: {
+  1058→    fontSize: FontSize.base,
+  1059→    fontWeight: '600',
+  1060→    color: Colors.error,
+  1061→    fontFamily: FontFamily.semiBold,
+  1062→  },
+  1063→  disputeReason: {
+  1064→    fontSize: FontSize.sm,
+  1065→    color: Colors.textSecondary,
+  1066→    fontFamily: FontFamily.regular,
+  1067→  },
+  1068→  disputeStatusBadge: {
+  1069→    alignSelf: 'flex-start',
+  1070→    paddingHorizontal: Spacing.sm,
+  1071→    paddingVertical: Spacing.xs,
+  1072→    backgroundColor: Colors.errorLight,
+  1073→    borderRadius: BorderRadius.full,
+  1074→    marginBottom: Spacing.sm,
+  1075→  },
+  1076→  disputeStatusText: {
+  1077→    fontSize: FontSize.xs,
+  1078→    fontWeight: '600',
+  1079→    color: Colors.error,
+  1080→    fontFamily: FontFamily.semiBold,
+  1081→  },
+  1082→  mediatorInfo: {
+  1083→    flexDirection: 'row',
+  1084→    alignItems: 'center',
+  1085→    marginBottom: Spacing.xs,
+  1086→  },
+  1087→  mediatorText: {
+  1088→    fontSize: FontSize.sm,
+  1089→    color: Colors.textSecondary,
+  1090→    marginLeft: Spacing.xs,
+  1091→    fontFamily: FontFamily.regular,
+  1092→  },
+  1093→  deadlineInfo: {
+  1094→    flexDirection: 'row',
+  1095→    alignItems: 'center',
+  1096→    marginBottom: Spacing.md,
+  1097→  },
+  1098→  deadlineText: {
+  1099→    fontSize: FontSize.sm,
+  1100→    color: Colors.warning,
+  1101→    marginLeft: Spacing.xs,
+  1102→    fontFamily: FontFamily.medium,
+  1103→  },
+  1104→  chatButton: {
+  1105→    flexDirection: 'row',
+  1106→    alignItems: 'center',
+  1107→    paddingVertical: Spacing.sm,
+  1108→    borderTopWidth: 1,
+  1109→    borderBottomWidth: 1,
+  1110→    borderColor: Colors.borderLight,
+  1111→    marginTop: Spacing.sm,
+  1112→    marginBottom: Spacing.sm,
+  1113→  },
+  1114→  chatButtonText: {
+  1115→    flex: 1,
+  1116→    fontSize: FontSize.sm,
+  1117→    color: Colors.primary,
+  1118→    marginLeft: Spacing.sm,
+  1119→    fontFamily: FontFamily.medium,
+  1120→  },
+  1121→  messagesPreview: {
+  1122→    marginBottom: Spacing.md,
+  1123→  },
+  1124→  messageBubble: {
+  1125→    padding: Spacing.sm,
+  1126→    borderRadius: BorderRadius.md,
+  1127→    marginBottom: Spacing.xs,
+  1128→  },
+  1129→  mediatorBubble: {
+  1130→    backgroundColor: Colors.surface,
+  1131→  },
+  1132→  userBubble: {
+  1133→    backgroundColor: Colors.primaryLight + '20',
+  1134→  },
+  1135→  messageSender: {
+  1136→    fontSize: FontSize.xs,
+  1137→    fontWeight: '600',
+  1138→    color: Colors.textSecondary,
+  1139→    marginBottom: 2,
+  1140→    fontFamily: FontFamily.semiBold,
+  1141→  },
+  1142→  messageContent: {
+  1143→    fontSize: FontSize.sm,
+  1144→    color: Colors.text,
+  1145→    fontFamily: FontFamily.regular,
+  1146→  },
+  1147→  resolutionSection: {
+  1148→    padding: Spacing.md,
+  1149→    backgroundColor: Colors.warningLight,
+  1150→    borderRadius: BorderRadius.md,
+  1151→    marginTop: Spacing.sm,
+  1152→  },
+  1153→  resolutionTitle: {
+  1154→    fontSize: FontSize.sm,
+  1155→    fontWeight: '600',
+  1156→    color: Colors.text,
+  1157→    fontFamily: FontFamily.semiBold,
+  1158→    marginBottom: Spacing.xs,
+  1159→  },
+  1160→  resolutionText: {
+  1161→    fontSize: FontSize.sm,
+  1162→    color: Colors.textSecondary,
+  1163→    fontFamily: FontFamily.regular,
+  1164→    marginBottom: Spacing.md,
+  1165→  },
+  1166→  resolutionActions: {
+  1167→    flexDirection: 'row',
+  1168→    gap: Spacing.sm,
+  1169→  },
+  1170→  resolutionButton: {
+  1171→    flex: 1,
+  1172→    paddingVertical: Spacing.sm,
+  1173→    borderRadius: BorderRadius.md,
+  1174→    alignItems: 'center',
+  1175→  },
+  1176→  acceptReleaseButton: {
+  1177→    backgroundColor: Colors.success,
+  1178→  },
+  1179→  acceptRefundButton: {
+  1180→    backgroundColor: Colors.info,
+  1181→  },
+  1182→  resolutionButtonText: {
+  1183→    fontSize: FontSize.xs,
+  1184→    fontWeight: '600',
+  1185→    color: Colors.white,
+  1186→    fontFamily: FontFamily.semiBold,
+  1187→  },
+  1188→  modalOverlay: {
+  1189→    flex: 1,
+  1190→    backgroundColor: Colors.overlay,
+  1191→    justifyContent: 'flex-end',
+  1192→  },
+  1193→  modalContent: {
+  1194→    backgroundColor: Colors.white,
+  1195→    borderTopLeftRadius: BorderRadius.xxl,
+  1196→    borderTopRightRadius: BorderRadius.xxl,
+  1197→    padding: Spacing.lg,
+  1198→    paddingBottom: Platform.OS === 'ios' ? 40 : Spacing.lg,
+  1199→  },
+  1200→  modalTitle: {
+  1201→    fontSize: FontSize.lg,
+  1202→    fontWeight: '600',
+  1203→    color: Colors.text,
+  1204→    fontFamily: FontFamily.semiBold,
+  1205→    textAlign: 'center',
+  1206→    marginBottom: Spacing.lg,
+  1207→  },
+  1208→  amountInputContainer: {
+  1209→    marginBottom: Spacing.md,
+  1210→  },
+  1211→  inputLabel: {
+  1212→    fontSize: FontSize.sm,
+  1213→    fontWeight: '500',
+  1214→    color: Colors.text,
+  1215→    fontFamily: FontFamily.medium,
+  1216→    marginBottom: Spacing.xs,
+  1217→  },
+  1218→  amountInput: {
+  1219→    height: 56,
+  1220→    borderWidth: 1,
+  1221→    borderColor: Colors.border,
+  1222→    borderRadius: BorderRadius.lg,
+  1223→    paddingHorizontal: Spacing.md,
+  1224→    fontSize: FontSize.xl,
+  1225→    color: Colors.text,
+  1226→    fontFamily: FontFamily.semiBold,
+  1227→  },
+  1228→  feeInfo: {
+  1229→    fontSize: FontSize.sm,
+  1230→    color: Colors.textTertiary,
+  1231→    fontFamily: FontFamily.regular,
+  1232→    marginBottom: Spacing.lg,
+  1233→  },
+  1234→  reasonsList: {
+  1235→    maxHeight: 200,
+  1236→    marginBottom: Spacing.md,
+  1237→  },
+  1238→  reasonItem: {
+  1239→    flexDirection: 'row',
+  1240→    alignItems: 'center',
+  1241→    padding: Spacing.md,
+  1242→    backgroundColor: Colors.surface,
+  1243→    borderRadius: BorderRadius.md,
+  1244→    marginBottom: Spacing.xs,
+  1245→  },
+  1246→  reasonItemSelected: {
+  1247→    backgroundColor: Colors.primary + '10',
+  1248→    borderWidth: 1,
+  1249→    borderColor: Colors.primary,
+  1250→  },
+  1251→  reasonRadio: {
+  1252→    width: 22,
+  1253→    height: 22,
+  1254→    borderRadius: 11,
+  1255→    borderWidth: 2,
+  1256→    borderColor: Colors.border,
+  1257→    marginRight: Spacing.md,
+  1258→    justifyContent: 'center',
+  1259→    alignItems: 'center',
+  1260→  },
+  1261→  reasonRadioSelected: {
+  1262→    borderColor: Colors.primary,
+  1263→  },
+  1264→  reasonRadioInner: {
+  1265→    width: 12,
+  1266→    height: 12,
+  1267→    borderRadius: 6,
+  1268→    backgroundColor: Colors.primary,
+  1269→  },
+  1270→  reasonContent: {
+  1271→    flex: 1,
+  1272→  },
+  1273→  reasonLabel: {
+  1274→    fontSize: FontSize.base,
+  1275→    fontWeight: '500',
+  1276→    color: Colors.text,
+  1277→    fontFamily: FontFamily.medium,
+  1278→  },
+  1279→  reasonDescription: {
+  1280→    fontSize: FontSize.xs,
+  1281→    color: Colors.textTertiary,
+  1282→    fontFamily: FontFamily.regular,
+  1283→    marginTop: 2,
+  1284→  },
+  1285→  descriptionInput: {
+  1286→    minHeight: 100,
+  1287→    borderWidth: 1,
+  1288→    borderColor: Colors.border,
+  1289→    borderRadius: BorderRadius.lg,
+  1290→    paddingHorizontal: Spacing.md,
+  1291→    paddingTop: Spacing.md,
+  1292→    fontSize: FontSize.base,
+  1293→    color: Colors.text,
+  1294→    fontFamily: FontFamily.regular,
+  1295→    marginBottom: Spacing.md,
+  1296→  },
+  1297→  modalActions: {
+  1298→    flexDirection: 'row',
+  1299→    gap: Spacing.md,
+  1300→  },
+  1301→  modalCancelButton: {
+  1302→    flex: 1,
+  1303→    paddingVertical: Spacing.md,
+  1304→    alignItems: 'center',
+  1305→    backgroundColor: Colors.surface,
+  1306→    borderRadius: BorderRadius.lg,
+  1307→  },
+  1308→  modalCancelText: {
+  1309→    fontSize: FontSize.base,
+  1310→    fontWeight: '500',
+  1311→    color: Colors.textSecondary,
+  1312→    fontFamily: FontFamily.medium,
+  1313→  },
+  1314→  modalConfirmButton: {
+  1315→    flex: 1,
+  1316→    paddingVertical: Spacing.md,
+  1317→    alignItems: 'center',
+  1318→    backgroundColor: Colors.primary,
+  1319→    borderRadius: BorderRadius.lg,
+  1320→  },
+  1321→  disputeConfirmButton: {
+  1322→    backgroundColor: Colors.error,
+  1323→  },
+  1324→  modalConfirmText: {
+  1325→    fontSize: FontSize.base,
+  1326→    fontWeight: '600',
+  1327→    color: Colors.white,
+  1328→    fontFamily: FontFamily.semiBold,
+  1329→  },
+  1330→  chatModalContent: {
+  1331→    flex: 1,
+  1332→    justifyContent: 'flex-end',
+  1333→  },
+  1334→  chatHeader: {
+  1335→    flexDirection: 'row',
+  1336→    alignItems: 'center',
+  1337→    justifyContent: 'space-between',
+  1338→    paddingBottom: Spacing.md,
+  1339→    borderBottomWidth: 1,
+  1340→    borderBottomColor: Colors.borderLight,
+  1341→    marginBottom: Spacing.md,
+  1342→  },
+  1343→  chatHeaderText: {
+  1344→    fontSize: FontSize.base,
+  1345→    fontWeight: '600',
+  1346→    color: Colors.text,
+  1347→    fontFamily: FontFamily.semiBold,
+  1348→  },
+  1349→  chatMessages: {
+  1350→    flex: 1,
+  1351→    maxHeight: 300,
+  1352→    marginBottom: Spacing.md,
+  1353→  },
+  1354→  chatMessageRow: {
+  1355→    marginBottom: Spacing.sm,
+  1356→  },
+  1357→  chatMessageRowOwn: {
+  1358→    alignItems: 'flex-end',
+  1359→  },
+  1360→  chatBubble: {
+  1361→    maxWidth: '80%',
+  1362→    padding: Spacing.md,
+  1363→    borderRadius: BorderRadius.lg,
+  1364→  },
+  1365→  chatBubbleMediator: {
+  1366→    backgroundColor: Colors.surface,
+  1367→    borderTopLeftRadius: 4,
+  1368→  },
+  1369→  chatBubbleOwn: {
+  1370→    backgroundColor: Colors.primary,
+  1371→    borderTopRightRadius: 4,
+  1372→  },
+  1373→  chatSender: {
+  1374→    fontSize: FontSize.xs,
+  1375→    fontWeight: '600',
+  1376→    color: Colors.textSecondary,
+  1377→    marginBottom: 4,
+  1378→    fontFamily: FontFamily.semiBold,
+  1379→  },
+  1380→  chatText: {
+  1381→    fontSize: FontSize.sm,
+  1382→    color: Colors.text,
+  1383→    fontFamily: FontFamily.regular,
+  1384→    lineHeight: 20,
+  1385→  },
+  1386→  chatTime: {
+  1387→    fontSize: FontSize.xs,
+  1388→    color: Colors.textTertiary,
+  1389→    marginTop: Spacing.xs,
+  1390→    alignSelf: 'flex-end',
+  1391→    fontFamily: FontFamily.regular,
+  1392→  },
+  1393→  chatInputContainer: {
+  1394→    flexDirection: 'row',
+  1395→    alignItems: 'flex-end',
+  1396→    backgroundColor: Colors.surface,
+  1397→    borderRadius: BorderRadius.lg,
+  1398→    paddingHorizontal: Spacing.sm,
+  1399→    paddingVertical: Spacing.xs,
+  1400→    borderWidth: 1,
+  1401→    borderColor: Colors.border,
+  1402→  },
+  1403→  chatInput: {
+  1404→    flex: 1,
+  1405→    maxHeight: 100,
+  1406→    fontSize: FontSize.base,
+  1407→    color: Colors.text,
+  1408→    paddingVertical: Spacing.xs,
+  1409→    fontFamily: FontFamily.regular,
+  1410→  },
+  1411→  sendButton: {
+  1412→    width: 40,
+  1413→    height: 40,
+  1414→    borderRadius: 20,
+  1415→    backgroundColor: Colors.surfaceVariant,
+  1416→    justifyContent: 'center',
+  1417→    alignItems: 'center',
+  1418→    marginLeft: Spacing.xs,
+  1419→  },
+  1420→});
+  1421→

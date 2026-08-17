@@ -1,0 +1,1094 @@
+     1→'use client';
+     2→
+     3→import React, { useState, useMemo } from 'react';
+     4→import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+     5→import { Button } from '@/components/ui/button';
+     6→import { Badge } from '@/components/ui/badge';
+     7→import { Input } from '@/components/ui/input';
+     8→import { Label } from '@/components/ui/label';
+     9→import { Textarea } from '@/components/ui/textarea';
+    10→import {
+    11→  Table,
+    12→  TableBody,
+    13→  TableCell,
+    14→  TableHead,
+    15→  TableHeader,
+    16→  TableRow,
+    17→} from '@/components/ui/table';
+    18→import {
+    19→  Select,
+    20→  SelectContent,
+    21→  SelectItem,
+    22→  SelectTrigger,
+    23→  SelectValue,
+    24→} from '@/components/ui/select';
+    25→import {
+    26→  Dialog,
+    27→  DialogContent,
+    28→  DialogDescription,
+    29→  DialogFooter,
+    30→  DialogHeader,
+    31→  DialogTitle,
+    32→} from '@/components/ui/dialog';
+    33→import {
+    34→  DropdownMenu,
+    35→  DropdownMenuContent,
+    36→  DropdownMenuItem,
+    37→  DropdownMenuSeparator,
+    38→  DropdownMenuTrigger,
+    39→} from '@/components/ui/dropdown-menu';
+    40→import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+    41→import { StatsCard } from '@/components/admin/StatsCard';
+    42→import {
+    43→  ClipboardCheck,
+    44→  Clock,
+    45→  CheckCircle2,
+    46→  XCircle,
+    47→  AlertTriangle,
+    48→  Search,
+    49→  Filter,
+    50→  Download,
+    51→  Eye,
+    52→  MoreHorizontal,
+    53→  Calendar,
+    54→  MapPin,
+    55→  User,
+    56→  Building2,
+    57→  FileText,
+    58→  DollarSign,
+    59→  Users,
+    60→  Plus,
+    61→  Edit,
+    62→  RefreshCw,
+    63→  Camera,
+    64→  Star,
+    65→  TrendingUp
+    66→} from 'lucide-react';
+    67→
+    68→// Types
+    69→type InspectionStatus = 'PENDING' | 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED' | 'DISPUTED';
+    70→type InspectionType = 'QUALITY' | 'PRE_SHIPMENT' | 'FACTORY_AUDIT' | 'SAMPLE_CHECK' | 'LOADING_SUPERVISION';
+    71→
+    72→interface Inspector {
+    73→  id: string;
+    74→  name: string;
+    75→  email: string;
+    76→  phone: string;
+    77→  specializations: InspectionType[];
+    78→  rating: number;
+    79→  completedInspections: number;
+    80→  isAvailable: boolean;
+    81→}
+    82→
+    83→interface ServicePricing {
+    84→  id: string;
+    85→  type: InspectionType;
+    86→  basePrice: number;
+    87→  currency: string;
+    88→  duration: number; // in hours
+    89→  description: string;
+    90→  isActive: boolean;
+    91→}
+    92→
+    93→interface InspectionBooking {
+    94→  id: string;
+    95→  bookingRef: string;
+    96→  type: InspectionType;
+    97→  status: InspectionStatus;
+    98→  clientName: string;
+    99→  clientEmail: string;
+   100→  companyName?: string;
+   101→  inspectorId?: string;
+   102→  inspectorName?: string;
+   103→  location: string;
+   104→  wilaya: string;
+   105→  scheduledDate?: string;
+   106→  scheduledTime?: string;
+   107→  completedAt?: string;
+   108→  price: number;
+   109→  currency: string;
+   110→  notes?: string;
+   111→  reportUrl?: string;
+   112→  createdAt: string;
+   113→}
+   114→
+   115→// Sample data
+   116→const sampleInspectors: Inspector[] = [
+   117→  {
+   118→    id: 'INS001',
+   119→    name: 'Mohamed Belkacem',
+   120→    email: 'm.belkacem@inspect-dz.dz',
+   121→    phone: '+213 555 111 222',
+   122→    specializations: ['QUALITY', 'PRE_SHIPMENT'],
+   123→    rating: 4.8,
+   124→    completedInspections: 156,
+   125→    isAvailable: true,
+   126→  },
+   127→  {
+   128→    id: 'INS002',
+   129→    name: 'Amina Hadj',
+   130→    email: 'a.hadj@inspect-dz.dz',
+   131→    phone: '+213 661 333 444',
+   132→    specializations: ['FACTORY_AUDIT', 'SAMPLE_CHECK'],
+   133→    rating: 4.9,
+   134→    completedInspections: 203,
+   135→    isAvailable: true,
+   136→  },
+   137→  {
+   138→    id: 'INS003',
+   139→    name: 'Rachid Talem',
+   140→    email: 'r.talem@inspect-dz.dz',
+   141→    phone: '+213 777 555 666',
+   142→    specializations: ['LOADING_SUPERVISION', 'PRE_SHIPMENT'],
+   143→    rating: 4.6,
+   144→    completedInspections: 89,
+   145→    isAvailable: false,
+   146→  },
+   147→];
+   148→
+   149→const samplePricing: ServicePricing[] = [
+   150→  {
+   151→    id: 'PRC001',
+   152→    type: 'QUALITY',
+   153→    basePrice: 15000,
+   154→    currency: 'DZD',
+   155→    duration: 3,
+   156→    description: 'Contrôle qualité standard',
+   157→    isActive: true,
+   158→  },
+   159→  {
+   160→    id: 'PRC002',
+   161→    type: 'PRE_SHIPMENT',
+   162→    basePrice: 25000,
+   163→    currency: 'DZD',
+   164→    duration: 5,
+   165→    description: 'Inspection pré-expédition complète',
+   166→    isActive: true,
+   167→  },
+   168→  {
+   169→    id: 'PRC003',
+   170→    type: 'FACTORY_AUDIT',
+   171→    basePrice: 45000,
+   172→    currency: 'DZD',
+   173→    duration: 8,
+   174→    description: 'Audit d\'usine complet',
+   175→    isActive: true,
+   176→  },
+   177→  {
+   178→    id: 'PRC004',
+   179→    type: 'SAMPLE_CHECK',
+   180→    basePrice: 10000,
+   181→    currency: 'DZD',
+   182→    duration: 2,
+   183→    description: 'Vérification d\'échantillons',
+   184→    isActive: true,
+   185→  },
+   186→  {
+   187→    id: 'PRC005',
+   188→    type: 'LOADING_SUPERVISION',
+   189→    basePrice: 20000,
+   190→    currency: 'DZD',
+   191→    duration: 4,
+   192→    description: 'Supervision de chargement',
+   193→    isActive: true,
+   194→  },
+   195→];
+   196→
+   197→const sampleBookings: InspectionBooking[] = [
+   198→  {
+   199→    id: 'B001',
+   200→    bookingRef: 'INSP-2024-0001',
+   201→    type: 'PRE_SHIPMENT',
+   202→    status: 'PENDING',
+   203→    clientName: 'Karim Meziani',
+   204→    clientEmail: 'karim@example.com',
+   205→    companyName: 'SARL Technologie Algerienne',
+   206→    location: 'Zone Industrielle Oued Smar',
+   207→    wilaya: 'Alger',
+   208→    price: 25000,
+   209→    currency: 'DZD',
+   210→    notes: 'Inspection de serveurs avant expédition vers Oran',
+   211→    createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+   212→  },
+   213→  {
+   214→    id: 'B002',
+   215→    bookingRef: 'INSP-2024-0002',
+   216→    type: 'QUALITY',
+   217→    status: 'SCHEDULED',
+   218→    clientName: 'Fatima Zahra',
+   219→    clientEmail: 'fatima@example.com',
+   220→    companyName: 'EURL Industrie Moderne',
+   221→    inspectorId: 'INS001',
+   222→    inspectorName: 'Mohamed Belkacem',
+   223→    location: 'Parc Industriel Hassi Messaoud',
+   224→    wilaya: 'Ouargla',
+   225→    scheduledDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+   226→    scheduledTime: '09:00',
+   227→    price: 15000,
+   228→    currency: 'DZD',
+   229→    createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+   230→  },
+   231→  {
+   232→    id: 'B003',
+   233→    bookingRef: 'INSP-2024-0003',
+   234→    type: 'FACTORY_AUDIT',
+   235→    status: 'IN_PROGRESS',
+   236→    clientName: 'Ahmed Benali',
+   237→    clientEmail: 'ahmed@example.com',
+   238→    companyName: 'Sarl Agro Solutions',
+   239→    inspectorId: 'INS002',
+   240→    inspectorName: 'Amina Hadj',
+   241→    location: 'Zone Industrielle Ain Mlila',
+   242→    wilaya: 'Milan',
+   243→    scheduledDate: new Date().toISOString().split('T')[0],
+   244→    scheduledTime: '08:30',
+   245→    price: 45000,
+   246→    currency: 'DZD',
+   247→    createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+   248→  },
+   249→  {
+   250→    id: 'B004',
+   251→    bookingRef: 'INSP-2024-0004',
+   252→    type: 'SAMPLE_CHECK',
+   253→    status: 'COMPLETED',
+   254→    clientName: 'Samira Khelifi',
+   255→    clientEmail: 'samira@example.com',
+   256→    companyName: 'SPA Distribution Plus',
+   257→    inspectorId: 'INS001',
+   258→    inspectorName: 'Mohamed Belkacem',
+   259→    location: 'Port d\'Alger',
+   260→    wilaya: 'Alger',
+   261→    scheduledDate: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+   262→    completedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+   263→    price: 10000,
+   264→    currency: 'DZD',
+   265→    reportUrl: '#',
+   266→    createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+   267→  },
+   268→  {
+   269→    id: 'B005',
+   270→    bookingRef: 'INSP-2024-0005',
+   271→    type: 'LOADING_SUPERVISION',
+   272→    status: 'CANCELLED',
+   273→    clientName: 'Youssef Ammar',
+   274→    clientEmail: 'youssef@example.com',
+   275→    location: 'Zone Portuaire Skikda',
+   276→    wilaya: 'Skikda',
+   277→    price: 20000,
+   278→    currency: 'DZD',
+   279→    notes: 'Annulation par le client - expédition retardée',
+   280→    createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+   281→  },
+   282→];
+   283→
+   284→const statusConfig: Record<InspectionStatus, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; color: string }> = {
+   285→  PENDING: { label: 'En attente', variant: 'outline', color: 'text-yellow-700 bg-yellow-50 border-yellow-200' },
+   286→  SCHEDULED: { label: 'Planifiée', variant: 'secondary', color: 'text-blue-700 bg-blue-50 border-blue-200' },
+   287→  IN_PROGRESS: { label: 'En cours', variant: 'default', color: 'bg-purple-100 text-purple-800 border-purple-200' },
+   288→  COMPLETED: { label: 'Terminée', variant: 'default', color: 'bg-green-100 text-green-800 border-green-200' },
+   289→  CANCELLED: { label: 'Annulée', variant: 'secondary', color: 'text-gray-700 bg-gray-100 border-gray-200' },
+   290→  DISPUTED: { label: 'Litigieuse', variant: 'destructive', color: '' },
+   291→};
+   292→
+   293→const typeConfig: Record<InspectionType, { label: string; icon: React.ReactNode }> = {
+   294→  QUALITY: { label: 'Contrôle qualité', icon: <ClipboardCheck className="h-4 w-4" /> },
+   295→  PRE_SHIPMENT: { label: 'Pré-expédition', icon: <FileText className="h-4 w-4" /> },
+   296→  FACTORY_AUDIT: { label: 'Audit usine', icon: <Building2 className="h-4 w-4" /> },
+   297→  SAMPLE_CHECK: { label: 'Vérif. échantillon', icon: <Camera className="h-4 w-4" /> },
+   298→  LOADING_SUPERVISION: { label: 'Super. chargement', icon: <Users className="h-4 w-4" /> },
+   299→};
+   300→
+   301→export default function InspectionsManagementPage() {
+   302→  const [bookings] = useState<InspectionBooking[]>(sampleBookings);
+   303→  const [inspectors] = useState<Inspector[]>(sampleInspectors);
+   304→  const [pricing, setPricing] = useState<ServicePricing[]>(samplePricing);
+   305→  const [activeTab, setActiveTab] = useState('bookings');
+   306→  const [searchQuery, setSearchQuery] = useState('');
+   307→  const [statusFilter, setStatusFilter] = useState<string>('ALL');
+   308→  
+   309→  // Dialog states
+   310→  const [detailDialogOpen, setDetailDialogOpen] = useState(false);
+   311→  const [selectedBooking, setSelectedBooking] = useState<InspectionBooking | null>(null);
+   312→  
+   313→  // Assignment dialog states
+   314→  const [assignmentDialogOpen, setAssignmentDialogOpen] = useState(false);
+   315→  const [selectedInspector, setSelectedInspector] = useState<string>('');
+   316→  
+   317→  // Pricing dialog states
+   318→  const [pricingDialogOpen, setPricingDialogOpen] = useState(false);
+   319→  const [editingPricing, setEditingPricing] = useState<ServicePricing | null>(null);
+   320→
+   321→  // Filter bookings
+   322→  const filteredBookings = useMemo(() => {
+   323→    let result = [...bookings];
+   324→    
+   325→    if (statusFilter !== 'ALL') {
+   326→      result = result.filter(b => b.status === statusFilter);
+   327→    }
+   328→    
+   329→    if (searchQuery.trim()) {
+   330→      const query = searchQuery.toLowerCase();
+   331→      result = result.filter(b => 
+   332→        b.bookingRef.toLowerCase().includes(query) ||
+   333→        b.clientName.toLowerCase().includes(query) ||
+   334→        b.companyName?.toLowerCase().includes(query) ||
+   335→        b.location.toLowerCase().includes(query)
+   336→      );
+   337→    }
+   338→    
+   339→    result.sort((a, b) => {
+   340→      if (a.status === 'PENDING' && b.status !== 'PENDING') return -1;
+   341→      if (a.status !== 'PENDING' && b.status === 'PENDING') return 1;
+   342→      if (a.status === 'IN_PROGRESS' && b.status !== 'IN_PROGRESS') return -1;
+   343→      if (a.status !== 'IN_PROGRESS' && b.status === 'IN_PROGRESS') return 1;
+   344→      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+   345→    });
+   346→    
+   347→    return result;
+   348→  }, [bookings, searchQuery, statusFilter]);
+   349→
+   350→  // Stats
+   351→  const pendingCount = bookings.filter(b => b.status === 'PENDING').length;
+   352→  const todayBookings = bookings.filter(b => 
+   353→    b.scheduledDate === new Date().toISOString().split('T')[0]
+   354→  ).length;
+   355→  const completedThisMonth = bookings.filter(b => 
+   356→    b.status === 'COMPLETED' && 
+   357→    b.completedAt &&
+   358→    new Date(b.completedAt).getMonth() === new Date().getMonth()
+   359→  ).length;
+   360→  const totalRevenue = bookings
+   361→    .filter(b => b.status === 'COMPLETED')
+   362→    .reduce((sum, b) => sum + b.price, 0);
+   363→
+   364→  // Handlers
+   365→  const formatCurrency = (amount: number) => {
+   366→    return new Intl.NumberFormat('fr-DZ', { style: 'currency', currency: 'DZD' }).format(amount);
+   367→  };
+   368→
+   369→  const formatDate = (dateString: string) => {
+   370→    return new Date(dateString).toLocaleDateString('fr-FR', {
+   371→      day: '2-digit',
+   372→      month: '2-digit',
+   373→      year: 'numeric'
+   374→    });
+   375→  };
+   376→
+   377→  const openDetailDialog = (booking: InspectionBooking) => {
+   378→    setSelectedBooking(booking);
+   379→    setDetailDialogOpen(true);
+   380→  };
+   381→
+   382→  const openAssignmentDialog = (booking: InspectionBooking) => {
+   383→    setSelectedBooking(booking);
+   384→    setSelectedInspector(booking.inspectorId || '');
+   385→    setAssignmentDialogOpen(true);
+   386→  };
+   387→
+   388→  const handleAssignInspector = async () => {
+   389→    // Simulate API call
+   390→    await new Promise(resolve => setTimeout(resolve, 500));
+   391→    console.log(`Assigning inspector ${selectedInspector} to booking ${selectedBooking?.id}`);
+   392→    setAssignmentDialogOpen(false);
+   393→  };
+   394→
+   395→  const openPricingDialog = (price?: ServicePricing) => {
+   396→    setEditingPricing(price || {
+   397→      id: '',
+   398→      type: 'QUALITY',
+   399→      basePrice: 0,
+   400→      currency: 'DZD',
+   401→      duration: 1,
+   402→      description: '',
+   403→      isActive: true,
+   404→    });
+   405→    setPricingDialogOpen(true);
+   406→  };
+   407→
+   408→  const handleSavePricing = async () => {
+   409→    if (!editingPricing) return;
+   410→    await new Promise(resolve => setTimeout(resolve, 500));
+   411→    
+   412→    if (editingPricing.id) {
+   413→      setPricing(prev => prev.map(p => p.id === editingPricing.id ? editingPricing : p));
+   414→    } else {
+   415→      setPricing(prev => [...prev, { ...editingPricing, id: `PRC${Date.now()}` }]);
+   416→    }
+   417→    setPricingDialogOpen(false);
+   418→  };
+   419→
+   420→  const exportToCSV = () => {
+   421→    const headers = ['Réf', 'Type', 'Client', 'Entreprise', 'Localisation', 'Wilaya', 'Statut', 'Prix', 'Date création'];
+   422→    const csvRows = filteredBookings.map(b => [
+   423→      b.bookingRef,
+   424→      typeConfig[b.type].label,
+   425→      b.clientName,
+   426→      b.companyName || '',
+   427→      b.location,
+   428→      b.wilaya,
+   429→      statusConfig[b.status].label,
+   430→      formatCurrency(b.price),
+   431→      formatDate(b.createdAt)
+   432→    ]);
+   433→    
+   434→    const csvContent = [headers, ...csvRows]
+   435→      .map(row => row.map(cell => `"${cell}"`).join(','))
+   436→      .join('\n');
+   437→    
+   438→    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+   439→    const link = document.createElement('a');
+   440→    link.href = URL.createObjectURL(blob);
+   441→    link.download = `inspections_${new Date().toISOString().split('T')[0]}.csv`;
+   442→    link.click();
+   443→  };
+   444→
+   445→  return (
+   446→    <div className="space-y-6">
+   447→      {/* Header */}
+   448→      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+   449→        <div>
+   450→          <h1 className="text-2xl font-bold text-gray-900">Gestion des Inspections</h1>
+   451→          <p className="text-gray-500 mt-1">Planifiez et suivez les inspections qualité</p>
+   452→        </div>
+   453→        <Button variant="outline" onClick={exportToCSV}>
+   454→          <Download className="mr-2 h-4 w-4" /> Exporter CSV
+   455→        </Button>
+   456→      </div>
+   457→
+   458→      {/* Stats Cards */}
+   459→      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+   460→        <StatsCard
+   461→          title="En attente"
+   462→          value={pendingCount}
+   463→          description="À assigner"
+   464→          icon={Clock}
+   465→          iconClassName={pendingCount > 0 ? "bg-yellow-100 text-yellow-600 animate-pulse" : "bg-gray-100 text-gray-600"}
+   466→        />
+   467→        <StatsCard
+   468→          title="Aujourd'hui"
+   469→          value={todayBookings}
+   470→          description="Inspections planifiées"
+   471→          icon={Calendar}
+   472→          iconClassName="bg-blue-100 text-blue-600"
+   473→        />
+   474→        <StatsCard
+   475→          title="Ce mois"
+   476→          value={completedThisMonth}
+   477→          description="Terminées"
+   478→          icon={CheckCircle2}
+   479→          iconClassName="bg-green-100 text-green-600"
+   480→        />
+   481→        <StatsCard
+   482→          title="Revenus"
+   483→          value={formatCurrency(totalRevenue)}
+   484→          description="Inspections complétées"
+   485→          icon={DollarSign}
+   486→          iconClassName="bg-purple-100 text-purple-600"
+   487→        />
+   488→      </div>
+   489→
+   490→      {/* Main Tabs */}
+   491→      <Tabs value={activeTab} onValueChange={setActiveTab}>
+   492→        <TabsList>
+   493→          <TabsTrigger value="bookings" className="gap-1">
+   494→            <ClipboardCheck className="h-4 w-4" /> Réservations ({bookings.length})
+   495→          </TabsTrigger>
+   496→          <TabsTrigger value="inspectors" className="gap-1">
+   497→            <Users className="h-4 w-4" /> Inspecteurs ({inspectors.length})
+   498→          </TabsTrigger>
+   499→          <TabsTrigger value="pricing" className="gap-1">
+   500→            <DollarSign className="h-4 w-4" /> Tarifs ({pricing.length})
+   501→          </TabsTrigger>
+   502→        </TabsList>
+   503→
+   504→        {/* Bookings Tab */}
+   505→        <TabsContent value="bookings" className="mt-4 space-y-4">
+   506→          {/* Filters */}
+   507→          <Card>
+   508→            <CardContent className="pt-6">
+   509→              <div className="flex flex-col sm:flex-row gap-4">
+   510→                <div className="relative flex-1">
+   511→                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+   512→                  <Input
+   513→                    placeholder="Rechercher par référence, client ou localisation..."
+   514→                    value={searchQuery}
+   515→                    onChange={(e) => setSearchQuery(e.target.value)}
+   516→                    className="pl-10"
+   517→                  />
+   518→                </div>
+   519→                <Select value={statusFilter} onValueChange={setStatusFilter}>
+   520→                  <SelectTrigger className="w-[180px]">
+   521→                    <Filter className="mr-2 h-4 w-4" />
+   522→                    <SelectValue placeholder="Statut" />
+   523→                  </SelectTrigger>
+   524→                  <SelectContent>
+   525→                    <SelectItem value="ALL">Tous les statuts</SelectItem>
+   526→                    <SelectItem value="PENDING">En attente</SelectItem>
+   527→                    <SelectItem value="SCHEDULED">Planifiée</SelectItem>
+   528→                    <SelectItem value="IN_PROGRESS">En cours</SelectItem>
+   529→                    <SelectItem value="COMPLETED">Terminée</SelectItem>
+   530→                    <SelectItem value="CANCELLED">Annulée</SelectItem>
+   531→                  </SelectContent>
+   532→                </Select>
+   533→              </div>
+   534→            </CardContent>
+   535→          </Card>
+   536→
+   537→          {/* Bookings Table */}
+   538→          <Card>
+   539→            <CardContent className="p-0">
+   540→              {filteredBookings.length > 0 ? (
+   541→                <div className="overflow-x-auto">
+   542→                  <Table>
+   543→                    <TableHeader>
+   544→                      <TableRow className="bg-gray-50 hover:bg-gray-50">
+   545→                        <TableHead>Référence</TableHead>
+   546→                        <TableHead>Type</TableHead>
+   547→                        <TableHead>Client</TableHead>
+   548→                        <TableHead className="hidden lg:table-cell">Localisation</TableHead>
+   549→                        <TableHead>Inspecteur</TableHead>
+   550→                        <TableHead>Statut</TableHead>
+   551→                        <TableHead className="hidden md:table-cell">Prix</TableHead>
+   552→                        <TableHead className="hidden lg:table-cell">Date</TableHead>
+   553→                        <TableHead className="w-12">Actions</TableHead>
+   554→                      </TableRow>
+   555→                    </TableHeader>
+   556→                    <TableBody>
+   557→                      {filteredBookings.map((booking) => {
+   558→                        const status = statusConfig[booking.status];
+   559→                        const type = typeConfig[booking.type];
+   560→                        
+   561→                        return (
+   562→                          <TableRow 
+   563→                            key={booking.id}
+   564→                            className={
+   565→                              booking.status === 'PENDING' 
+   566→                                ? 'bg-yellow-50/30 hover:bg-yellow-50/50' 
+   567→                                : booking.status === 'IN_PROGRESS'
+   568→                                  ? 'bg-purple-50/30 hover:bg-purple-50/50'
+   569→                                  : ''
+   570→                            }
+   571→                          >
+   572→                            <TableCell>
+   573→                              <code className="text-xs bg-gray-100 px-1.5 py-0.5 rounded">{booking.bookingRef}</code>
+   574→                            </TableCell>
+   575→                            <TableCell>
+   576→                              <div className="flex items-center gap-1.5 text-sm">
+   577→                                {type.icon}
+   578→                                <span className="hidden sm:inline">{type.label}</span>
+   579→                              </div>
+   580→                            </TableCell>
+   581→                            <TableCell>
+   582→                              <div>
+   583→                                <p className="font-medium text-sm">{booking.clientName}</p>
+   584→                                {booking.companyName && (
+   585→                                  <p className="text-xs text-gray-500">{booking.companyName}</p>
+   586→                                )}
+   587→                              </div>
+   588→                            </TableCell>
+   589→                            <TableCell className="hidden lg:table-cell">
+   590→                              <div className="flex items-start gap-1 text-sm max-w-[150px]">
+   591→                                <MapPin className="h-3.5 w-3.5 text-gray-400 mt-0.5 flex-shrink-0" />
+   592→                                <span className="truncate">{booking.location}</span>
+   593→                              </div>
+   594→                            </TableCell>
+   595→                            <TableCell>
+   596→                              {booking.inspectorName ? (
+   597→                                <span className="text-sm">{booking.inspectorName}</span>
+   598→                              ) : (
+   599→                                <Badge variant="outline" className="text-xs text-orange-600">
+   600→                                  Non assigné
+   601→                                </Badge>
+   602→                              )}
+   603→                            </TableCell>
+   604→                            <TableCell>
+   605→                              <Badge variant={status.variant} className={status.color}>
+   606→                                {status.label}
+   607→                              </Badge>
+   608→                            </TableCell>
+   609→                            <TableCell className="hidden md:table-cell">
+   610→                              <span className="font-medium text-green-700">{formatCurrency(booking.price)}</span>
+   611→                            </TableCell>
+   612→                            <TableCell className="hidden lg:table-cell">
+   613→                              <span className="text-sm text-gray-600">
+   614→                                {booking.scheduledDate ? formatDate(booking.scheduledDate) : formatDate(booking.createdAt)}
+   615→                              </span>
+   616→                            </TableCell>
+   617→                            <TableCell>
+   618→                              <DropdownMenu>
+   619→                                <DropdownMenuTrigger asChild>
+   620→                                  <Button variant="ghost" size="icon" className="h-8 w-8">
+   621→                                    <MoreHorizontal className="h-4 w-4" />
+   622→                                    <span className="sr-only">Actions</span>
+   623→                                  </Button>
+   624→                                </DropdownMenuTrigger>
+   625→                                <DropdownMenuContent align="end" className="w-48">
+   626→                                  <DropdownMenuItem onClick={() => openDetailDialog(booking)}>
+   627→                                    <Eye className="mr-2 h-4 w-4" /> Voir détails
+   628→                                  </DropdownMenuItem>
+   629→                                  
+   630→                                  {!booking.inspectorId && booking.status === 'PENDING' && (
+   631→                                    <>
+   632→                                      <DropdownMenuSeparator />
+   633→                                      <DropdownMenuItem 
+   634→                                        onClick={() => openAssignmentDialog(booking)}
+   635→                                        className="text-blue-600 focus:text-blue-600"
+   636→                                      >
+   637→                                        <User className="mr-2 h-4 w-4" /> Assigner inspecteur
+   638→                                      </DropdownMenuItem>
+   639→                                    </>
+   640→                                  )}
+   641→
+   642→                                  {booking.status === 'COMPLETED' && booking.reportUrl && (
+   643→                                    <>
+   644→                                      <DropdownMenuSeparator />
+   645→                                      <DropdownMenuItem>
+   646→                                        <FileText className="mr-2 h-4 w-4" /> Télécharger rapport
+   647→                                      </DropdownMenuItem>
+   648→                                    </>
+   649→                                  )}
+   650→                                </DropdownMenuContent>
+   651→                              </DropdownMenu>
+   652→                            </TableCell>
+   653→                          </TableRow>
+   654→                        );
+   655→                      })}
+   656→                    </TableBody>
+   657→                  </Table>
+   658→                </div>
+   659→              ) : (
+   660→                <div className="py-12 text-center">
+   661→                  <ClipboardCheck className="h-12 w-12 mx-auto text-gray-300 mb-4" />
+   662→                  <h3 className="font-medium text-gray-900 mb-1">Aucune réservation trouvée</h3>
+   663→                  <p className="text-sm text-gray-500">Essayez de modifier vos filtres</p>
+   664→                </div>
+   665→              )}
+   666→            </CardContent>
+   667→          </Card>
+   668→        </TabsContent>
+   669→
+   670→        {/* Inspectors Tab */}
+   671→        <TabsContent value="inspectors" className="mt-4">
+   672→          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+   673→            {inspectors.map((inspector) => (
+   674→              <Card key={inspector.id} className={!inspector.isAvailable ? 'opacity-70' : ''}>
+   675→                <CardContent className="pt-6">
+   676→                  <div className="flex items-start justify-between mb-4">
+   677→                    <div className="flex items-center gap-3">
+   678→                      <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
+   679→                        inspector.isAvailable ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-400'
+   680→                      }`}>
+   681→                        <User className="h-6 w-6" />
+   682→                      </div>
+   683→                      <div>
+   684→                        <h3 className="font-semibold">{inspector.name}</h3>
+   685→                        <Badge variant={inspector.isAvailable ? 'default' : 'secondary'} 
+   686→                               className={inspector.isAvailable ? 'bg-green-100 text-green-800' : ''}>
+   687→                          {inspector.isAvailable ? 'Disponible' : 'Indisponible'}
+   688→                        </Badge>
+   689→                      </div>
+   690→                    </div>
+   691→                    <div className="flex items-center gap-1">
+   692→                      <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+   693→                      <span className="font-medium">{inspector.rating}</span>
+   694→                    </div>
+   695→                  </div>
+   696→                  
+   697→                  <div className="space-y-2 text-sm">
+   698→                    <div className="flex items-center gap-2 text-gray-600">
+   699→                      <span className="w-16 text-gray-500">Email:</span>
+   700→                      <span className="truncate">{inspector.email}</span>
+   701→                    </div>
+   702→                    <div className="flex items-center gap-2 text-gray-600">
+   703→                      <span className="w-16 text-gray-500">Téléphone:</span>
+   704→                      <span>{inspector.phone}</span>
+   705→                    </div>
+   706→                    <div className="flex items-center gap-2 text-gray-600">
+   707→                      <span className="w-16 text-gray-500">Inspections:</span>
+   708→                      <span>{inspector.completedInspections} réalisées</span>
+   709→                    </div>
+   710→                  </div>
+   711→
+   712→                  <div className="mt-4 pt-4 border-t">
+   713→                    <p className="text-xs text-gray-500 mb-2">Spécialisations:</p>
+   714→                    <div className="flex flex-wrap gap-1">
+   715→                      {inspector.specializations.map(spec => (
+   716→                        <Badge key={spec} variant="outline" className="text-xs">
+   717→                          {typeConfig[spec]?.label || spec}
+   718→                        </Badge>
+   719→                      ))}
+   720→                    </div>
+   721→                  </div>
+   722→                </CardContent>
+   723→              </Card>
+   724→            ))}
+   725→          </div>
+   726→        </TabsContent>
+   727→
+   728→        {/* Pricing Tab */}
+   729→        <TabsContent value="pricing" className="mt-4">
+   730→          <Card>
+   731→            <CardHeader className="flex flex-row items-center justify-between pb-4">
+   732→              <div>
+   733→                <CardTitle>Tarifs des services d&apos;inspection</CardTitle>
+   734→                <CardDescription>Gérez les prix pour chaque type d&apos;inspection</CardDescription>
+   735→              </div>
+   736→              <Button onClick={() => openPricingDialog()}>
+   737→                <Plus className="mr-2 h-4 w-4" /> Ajouter un tarif
+   738→              </Button>
+   739→            </CardHeader>
+   740→            <CardContent>
+   741→              <div className="overflow-x-auto">
+   742→                <Table>
+   743→                  <TableHeader>
+   744→                    <TableRow>
+   745→                      <TableHead>Type</TableHead>
+   746→                      <TableHead>Description</TableHead>
+   747→                      <TableHead>Prix de base</TableHead>
+   748→                      <TableHead>Durée estimée</TableHead>
+   749→                      <TableHead>Statut</TableHead>
+   750→                      <TableHead className="w-12">Actions</TableHead>
+   751→                    </TableRow>
+   752→                  </TableHeader>
+   753→                  <TableBody>
+   754→                    {pricing.map((price) => (
+   755→                      <TableRow key={price.id}>
+   756→                        <TableCell>
+   757→                          <div className="flex items-center gap-2">
+   758→                            {typeConfig[price.type]?.icon}
+   759→                            <span className="font-medium">{typeConfig[price.type]?.label}</span>
+   760→                          </div>
+   761→                        </TableCell>
+   762→                        <TableCell className="text-gray-600">{price.description}</TableCell>
+   763→                        <TableCell>
+   764→                          <span className="font-semibold text-green-700">{formatCurrency(price.basePrice)}</span>
+   765→                        </TableCell>
+   766→                        <TableCell>{price.duration}h</TableCell>
+   767→                        <TableCell>
+   768→                          <Badge variant={price.isActive ? 'default' : 'secondary'}>
+   769→                            {price.isActive ? 'Actif' : 'Inactif'}
+   770→                          </Badge>
+   771→                        </TableCell>
+   772→                        <TableCell>
+   773→                          <Button 
+   774→                            variant="ghost" 
+   775→                            size="icon" 
+   776→                            className="h-8 w-8"
+   777→                            onClick={() => openPricingDialog(price)}
+   778→                          >
+   779→                            <Edit className="h-4 w-4" />
+   780→                          </Button>
+   781→                        </TableCell>
+   782→                      </TableRow>
+   783→                    ))}
+   784→                  </TableBody>
+   785→                </Table>
+   786→              </div>
+   787→            </CardContent>
+   788→          </Card>
+   789→        </TabsContent>
+   790→      </Tabs>
+   791→
+   792→      {/* Detail Dialog */}
+   793→      <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
+   794→        <DialogContent className="max-w-2xl">
+   795→          <DialogHeader>
+   796→            <DialogTitle className="flex items-center gap-2">
+   797→              <ClipboardCheck className="h-5 w-5" />
+   798→              Détail de la réservation {selectedBooking?.bookingRef}
+   799→            </DialogTitle>
+   800→            <DialogDescription>
+   801→              Informations complètes sur cette inspection
+   802→            </DialogDescription>
+   803→          </DialogHeader>
+   804→
+   805→          {selectedBooking && (
+   806→            <div className="space-y-6 py-4">
+   807→              {/* Status and Type */}
+   808→              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+   809→                <Card>
+   810→                  <CardContent className="pt-4 text-center">
+   811→                    <p className="text-xs text-gray-500">Type</p>
+   812→                    <div className="flex items-center justify-center gap-1 mt-1">
+   813→                      {typeConfig[selectedBooking.type].icon}
+   814→                      <span className="text-sm font-medium">{typeConfig[selectedBooking.type].label}</span>
+   815→                    </div>
+   816→                  </CardContent>
+   817→                </Card>
+   818→                <Card>
+   819→                  <CardContent className="pt-4 text-center">
+   820→                    <p className="text-xs text-gray-500">Statut</p>
+   821→                    <Badge variant={statusConfig[selectedBooking.status].variant} 
+   822→                           className={`${statusConfig[selectedBooking.status].color} mt-1`}>
+   823→                      {statusConfig[selectedBooking.status].label}
+   824→                    </Badge>
+   825→                  </CardContent>
+   826→                </Card>
+   827→                <Card>
+   828→                  <CardContent className="pt-4 text-center">
+   829→                    <p className="text-xs text-gray-500">Prix</p>
+   830→                    <p className="text-lg font-bold text-green-700 mt-1">{formatCurrency(selectedBooking.price)}</p>
+   831→                  </CardContent>
+   832→                </Card>
+   833→                <Card>
+   834→                  <CardContent className="pt-4 text-center">
+   835→                    <p className="text-xs text-gray-500">Localisation</p>
+   836→                    <div className="flex items-center justify-center gap-1 mt-1">
+   837→                      <MapPin className="h-4 w-4 text-gray-400" />
+   838→                      <span className="text-sm">{selectedBooking.wilaya}</span>
+   839→                    </div>
+   840→                  </CardContent>
+   841→                </Card>
+   842→              </div>
+   843→
+   844→              {/* Client Info */}
+   845→              <Card>
+   846→                <CardContent className="pt-4 space-y-3">
+   847→                  <h4 className="font-medium text-gray-900">Client</h4>
+   848→                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+   849→                    <div>
+   850→                      <p className="text-sm text-gray-500">Nom</p>
+   851→                      <p className="font-medium">{selectedBooking.clientName}</p>
+   852→                    </div>
+   853→                    <div>
+   854→                      <p className="text-sm text-gray-500">Email</p>
+   855→                      <p>{selectedBooking.clientEmail}</p>
+   856→                    </div>
+   857→                    {selectedBooking.companyName && (
+   858→                      <div>
+   859→                        <p className="text-sm text-gray-500">Entreprise</p>
+   860→                        <p className="font-medium">{selectedBooking.companyName}</p>
+   861→                      </div>
+   862→                    )}
+   863→                    <div>
+   864→                      <p className="text-sm text-gray-500">Adresse d&apos;inspection</p>
+   865→                      <p>{selectedBooking.location}</p>
+   866→                    </div>
+   867→                  </div>
+   868→                </CardContent>
+   869→              </Card>
+   870→
+   871→              {/* Schedule Info */}
+   872→              {(selectedBooking.scheduledDate || selectedBooking.completedAt) && (
+   873→                <Card>
+   874→                  <CardContent className="pt-4 space-y-3">
+   875→                    <h4 className="font-medium text-gray-900 flex items-center gap-2">
+   876→                      <Calendar className="h-4 w-4" /> Planning
+   877→                    </h4>
+   878→                    <div className="grid grid-cols-2 gap-4 text-sm">
+   879→                      {selectedBooking.scheduledDate && (
+   880→                        <div>
+   881→                          <p className="text-gray-500">Date planifiée</p>
+   882→                          <p className="font-medium">
+   883→                            {formatDate(selectedBooking.scheduledDate)}
+   884→                            {selectedBooking.scheduledTime && ` à ${selectedBooking.scheduledTime}`}
+   885→                          </p>
+   886→                        </div>
+   887→                      )}
+   888→                      {selectedBooking.completedAt && (
+   889→                        <div>
+   890→                          <p className="text-gray-500">Date de réalisation</p>
+   891→                          <p className="font-medium">{formatDate(selectedBooking.completedAt)}</p>
+   892→                        </div>
+   893→                      )}
+   894→                    </div>
+   895→                  </CardContent>
+   896→                </Card>
+   897→              )}
+   898→
+   899→              {/* Inspector Info */}
+   900→              {selectedBooking.inspectorName && (
+   901→                <Card>
+   902→                  <CardContent className="pt-4 space-y-3">
+   903→                    <h4 className="font-medium text-gray-900 flex items-center gap-2">
+   904→                      <User className="h-4 w-4" /> Inspecteur assigné
+   905→                    </h4>
+   906→                    <p className="font-medium">{selectedBooking.inspectorName}</p>
+   907→                  </CardContent>
+   908→                </Card>
+   909→              )}
+   910→
+   911→              {/* Notes */}
+   912→              {selectedBooking.notes && (
+   913→                <Card>
+   914→                  <CardContent className="pt-4">
+   915→                    <h4 className="font-medium text-gray-900 mb-2">Notes</h4>
+   916→                    <p className="text-sm text-gray-600">{selectedBooking.notes}</p>
+   917→                  </CardContent>
+   918→                </Card>
+   919→              )}
+   920→
+   921→              {/* Report Download */}
+   922→              {selectedBooking.reportUrl && (
+   923→                <Button className="w-full" variant="outline">
+   924→                  <FileText className="mr-2 h-4 w-4" /> Télécharger le rapport d&apos;inspection
+   925→                </Button>
+   926→              )}
+   927→
+   928→              {/* Actions for pending bookings */}
+   929→              {selectedBooking.status === 'PENDING' && !selectedBooking.inspectorId && (
+   930→                <div className="flex justify-end pt-4 border-t">
+   931→                  <Button 
+   932→                    className="bg-blue-600 hover:bg-blue-700"
+   933→                    onClick={() => {
+   934→                      setDetailDialogOpen(false);
+   935→                      openAssignmentDialog(selectedBooking);
+   936→                    }}
+   937→                  >
+   938→                    <User className="mr-2 h-4 w-4" /> Assigner un inspecteur
+   939→                  </Button>
+   940→                </div>
+   941→              )}
+   942→            </div>
+   943→          )}
+   944→        </DialogContent>
+   945→      </Dialog>
+   946→
+   947→      {/* Assignment Dialog */}
+   948→      <Dialog open={assignmentDialogOpen} onOpenChange={setAssignmentDialogOpen}>
+   949→        <DialogContent className="max-w-md">
+   950→          <DialogHeader>
+   951→            <DialogTitle className="flex items-center gap-2">
+   952→              <User className="h-5 w-5" />
+   953→              Assigner un inspecteur
+   954→            </DialogTitle>
+   955→            <DialogDescription>
+   956→              Sélectionnez un inspecteur disponible pour la réservation {selectedBooking?.bookingRef}
+   957→            </DialogDescription>
+   958→          </DialogHeader>
+   959→
+   960→          <div className="space-y-4 py-4">
+   961→            <Label htmlFor="inspector">Inspecteur *</Label>
+   962→            <Select value={selectedInspector} onValueChange={setSelectedInspector}>
+   963→              <SelectTrigger>
+   964→                <SelectValue placeholder="Sélectionnez un inspecteur" />
+   965→              </SelectTrigger>
+   966→              <SelectContent>
+   967→                {inspectors
+   968→                  .filter(i => i.isAvailable)
+   969→                  .map(inspector => (
+   970→                    <SelectItem key={inspector.id} value={inspector.id}>
+   971→                      <div className="flex items-center gap-2">
+   972→                        <span>{inspector.name}</span>
+   973→                        <span className="text-xs text-gray-500">({inspector.completedInspections} inspections)</span>
+   974→                      </div>
+   975→                    </SelectItem>
+   976→                  ))
+   977→                }
+   978→              </SelectContent>
+   979→            </Select>
+   980→
+   981→            {selectedInspector && (() => {
+   982→              const inspector = inspectors.find(i => i.id === selectedInspector);
+   983→              return inspector ? (
+   984→                <Card>
+   985→                  <CardContent className="pt-4">
+   986→                    <div className="flex items-center gap-3">
+   987→                      <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+   988→                        <User className="h-5 w-5 text-green-600" />
+   989→                      </div>
+   990→                      <div>
+   991→                        <p className="font-medium">{inspector.name}</p>
+   992→                        <div className="flex items-center gap-2 text-sm text-gray-500">
+   993→                          <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
+   994→                          {inspector.rating}
+   995→                          <span>•</span>
+   996→                          {inspector.specializations.length} spécialités
+   997→                        </div>
+   998→                      </div>
+   999→                    </div>
+  1000→                  </CardContent>
+  1001→                </Card>
+  1002→              ) : null;
+  1003→            })()}
+  1004→          </div>
+  1005→
+  1006→          <DialogFooter className="flex gap-2">
+  1007→            <Button variant="outline" onClick={() => setAssignmentDialogOpen(false)}>
+  1008→              Annuler
+  1009→            </Button>
+  1010→            <Button 
+  1011→              onClick={handleAssignInspector}
+  1012→              disabled={!selectedInspector}
+  1013→              className="bg-blue-600 hover:bg-blue-700"
+  1014→            >
+  1015→              Confirmer l&apos;assignation
+  1016→            </Button>
+  1017→          </DialogFooter>
+  1018→        </DialogContent>
+  1019→      </Dialog>
+  1020→
+  1021→      {/* Pricing Dialog */}
+  1022→      <Dialog open={pricingDialogOpen} onOpenChange={setPricingDialogOpen}>
+  1023→        <DialogContent className="max-w-md">
+  1024→          <DialogHeader>
+  1025→            <DialogTitle>
+  1026→              {editingPricing?.id ? 'Modifier le tarif' : 'Ajouter un tarif'}
+  1027→            </DialogTitle>
+  1028→            <DialogDescription>
+  1029→              Configurez le prix pour ce type d&apos;inspection
+  1030→            </DialogDescription>
+  1031→          </DialogHeader>
+  1032→
+  1033→          {editingPricing && (
+  1034→            <div className="space-y-4 py-4">
+  1035→              <div className="space-y-2">
+  1036→                <Label>Type d&apos;inspection</Label>
+  1037→                <Select 
+  1038→                  value={editingPricing.type} 
+  1039→                  onValueChange={(val) => setEditingPricing({ ...editingPricing, type: val as InspectionType })}
+  1040→                >
+  1041→                  <SelectTrigger>
+  1042→                    <SelectValue />
+  1043→                  </SelectTrigger>
+  1044→                  <SelectContent>
+  1045→                    {Object.entries(typeConfig).map(([key, config]) => (
+  1046→                      <SelectItem key={key} value={key}>{config.label}</SelectItem>
+  1047→                    ))}
+  1048→                  </SelectContent>
+  1049→                </Select>
+  1050→              </div>
+  1051→
+  1052→              <div className="space-y-2">
+  1053→                <Label>Prix de base (DZD)</Label>
+  1054→                <Input
+  1055→                  type="number"
+  1056→                  value={editingPricing.basePrice}
+  1057→                  onChange={(e) => setEditingPricing({ ...editingPricing, basePrice: Number(e.target.value) })}
+  1058→                />
+  1059→              </div>
+  1060→
+  1061→              <div className="space-y-2">
+  1062→                <Label>Durée estimée (heures)</Label>
+  1063→                <Input
+  1064→                  type="number"
+  1065→                  value={editingPricing.duration}
+  1066→                  onChange={(e) => setEditingPricing({ ...editingPricing, duration: Number(e.target.value) })}
+  1067→                />
+  1068→              </div>
+  1069→
+  1070→              <div className="space-y-2">
+  1071→                <Label>Description</Label>
+  1072→                <Textarea
+  1073→                  value={editingPricing.description}
+  1074→                  onChange={(e) => setEditingPricing({ ...editingPricing, description: e.target.value })}
+  1075→                  rows={2}
+  1076→                />
+  1077→              </div>
+  1078→            </div>
+  1079→          )}
+  1080→
+  1081→          <DialogFooter className="flex gap-2">
+  1082→            <Button variant="outline" onClick={() => setPricingDialogOpen(false)}>
+  1083→              Annuler
+  1084→            </Button>
+  1085→            <Button onClick={handleSavePricing}>
+  1086→              {editingPricing?.id ? 'Sauvegarder' : 'Ajouter'}
+  1087→            </Button>
+  1088→          </DialogFooter>
+  1089→        </DialogContent>
+  1090→      </Dialog>
+  1091→    </div>
+  1092→  );
+  1093→}
+  1094→

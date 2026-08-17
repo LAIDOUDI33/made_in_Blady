@@ -1,0 +1,846 @@
+     1→'use client';
+     2→
+     3→import React, { useState, useMemo } from 'react';
+     4→import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+     5→import { Button } from '@/components/ui/button';
+     6→import { Badge } from '@/components/ui/badge';
+     7→import { Input } from '@/components/ui/input';
+     8→import { Label } from '@/components/ui/label';
+     9→import { Textarea } from '@/components/ui/textarea';
+    10→import {
+    11→  Table,
+    12→  TableBody,
+    13→  TableCell,
+    14→  TableHead,
+    15→  TableHeader,
+    16→  TableRow,
+    17→} from '@/components/ui/table';
+    18→import {
+    19→  Select,
+    20→  SelectContent,
+    21→  SelectItem,
+    22→  SelectTrigger,
+    23→  SelectValue,
+    24→} from '@/components/ui/select';
+    25→import {
+    26→  Dialog,
+    27→  DialogContent,
+    28→  DialogDescription,
+    29→  DialogFooter,
+    30→  DialogHeader,
+    31→  DialogTitle,
+    32→} from '@/components/ui/dialog';
+    33→import {
+    34→  DropdownMenu,
+    35→  DropdownMenuContent,
+    36→  DropdownMenuItem,
+    37→  DropdownMenuSeparator,
+    38→  DropdownMenuTrigger,
+    39→} from '@/components/ui/dropdown-menu';
+    40→import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+    41→import { Switch } from '@/components/ui/switch';
+    42→import { StatsCard } from '@/components/admin/StatsCard';
+    43→import {
+    44→  Calendar,
+    45→  Clock,
+    46→  CheckCircle2,
+    47→  XCircle,
+    48→  MapPin,
+    49→  Search,
+    50→  Filter,
+    51→  Download,
+    52→  Eye,
+    53→  MoreHorizontal,
+    54→  Plus,
+    55→  Edit,
+    56→  Star,
+    57→  Users,
+    58→  Building2,
+    59→  Ticket,
+    60→  TrendingUp,
+    61→  Image as ImageIcon,
+    62→  Grid3X3,
+    63→  Pin,
+    64→  ExternalLink
+    65→} from 'lucide-react';
+    66→
+    67→// Types
+    68→type ExhibitionStatus = 'DRAFT' | 'PUBLISHED' | 'REGISTRATION_OPEN' | 'REGISTRATION_CLOSED' | 'ONGOING' | 'COMPLETED' | 'CANCELLED';
+    69→type BoothStatus = 'AVAILABLE' | 'RESERVED' | 'CONFIRMED' | 'PAID' | 'CANCELLED';
+    70→
+    71→interface Booth {
+    72→  id: string;
+    73→  number: string;
+    74→  type: 'STANDARD' | 'PREMIUM' | 'CORNER' | 'ISLAND';
+    75→  size: string; // e.g., "3x3m"
+    76→  price: number;
+    77→  currency: string;
+    78→  status: BoothStatus;
+    79→  exhibitorName?: string;
+    80→  companyName?: string;
+    81→}
+    82→
+    83→interface Exhibition {
+    84→  id: string;
+    85→  title: string;
+    86→  slug: string;
+    87→  description: string;
+    88→  status: ExhibitionStatus;
+    89→  venue: string;
+    90→  location: string;
+    91→  wilaya: string;
+    92→  startDate: string;
+    93→  endDate: string;
+    94→  registrationStart?: string;
+    95→  registrationEnd?: string;
+    96→  coverImage?: string;
+    97→  isFeatured: boolean;
+    98→  maxExhibitors: number;
+    99→  currentExhibitors: number;
+   100→  booths: Booth[];
+   101→  createdAt: string;
+   102→}
+   103→
+   104→// Sample data
+   105→const sampleBooths: Booth[] = [
+   106→  { id: 'B1', number: 'A01', type: 'STANDARD', size: '3x3m', price: 50000, currency: 'DZD', status: 'CONFIRMED', exhibitorName: 'Karim Meziani', companyName: 'SARL Technologie Algerienne' },
+   107→  { id: 'B2', number: 'A02', type: 'PREMIUM', size: '4x4m', price: 80000, currency: 'DZD', status: 'RESERVED', exhibitorName: 'Fatima Zahra', companyName: 'EURL Industrie Moderne' },
+   108→  { id: 'B3', number: 'A03', type: 'CORNER', size: '4x6m', price: 120000, currency: 'DZD', status: 'AVAILABLE' },
+   109→  { id: 'B4', number: 'B01', type: 'STANDARD', size: '3x3m', price: 50000, currency: 'DZD', status: 'PAID', exhibitorName: 'Ahmed Benali', companyName: 'Sarl Agro Solutions' },
+   110→  { id: 'B5', number: 'B02', type: 'ISLAND', size: '8x8m', price: 250000, currency: 'DZD', status: 'AVAILABLE' },
+   111→  { id: 'B6', number: 'B03', type: 'STANDARD', size: '3x3m', price: 50000, currency: 'DZD', status: 'CANCELLED' },
+   112→];
+   113→
+   114→const sampleExhibitions: Exhibition[] = [
+   115→  {
+   116→    id: 'EXH001',
+   117→    title: 'Salon de l\'Industrie Algérienne 2024',
+   118→    slug: 'sia-2024',
+   119→    description: 'Le plus grand événement industriel en Algérie',
+   120→    status: 'REGISTRATION_OPEN',
+   121→    venue: 'Centre des Conventions d\'Alger',
+   122→    location: 'Pins Maritimes, Alger',
+   123→    wilaya: 'Alger',
+   124→    startDate: '2024-09-15',
+   125→    endDate: '2024-09-18',
+   126→    registrationStart: '2024-06-01',
+   127→    registrationEnd: '2024-08-31',
+   128→    isFeatured: true,
+   129→    maxExhibitors: 150,
+   130→    currentExhibitors: 87,
+   131→    booths: sampleBooths,
+   132→    createdAt: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString(),
+   133→  },
+   134→  {
+   135→    id: 'EXH002',
+   136→    title: 'Forum du Commerce B2B Méditerranéen',
+   137→    slug: 'fcb2b-med-2024',
+   138→    description: 'Rencontrez les acteurs du commerce international',
+   139→    status: 'PUBLISHED',
+   140→    venue: 'Palais de la Culture Moufdi Zakaria',
+   141→    location: 'Rue Sidi M\'hamed, Alger',
+   142→    wilaya: 'Alger',
+   143→    startDate: '2024-11-10',
+   144→    endDate: '2024-11-12',
+   145→    registrationStart: '2024-08-15',
+   146→    registrationEnd: '2024-10-30',
+   147→    isFeatured: false,
+   148→    maxExhibitors: 80,
+   149→    currentExhibitors: 23,
+   150→    booths: [],
+   151→    createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+   152→  },
+   153→  {
+   154→    id: 'EXH003',
+   155→    title: 'Tech Expo Algeria 2024',
+   156→    slug: 'tech-expo-dz-2024',
+   157→    description: 'Innovation et technologie au cœur d\'Alger',
+   158→    status: 'COMPLETED',
+   159→    venue: 'Salle OMS, Oran',
+   160→    location: 'Route de l\'Université, Oran',
+   161→    wilaya: 'Oran',
+   162→    startDate: '2024-05-20',
+   163→    endDate: '2024-05-22',
+   164→    isFeatured: false,
+   165→    maxExhibitors: 50,
+   166→    currentExhibitors: 48,
+   167→    booths: [],
+   168→    createdAt: new Date(Date.now() - 120 * 24 * 60 * 60 * 1000).toISOString(),
+   169→  },
+   170→  {
+   171→    id: 'EXH004',
+   172→    title: 'Salon de l\'Agriculture et Agroalimentaire',
+   173→    slug: 'agro-alg-2024',
+   174→    description: 'Découvrez les innovations du secteur agricole',
+   175→    status: 'DRAFT',
+   176→    venue: 'Parc des Expositions d\'Alger',
+   177→    location: 'Zone des Pins, Alger',
+   178→    wilaya: 'Alger',
+   179→    startDate: '2025-03-10',
+   180→    endDate: '2025-03-14',
+   181→    isFeatured: false,
+   182→    maxExhibitors: 100,
+   183→    currentExhibitors: 0,
+   184→    booths: [],
+   185→    createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+   186→  },
+   187→  {
+   188→    id: 'EXH005',
+   189→    title: 'Made in Algeria Expo',
+   190→    slug: 'mia-expo-2024',
+   191→    description: 'Célébrons la production nationale',
+   192→    status: 'ONGOING',
+   193→    venue: 'Centre International de Conférences',
+   194→    location: 'Chemins de Dely Ibrahim, Alger',
+   195→    wilaya: 'Alger',
+   196→    startDate: new Date().toISOString().split('T')[0],
+   197→    endDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+   198→    isFeatured: true,
+   199→    maxExhibitors: 200,
+   200→    currentExhibitors: 185,
+   201→    booths: [],
+   202→    createdAt: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString(),
+   203→  },
+   204→];
+   205→
+   206→const statusConfig: Record<ExhibitionStatus, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; color: string }> = {
+   207→  DRAFT: { label: 'Brouillon', variant: 'secondary', color: 'text-gray-700 bg-gray-100 border-gray-200' },
+   208→  PUBLISHED: { label: 'Publié', variant: 'default', color: 'bg-blue-100 text-blue-800 border-blue-200' },
+   209→  REGISTRATION_OPEN: { label: 'Inscriptions ouvertes', variant: 'default', color: 'bg-green-100 text-green-800 border-green-200' },
+   210→  REGISTRATION_CLOSED: { label: 'Inscriptions fermées', variant: 'secondary', color: 'text-yellow-700 bg-yellow-50 border-yellow-200' },
+   211→  ONGOING: { label: 'En cours', variant: 'default', color: 'bg-purple-100 text-purple-800 border-purple-200 animate-pulse' },
+   212→  COMPLETED: { label: 'Terminé', variant: 'secondary', color: 'text-gray-700 bg-gray-100 border-gray-200' },
+   213→  CANCELLED: { label: 'Annulé', variant: 'destructive', color: '' },
+   214→};
+   215→
+   216→const boothTypeConfig: Record<Booth['type'], { label: string; color: string }> = {
+   217→  STANDARD: { label: 'Standard', color: 'bg-blue-100 text-blue-800' },
+   218→  PREMIUM: { label: 'Premium', color: 'bg-purple-100 text-purple-800' },
+   219→  CORNER: { label: 'Coin', color: 'bg-orange-100 text-orange-800' },
+   220→  ISLAND: { label: 'Îlot', color: 'bg-green-100 text-green-800' },
+   221→};
+   222→
+   223→const boothStatusConfig: Record<BoothStatus, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; color: string }> = {
+   224→  AVAILABLE: { label: 'Disponible', variant: 'outline', color: 'text-green-700 bg-green-50 border-green-200' },
+   225→  RESERVED: { label: 'Réservé', variant: 'secondary', color: 'text-yellow-700 bg-yellow-50 border-yellow-200' },
+   226→  CONFIRMED: { label: 'Confirmé', variant: 'default', color: 'bg-blue-100 text-blue-800 border-blue-200' },
+   227→  PAID: { label: 'Payé', variant: 'default', color: 'bg-green-100 text-green-800 border-green-200' },
+   228→  CANCELLED: { label: 'Annulé', variant: 'secondary', color: 'text-gray-700 bg-gray-100 border-gray-200' },
+   229→};
+   230→
+   231→export default function ExhibitionsManagementPage() {
+   232→  const [exhibitions, setExhibitions] = useState<Exhibition[]>(sampleExhibitions);
+   233→  const [activeTab, setActiveTab] = useState('all');
+   234→  const [searchQuery, setSearchQuery] = useState('');
+   235→  const [statusFilter, setStatusFilter] = useState<string>('ALL');
+   236→  
+   237→  // Dialog states
+   238→  const [detailDialogOpen, setDetailDialogOpen] = useState(false);
+   239→  const [selectedExhibition, setSelectedExhibition] = useState<Exhibition | null>(null);
+   240→  
+   241→  // Booth management dialog
+   242→  const [boothDialogOpen, setBoothDialogOpen] = useState(false);
+   243→
+   244→  // Filter exhibitions
+   245→  const filteredExhibitions = useMemo(() => {
+   246→    let result = [...exhibitions];
+   247→    
+   248→    if (activeTab !== 'all') {
+   249→      if (activeTab === 'featured') {
+   250→        result = result.filter(e => e.isFeatured);
+   251→      } else if (activeTab === 'upcoming') {
+   252→        result = result.filter(e => 
+   253→          ['DRAFT', 'PUBLISHED', 'REGISTRATION_OPEN', 'REGISTRATION_CLOSED'].includes(e.status)
+   254→        );
+   255→      } else {
+   256→        result = result.filter(e => e.status === activeTab.toUpperCase());
+   257→      }
+   258→    }
+   259→    
+   260→    if (statusFilter !== 'ALL') {
+   261→      result = result.filter(e => e.status === statusFilter);
+   262→    }
+   263→    
+   264→    if (searchQuery.trim()) {
+   265→      const query = searchQuery.toLowerCase();
+   266→      result = result.filter(e => 
+   267→        e.title.toLowerCase().includes(query) ||
+   268→        e.venue.toLowerCase().includes(query) ||
+   269→        e.location.toLowerCase().includes(query)
+   270→      );
+   271→    }
+   272→    
+   273→    result.sort((a, b) => {
+   274→      // Featured first
+   275→      if (a.isFeatured && !b.isFeatured) return -1;
+   276→      if (!a.isFeatured && b.isFeatured) return 1;
+   277→      // Then by date
+   278→      return new Date(b.startDate).getTime() - new Date(a.startDate).getTime();
+   279→    });
+   280→    
+   281→    return result;
+   282→  }, [exhibitions, activeTab, searchQuery, statusFilter]);
+   283→
+   284→  // Stats
+   285→  const totalExhibitions = exhibitions.length;
+   286→  const activeExhibitions = exhibitions.filter(e => 
+   287→    ['PUBLISHED', 'REGISTRATION_OPEN', 'REGISTRATION_CLOSED', 'ONGOING'].includes(e.status)
+   288→  ).length;
+   289→  const totalRegistrations = exhibitions.reduce((sum, e) => sum + e.currentExhibitors, 0);
+   290→  const featuredCount = exhibitions.filter(e => e.isFeatured).length;
+   291→
+   292→  // Handlers
+   293→  const formatDate = (dateString: string) => {
+   294→    return new Date(dateString).toLocaleDateString('fr-FR', {
+   295→      day: '2-digit',
+   296→      month: '2-digit',
+   297→      year: 'numeric'
+   298→    });
+   299→  };
+   300→
+   301→  const openDetailDialog = (exhibition: Exhibition) => {
+   302→    setSelectedExhibition(exhibition);
+   303→    setDetailDialogOpen(true);
+   304→  };
+   305→
+   306→  const toggleFeatured = async (exhibitionId: string) => {
+   307→    setExhibitions(prev => prev.map(e => 
+   308→      e.id === exhibitionId ? { ...e, isFeatured: !e.isFeatured } : e
+   309→    ));
+   310→  };
+   311→
+   312→  const updateStatus = async (exhibitionId: string, newStatus: ExhibitionStatus) => {
+   313→    setExhibitions(prev => prev.map(e => 
+   314→      e.id === exhibitionId ? { ...e, status: newStatus } : e
+   315→    ));
+   316→  };
+   317→
+   318→  const openBoothDialog = (exhibition: Exhibition) => {
+   319→    setSelectedExhibition(exhibition);
+   320→    setBoothDialogOpen(true);
+   321→  };
+   322→
+   323→  const exportToCSV = () => {
+   324→    const headers = ['Titre', 'Statut', 'Lieu', 'Wilaya', 'Date début', 'Date fin', 'Exposants actuels', 'Max exposants', 'À la une'];
+   325→    const csvRows = filteredExhibitions.map(e => [
+   326→      e.title,
+   327→      statusConfig[e.status].label,
+   328→      e.venue,
+   329→      e.wilaya,
+   330→      formatDate(e.startDate),
+   331→      formatDate(e.endDate),
+   332→      e.currentExhibitors.toString(),
+   333→      e.maxExhibitors.toString(),
+   334→      e.isFeatured ? 'Oui' : 'Non'
+   335→    ]);
+   336→    
+   337→    const csvContent = [headers, ...csvRows]
+   338→      .map(row => row.map(cell => `"${cell}"`).join(','))
+   339→      .join('\n');
+   340→    
+   341→    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+   342→    const link = document.createElement('a');
+   343→    link.href = URL.createObjectURL(blob);
+   344→    link.download = `expositions_${new Date().toISOString().split('T')[0]}.csv`;
+   345→    link.click();
+   346→  };
+   347→
+   348→  return (
+   349→    <div className="space-y-6">
+   350→      {/* Header */}
+   351→      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+   352→        <div>
+   353→          <h1 className="text-2xl font-bold text-gray-900">Gestion des Expositions</h1>
+   354→          <p className="text-gray-500 mt-1">Créez et gérez les événements et salons</p>
+   355→        </div>
+   356→        <div className="flex items-center gap-2">
+   357→          <Button>
+   358→            <Plus className="mr-2 h-4 w-4" /> Nouvelle exposition
+   359→          </Button>
+   360→          <Button variant="outline" onClick={exportToCSV}>
+   361→            <Download className="mr-2 h-4 w-4" /> Exporter CSV
+   362→          </Button>
+   363→        </div>
+   364→      </div>
+   365→
+   366→      {/* Stats Cards */}
+   367→      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+   368→        <StatsCard
+   369→          title="Total expositions"
+   370→          value={totalExhibitions}
+   371→          description="Tous statuts confondus"
+   372→          icon={Calendar}
+   373→          iconClassName="bg-blue-100 text-blue-600"
+   374→        />
+   375→        <StatsCard
+   376→          title="Actives"
+   377→          value={activeExhibitions}
+   378→          description="En cours ou à venir"
+   379→          icon={TrendingUp}
+   380→          iconClassName="bg-green-100 text-green-600"
+   381→        />
+   382→        <StatsCard
+   383→          title="Total inscriptions"
+   384→          value={totalRegistrations}
+   385→          description={`${exhibitions.reduce((sum, e) => sum + e.maxExhibitors, 0)} places disponibles`}
+   386→          icon={Users}
+   387→          iconClassName="bg-purple-100 text-purple-600"
+   388→        />
+   389→        <StatsCard
+   390→          title="À la une"
+   391→          value={featuredCount}
+   392→          description="Mises en avant"
+   393→          icon={Star}
+   394→          iconClassName="bg-yellow-100 text-yellow-600"
+   395→        />
+   396→      </div>
+   397→
+   398→      {/* Filters */}
+   399→      <Card>
+   400→        <CardContent className="pt-6">
+   401→          <div className="flex flex-col sm:flex-row gap-4">
+   402→            <div className="relative flex-1">
+   403→              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+   404→              <Input
+   405→                placeholder="Rechercher par titre ou lieu..."
+   406→                value={searchQuery}
+   407→                onChange={(e) => setSearchQuery(e.target.value)}
+   408→                className="pl-10"
+   409→              />
+   410→            </div>
+   411→            <Select value={statusFilter} onValueChange={setStatusFilter}>
+   412→              <SelectTrigger className="w-[180px]">
+   413→                <Filter className="mr-2 h-4 w-4" />
+   414→                <SelectValue placeholder="Statut" />
+   415→              </SelectTrigger>
+   416→              <SelectContent>
+   417→                <SelectItem value="ALL">Tous les statuts</SelectItem>
+   418→                <SelectItem value="DRAFT">Brouillon</SelectItem>
+   419→                <SelectItem value="PUBLISHED">Publié</SelectItem>
+   420→                <SelectItem value="REGISTRATION_OPEN">Inscriptions ouvertes</SelectItem>
+   421→                <SelectItem value="ONGOING">En cours</SelectItem>
+   422→                <SelectItem value="COMPLETED">Terminé</SelectItem>
+   423→              </SelectContent>
+   424→            </Select>
+   425→          </div>
+   426→        </CardContent>
+   427→      </Card>
+   428→
+   429→      {/* Tabs and List */}
+   430→      <Tabs value={activeTab} onValueChange={setActiveTab}>
+   431→        <TabsList>
+   432→          <TabsTrigger value="all">Toutes ({exhibitions.length})</TabsTrigger>
+   433→          <TabsTrigger value="featured" className="gap-1">
+   434→            <Star className="h-3.5 w-3.5 hidden sm:inline" /> À la une ({featuredCount})
+   435→          </TabsTrigger>
+   436→          <TabsTrigger value="upcoming">À venir</TabsTrigger>
+   437→          <TabsTrigger value="ONGOING" className="gap-1">
+   438→            <Clock className="h-3.5 w-3.5 hidden sm:inline" /> En cours
+   439→          </TabsTrigger>
+   440→          <TabsTrigger value="COMPLETED">Terminées</TabsTrigger>
+   441→        </TabsList>
+   442→
+   443→        <TabsContent value={activeTab} className="mt-4">
+   444→          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+   445→            {filteredExhibitions.length > 0 ? (
+   446→              filteredExhibitions.map((exhibition) => (
+   447→                <Card key={exhibition.id} className={`overflow-hidden ${exhibition.isFeatured ? 'ring-2 ring-yellow-300' : ''}`}>
+   448→                  {/* Cover Image Placeholder */}
+   449→                  <div className="h-40 bg-gradient-to-br from-orange-400 to-red-500 relative">
+   450→                    {exhibition.isFeatured && (
+   451→                      <Badge className="absolute top-3 left-3 bg-yellow-400 text-yellow-900 hover:bg-yellow-400">
+   452→                        <Pin className="h-3 w-3 mr-1" /> À la une
+   453→                      </Badge>
+   454→                    )}
+   455→                    <Badge 
+   456→                      variant={statusConfig[exhibition.status].variant}
+   457→                      className={`absolute bottom-3 right-3 ${statusConfig[exhibition.status].color}`}
+   458→                    >
+   459→                      {statusConfig[exhibition.status].label}
+   460→                    </Badge>
+   461→                  </div>
+   462→
+   463→                  <CardContent className="pt-4 space-y-3">
+   464→                    <div>
+   465→                      <h3 className="font-semibold text-lg line-clamp-1">{exhibition.title}</h3>
+   466→                      <div className="flex items-center gap-1 text-sm text-gray-600 mt-1">
+   467→                        <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
+   468→                        <span className="truncate">{exhibition.venue}, {exhibition.wilaya}</span>
+   469→                      </div>
+   470→                    </div>
+   471→
+   472→                    <div className="flex items-center gap-4 text-sm">
+   473→                      <div className="flex items-center gap-1">
+   474→                        <Calendar className="h-4 w-4 text-gray-400" />
+   475→                        <span>{formatDate(exhibition.startDate)}</span>
+   476→                      </div>
+   477→                      <div className="flex items-center gap-1">
+   478→                        <Users className="h-4 w-4 text-gray-400" />
+   479→                        <span>{exhibition.currentExhibitors}/{exhibition.maxExhibitors}</span>
+   480→                      </div>
+   481→                    </div>
+   482→
+   483→                    {/* Progress bar */}
+   484→                    <div className="space-y-1">
+   485→                      <div className="flex justify-between text-xs text-gray-500">
+   486→                        <span>Taux de remplissage</span>
+   487→                        <span>{Math.round((exhibition.currentExhibitors / exhibition.maxExhibitors) * 100)}%</span>
+   488→                      </div>
+   489→                      <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+   490→                        <div 
+   491→                          className="h-full bg-green-500 rounded-full transition-all"
+   492→                          style={{ width: `${(exhibition.currentExhibitors / exhibition.maxExhibitors) * 100}%` }}
+   493→                        />
+   494→                      </div>
+   495→                    </div>
+   496→
+   497→                    <div className="flex items-center justify-between pt-2 border-t">
+   498→                      <div className="flex items-center gap-2">
+   499→                        <Label htmlFor={`featured-${exhibition.id}`} className="text-xs text-gray-500">
+   500→                          À la une
+   501→                        </Label>
+   502→                        <Switch
+   503→                          id={`featured-${exhibition.id}`}
+   504→                          checked={exhibition.isFeatured}
+   505→                          onCheckedChange={() => toggleFeatured(exhibition.id)}
+   506→                        />
+   507→                      </div>
+   508→                      
+   509→                      <DropdownMenu>
+   510→                        <DropdownMenuTrigger asChild>
+   511→                          <Button variant="ghost" size="icon" className="h-8 w-8">
+   512→                            <MoreHorizontal className="h-4 w-4" />
+   513→                            <span className="sr-only">Actions</span>
+   514→                          </Button>
+   515→                        </DropdownMenuTrigger>
+   516→                        <DropdownMenuContent align="end" className="w-48">
+   517→                          <DropdownMenuItem onClick={() => openDetailDialog(exhibition)}>
+   518→                            <Eye className="mr-2 h-4 w-4" /> Voir détails
+   519→                          </DropdownMenuItem>
+   520→                          <DropdownMenuItem onClick={() => openBoothDialog(exhibition)}>
+   521→                            <Grid3X3 className="mr-2 h-4 w-4" /> Gérer les stands
+   522→                          </DropdownMenuItem>
+   523→                          <DropdownMenuItem>
+   524→                            <Edit className="mr-2 h-4 w-4" /> Modifier
+   525→                          </DropdownMenuItem>
+   526→                          <DropdownMenuSeparator />
+   527→                          <DropdownMenuItem>
+   528→                            <ExternalLink className="mr-2 h-4 w-4" /> Voir sur le site
+   529→                          </DropdownMenuItem>
+   530→                          
+   531→                          {(exhibition.status === 'DRAFT' || exhibition.status === 'PUBLISHED') && (
+   532→                            <>
+   533→                              <DropdownMenuSeparator />
+   534→                              <DropdownMenuItem 
+   535→                                onClick={() => updateStatus(exhibition.id, 'REGISTRATION_OPEN')}
+   536→                                className="text-green-600 focus:text-green-600"
+   537→                              >
+   538→                                <CheckCircle2 className="mr-2 h-4 w-4" /> Ouvrir inscriptions
+   539→                              </DropdownMenuItem>
+   540→                            </>
+   541→                          )}
+   542→
+   543→                          {!['COMPLETED', 'CANCELLED'].includes(exhibition.status) && (
+   544→                            <>
+   545→                              <DropdownMenuSeparator />
+   546→                              <DropdownMenuItem 
+   547→                                onClick={() => updateStatus(exhibition.id, 'CANCELLED')}
+   548→                                className="text-red-600 focus:text-red-600"
+   549→                              >
+   550→                                <XCircle className="mr-2 h-4 w-4" /> Annuler
+   551→                              </DropdownMenuItem>
+   552→                            </>
+   553→                          )}
+   554→                        </DropdownMenuContent>
+   555→                      </DropdownMenu>
+   556→                    </div>
+   557→                  </CardContent>
+   558→                </Card>
+   559→              ))
+   560→            ) : (
+   561→              <Card className="col-span-full">
+   562→                <CardContent className="py-12 text-center">
+   563→                  <Calendar className="h-12 w-12 mx-auto text-gray-300 mb-4" />
+   564→                  <h3 className="font-medium text-gray-900 mb-1">Aucune exposition trouvée</h3>
+   565→                  <p className="text-sm text-gray-500">Essayez de modifier vos filtres ou créez une nouvelle exposition</p>
+   566→                </CardContent>
+   567→              </Card>
+   568→            )}
+   569→          </div>
+   570→        </TabsContent>
+   571→      </Tabs>
+   572→
+   573→      {/* Detail Dialog */}
+   574→      <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
+   575→        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+   576→          <DialogHeader>
+   577→            <DialogTitle className="flex items-center gap-2">
+   578→              <Calendar className="h-5 w-5" />
+   579→              {selectedExhibition?.title}
+   580→            </DialogTitle>
+   581→            <DialogDescription>
+   582→              Informations détaillées sur cette exposition
+   583→            </DialogDescription>
+   584→          </DialogHeader>
+   585→
+   586→          {selectedExhibition && (
+   587→            <div className="space-y-6 py-4">
+   588→              {/* Status and Key Info */}
+   589→              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+   590→                <Card>
+   591→                  <CardContent className="pt-4 text-center">
+   592→                    <p className="text-xs text-gray-500">Statut</p>
+   593→                    <Badge variant={statusConfig[selectedExhibition.status].variant} 
+   594→                           className={`${statusConfig[selectedExhibition.status].color} mt-1`}>
+   595→                      {statusConfig[selectedExhibition.status].label}
+   596→                    </Badge>
+   597→                  </CardContent>
+   598→                </Card>
+   599→                <Card>
+   600→                  <CardContent className="pt-4 text-center">
+   601→                    <p className="text-xs text-gray-500">Dates</p>
+   602→                    <p className="font-medium mt-1">{formatDate(selectedExhibition.startDate)}</p>
+   603→                    <p className="text-xs text-gray-500">au {formatDate(selectedExhibition.endDate)}</p>
+   604→                  </CardContent>
+   605→                </Card>
+   606→                <Card>
+   607→                  <CardContent className="pt-4 text-center">
+   608→                    <p className="text-xs text-gray-500">Inscriptions</p>
+   609→                    <p className="font-semibold text-lg mt-1">{selectedExhibition.currentExhibitors}</p>
+   610→                    <p className="text-xs text-gray-500">/ {selectedExhibition.maxExhibitors}</p>
+   611→                  </CardContent>
+   612→                </Card>
+   613→                <Card>
+   614→                  <CardContent className="pt-4 text-center">
+   615→                    <p className="text-xs text-gray-500">Remplissage</p>
+   616→                    <p className="font-semibold text-lg text-green-600 mt-1">
+   617→                      {Math.round((selectedExhibition.currentExhibitors / selectedExhibition.maxExhibitors) * 100)}%
+   618→                    </p>
+   619→                  </CardContent>
+   620→                </Card>
+   621→              </div>
+   622→
+   623→              {/* Location */}
+   624→              <Card>
+   625→                <CardContent className="pt-4 space-y-3">
+   626→                  <h4 className="font-medium text-gray-900 flex items-center gap-2">
+   627→                    <MapPin className="h-4 w-4" /> Lieu
+   628→                  </h4>
+   629→                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+   630→                    <div>
+   631→                      <p className="text-gray-500">Venue</p>
+   632→                      <p className="font-medium">{selectedExhibition.venue}</p>
+   633→                    </div>
+   634→                    <div>
+   635→                      <p className="text-gray-500">Adresse</p>
+   636→                      <p>{selectedExhibition.location}</p>
+   637→                    </div>
+   638→                    <div>
+   639→                      <p className="text-gray-500">Wilaya</p>
+   640→                      <p>{selectedExhibition.wilaya}</p>
+   641→                    </div>
+   642→                  </div>
+   643→                </CardContent>
+   644→              </Card>
+   645→
+   646→              {/* Registration Period */}
+   647→              {selectedExhibition.registrationStart && selectedExhibition.registrationEnd && (
+   648→                <Card>
+   649→                  <CardContent className="pt-4 space-y-3">
+   650→                    <h4 className="font-medium text-gray-900 flex items-center gap-2">
+   651→                      <Ticket className="h-4 w-4" /> Période d&apos;inscription
+   652→                    </h4>
+   653→                    <div className="grid grid-cols-2 gap-4 text-sm">
+   654→                      <div>
+   655→                        <p className="text-gray-500">Début</p>
+   656→                        <p className="font-medium">{formatDate(selectedExhibition.registrationStart)}</p>
+   657→                      </div>
+   658→                      <div>
+   659→                        <p className="text-gray-500">Fin</p>
+   660→                        <p className="font-medium">{formatDate(selectedExhibition.registrationEnd)}</p>
+   661→                      </div>
+   662→                    </div>
+   663→                  </CardContent>
+   664→                </Card>
+   665→              )}
+   666→
+   667→              {/* Description */}
+   668→              <Card>
+   669→                <CardContent className="pt-4">
+   670→                  <h4 className="font-medium text-gray-900 mb-2">Description</h4>
+   671→                  <p className="text-sm text-gray-600">{selectedExhibition.description}</p>
+   672→                </CardContent>
+   673→              </Card>
+   674→
+   675→              {/* Actions */}
+   676→              <div className="flex flex-col sm:flex-row gap-3 justify-end pt-4 border-t">
+   677→                <Button variant="outline" onClick={() => openBoothDialog(selectedExhibition)}>
+   678→                  <Grid3X3 className="mr-2 h-4 w-4" /> Gérer les stands
+   679→                </Button>
+   680→                <Button variant="outline">
+   681→                  <Edit className="mr-2 h-4 w-4" /> Modifier
+   682→                </Button>
+   683→                <Button>
+   684→                  <ExternalLink className="mr-2 h-4 w-4" /> Voir sur le site
+   685→                </Button>
+   686→              </div>
+   687→            </div>
+   688→          )}
+   689→        </DialogContent>
+   690→      </Dialog>
+   691→
+   692→      {/* Booth Management Dialog */}
+   693→      <Dialog open={boothDialogOpen} onOpenChange={setBoothDialogOpen}>
+   694→        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+   695→          <DialogHeader>
+   696→            <DialogTitle className="flex items-center gap-2">
+   697→              <Grid3X3 className="h-5 w-5" />
+   698→              Gestion des stands - {selectedExhibition?.title}
+   699→            </DialogTitle>
+   700→            <DialogDescription>
+   701→              Visualisez et gérez tous les stands de cette exposition
+   702→            </DialogDescription>
+   703→          </DialogHeader>
+   704→
+   705→          {selectedExhibition && selectedExhibition.booths.length > 0 ? (
+   706→            <div className="space-y-4 py-4">
+   707→              {/* Stats */}
+   708→              <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+   709→                <Card>
+   710→                  <CardContent className="pt-3 pb-3 text-center">
+   711→                    <p className="text-xs text-gray-500">Total</p>
+   712→                    <p className="text-xl font-bold">{selectedExhibition.booths.length}</p>
+   713→                  </CardContent>
+   714→                </Card>
+   715→                <Card>
+   716→                  <CardContent className="pt-3 pb-3 text-center">
+   717→                    <p className="text-xs text-gray-500">Disponibles</p>
+   718→                    <p className="text-xl font-bold text-green-600">
+   719→                      {selectedExhibition.booths.filter(b => b.status === 'AVAILABLE').length}
+   720→                    </p>
+   721→                  </CardContent>
+   722→                </Card>
+   723→                <Card>
+   724→                  <CardContent className="pt-3 pb-3 text-center">
+   725→                    <p className="text-xs text-gray-500">Réservés</p>
+   726→                    <p className="text-xl font-bold text-yellow-600">
+   727→                      {selectedExhibition.booths.filter(b => b.status === 'RESERVED').length}
+   728→                    </p>
+   729→                  </CardContent>
+   730→                </Card>
+   731→                <Card>
+   732→                  <CardContent className="pt-3 pb-3 text-center">
+   733→                    <p className="text-xs text-gray-500">Confirmés</p>
+   734→                    <p className="text-xl font-bold text-blue-600">
+   735→                      {selectedExhibition.booths.filter(b => b.status === 'CONFIRMED' || b.status === 'PAID').length}
+   736→                    </p>
+   737→                  </CardContent>
+   738→                </Card>
+   739→                <Card>
+   740→                  <CardContent className="pt-3 pb-3 text-center">
+   741→                    <p className="text-xs text-gray-500">Revenus</p>
+   742→                    <p className="text-lg font-bold text-green-700">
+   743→                      {new Intl.NumberFormat('fr-DZ', { style: 'currency', currency: 'DZD' }).format(
+   744→                        selectedExhibition.booths
+   745→                          .filter(b => b.status === 'PAID')
+   746→                          .reduce((sum, b) => sum + b.price, 0)
+   747→                      )}
+   748→                    </p>
+   749→                  </CardContent>
+   750→                </Card>
+   751→              </div>
+   752→
+   753→              {/* Booths Table */}
+   754→              <Card>
+   755→                <CardContent className="p-0">
+   756→                  <Table>
+   757→                    <TableHeader>
+   758→                      <TableRow>
+   759→                        <TableHead>Stand</TableHead>
+   760→                        <TableHead>Type</TableHead>
+   761→                        <TableHead>Taille</TableHead>
+   762→                        <TableHead>Prix</TableHead>
+   763→                        <TableHead>Statut</TableHead>
+   764→                        <TableHead>Exposant</TableHead>
+   765→                        <TableHead className="w-12">Actions</TableHead>
+   766→                      </TableRow>
+   767→                    </TableHeader>
+   768→                    <TableBody>
+   769→                      {selectedExhibition.booths.map((booth) => (
+   770→                        <TableRow key={booth.id}>
+   771→                          <TableCell>
+   772→                            <code className="text-sm font-medium">{booth.number}</code>
+   773→                          </TableCell>
+   774→                          <TableCell>
+   775→                            <Badge className={boothTypeConfig[booth.type].color}>
+   776→                              {boothTypeConfig[booth.type].label}
+   777→                            </Badge>
+   778→                          </TableCell>
+   779→                          <TableCell>{booth.size}</TableCell>
+   780→                          <TableCell>
+   781→                            <span className="font-medium text-green-700">
+   782→                              {new Intl.NumberFormat('fr-DZ', { style: 'currency', currency: 'DZD' }).format(booth.price)}
+   783→                            </span>
+   784→                          </TableCell>
+   785→                          <TableCell>
+   786→                            <Badge variant={boothStatusConfig[booth.status].variant} 
+   787→                                   className={boothStatusConfig[booth.status].color}>
+   788→                              {boothStatusConfig[booth.status].label}
+   789→                            </Badge>
+   790→                          </TableCell>
+   791→                          <TableCell>
+   792→                            {booth.exhibitorName ? (
+   793→                              <div>
+   794→                                <p className="text-sm font-medium">{booth.exhibitorName}</p>
+   795→                                {booth.companyName && (
+   796→                                  <p className="text-xs text-gray-500">{booth.companyName}</p>
+   797→                                )}
+   798→                              </div>
+   799→                            ) : (
+   800→                              <span className="text-sm text-gray-400">-</span>
+   801→                            )}
+   802→                          </TableCell>
+   803→                          <TableCell>
+   804→                            <DropdownMenu>
+   805→                              <DropdownMenuTrigger asChild>
+   806→                                <Button variant="ghost" size="icon" className="h-8 w-8">
+   807→                                  <MoreHorizontal className="h-4 w-4" />
+   808→                                </Button>
+   809→                              </DropdownMenuTrigger>
+   810→                              <DropdownMenuContent align="end">
+   811→                                <DropdownMenuItem>Voir détails</DropdownMenuItem>
+   812→                                {booth.status === 'RESERVED' && (
+   813→                                  <DropdownMenuItem className="text-green-600">Confirmer</DropdownMenuItem>
+   814→                                )}
+   815→                                {booth.status === 'CONFIRMED' && (
+   816→                                  <DropdownMenuItem className="text-blue-600">Marquer payé</DropdownMenuItem>
+   817→                                )}
+   818→                                {booth.status !== 'CANCELLED' && booth.status !== 'PAID' && (
+   819→                                  <DropdownMenuItem className="text-red-600">Annuler</DropdownMenuItem>
+   820→                                )}
+   821→                              </DropdownMenuContent>
+   822→                            </DropdownMenu>
+   823→                          </TableCell>
+   824→                        </TableRow>
+   825→                      ))}
+   826→                    </TableBody>
+   827→                  </Table>
+   828→                </CardContent>
+   829→              </Card>
+   830→            </div>
+   831→          ) : (
+   832→            <div className="py-12 text-center">
+   833→              <Grid3X3 className="h-12 w-12 mx-auto text-gray-300 mb-4" />
+   834→              <h3 className="font-medium text-gray-900 mb-1">Aucun stand configuré</h3>
+   835→              <p className="text-sm text-gray-500 mb-4">Commencez par ajouter des stands pour cette exposition</p>
+   836→              <Button>
+   837→                <Plus className="mr-2 h-4 w-4" /> Ajouter un stand
+   838→              </Button>
+   839→            </div>
+   840→          )}
+   841→        </DialogContent>
+   842→      </Dialog>
+   843→    </div>
+   844→  );
+   845→}
+   846→

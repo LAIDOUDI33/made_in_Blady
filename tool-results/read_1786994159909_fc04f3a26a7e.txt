@@ -1,0 +1,1444 @@
+     1→// Video Gallery Component - AlgeriaTrade Mobile
+     2→// Composant de galerie vidéo avec support 360°
+     3→
+     4→import React, { useState, useRef, useCallback } from 'react';
+     5→import {
+     6→  View,
+     7→  Text,
+     8→  StyleSheet,
+     9→  FlatList,
+    10→  TouchableOpacity,
+    11→  Image,
+    12→  Dimensions,
+    13→  Modal,
+    14→  ActivityIndicator,
+    15→  Platform,
+    16→  Share,
+    17→  Alert,
+    18→} from 'react-native';
+    19→import { Ionicons } from '@expo/vector-icons';
+    20→import { Video, ResizeMode, AVPlaybackStatus } from 'expo-av';
+    21→
+    22→// Constants
+    23→import { Colors, FontFamily, FontSize, Spacing, BorderRadius, Shadows } from '../utils/constants';
+    24→
+    25→const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+    26→
+    27→// ============================================
+    28→// Types & Interfaces
+    29→// ============================================
+    30→
+    31→export type VideoType = 
+    32→  | 'product_demo'
+    33→  | 'factory_tour'
+    34→  | 'testimonial'
+    35→  | 'tutorial'
+    36→  | 'company_intro'
+    37→  | 'production_line'
+    38→  | 'ceo_message'
+    39→  | 'featured';
+    40→
+    41→export type TourType = 'factory' | 'office' | 'showroom' | 'warehouse';
+    42→
+    43→interface ProductVideo {
+    44→  id: string;
+    45→  title: string;
+    46→  description?: string;
+    47→  type: VideoType;
+    48→  url: string;
+    49→  thumbnailUrl: string;
+    50→  duration: number; // in seconds
+    51→  viewCount: number;
+    52→  isPrimary: boolean;
+    53→  language?: 'fr' | 'ar' | 'en';
+    54→  createdAt: Date;
+    55→}
+    56→
+    57→interface VirtualTour {
+    58→  id: string;
+    59→  title: string;
+    60→  description?: string;
+    61→  type: TourType;
+    62→  tourUrl: string;
+    63→  coverImage: string;
+    64→  hotspots: Array<{
+    65→    id: string;
+    66→    position: { x: number; y: number };
+    67→    title: string;
+    68→    targetSceneId: string;
+    69→  }>;
+    70→  viewCount: number;
+    71→  duration?: number; // estimated tour duration in minutes
+    72→}
+    73→
+    74→interface VideoGalleryProps {
+    75→  videos: ProductVideo[];
+    76→  tours?: VirtualTour[];
+    77→  onVideoPress?: (video: ProductVideo) => void;
+    78→  onTourPress?: (tour: VirtualTour) => void;
+    79→  showDownloadButton?: boolean;
+    80→  showCastButton?: boolean;
+    81→  compact?: boolean;
+    82→  autoPlay?: boolean;
+    83→}
+    84→
+    85→// ============================================
+    86→// Constants
+    87→// ============================================
+    88→
+    89→const VIDEO_TYPE_CONFIG: Record<VideoType, { label: string; icon: string; color: string }> = {
+    90→  product_demo: { label: 'Démo produit', icon: 'cube-outline', color: Colors.primary },
+    91→  factory_tour: { label: 'Visite usine', icon: 'business-outline', color: Colors.info },
+    92→  testimonial: { label: 'Témoignage', icon: 'people-outline', color: Colors.success },
+    93→  tutorial: { label: 'Tutoriel', icon: 'play-circle-outline', color: Colors.warning },
+    94→  company_intro: { label: 'Présentation', icon: 'information-circle-outline', color: '#8B5CF6' },
+    95→  production_line: { label: 'Ligne de production', icon: 'cog-outline', color: Colors.error },
+    96→  ceo_message: { label: 'Message PDG', icon: 'mic-outline', color: Colors.secondary },
+    97→  featured: { label: 'En vedette', icon: 'star', color: '#F59E0B' },
+    98→};
+    99→
+   100→const TOUR_TYPE_CONFIG: Record<TourType, { label: string; icon: string }> = {
+   101→  factory: { label: 'Usine', icon: 'business-outline' },
+   102→  office: { label: 'Bureau', icon: 'desktop-outline' },
+   103→  showroom: { label: 'Showroom', icon: 'storefront-outline' },
+   104→  warehouse: { label: 'Entrepôt', icon: 'grid-outline' },
+   105→};
+   106→
+   107→// ============================================
+   108→// Sub-Components
+   109→// ============================================
+   110→
+   111→// Video Player Modal
+   112→function VideoPlayerModal({ 
+   113→  video, 
+   114→  visible, 
+   115→  onClose, 
+   116→  onDownload,
+   117→  onCast,
+   118→}: { 
+   119→  video: ProductVideo | null; 
+   120→  visible: boolean; 
+   121→  onClose: () => void;
+   122→  onDownload?: () => void;
+   123→  onCast?: () => void;
+   124→}) {
+   125→  const videoRef = useRef<Video>(null);
+   126→  const [isPlaying, setIsPlaying] = useState(false);
+   127→  const [isMuted, setIsMuted] = useState(false);
+   128→  const [isFullscreen, setIsFullscreen] = useState(false);
+   129→  const [playbackPosition, setPlaybackPosition] = useState(0);
+   130→  const [duration, setDuration] = useState(0);
+   131→  const [isLoading, setIsLoading] = useState(true);
+   132→
+   133→  const handlePlaybackStatusUpdate = (status: AVPlaybackStatus) => {
+   134→    if (!status.isLoaded) return;
+   135→    
+   136→    setIsPlaying(status.isPlaying);
+   137→    setDuration(status.durationMillis || 0);
+   138→    setPlaybackPosition(status.positionMillis || 0);
+   139→    setIsLoading(false);
+   140→    
+   141→    if (status.didJustFinish) {
+   142→      setIsPlaying(false);
+   143→      setPlaybackPosition(0);
+   144→    }
+   145→  };
+   146→
+   147→  const togglePlayPause = async () => {
+   148→    if (!videoRef.current) return;
+   149→    
+   150→    if (isPlaying) {
+   151→      await videoRef.current.pauseAsync();
+   152→    } else {
+   153→      await videoRef.current.playAsync();
+   154→    }
+   155→  };
+   156→
+   157→  const toggleMute = async () => {
+   158→    if (!videoRef.current) return;
+   159→    await videoRef.current.setIsMutedAsync(!isMuted);
+   160→    setIsMuted(!isMuted);
+   161→  };
+   162→
+   163→  const seekForward = async () => {
+   164→    if (!videoRef.current) return;
+   165→    const newPosition = Math.min(playbackPosition + 10000, duration);
+   166→    await videoRef.current.setPositionAsync(newPosition);
+   167→  };
+   168→
+   169→  const seekBackward = async () => {
+   170→    if (!videoRef.current) return;
+   171→    const newPosition = Math.max(playbackPosition - 10000, 0);
+   172→    await videoRef.current.setPositionAsync(newPosition);
+   173→  };
+   174→
+   175→  const formatTime = (millis: number): string => {
+   176→    const totalSeconds = Math.floor(millis / 1000);
+   177→    const minutes = Math.floor(totalSeconds / 60);
+   178→    const seconds = totalSeconds % 60;
+   179→    return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+   180→  };
+   181→
+   182→  const handleShare = async () => {
+   183→    if (!video) return;
+   184→    try {
+   185→      await Share.share({
+   186→        message: `Regardez cette vidéo sur AlgeriaTrade: ${video.title}`,
+   187→        url: video.url,
+   188→      });
+   189→    } catch (error) {
+   190→      console.error('[VideoGallery] Error sharing:', error);
+   191→    }
+   192→  };
+   193→
+   194→  if (!video) return null;
+   195→
+   196→  return (
+   197→    <Modal
+   198→      visible={visible}
+   199→      animationType="fade"
+   200→      onRequestClose={onClose}
+   201→      supportedOrientations={['portrait', 'landscape']}
+   202→    >
+   203→      <View style={styles.playerContainer}>
+   204→        {/* Video */}
+   205→        <View style={styles.videoWrapper}>
+   206→          <Video
+   207→            ref={videoRef}
+   208→            source={{ uri: video.url }}
+   209→            style={styles.videoPlayer}
+   210→            resizeMode={ResizeMode.CONTAIN}
+   211→            shouldPlay={false}
+   212→            isLooping={false}
+   213→            isMuted={isMuted}
+   214→            onPlaybackStatusUpdate={handlePlaybackStatusUpdate}
+   215→          />
+   216→          
+   217→          {/* Loading Overlay */}
+   218→          {isLoading && (
+   219→            <View style={styles.loadingOverlay}>
+   220→              <ActivityIndicator size="large" color={Colors.white} />
+   221→            </View>
+   222→          )}
+   223→
+   224→          {/* Top Controls */}
+   225→          <View style={styles.topControls}>
+   226→            <TouchableOpacity style={styles.controlButton} onPress={onClose}>
+   227→              <Ionicons name="close" size={28} color={Colors.white} />
+   228→            </TouchableOpacity>
+   229→            
+   230→            <TouchableOpacity style={styles.controlButton} onPress={handleShare}>
+   231→              <Ionicons name="share-social-outline" size={24} color={Colors.white} />
+   232→            </TouchableOpacity>
+   233→          </View>
+   234→
+   235→          {/* Center Play Button */}
+   236→          {!isPlaying && !isLoading && (
+   237→            <TouchableOpacity style={styles.centerPlayButton} onPress={togglePlayPause}>
+   238→              <Ionicons name="play" size={48} color={Colors.white} />
+   239→            </TouchableOpacity>
+   240→          )}
+   241→        </View>
+   242→
+   243→        {/* Video Info */}
+   244→        <View style={styles.videoInfoContainer}>
+   245→          <Text style={styles.videoTitle}>{video.title}</Text>
+   246→          
+   247→          {video.description && (
+   248→            <Text style={styles.videoDescription} numberOfLines={2}>
+   249→              {video.description}
+   250→            </Text>
+   251→          )}
+   252→
+   253→          <View style={styles.videoMetaRow}>
+   254→            <View style={styles.metaItem}>
+   255→              <Ionicons name="eye-outline" size={16} color={Colors.textSecondary} />
+   256→              <Text style={styles.metaText}>
+   257→                {(video.viewCount / 1000).toFixed(1)}K vues
+   258→              </Text>
+   259→            </View>
+   260→            <View style={styles.metaItem}>
+   261→              <Ionicons name="time-outline" size={16} color={Colors.textSecondary} />
+   262→              <Text style={styles.metaText}>
+   263→                {formatTime(video.duration * 1000)}
+   264→              </Text>
+   265→            </View>
+   266→            {VIDEO_TYPE_CONFIG[video.type] && (
+   267→              <View style={[styles.typeBadge, { backgroundColor: VIDEO_TYPE_CONFIG[video.type].color + '20' }]}>
+   268→                <Ionicons 
+   269→                  name={VIDEO_TYPE_CONFIG[video.type].icon as any} 
+   270→                  size={12} 
+   271→                  color={VIDEO_TYPE_CONFIG[video.type].color} 
+   272→                />
+   273→                <Text style={[styles.typeBadgeText, { color: VIDEO_TYPE_CONFIG[video.type].color }]}>
+   274→                  {VIDEO_TYPE_CONFIG[video.type].label}
+   275→                </Text>
+   276→              </View>
+   277→            )}
+   278→          </View>
+   279→        </View>
+   280→
+   281→        {/* Progress Bar */}
+   282→        <View style={styles.progressContainer}>
+   283→          <View style={styles.progressBarBackground}>
+   284→            <View 
+   285→              style={[
+   286→                styles.progressBarFill,
+   287→                { width: `${duration > 0 ? (playbackPosition / duration) * 100 : 0}%` }
+   288→              ]} 
+   289→            />
+   290→          </View>
+   291→          <View style={styles.timeLabels}>
+   292→            <Text style={styles.timeLabel}>{formatTime(playbackPosition)}</Text>
+   293→            <Text style={styles.timeLabel}>{formatTime(duration)}</Text>
+   294→          </View>
+   295→        </View>
+   296→
+   297→        {/* Bottom Controls */}
+   298→        <View style={styles.bottomControls}>
+   299→          <TouchableOpacity style={styles.bottomControlButton} onPress={seekBackward}>
+   300→            <Ionicons name="play-back" size={24} color={Colors.text} />
+   301→            <Text style={styles.controlLabel}>10s</Text>
+   302→          </TouchableOpacity>
+   303→
+   304→          <TouchableOpacity style={styles.playPauseButton} onPress={togglePlayPause}>
+   305→            <Ionicons 
+   306→              name={isPlaying ? 'pause' : 'play'} 
+   307→              size={32} 
+   308→              color={Colors.white} 
+   309→            />
+   310→          </TouchableOpacity>
+   311→
+   312→          <TouchableOpacity style={styles.bottomControlButton} onPress={seekForward}>
+   313→            <Ionicons name="play-forward" size={24} color={Colors.text} />
+   314→            <Text style={styles.controlLabel}>10s</Text>
+   315→          </TouchableOpacity>
+   316→
+   317→          <TouchableOpacity style={styles.bottomControlButton} onPress={toggleMute}>
+   318→            <Ionicons 
+   319→              name={isMuted ? 'volume-mute' : 'volume-high'} 
+   320→              size={24} 
+   321→              color={Colors.text} 
+   322→            />
+   323→          </TouchableOpacity>
+   324→
+   325→          {onDownload && (
+   326→            <TouchableOpacity style={styles.bottomControlButton} onPress={onDownload}>
+   327→              <Ionicons name="download-outline" size={24} color={Colors.text} />
+   328→            </TouchableOpacity>
+   329→          )}
+   330→
+   331→          {onCast && (
+   332→            <TouchableOpacity style={styles.bottomControlButton} onPress={onCast}>
+   333→              <Ionicons name="tv-outline" size={24} color={Colors.text} />
+   334→            </TouchableOpacity>
+   335→          )}
+   336→        </View>
+   337→      </View>
+   338→    </Modal>
+   339→  );
+   340→}
+   341→
+   342→// Virtual Tour Viewer
+   343→function VirtualTourViewer({
+   344→  tour,
+   345→  visible,
+   346→  onClose,
+   347→}: {
+   348→  tour: VirtualTour | null;
+   349→  visible: boolean;
+   350→  onClose: () => void;
+   351→}) {
+   352→  const [currentSceneIndex, setCurrentSceneIndex] = useState(0);
+   353→  const [showHotspots, setShowHotspots] = useState(true);
+   354→
+   355→  if (!tour) return null;
+   356→
+   357→  // In a real implementation, this would use a 360° viewer library
+   358→  // like react-native-360 or similar
+   359→  return (
+   360→    <Modal
+   361→      visible={visible}
+   362→      animationType="fade"
+   363→      onRequestClose={onClose}
+   364→    >
+   365→      <View style={styles.tourContainer}>
+   366→        {/* Header */}
+   367→        <View style={styles.tourHeader}>
+   368→          <TouchableOpacity style={styles.tourBackButton} onPress={onClose}>
+   369→            <Ionicons name="arrow-back" size={24} color={Colors.text} />
+   370→          </TouchableOpacity>
+   371→          <View style={styles.tourHeaderInfo}>
+   372→            <Text style={styles.tourTitle}>{tour.title}</Text>
+   373→            <Text style={styles.tourSubtitle}>
+   374→              {TOUR_TYPE_CONFIG[tour.type]?.label || 'Visite virtuelle'}
+   375→            </Text>
+   376→          </View>
+   377→          <TouchableOpacity 
+   378→            style={styles.hotspotToggle}
+   379→            onPress={() => setShowHotspots(!showHotspots)}
+   380→          >
+   381→            <Ionicons 
+   382→              name={showHotspots ? 'location' : 'location-outline'} 
+   383→              size={24} 
+   384→              color={showHotspots ? Colors.primary : Colors.textTertiary} 
+   385→            />
+   386→          </TouchableOpacity>
+   387→        </View>
+   388→
+   389→        {/* 360° View Placeholder */}
+   390→        <View style={styles.tourViewer}>
+   391→          <Image 
+   392→            source={{ uri: tour.coverImage }} 
+   393→            style={styles.tourCoverImage}
+   394→            resizeMode="cover"
+   395→          />
+   396→          
+   397→          {/* 360° Indicator */}
+   398→          <View style={styles.indicator360}>
+   399→            <Ionicons name="globe-outline" size={20} color={Colors.white} />
+   400→            <Text style={styles.indicator360Text}>Vue 360°</Text>
+   401→          </View>
+   402→
+   403→          {/* Hotspots */}
+   404→          {showHotspots && tour.hotspots.map(hotspot => (
+   405→            <TouchableOpacity
+   406→              key={hotspot.id}
+   407→              style={[
+   408→                styles.hotspot,
+   409→                { left: hotspot.position.x, top: hotspot.position.y }
+   410→              ]}
+   411→              activeOpacity={0.8}
+   412→            >
+   413→              <View style={styles.hotspotOuter}>
+   414→                <View style={styles.hotspotInner} />
+   415→              </View>
+   416→              <Text style={styles.hotspotLabel}>{hotspot.title}</Text>
+   417→            </TouchableOpacity>
+   418→          ))}
+   419→
+   420→          {/* Navigation Arrows */}
+   421→          <TouchableOpacity 
+   422→            style={[styles.navArrow, styles.navArrowLeft]}
+   423→            onPress={() => setCurrentSceneIndex(Math.max(0, currentSceneIndex - 1))}
+   424→          >
+   425→            <Ionicons name="chevron-back" size={32} color={Colors.white} />
+   426→          </TouchableOpacity>
+   427→          
+   428→          <TouchableOpacity 
+   429→            style={[styles.navArrow, styles.navArrowRight]}
+   430→            onPress={() => setCurrentSceneIndex(currentSceneIndex + 1)}
+   431→          >
+   432→            <Ionicons name="chevron-forward" size={32} color={Colors.white} />
+   433→          </TouchableOpacity>
+   434→        </View>
+   435→
+   436→        {/* Tour Info */}
+   437→        <View style={styles.tourInfo}>
+   438→          {tour.description && (
+   439→            <Text style={styles.tourDescription}>{tour.description}</Text>
+   440→          )}
+   441→          
+   442→          <View style={styles.tourStats}>
+   443→            <View style={styles.statItem}>
+   444→              <Ionicons name="eye-outline" size={18} color={Colors.textSecondary} />
+   445→              <Text style={styles.statText}>
+   446→                {(tour.viewCount / 1000).toFixed(1)}K vues
+   447→              </Text>
+   448→            </View>
+   449→            {tour.duration && (
+   450→              <View style={styles.statItem}>
+   451→                <Ionicons name="time-outline" size={18} color={Colors.textSecondary} />
+   452→                <Text style={styles.statText}>~{tour.duration} min</Text>
+   453→              </View>
+   454→            )}
+   455→            <View style={styles.statItem}>
+   456→              <Ionicons name="navigate-outline" size={18} color={Colors.textSecondary} />
+   457→              <Text style={styles.statText}>{tour.hotspots.length} points d'intérêt</Text>
+   458→            </View>
+   459→          </View>
+   460→
+   461→          {/* Scene Indicators */}
+   462→          <View style={styles.sceneIndicators}>
+   463→            {[1, 2, 3, 4, 5].map((_, index) => (
+   464→              <View 
+   465→                key={index}
+   466→                style={[
+   467→                  styles.sceneDot,
+   468→                  index === currentSceneIndex && styles.sceneDotActive
+   469→                ]}
+   470→              />
+   471→            ))}
+   472→          </View>
+   473→        </View>
+   474→      </View>
+   475→    </Modal>
+   476→  );
+   477→}
+   478→
+   479→// ============================================
+   480→// Main Component
+   481→// ============================================
+   482→
+   483→export default function VideoGallery({
+   484→  videos,
+   485→  tours = [],
+   486→  onVideoPress,
+   487→  onTourPress,
+   488→  showDownloadButton = true,
+   489→  showCastButton = false,
+   490→  compact = false,
+   491→  autoPlay = false,
+   492→}: VideoGalleryProps) {
+   493→  const [selectedVideo, setSelectedVideo] = useState<ProductVideo | null>(null);
+   494→  const [selectedTour, setSelectedTour] = useState<VirtualTour | null>(null);
+   495→  const [activeTab, setActiveTab] = useState<'videos' | 'tours'>('videos');
+   496→
+   497→  const handleVideoPress = (video: ProductVideo) => {
+   498→    if (onVideoPress) {
+   499→      onVideoPress(video);
+   500→    } else {
+   501→      setSelectedVideo(video);
+   502→    }
+   503→  };
+   504→
+   505→  const handleTourPress = (tour: VirtualTour) => {
+   506→    if (onTourPress) {
+   507→      onTourPress(tour);
+   508→    } else {
+   509→      setSelectedTour(tour);
+   510→    }
+   511→  };
+   512→
+   513→  const handleDownload = async (video: ProductVideo) => {
+   514→    Alert.alert(
+   515→      'Téléchargement',
+   516→      `Voulez-vous télécharger "${video.title}" pour le visionnage hors ligne ?`,
+   517→      [
+   518→        { text: 'Annuler', style: 'cancel' },
+   519→        { text: 'Télécharger', onPress: () => {
+   520→          // In a real app, this would download using FileSystem or similar
+   521→          Alert.alert('Succès', 'Le téléchargement va commencer.');
+   522→        }}
+   523→      ]
+   524→    );
+   525→  };
+   526→
+   527→  const handleCast = () => {
+   528→    Alert.alert(
+   529→      'Casting',
+   530→      'Sélectionnez un appareil pour caster la vidéo.',
+   531→      [
+   532→        { text: 'Annuler', style: 'cancel' },
+   533→        { text: 'Chromecast', onPress: () => {
+   534→          Alert.alert('Connexion', 'Connexion à Chromecast...');
+   535→        }},
+   536→        { text: 'Apple TV', onPress: () => {
+   537→          Alert.alert('Connexion', 'Connexion à Apple TV...');
+   538→        }}
+   539→      ]
+   540→    );
+   541→  };
+   542→
+   543→  const renderVideoItem = ({ item }: { item: ProductVideo }) => {
+   544→    const typeConfig = VIDEO_TYPE_CONFIG[item.type];
+   545→    
+   546→    if (compact) {
+   547→      return (
+   548→        <TouchableOpacity
+   549→          style={styles.compactVideoItem}
+   550→          onPress={() => handleVideoPress(item)}
+   551→          activeOpacity={0.7}
+   552→        >
+   553→          <View style={styles.compactThumbnailContainer}>
+   554→            <Image source={{ uri: item.thumbnailUrl }} style={styles.compactThumbnail} />
+   555→            <View style={styles.playOverlay}>
+   556→              <Ionicons name="play-circle" size={36} color={Colors.white} />
+   557→            </View>
+   558→            <View style={styles.durationBadge}>
+   559→              <Text style={styles.durationText}>
+   560→                {Math.floor(item.duration / 60)}:{(item.duration % 60).toString().padStart(2, '0')}
+   561→              </Text>
+   562→            </View>
+   563→          </View>
+   564→          <View style={styles.compactInfo}>
+   565→            <Text style={styles.compactTitle} numberOfLines={2}>{item.title}</Text>
+   566→            <Text style={styles.compactViews}>
+   567→              {(item.viewCount / 1000).toFixed(1)}K vues
+   568→            </Text>
+   569→          </View>
+   570→        </TouchableOpacity>
+   571→      );
+   572→    }
+   573→
+   574→    return (
+   575→      <TouchableOpacity
+   576→        style={styles.videoCard}
+   577→        onPress={() => handleVideoPress(item)}
+   578→        activeOpacity={0.7}
+   579→      >
+   580→        <View style={styles.thumbnailContainer}>
+   581→          <Image source={{ uri: item.thumbnailUrl }} style={styles.thumbnail} />
+   582→          
+   583→          {/* Play Button Overlay */}
+   584→          <View style={styles.playOverlay}>
+   585→            <Ionicons name="play-circle" size={48} color={Colors.white} />
+   586→          </View>
+   587→
+   588→          {/* Duration Badge */}
+   589→          <View style={styles.durationBadge}>
+   590→            <Text style={styles.durationText}>
+   591→              {Math.floor(item.duration / 60)}:{(item.duration % 60).toString().padStart(2, '0')}
+   592→            </Text>
+   593→          </View>
+   594→
+   595→          {/* Primary Badge */}
+   596→          {item.isPrimary && (
+   597→            <View style={styles.primaryBadge}>
+   598→              <Ionicons name="star" size={12} color="#F59E0B" />
+   599→              <Text style={styles.primaryBadgeText}>Principal</Text>
+   600→            </View>
+   601→          )}
+   602→
+   603→          {/* Type Badge */}
+   604→          {typeConfig && (
+   605→            <View style={[styles.typeOverlayBadge, { backgroundColor: typeConfig.color }]}>
+   606→              <Ionicons name={typeConfig.icon as any} size={12} color={Colors.white} />
+   607→              <Text style={styles.typeOverlayText}>{typeConfig.label}</Text>
+   608→            </View>
+   609→          )}
+   610→        </View>
+   611→
+   612→        <View style={styles.videoCardContent}>
+   613→          <Text style={styles.videoCardTitle} numberOfLines={2}>{item.title}</Text>
+   614→          
+   615→          {item.description && (
+   616→            <Text style={styles.videoCardDescription} numberOfLines={1}>
+   617→              {item.description}
+   618→            </Text>
+   619→          )}
+   620→
+   621→          <View style={styles.videoCardMeta}>
+   622→            <Text style={styles.videoCardViews}>
+   623→              {(item.viewCount / 1000).toFixed(1)}K vues
+   624→            </Text>
+   625→            <View style={styles.videoCardActions}>
+   626→              {showDownloadButton && (
+   627→                <TouchableOpacity 
+   628→                  style={styles.cardActionButton}
+   629→                  onPress={(e) => {
+   630→                    e.stopPropagation();
+   631→                    handleDownload(item);
+   632→                  }}
+   633→                >
+   634→                  <Ionicons name="download-outline" size={16} color={Colors.textSecondary} />
+   635→                </TouchableOpacity>
+   636→              )}
+   637→              {showCastButton && (
+   638→                <TouchableOpacity 
+   639→                  style={styles.cardActionButton}
+   640→                  onPress={(e) => {
+   641→                    e.stopPropagation();
+   642→                    handleCast();
+   643→                  }}
+   644→                >
+   645→                  <Ionicons name="tv-outline" size={16} color={Colors.textSecondary} />
+   646→                </TouchableOpacity>
+   647→              )}
+   648→            </View>
+   649→          </View>
+   650→        </View>
+   651→      </TouchableOpacity>
+   652→    );
+   653→  };
+   654→
+   655→  const renderTourItem = ({ item }: { item: VirtualTour }) => {
+   656→    const tourConfig = TOUR_TYPE_CONFIG[item.type];
+   657→
+   658→    return (
+   659→      <TouchableOpacity
+   660→        style={styles.tourCard}
+   661→        onPress={() => handleTourPress(item)}
+   662→        activeOpacity={0.7}
+   663→      >
+   664→        <View style={styles.tourCardImageContainer}>
+   665→          <Image source={{ uri: item.coverImage }} style={styles.tourCardImage} />
+   666→          
+   667→          {/* 360° Badge */}
+   668→          <View style={styles.badge360}>
+   669→            <Ionicons name="globe-outline" size={14} color={Colors.white} />
+   670→            <Text style={styles.badge360Text}>360°</Text>
+   671→          </View>
+   672→
+   673→          {/* Tour Type */}
+   674→          {tourConfig && (
+   675→            <View style={styles.tourTypeBadge}>
+   676→              <Ionicons name={tourConfig.icon as any} size={12} color={Colors.white} />
+   677→              <Text style={styles.tourTypeText}>{tourConfig.label}</Text>
+   678→            </View>
+   679→          )}
+   680→
+   681→          {/* Hotspots Count */}
+   682→          <View style={styles.hotspotsCount}>
+   683→            <Ionicons name="location" size={12} color={Colors.white} />
+   684→            <Text style={styles.hotspotsCountText}>{item.hotspots.length}</Text>
+   685→          </View>
+   686→        </View>
+   687→
+   688→        <View style={styles.tourCardContent}>
+   689→          <Text style={styles.tourCardTitle} numberOfLines={1}>{item.title}</Text>
+   690→          
+   691→          {item.description && (
+   692→            <Text style={styles.tourCardDescription} numberOfLines={2}>
+   693→              {item.description}
+   694→            </Text>
+   695→          )}
+   696→
+   697→          <View style={styles.tourCardMeta}>
+   698→            <Text style={styles.tourCardViews}>
+   699→              {(item.viewCount / 1000).toFixed(1)}K vues
+   700→            </Text>
+   701→            {item.duration && (
+   702→              <Text style={styles.tourDuration}>~{item.duration} min</Text>
+   703→            )}
+   704→          </View>
+   705→        </View>
+   706→      </TouchableOpacity>
+   707→    );
+   708→  };
+   709→
+   710→  // Compact mode - horizontal list
+   711→  if (compact) {
+   712→    return (
+   713→      <>
+   714→        <FlatList
+   715→          data={videos}
+   716→          renderItem={renderVideoItem}
+   717→          keyExtractor={(item) => item.id}
+   718→          horizontal
+   719→          showsHorizontalScrollIndicator={false}
+   720→          contentContainerStyle={styles.compactList}
+   721→        />
+   722→        
+   723→        <VideoPlayerModal
+   724→          video={selectedVideo}
+   725→          visible={!!selectedVideo}
+   726→          onClose={() => setSelectedVideo(null)}
+   727→          onDownload={() => selectedVideo && handleDownload(selectedVideo)}
+   728→          onCast={showCastButton ? handleCast : undefined}
+   729→        />
+   730→
+   731→        <VirtualTourViewer
+   732→          tour={selectedTour}
+   733→          visible={!!selectedTour}
+   734→          onClose={() => setSelectedTour(null)}
+   735→        />
+   736→      </>
+   737→    );
+   738→  }
+   739→
+   740→  // Full gallery with tabs
+   741→  return (
+   742→    <View style={styles.container}>
+   743→      {/* Tabs */}
+   744→      {(tours.length > 0 && videos.length > 0) && (
+   745→        <View style={styles.tabBar}>
+   746→          <TouchableOpacity
+   747→            style={[styles.tab, activeTab === 'videos' && styles.activeTab]}
+   748→            onPress={() => setActiveTab('videos')}
+   749→          >
+   750→            <Ionicons 
+   751→              name="videocam-outline" 
+   752→              size={18} 
+   753→              color={activeTab === 'videos' ? Colors.primary : Colors.textTertiary} 
+   754→            />
+   755→            <Text style={[styles.tabText, activeTab === 'videos' && styles.activeTabText]}>
+   756→              Vidéos ({videos.length})
+   757→            </Text>
+   758→          </TouchableOpacity>
+   759→          
+   760→          <TouchableOpacity
+   761→            style={[styles.tab, activeTab === 'tours' && styles.activeTab]}
+   762→            onPress={() => setActiveTab('tours')}
+   763→          >
+   764→            <Ionicons 
+   765→              name="globe-outline" 
+   766→              size={18} 
+   767→              color={activeTab === 'tours' ? Colors.primary : Colors.textTertiary} 
+   768→            />
+   769→            <Text style={[styles.tabText, activeTab === 'tours' && styles.activeTabText]}>
+   770→              Visites 360° ({tours.length})
+   771→            </Text>
+   772→          </TouchableOpacity>
+   773→        </View>
+   774→      )}
+   775→
+   776→      {/* Content */}
+   777→      {activeTab === 'videos' ? (
+   778→        <FlatList
+   779→          data={videos}
+   780→          renderItem={renderVideoItem}
+   781→          keyExtractor={(item) => item.id}
+   782→          numColumns={2}
+   783→          contentContainerStyle={styles.videosGrid}
+   784→          showsVerticalScrollIndicator={false}
+   785→          ListEmptyComponent={
+   786→            <View style={styles.emptyContainer}>
+   787→              <Ionicons name="videocam-off-outline" size={48} color={Colors.textTertiary} />
+   788→              <Text style={styles.emptyText}>Aucune vidéo disponible</Text>
+   789→            </View>
+   790→          }
+   791→        />
+   792→      ) : (
+   793→        <FlatList
+   794→          data={tours}
+   795→          renderItem={renderTourItem}
+   796→          keyExtractor={(item) => item.id}
+   797→          contentContainerStyle={styles.toursList}
+   798→          showsVerticalScrollIndicator={false}
+   799→          ListEmptyComponent={
+   800→            <View style={styles.emptyContainer}>
+   801→              <Ionicons name="globe-outline" size={48} color={Colors.textTertiary} />
+   802→              <Text style={styles.emptyText}>Aucune visite virtuelle disponible</Text>
+   803→            </View>
+   804→          }
+   805→        />
+   806→      )}
+   807→
+   808→      {/* Modals */}
+   809→      <VideoPlayerModal
+   810→        video={selectedVideo}
+   811→        visible={!!selectedVideo}
+   812→        onClose={() => setSelectedVideo(null)}
+   813→        onDownload={() => selectedVideo && handleDownload(selectedVideo)}
+   814→        onCast={showCastButton ? handleCast : undefined}
+   815→      />
+   816→
+   817→      <VirtualTourViewer
+   818→        tour={selectedTour}
+   819→        visible={!!selectedTour}
+   820→        onClose={() => setSelectedTour(null)}
+   821→      />
+   822→    </View>
+   823→  );
+   824→}
+   825→
+   826→// ============================================
+   827→// Styles
+   828→// ============================================
+   829→
+   830→const styles = StyleSheet.create({
+   831→  container: {
+   832→    flex: 1,
+   833→    backgroundColor: Colors.background,
+   834→  },
+   835→
+   836→  // Tabs
+   837→  tabBar: {
+   838→    flexDirection: 'row',
+   839→    backgroundColor: Colors.white,
+   840→    marginHorizontal: Spacing.md,
+   841→    marginTop: Spacing.md,
+   842→    borderRadius: BorderRadius.lg,
+   843→    padding: Spacing.xs,
+   844→    ...Shadows.sm,
+   845→  },
+   846→  tab: {
+   847→    flex: 1,
+   848→    flexDirection: 'row',
+   849→    alignItems: 'center',
+   850→    justifyContent: 'center',
+   851→    paddingVertical: Spacing.sm,
+   852→    borderRadius: BorderRadius.md,
+   853→    gap: Spacing.xs,
+   854→  },
+   855→  activeTab: {
+   856→    backgroundColor: Colors.primary + '15',
+   857→  },
+   858→  tabText: {
+   859→    fontSize: FontSize.sm,
+   860→    fontWeight: '500',
+   861→    color: Colors.textTertiary,
+   862→    fontFamily: FontFamily.medium,
+   863→  },
+   864→  activeTabText: {
+   865→    color: Colors.primary,
+   866→    fontWeight: '600',
+   867→  },
+   868→
+   869→  // Videos Grid
+   870→  videosGrid: {
+   871→    padding: Spacing.md,
+   872→  },
+   873→  videoCard: {
+   874→    width: (SCREEN_WIDTH - Spacing.md * 3) / 2,
+   875→    backgroundColor: Colors.white,
+   876→    borderRadius: BorderRadius.lg,
+   877→    overflow: 'hidden',
+   878→    marginBottom: Spacing.md,
+   879→    marginRight: Spacing.md % 2 !== 0 ? 0 : undefined,
+   880→    ...Shadows.sm,
+   881→  },
+   882→  thumbnailContainer: {
+   883→    position: 'relative',
+   884→    height: 120,
+   885→  },
+   886→  thumbnail: {
+   887→    width: '100%',
+   888→    height: '100%',
+   889→  },
+   890→  playOverlay: {
+   891→    ...StyleSheet.absoluteFillObject,
+   892→    justifyContent: 'center',
+   893→    alignItems: 'center',
+   894→    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+   895→  },
+   896→  durationBadge: {
+   897→    position: 'absolute',
+   898→    bottom: Spacing.xs,
+   899→    right: Spacing.xs,
+   900→    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+   901→    paddingHorizontal: Spacing.xs,
+   902→    paddingVertical: 2,
+   903→    borderRadius: 4,
+   904→  },
+   905→  durationText: {
+   906→    fontSize: FontSize.xs,
+   907→    color: Colors.white,
+   908→    fontWeight: '600',
+   909→    fontFamily: FontFamily.semiBold,
+   910→  },
+   911→  primaryBadge: {
+   912→    position: 'absolute',
+   913→    top: Spacing.xs,
+   914→    left: Spacing.xs,
+   915→    flexDirection: 'row',
+   916→    alignItems: 'center',
+   917→    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+   918→    paddingHorizontal: Spacing.xs,
+   919→    paddingVertical: 2,
+   920→    borderRadius: 4,
+   921→    gap: 2,
+   922→  },
+   923→  primaryBadgeText: {
+   924→    fontSize: FontSize.xs,
+   925→    color: '#F59E0B',
+   926→    fontWeight: '500',
+   927→    fontFamily: FontFamily.medium,
+   928→  },
+   929→  typeOverlayBadge: {
+   930→    position: 'absolute',
+   931→    top: Spacing.xs,
+   932→    right: Spacing.xs,
+   933→    flexDirection: 'row',
+   934→    alignItems: 'center',
+   935→    paddingHorizontal: Spacing.xs,
+   936→    paddingVertical: 2,
+   937→    borderRadius: 4,
+   938→    gap: 2,
+   939→  },
+   940→  typeOverlayText: {
+   941→    fontSize: 9,
+   942→    color: Colors.white,
+   943→    fontWeight: '500',
+   944→    fontFamily: FontFamily.medium,
+   945→  },
+   946→  videoCardContent: {
+   947→    padding: Spacing.sm,
+   948→  },
+   949→  videoCardTitle: {
+   950→    fontSize: FontSize.sm,
+   951→    fontWeight: '500',
+   952→    color: Colors.text,
+   953→    fontFamily: FontFamily.medium,
+   954→    marginBottom: 2,
+   955→    lineHeight: 16,
+   956→  },
+   957→  videoCardDescription: {
+   958→    fontSize: FontSize.xs,
+   959→    color: Colors.textTertiary,
+   960→    fontFamily: FontFamily.regular,
+   961→    marginBottom: Spacing.xs,
+   962→  },
+   963→  videoCardMeta: {
+   964→    flexDirection: 'row',
+   965→    alignItems: 'center',
+   966→    justifyContent: 'space-between',
+   967→  },
+   968→  videoCardViews: {
+   969→    fontSize: FontSize.xs,
+   970→    color: Colors.textTertiary,
+   971→    fontFamily: FontFamily.regular,
+   972→  },
+   973→  videoCardActions: {
+   974→    flexDirection: 'row',
+   975→    gap: Spacing.sm,
+   976→  },
+   977→  cardActionButton: {
+   978→    padding: Spacing.xs,
+   979→  },
+   980→
+   981→  // Tours List
+   982→  toursList: {
+   983→    padding: Spacing.md,
+   984→  },
+   985→  tourCard: {
+   986→    flexDirection: 'row',
+   987→    backgroundColor: Colors.white,
+   988→    borderRadius: BorderRadius.lg,
+   989→    overflow: 'hidden',
+   990→    marginBottom: Spacing.md,
+   991→    ...Shadows.sm,
+   992→  },
+   993→  tourCardImageContainer: {
+   994→    width: 140,
+   995→    height: 100,
+   996→    position: 'relative',
+   997→  },
+   998→  tourCardImage: {
+   999→    width: '100%',
+  1000→    height: '100%',
+  1001→  },
+  1002→  badge360: {
+  1003→    position: 'absolute',
+  1004→    top: Spacing.xs,
+  1005→    left: Spacing.xs,
+  1006→    flexDirection: 'row',
+  1007→    alignItems: 'center',
+  1008→    backgroundColor: Colors.primary,
+  1009→    paddingHorizontal: Spacing.xs,
+  1010→    paddingVertical: 2,
+  1011→    borderRadius: 4,
+  1012→    gap: 2,
+  1013→  },
+  1014→  badge360Text: {
+  1015→    fontSize: FontSize.xs,
+  1016→    color: Colors.white,
+  1017→    fontWeight: '600',
+  1018→    fontFamily: FontFamily.semiBold,
+  1019→  },
+  1020→  tourTypeBadge: {
+  1021→    position: 'absolute',
+  1022→    bottom: Spacing.xs,
+  1023→    left: Spacing.xs,
+  1024→    flexDirection: 'row',
+  1025→    alignItems: 'center',
+  1026→    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+  1027→    paddingHorizontal: Spacing.xs,
+  1028→    paddingVertical: 2,
+  1029→    borderRadius: 4,
+  1030→    gap: 2,
+  1031→  },
+  1032→  tourTypeText: {
+  1033→    fontSize: 10,
+  1034→    color: Colors.white,
+  1035→    fontFamily: FontFamily.regular,
+  1036→  },
+  1037→  hotspotsCount: {
+  1038→    position: 'absolute',
+  1039→    top: Spacing.xs,
+  1040→    right: Spacing.xs,
+  1041→    flexDirection: 'row',
+  1042→    alignItems: 'center',
+  1043→    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+  1044→    paddingHorizontal: Spacing.xs,
+  1045→    paddingVertical: 2,
+  1046→    borderRadius: 4,
+  1047→    gap: 2,
+  1048→  },
+  1049→  hotspotsCountText: {
+  1050→    fontSize: FontSize.xs,
+  1051→    color: Colors.white,
+  1052→    fontFamily: FontFamily.semiBold,
+  1053→  },
+  1054→  tourCardContent: {
+  1055→    flex: 1,
+  1056→    padding: Spacing.sm,
+  1057→    justifyContent: 'center',
+  1058→  },
+  1059→  tourCardTitle: {
+  1060→    fontSize: FontSize.base,
+  1061→    fontWeight: '500',
+  1062→    color: Colors.text,
+  1063→    fontFamily: FontFamily.medium,
+  1064→    marginBottom: Spacing.xs,
+  1065→  },
+  1066→  tourCardDescription: {
+  1067→    fontSize: FontSize.xs,
+  1068→    color: Colors.textTertiary,
+  1069→    fontFamily: FontFamily.regular,
+  1070→    marginBottom: Spacing.xs,
+  1071→  },
+  1072→  tourCardMeta: {
+  1073→    flexDirection: 'row',
+  1074→    alignItems: 'center',
+  1075→    gap: Spacing.md,
+  1076→  },
+  1077→  tourCardViews: {
+  1078→    fontSize: FontSize.xs,
+  1079→    color: Colors.textTertiary,
+  1080→    fontFamily: FontFamily.regular,
+  1081→  },
+  1082→  tourDuration: {
+  1083→    fontSize: FontSize.xs,
+  1084→    color: Colors.primary,
+  1085→    fontWeight: '500',
+  1086→    fontFamily: FontFamily.medium,
+  1087→  },
+  1088→
+  1089→  // Compact Mode
+  1090→  compactList: {
+  1091→    paddingLeft: Spacing.md,
+  1092→    paddingRight: Spacing.md,
+  1093→    paddingBottom: Spacing.sm,
+  1094→  },
+  1095→  compactVideoItem: {
+  1096→    width: 160,
+  1097→    marginRight: Spacing.md,
+  1098→  },
+  1099→  compactThumbnailContainer: {
+  1100→    position: 'relative',
+  1101→    height: 90,
+  1102→    borderRadius: BorderRadius.md,
+  1103→    overflow: 'hidden',
+  1104→  },
+  1105→  compactThumbnail: {
+  1106→    width: '100%',
+  1107→    height: '100%',
+  1108→  },
+  1109→  compactInfo: {
+  1110→    marginTop: Spacing.xs,
+  1111→  },
+  1112→  compactTitle: {
+  1113→    fontSize: FontSize.xs,
+  1114→    fontWeight: '500',
+  1115→    color: Colors.text,
+  1116→    fontFamily: FontFamily.medium,
+  1117→    lineHeight: 14,
+  1118→  },
+  1119→  compactViews: {
+  1120→    fontSize: 10,
+  1121→    color: Colors.textTertiary,
+  1122→    fontFamily: FontFamily.regular,
+  1123→    marginTop: 2,
+  1124→  },
+  1125→
+  1126→  // Empty State
+  1127→  emptyContainer: {
+  1128→    alignItems: 'center',
+  1129→    paddingVertical: Spacing.xxxl,
+  1130→  },
+  1131→  emptyText: {
+  1132→    marginTop: Spacing.md,
+  1133→    fontSize: FontSize.base,
+  1134→    color: Colors.textTertiary,
+  1135→    fontFamily: FontFamily.regular,
+  1136→  },
+  1137→
+  1138→  // Video Player Modal
+  1139→  playerContainer: {
+  1140→    flex: 1,
+  1141→    backgroundColor: '#000',
+  1142→  },
+  1143→  videoWrapper: {
+  1144→    position: 'relative',
+  1145→    aspectRatio: 16 / 9,
+  1146→    backgroundColor: '#000',
+  1147→  },
+  1148→  videoPlayer: {
+  1149→    ...StyleSheet.absoluteFillObject,
+  1150→  },
+  1151→  loadingOverlay: {
+  1152→    ...StyleSheet.absoluteFillObject,
+  1153→    justifyContent: 'center',
+  1154→    alignItems: 'center',
+  1155→    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  1156→  },
+  1157→  topControls: {
+  1158→    position: 'absolute',
+  1159→    top: 0,
+  1160→    left: 0,
+  1161→    right: 0,
+  1162→    flexDirection: 'row',
+  1163→    justifyContent: 'space-between',
+  1164→    paddingTop: Platform.OS === 'ios' ? 50 : 30,
+  1165→    paddingHorizontal: Spacing.md,
+  1166→  },
+  1167→  controlButton: {
+  1168→    width: 40,
+  1169→    height: 40,
+  1170→    borderRadius: 20,
+  1171→    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  1172→    justifyContent: 'center',
+  1173→    alignItems: 'center',
+  1174→  },
+  1175→  centerPlayButton: {
+  1176→    width: 72,
+  1177→    height: 72,
+  1178→    borderRadius: 36,
+  1179→    backgroundColor: 'rgba(0, 98, 51, 0.8)',
+  1180→    justifyContent: 'center',
+  1181→    alignItems: 'center',
+  1182→    ...Shadows.lg,
+  1183→  },
+  1184→  videoInfoContainer: {
+  1185→    padding: Spacing.md,
+  1186→    backgroundColor: Colors.white,
+  1187→  },
+  1188→  videoTitle: {
+  1189→    fontSize: FontSize.lg,
+  1190→    fontWeight: '600',
+  1191→    color: Colors.text,
+  1192→    fontFamily: FontFamily.semiBold,
+  1193→    marginBottom: Spacing.xs,
+  1194→  },
+  1195→  videoDescription: {
+  1196→    fontSize: FontSize.sm,
+  1197→    color: Colors.textSecondary,
+  1198→    fontFamily: FontFamily.regular,
+  1199→    marginBottom: Spacing.sm,
+  1200→  },
+  1201→  videoMetaRow: {
+  1202→    flexDirection: 'row',
+  1203→    alignItems: 'center',
+  1204→    flexWrap: 'wrap',
+  1205→    gap: Spacing.md,
+  1206→  },
+  1207→  metaItem: {
+  1208→    flexDirection: 'row',
+  1209→    alignItems: 'center',
+  1210→    gap: 4,
+  1211→  },
+  1212→  metaText: {
+  1213→    fontSize: FontSize.sm,
+  1214→    color: Colors.textSecondary,
+  1215→    fontFamily: FontFamily.regular,
+  1216→  },
+  1217→  typeBadge: {
+  1218→    flexDirection: 'row',
+  1219→    alignItems: 'center',
+  1220→    paddingHorizontal: Spacing.sm,
+  1221→    paddingVertical: 2,
+  1222→    borderRadius: BorderRadius.full,
+  1223→    gap: 4,
+  1224→  },
+  1225→  typeBadgeText: {
+  1226→    fontSize: FontSize.xs,
+  1227→    fontWeight: '500',
+  1228→    fontFamily: FontFamily.medium,
+  1229→  },
+  1230→  progressContainer: {
+  1231→    paddingHorizontal: Spacing.md,
+  1232→    paddingVertical: Spacing.sm,
+  1233→    backgroundColor: Colors.white,
+  1234→  },
+  1235→  progressBarBackground: {
+  1236→    height: 4,
+  1237→    backgroundColor: Colors.surfaceVariant,
+  1238→    borderRadius: 2,
+  1239→    overflow: 'hidden',
+  1240→  },
+  1241→  progressBarFill: {
+  1242→    height: '100%',
+  1243→    backgroundColor: Colors.primary,
+  1244→    borderRadius: 2,
+  1245→  },
+  1246→  timeLabels: {
+  1247→    flexDirection: 'row',
+  1248→    justifyContent: 'space-between',
+  1249→    marginTop: Spacing.xs,
+  1250→  },
+  1251→  timeLabel: {
+  1252→    fontSize: FontSize.xs,
+  1253→    color: Colors.textTertiary,
+  1254→    fontFamily: FontFamily.regular,
+  1255→  },
+  1256→  bottomControls: {
+  1257→    flexDirection: 'row',
+  1258→    alignItems: 'center',
+  1259→    justifyContent: 'space-evenly',
+  1260→    paddingVertical: Spacing.md,
+  1261→    backgroundColor: Colors.white,
+  1262→    borderTopWidth: 1,
+  1263→    borderTopColor: Colors.borderLight,
+  1264→  },
+  1265→  bottomControlButton: {
+  1266→    alignItems: 'center',
+  1267→    padding: Spacing.xs,
+  1268→  },
+  1269→  playPauseButton: {
+  1270→    width: 56,
+  1271→    height: 56,
+  1272→    borderRadius: 28,
+  1273→    backgroundColor: Colors.primary,
+  1274→    justifyContent: 'center',
+  1275→    alignItems: 'center',
+  1276→    ...Shadows.md,
+  1277→  },
+  1278→  controlLabel: {
+  1279→    fontSize: 10,
+  1280→    color: Colors.textTertiary,
+  1281→    fontFamily: FontFamily.regular,
+  1282→  },
+  1283→
+  1284→  // Virtual Tour Viewer
+  1285→  tourContainer: {
+  1286→    flex: 1,
+  1287→    backgroundColor: Colors.background,
+  1288→  },
+  1289→  tourHeader: {
+  1290→    flexDirection: 'row',
+  1291→    alignItems: 'center',
+  1292→    paddingHorizontal: Spacing.md,
+  1293→    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+  1294→    paddingBottom: Spacing.md,
+  1295→    backgroundColor: Colors.white,
+  1296→  },
+  1297→  tourBackButton: {
+  1298→    width: 40,
+  1299→    height: 40,
+  1300→    borderRadius: 20,
+  1301→    backgroundColor: Colors.surface,
+  1302→    justifyContent: 'center',
+  1303→    alignItems: 'center',
+  1304→  },
+  1305→  tourHeaderInfo: {
+  1306→    flex: 1,
+  1307→    marginLeft: Spacing.md,
+  1308→  },
+  1309→  tourTitle: {
+  1310→    fontSize: FontSize.lg,
+  1311→    fontWeight: '600',
+  1312→    color: Colors.text,
+  1313→    fontFamily: FontFamily.semiBold,
+  1314→  },
+  1315→  tourSubtitle: {
+  1316→    fontSize: FontSize.sm,
+  1317→    color: Colors.textSecondary,
+  1318→    fontFamily: FontFamily.regular,
+  1319→  },
+  1320→  hotspotToggle: {
+  1321→    width: 40,
+  1322→    height: 40,
+  1323→    borderRadius: 20,
+  1324→    backgroundColor: Colors.surface,
+  1325→    justifyContent: 'center',
+  1326→    alignItems: 'center',
+  1327→  },
+  1328→  tourViewer: {
+  1329→    flex: 1,
+  1330→    position: 'relative',
+  1331→    backgroundColor: '#000',
+  1332→  },
+  1333→  tourCoverImage: {
+  1334→    ...StyleSheet.absoluteFillObject,
+  1335→  },
+  1336→  indicator360: {
+  1337→    position: 'absolute',
+  1338→    top: Spacing.md,
+  1339→    left: Spacing.md,
+  1340→    flexDirection: 'row',
+  1341→    alignItems: 'center',
+  1342→    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+  1343→    paddingHorizontal: Spacing.sm,
+  1344→    paddingVertical: Spacing.xs,
+  1345→    borderRadius: BorderRadius.full,
+  1346→    gap: 4,
+  1347→  },
+  1348→  indicator360Text: {
+  1349→    fontSize: FontSize.sm,
+  1350→    color: Colors.white,
+  1351→    fontWeight: '500',
+  1352→    fontFamily: FontFamily.medium,
+  1353→  },
+  1354→  hotspot: {
+  1355→    position: 'absolute',
+  1356→    alignItems: 'center',
+  1357→  },
+  1358→  hotspotOuter: {
+  1359→    width: 32,
+  1360→    height: 32,
+  1361→    borderRadius: 16,
+  1362→    backgroundColor: Colors.primary + '80',
+  1363→    borderWidth: 2,
+  1364→    borderColor: Colors.white,
+  1365→    justifyContent: 'center',
+  1366→    alignItems: 'center',
+  1367→  },
+  1368→  hotspotInner: {
+  1369→    width: 12,
+  1370→    height: 12,
+  1371→    borderRadius: 6,
+  1372→    backgroundColor: Colors.white,
+  1373→  },
+  1374→  hotspotLabel: {
+  1375→    fontSize: 10,
+  1376→    color: Colors.white,
+  1377→    fontWeight: '500',
+  1378→    fontFamily: FontFamily.medium,
+  1379→    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+  1380→    textShadowOffset: { width: 0, height: 1 },
+  1381→    textShadowRadius: 2,
+  1382→    marginTop: 2,
+  1383→  },
+  1384→  navArrow: {
+  1385→    position: 'absolute',
+  1386→    top: '50%',
+  1387→    marginTop: -24,
+  1388→    width: 48,
+  1389→    height: 48,
+  1390→    borderRadius: 24,
+  1391→    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  1392→    justifyContent: 'center',
+  1393→    alignItems: 'center',
+  1394→  },
+  1395→  navArrowLeft: {
+  1396→    left: Spacing.sm,
+  1397→  },
+  1398→  navArrowRight: {
+  1399→    right: Spacing.sm,
+  1400→  },
+  1401→  tourInfo: {
+  1402→    backgroundColor: Colors.white,
+  1403→    padding: Spacing.md,
+  1404→  },
+  1405→  tourDescription: {
+  1406→    fontSize: FontSize.base,
+  1407→    color: Colors.textSecondary,
+  1408→    fontFamily: FontFamily.regular,
+  1409→    lineHeight: 22,
+  1410→    marginBottom: Spacing.md,
+  1411→  },
+  1412→  tourStats: {
+  1413→    flexDirection: 'row',
+  1414→    flexWrap: 'wrap',
+  1415→    gap: Spacing.lg,
+  1416→    marginBottom: Spacing.md,
+  1417→  },
+  1418→  statItem: {
+  1419→    flexDirection: 'row',
+  1420→    alignItems: 'center',
+  1421→    gap: 4,
+  1422→  },
+  1423→  statText: {
+  1424→    fontSize: FontSize.sm,
+  1425→    color: Colors.textSecondary,
+  1426→    fontFamily: FontFamily.regular,
+  1427→  },
+  1428→  sceneIndicators: {
+  1429→    flexDirection: 'row',
+  1430→    justifyContent: 'center',
+  1431→    gap: Spacing.sm,
+  1432→  },
+  1433→  sceneDot: {
+  1434→    width: 8,
+  1435→    height: 8,
+  1436→    borderRadius: 4,
+  1437→    backgroundColor: Colors.surfaceVariant,
+  1438→  },
+  1439→  sceneDotActive: {
+  1440→    backgroundColor: Colors.primary,
+  1441→    width: 24,
+  1442→  },
+  1443→});
+  1444→

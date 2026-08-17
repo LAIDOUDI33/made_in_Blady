@@ -1,0 +1,4829 @@
+openapi: 3.0.1
+info:
+  title: AlgeriaTrade.dz B2B Platform API
+  description: |
+    Comprehensive REST API documentation for the AlgeriaTrade.dz B2B Marketplace Platform.
+    
+    ## Overview
+    AlgeriaTrade.dz is a premier B2B marketplace platform designed for the Algerian market with 
+    multi-tenant support, multilingual capabilities (Arabic, French, English), and comprehensive 
+    trade features.
+    
+    ## Features
+    - **Supplier Verification**: Multi-level verification system (BASIC to ENTERPRISE)
+    - **Trade Assurance**: Escrow payment system with dispute resolution
+    - **Video Showroom**: Product demos, factory tours, virtual tours
+    - **Advanced Products**: Certifications, bulk pricing, customization options
+    - **Quality Control**: Pre-shipment inspection services
+    - **Exhibitions**: Virtual trade shows and events
+    - **Market Intelligence**: Trending products, market insights, buying guides
+    - **Shipping & Logistics**: Rate calculator, shipment tracking
+    
+    ## Authentication
+    All protected endpoints require a Bearer token in the Authorization header:
+    ```
+    Authorization: Bearer <your-jwt-token>
+    ```
+    
+    ## Base URL
+    ```
+    https://api.algeriatrade.dz/api
+    ```
+    
+    ## Version
+    This documentation covers Phase 6 APIs (Feature Parity with Made-in-China.com)
+    
+    *Implementation completed: August 2026*
+  version: 2.0.0
+  contact:
+    name: AlgeriaTrade.dz API Support
+    email: api-support@algeriatrade.dz
+    url: https://algeriatrade.dz/support
+  license:
+    name: Proprietary
+    url: https://algeriatrade.dz/terms
+
+servers:
+  - url: /api
+    description: Production API Server
+  - url: http://localhost:3000/api
+    description: Development Server
+
+tags:
+  # Phase 6A Tags
+  - name: Verification System
+    description: Supplier verification and trust badge management
+    x-displayName: 🔐 Verification System
+  # Phase 6B Tags  
+  - name: Escrow & Trade Assurance
+    description: Escrow accounts and dispute resolution
+    x-displayName: 💰 Escrow & Trade Assurance
+  # Phase 6C Tags
+  - name: Video System
+    description: Product videos, company videos, and virtual tours
+    x-displayName: 🎬 Video System
+  # Phase 6D Tags
+  - name: Product Features
+    description: Certifications, bulk pricing, customization, packages
+    x-displayName: 📦 Product Features
+  # Phase 6E Tags
+  - name: Inspection System
+    description: Quality control inspection services and bookings
+    x-displayName: 🔍 Inspection System
+  # Phase 6F Tags
+  - name: Exhibitions
+    description: Virtual trade shows, events, and booth management
+    x-displayName: 🎪 Exhibitions
+  # Phase 6G Tags
+  - name: Search & Discovery
+    description: Trending products, market insights, buying guides
+    x-displayName: 📊 Search & Discovery
+  # Phase 6H Tags
+  - name: Shipping & Logistics
+    description: Shipping rates calculator and shipment tracking
+    x-displayName: 🚚 Shipping & Logistics
+
+paths:
+  # ============================================
+  # PHASE 6A: VERIFICATION SYSTEM
+  # ============================================
+  /verification:
+    get:
+      tags:
+        - Verification System
+      summary: List verifications
+      description: |
+        Retrieve a paginated list of supplier verifications with filtering options.
+        
+        ## Permissions
+        - **Admin**: Can view all verifications
+        - **Supplier**: Can view own company's verifications
+        
+        ## Filtering Options
+        Filter by status, level, type, or company ID to find specific verifications.
+      operationId: listVerifications
+      parameters:
+        - name: page
+          in: query
+          description: Page number for pagination
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          description: Number of items per page
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: status
+          in: query
+          description: Filter by verification status
+          required: false
+          schema:
+            $ref: '#/components/schemas/VerificationStatus'
+        - name: level
+          in: query
+          description: Filter by verification level
+          required: false
+          schema:
+            $ref: '#/components/schemas/VerificationLevel'
+        - name: companyId
+          in: query
+          description: Filter by company ID
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: type
+          in: query
+          description: Filter by verification type
+          required: false
+          schema:
+            $ref: '#/components/schemas/VerificationType'
+      responses:
+        '200':
+          description: Successful response with paginated verification list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedVerifications'
+              example:
+                data:
+                  - id: "clxxxxxx1"
+                    companyId: "company123"
+                    level: VERIFIED
+                    status: VERIFIED
+                    type: BUSINESS_LICENSE
+                    score: 85
+                    issuedAt: "2024-01-15T10:00:00Z"
+                    expiresAt: "2025-01-15T10:00:00Z"
+                    isValid: true
+                    certificateNumber: "VER-2024-001234"
+                    createdAt: "2024-01-10T08:00:00Z"
+                  - id: "clxxxxxx2"
+                    companyId: "company123"
+                    level: CERTIFIED
+                    status: PENDING
+                    type: SGS_AUDIT
+                    createdAt: "2024-02-01T09:00:00Z"
+                pagination:
+                  total: 25
+                  page: 1
+                  limit: 20
+                  totalPages: 2
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      security:
+        - bearerAuth: []
+
+    post:
+      tags:
+        - Verification System
+      summary: Create verification request
+      description: |
+        Submit a new verification request for a company.
+        
+        ## Verification Levels
+        - **BASIC**: Email & phone verification (automatic)
+        - **VERIFIED**: Business documents verification
+        - **CERTIFIED**: On-site inspection required
+        - **PREMIUM**: Third-party audit (SGS/TUV)
+        - **ENTERPRISE**: Full enterprise verification
+        
+        ## Required Documents
+        Based on verification type, different documents may be required:
+        - Business License: Registration certificate, tax ID
+        - Identity: National ID or passport
+        - Bank Account: Bank statement, RIB
+      operationId: createVerification
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateVerificationRequest'
+            example:
+              companyId: "company123"
+              type: BUSINESS_LICENSE
+              level: VERIFIED
+              documents:
+                - "https://storage.algeriatrade.dz/docs/business_license.pdf"
+                - "https://storage.algeriatrade.dz/docs/tax_certificate.pdf"
+      responses:
+        '201':
+          description: Verification request created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Verification'
+              example:
+                id: "clxxxxxx3"
+                companyId: "company123"
+                level: VERIFIED
+                status: PENDING
+                type: BUSINESS_LICENSE
+                documents:
+                  - "https://storage.algeriatrade.dz/docs/business_license.pdf"
+                isValid: false
+                createdAt: "2024-03-01T10:00:00Z"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      security:
+        - bearerAuth: []
+
+  /verification/{id}:
+    get:
+      tags:
+        - Verification System
+      summary: Get verification details
+      description: Retrieve detailed information about a specific verification record including review history and attached documents.
+      operationId: getVerification
+      parameters:
+        - name: id
+          in: path
+          description: Verification ID
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Verification details retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Verification'
+              example:
+                id: "clxxxxxx1"
+                companyId: "company123"
+                level: PREMIUM
+                status: VERIFIED
+                type: SGS_AUDIT
+                inspectorName: "Ahmed Benali"
+                inspectionDate: "2024-01-20T14:00:00Z"
+                score: 92
+                categoryScores:
+                  quality: 95
+                  capacity: 90
+                  compliance: 92
+                  management: 91
+                issuedAt: "2024-01-22T10:00:00Z"
+                expiresAt: "2025-01-22T10:00:00Z"
+                isValid: true
+                reviewedBy: "admin_user_001"
+                reviewedAt: "2024-01-22T11:00:00Z"
+                certificateNumber: "SGS-DZ-2024-00042"
+                badgeUrl: "https://cdn.algeriatrade.dz/badges/premium.png"
+                certificateUrl: "https://cdn.algeriatrade.dz/certs/SGS-DZ-2024-00042.pdf"
+                createdAt: "2024-01-05T09:00:00Z"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      security:
+        - bearerAuth: []
+
+    put:
+      tags:
+        - Verification System
+      summary: Review verification (Admin)
+      description: |
+        Admin endpoint to review and approve/reject verification requests.
+        
+        ## Review Actions
+        - **Approve**: Set status to VERIFIED, issue certificate number
+        - **Reject**: Set status to REJECTED with reason
+        - **Request More Info**: Keep PENDING status with notes
+        
+        ## Automatic Badge Assignment
+        Upon approval, corresponding badges are automatically awarded based on verification level.
+      operationId: reviewVerification
+      parameters:
+        - name: id
+          in: path
+          description: Verification ID
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewVerificationRequest'
+            examples:
+              approve:
+                summary: Approve verification
+                value:
+                  action: approve
+                  status: VERIFIED
+                  score: 88
+                  categoryScores:
+                    quality: 90
+                    capacity: 85
+                    compliance: 88
+                  notes: "All documents verified successfully"
+              reject:
+                summary: Reject verification
+                value:
+                  action: reject
+                  status: REJECTED
+                  rejectionReason: "Business license expired. Please provide updated document."
+      responses:
+        '200':
+          description: Verification review completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Verification'
+              example:
+                id: "clxxxxxx1"
+                companyId: "company123"
+                level: VERIFIED
+                status: VERIFIED
+                type: BUSINESS_LICENSE
+                score: 88
+                isValid: true
+                reviewedBy: "admin_001"
+                reviewedAt: "2024-03-01T14:30:00Z"
+                certificateNumber: "VER-2024-001256"
+                createdAt: "2024-02-20T10:00:00Z"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      security:
+        - bearerAuth: []
+
+  # ============================================
+  # PHASE 6B: ESCROW & TRADE ASSURANCE
+  # ============================================
+  /escrow:
+    get:
+      tags:
+        - Escrow & Trade Assurance
+      summary: List escrow accounts
+      description: |
+        Retrieve escrow accounts with optional filtering.
+        
+        ## Access Control
+        - **Buyers** can see their own escrow accounts
+        - **Suppliers** can see escrows where they are the seller
+        - **Admins** can view all escrow accounts
+        
+        ## Escrow Status Flow
+        `PENDING` → `FUNDED` → `IN_ESCROW` → `RELEASED` | `REFUNDED` | `DISPUTED`
+      operationId: listEscrowAccounts
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+        - name: status
+          in: query
+          description: Filter by escrow status
+          schema:
+            $ref: '#/components/schemas/EscrowStatus'
+        - name: buyerId
+          in: query
+          description: Filter by buyer user ID
+          schema:
+            type: string
+        - name: supplierCompanyId
+          in: query
+          description: Filter by supplier company ID
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of escrow accounts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedEscrowAccounts'
+              example:
+                data:
+                  - id: "esc_xxxx1"
+                    accountId: "ESC-2024-000042"
+                    orderId: "order_12345"
+                    amount: 150000
+                    currency: DZD
+                    status: IN_ESCROW
+                    buyerId: "user_buyer_001"
+                    supplierCompanyId: "company_supplier_001"
+                    autoReleaseDays: 30
+                    fundedAt: "2024-03-01T10:00:00Z"
+                    inEscrowAt: "2024-03-01T10:05:00Z"
+                    autoReleaseAt: "2024-03-31T10:00:00Z"
+                    createdAt: "2024-03-01T09:55:00Z"
+                pagination:
+                  total: 12
+                  page: 1
+                  limit: 20
+                  totalPages: 1
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      security:
+        - bearerAuth: []
+
+    post:
+      tags:
+        - Escrow & Trade Assurance
+      summary: Create escrow account
+      description: |
+        Create a new escrow account for an order.
+        
+        ## How It Works
+        1. Buyer places order with trade assurance
+        2. Escrow account is created in PENDING state
+        3. Buyer funds the escrow account
+        4. Funds held until delivery confirmation or dispute resolution
+        
+        ## Platform Fee
+        A 2% platform fee is automatically calculated on the escrow amount.
+      operationId: createEscrowAccount
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateEscrowRequest'
+            example:
+              orderId: "order_12345"
+              amount: 150000
+              currency: DZD
+              buyerId: "user_buyer_001"
+              supplierCompanyId: "company_supplier_001"
+              autoReleaseDays: 30
+              paymentMethod: "baridimob"
+      responses:
+        '201':
+          description: Escrow account created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EscrowAccount'
+              example:
+                id: "esc_new_001"
+                accountId: "ESC-2024-000050"
+                orderId: "order_12345"
+                amount: 150000
+                currency: DZD
+                feeAmount: 3000
+                status: PENDING
+                buyerId: "user_buyer_001"
+                supplierCompanyId: "company_supplier_001"
+                autoReleaseDays: 30
+                createdAt: "2024-03-15T10:00:00Z"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      security:
+        - bearerAuth: []
+
+  /escrow/{id}:
+    post:
+      tags:
+        - Escrow & Trade Assurance
+      summary: Perform escrow action
+      description: |
+        Execute actions on an escrow account including funding, release, refund, and dispute initiation.
+        
+        ## Available Actions
+        
+        ### fund
+        Add funds to the escrow account. Requires payment processing integration.
+        
+        ### release
+        Request release of funds to supplier. Can be automatic after autoReleaseDays.
+        
+        ### refund
+        Initiate refund to buyer. Requires valid reason.
+        
+        ### dispute
+        Open a dispute for mediation/arbitration.
+        
+        ## Dispute Reasons
+        - Product not as described
+        - Quality issues
+        - Shipping delay
+        - Wrong item received
+        - Damaged goods
+        - Quantity mismatch
+        - Missing accessories
+        - Other (with description)
+      operationId: performEscrowAction
+      parameters:
+        - name: id
+          in: path
+          description: Escrow account ID
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EscrowActionRequest'
+            examples:
+              fund:
+                summary: Fund escrow account
+                value:
+                  action: fund
+                  amount: 150000
+                  paymentReference: "PAY-BM-2024-000123"
+              release:
+                summary: Release funds to supplier
+                value:
+                  action: release
+                  notes: "Goods received in good condition"
+              refund:
+                summary: Request refund
+                value:
+                  action: refund
+                  reason: "Product does not match description"
+                  requestedAmount: 150000
+              dispute:
+                summary: Open dispute
+                value:
+                  action: dispute
+                  title: "Quality issues with electronic components"
+                  description: "Received items have visible defects and don't match specifications"
+                  reason: QUALITY_ISSUES
+                  requestedAmount: 150000
+                  evidence:
+                    - type: photo
+                      url: "https://storage.algeriatrade.dz/evidence/photo1.jpg"
+                      description: "Defect on circuit board"
+                    - type: document
+                      url: "https://storage.algeriatrade.dz/evidence/specs.pdf"
+                      description: "Original product specifications"
+      responses:
+        '200':
+          description: Action executed successfully
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/EscrowAccount'
+                  - $ref: '#/components/schemas/Dispute'
+              example:
+                id: "esc_xxxx1"
+                accountId: "ESC-2024-000042"
+                status: RELEASED
+                releasedAmount: 147000
+                feeAmount: 3000
+                releasedAt: "2024-03-20T14:00:00Z"
+                message: "Funds released to supplier successfully"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Conflict - Action not allowed in current state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Cannot release funds from escrow in DISPUTED status"
+                code: ESCROW_STATE_INVALID
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      security:
+        - bearerAuth: []
+
+  # ============================================
+  # PHASE 6C: VIDEO SYSTEM
+  # ============================================
+  /videos:
+    get:
+      tags:
+        - Video System
+      summary: List videos
+      description: |
+        Retrieve videos with filtering options. Supports both product videos and company videos.
+        
+        ## Video Types
+        - **product_demo**: Product demonstration video
+        - **factory_tour**: Factory/facility tour
+        - **testimonial**: Customer testimonial
+        - **tutorial**: Usage tutorial or how-to guide
+        - **company_intro**: Company introduction
+        - **production_line**: Production line showcase
+        - **ceo_message**: CEO or executive message
+        - **exhibition**: Exhibition recording
+        
+        ## Processing Status
+        Videos go through processing before becoming available:
+        `processing` → `ready` | `failed`
+      operationId: listVideos
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: productId
+          in: query
+          description: Filter by product ID
+          schema:
+            type: string
+        - name: companyId
+          in: query
+          description: Filter by company ID
+          schema:
+            type: string
+        - name: type
+          in: query
+          description: Filter by video type
+          schema:
+            type: string
+            enum: [product_demo, factory_tour, testimonial, tutorial, company_intro, production_line, ceo_message, exhibition]
+        - name: language
+          in: query
+          description: Filter by language code
+          schema:
+            type: string
+            enum: [ar, fr, en]
+        - name: status
+          in: query
+          description: Filter by processing status
+          schema:
+            type: string
+            enum: [processing, ready, failed]
+      responses:
+        '200':
+          description: List of videos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedVideos'
+              example:
+                data:
+                  - id: "vid_prod_001"
+                    productId: "product_123"
+                    title: "Industrial Pump Demo"
+                    description: "Complete demonstration of our industrial pump series"
+                    videoUrl: "https://video.algeriatrade.dz/pump-demo.mp4"
+                    thumbnailUrl: "https://cdn.algeriatrade.dz/thumbs/pump-demo.jpg"
+                    duration: 180
+                    type: product_demo
+                    language: en
+                    isPrimary: true
+                    status: ready
+                    viewCount: 1250
+                    createdAt: "2024-02-15T10:00:00Z"
+                pagination:
+                  total: 45
+                  page: 1
+                  limit: 20
+                  totalPages: 3
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      security:
+        - bearerAuth: []
+
+    post:
+      tags:
+        - Video System
+      summary: Upload video
+      description: |
+        Upload a new video. Supports multipart/form-data for file upload or JSON with external URL.
+        
+        ## Supported Formats
+        - MP4 (recommended)
+        - WebM
+        - MOV
+        
+        ## File Size Limits
+        - Maximum: 500MB for regular users
+        - Maximum: 2GB for premium suppliers
+        
+        ## Processing Time
+        Videos typically process within 5-30 minutes depending on length.
+      operationId: uploadVideo
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/VideoUploadForm'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateVideoRequest'
+            example:
+              productId: "product_123"
+              title: "Product Overview Video"
+              description: "Comprehensive overview of features and benefits"
+              videoUrl: "https://external-cdn.com/video.mp4"
+              thumbnailUrl: "https://external-cdn.com/thumb.jpg"
+              type: product_demo
+              language: fr
+              isPrimary: false
+      responses:
+        '201':
+          description: Video uploaded successfully, processing started
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Video'
+              example:
+                id: "vid_new_001"
+                productId: "product_123"
+                title: "Product Overview Video"
+                description: "Comprehensive overview of features and benefits"
+                videoUrl: "https://storage.algeriatrade.dz/videos/vid_new_001.mp4"
+                type: product_demo
+                language: fr
+                isPrimary: false
+                status: processing
+                viewCount: 0
+                createdAt: "2024-03-15T14:30:00Z"
+                message: "Video uploaded successfully. Processing will complete shortly."
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '413':
+          description: Payload too large - exceeds size limit
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Video file exceeds maximum size limit of 500MB"
+                code: FILE_TOO_LARGE
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      security:
+        - bearerAuth: []
+
+  /videos/company/{companyId}/tours:
+    post:
+      tags:
+        - Video System
+      summary: Create virtual tour
+      description: |
+        Create a new 360° virtual tour for a company.
+        
+        ## Tour Types
+        - **factory**: Factory or production facility tour
+        - **office**: Office space tour
+        - **showroom**: Product showroom tour
+        - **warehouse**: Warehouse or storage facility tour
+        
+        ## Hotspot Format
+        Hotspots are interactive points within the 360° view that can contain:
+        - Information text
+        - Media (images, videos)
+        - Links to products or pages
+        
+        ```json
+        [
+          {
+            "position": { "x": 0.5, "y": 0.3 },
+            "title": "Production Line A",
+            "content": "Our main production line with 50 units/day capacity",
+            "mediaUrl": "https://..."
+          }
+        ]
+        ```
+      operationId: createVirtualTour
+      parameters:
+        - name: companyId
+          in: path
+          description: Company ID
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateVirtualTourRequest'
+            example:
+              title: "Main Factory Virtual Tour"
+              description: "Interactive 360° tour of our Algiers manufacturing facility"
+              tourUrl: "https://tour.algeriatrade.dz/factory-main/index.html"
+              coverImage: "https://cdn.algeriatrade.dz/tours/factory-cover.jpg"
+              type: factory
+              hotspots:
+                - position:
+                    x: 0.3
+                    y: 0.4
+                  title: "Assembly Area"
+                  content: "Main assembly area with automated systems"
+                  mediaUrl: "https://cdn.algeriatrade.dz/tours/assembly.jpg"
+                - position:
+                    x: 0.7
+                    y: 0.6
+                  title: "Quality Control Lab"
+                  content: "ISO 9001 certified testing facility"
+      responses:
+        '201':
+          description: Virtual tour created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VirtualTour'
+              example:
+                id: "tour_001"
+                companyId: "company_123"
+                title: "Main Factory Virtual Tour"
+                description: "Interactive 360° tour of our Algiers manufacturing facility"
+                tourUrl: "https://tour.algeriatrade.dz/factory-main/index.html"
+                coverImage: "https://cdn.algeriatrade.dz/tours/factory-cover.jpg"
+                type: factory
+                hotspots:
+                  - position:
+                      x: 0.3
+                      y: 0.4
+                    title: "Assembly Area"
+                    content: "Main assembly area with automated systems"
+                viewCount: 0
+                createdAt: "2024-03-15T16:00:00Z"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      security:
+        - bearerAuth: []
+
+  # ============================================
+  # PHASE 6D: PRODUCT FEATURES
+  # ============================================
+  /certifications:
+    get:
+      tags:
+        - Product Features
+      summary: List certifications
+      description: |
+        Retrieve product certifications with filtering options.
+        
+        ## Common Certification Types
+        - **CE**: European Conformity
+        - **ISO 9001**: Quality Management System
+        - **ISO 14001**: Environmental Management
+        - **SGS**: SGS Inspection
+        - **TÜV**: TÜV Safety Certification
+        - **RoHS**: Restriction of Hazardous Substances
+        - **FCC**: Federal Communications Commission
+      operationId: listCertifications
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: productId
+          in: query
+          description: Filter by product ID
+          schema:
+            type: string
+        - name: isValid
+          in: query
+          description: Filter by validity status
+          schema:
+            type: boolean
+        - name: issuingBody
+          in: query
+          description: Filter by certification body
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of certifications
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedCertifications'
+              example:
+                data:
+                  - id: "cert_001"
+                    productId: "product_123"
+                    name: "CE Certification"
+                    issuingBody: "TÜV Rheinland"
+                    certificateNumber: "CE-TUV-2024-12345"
+                    issueDate: "2024-01-15T00:00:00Z"
+                    expiryDate: "2027-01-14T00:00:00Z"
+                    certificateUrl: "https://cdn.algeriatrade.dz/certs/ce-cert.pdf"
+                    isValid: true
+                    verifiedBy: "admin_001"
+                    verifiedAt: "2024-01-20T10:00:00Z"
+                    createdAt: "2024-01-18T09:00:00Z"
+                pagination:
+                  total: 35
+                  page: 1
+                  limit: 20
+                  totalPages: 2
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      security:
+        - bearerAuth: []
+
+    post:
+      tags:
+        - Product Features
+      summary: Add product certification
+      description: |
+        Add a new certification to a product.
+        
+        ## Verification Process
+        Certifications submitted by suppliers require admin verification before being displayed as verified.
+        Unverified certifications are shown with a "Pending Verification" badge.
+      operationId: addCertification
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCertificationRequest'
+            example:
+              productId: "product_123"
+              name: "ISO 9001:2015"
+              issuingBody: "Bureau Veritas"
+              certificateNumber: "ISO-BV-DZ-2024-0678"
+              issueDate: "2024-02-01T00:00:00Z"
+              expiryDate: "2027-01-31T00:00:00Z"
+              certificateUrl: "https://storage.algeriatrade.dz/certs/iso9001.pdf"
+      responses:
+        '201':
+          description: Certification added successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductCertification'
+              example:
+                id: "cert_new_001"
+                productId: "product_123"
+                name: "ISO 9001:2015"
+                issuingBody: "Bureau Veritas"
+                certificateNumber: "ISO-BV-DZ-2024-0678"
+                issueDate: "2024-02-01T00:00:00Z"
+                expiryDate: "2027-01-31T00:00:00Z"
+                certificateUrl: "https://storage.algeriatrade.dz/certs/iso9001.pdf"
+                isValid: false
+                createdAt: "2024-03-15T11:00:00Z"
+                message: "Certification added. Pending admin verification."
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      security:
+        - bearerAuth: []
+
+  /bulk-pricing/{productId}:
+    get:
+      tags:
+        - Product Features
+      summary: Get bulk pricing tiers
+      description: |
+        Retrieve bulk pricing tiers for a specific product.
+        
+        ## Bulk Pricing Logic
+        Pricing tiers allow quantity-based discounts:
+        - Higher quantities = Lower unit prices
+        - Best value tier is highlighted
+        - Discounts can be percentage-based or fixed price
+        
+        ## Example Tiers
+        | Min Qty | Unit Price | Discount |
+        |---------|-----------|----------|
+        | 1       | 1000 DZD  | 0%       |
+        | 10      | 950 DZD   | 5%       |
+        | 50      | 900 DZD   | 10%      |
+        | 100     | 850 DZD   | 15%      |
+      operationId: getBulkPricing
+      parameters:
+        - name: productId
+          in: path
+          description: Product ID
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Bulk pricing tiers for the product
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  productId:
+                    type: string
+                  basePrice:
+                    type: number
+                    description: Single unit price
+                  currency:
+                    type: string
+                  tiers:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/BulkPricingTier'
+              example:
+                productId: "product_123"
+                basePrice: 1000
+                currency: DZD
+                tiers:
+                  - id: "tier_001"
+                    minQuantity: 1
+                    maxQuantity: 9
+                    unitPrice: 1000
+                    discountPercent: 0
+                  - id: "tier_002"
+                    minQuantity: 10
+                    maxQuantity: 49
+                    unitPrice: 950
+                    discountPercent: 5
+                  - id: "tier_003"
+                    minQuantity: 50
+                    maxQuantity: 99
+                    unitPrice: 900
+                    discountPercent: 10
+                    isBestValue: true
+                  - id: "tier_004"
+                    minQuantity: 100
+                    unitPrice: 850
+                    discountPercent: 15
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      security:
+        - bearerAuth: []
+
+    post:
+      tags:
+        - Product Features
+      summary: Create bulk pricing tier
+      description: Add a new bulk pricing tier to a product. Tiers should be ordered by increasing quantity.
+      operationId: createBulkPricingTier
+      parameters:
+        - name: productId
+          in: path
+          description: Product ID
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBulkPricingRequest'
+            example:
+              minQuantity: 50
+              maxQuantity: 99
+              unitPrice: 900
+              discountPercent: 10
+              currency: DZD
+              validFrom: "2024-03-15T00:00:00Z"
+              validUntil: "2024-12-31T23:59:59Z"
+      responses:
+        '201':
+          description: Bulk pricing tier created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BulkPricingTier'
+              example:
+                id: "tier_new_001"
+                productId: "product_123"
+                minQuantity: 50
+                maxQuantity: 99
+                unitPrice: 900
+                discountPercent: 10
+                currency: DZD
+                createdAt: "2024-03-15T14:00:00Z"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      security:
+        - bearerAuth: []
+
+    put:
+      tags:
+        - Product Features
+      summary: Update bulk pricing tiers
+      description: Update multiple bulk pricing tiers at once. Send the complete array of tiers.
+      operationId: updateBulkPricing
+      parameters:
+        - name: productId
+          in: path
+          description: Product ID
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/UpdateBulkPricingRequest'
+            example:
+              - id: "tier_001"
+                minQuantity: 1
+                maxQuantity: 9
+                unitPrice: 1000
+                discountPercent: 0
+              - id: "tier_002"
+                minQuantity: 10
+                maxQuantity: 49
+                unitPrice: 940
+                discountPercent: 6
+              - id: "tier_003"
+                minQuantity: 50
+                unitPrice: 880
+                discountPercent: 12
+      responses:
+        '200':
+          description: Bulk pricing tiers updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  tiers:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/BulkPricingTier'
+              example:
+                message: "Bulk pricing tiers updated successfully"
+                tiers:
+                  - id: "tier_001"
+                    minQuantity: 1
+                    maxQuantity: 9
+                    unitPrice: 1000
+                    discountPercent: 0
+                  - id: "tier_002"
+                    minQuantity: 10
+                    maxQuantity: 49
+                    unitPrice: 940
+                    discountPercent: 6
+                  - id: "tier_003"
+                    minQuantity: 50
+                    unitPrice: 880
+                    discountPercent: 12
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      security:
+        - bearerAuth: []
+
+  /customization/{productId}:
+    get:
+      tags:
+        - Product Features
+      summary: Get customization options
+      description: |
+        Retrieve all customization options available for a product.
+        
+        ## Option Types
+        - **select**: Dropdown selection (single choice)
+        - **radio**: Radio button group (single choice)
+        - **checkbox**: Checkboxes (multiple choices)
+        - **text**: Free text input
+        - **number**: Numeric input
+        - **color**: Color picker/swatches
+        - **file**: File upload option
+        
+        ## Price Modifiers
+        Each option value can have a price modifier that adds to/subtracts from the base price.
+      operationId: getCustomizationOptions
+      parameters:
+        - name: productId
+          in: path
+          description: Product ID
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Customization options for the product
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  productId:
+                    type: string
+                  options:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CustomizationOption'
+              example:
+                productId: "product_123"
+                options:
+                  - id: "opt_001"
+                    name: "Color"
+                    type: select
+                    isRequired: true
+                    sortOrder: 1
+                    options:
+                      - value: red
+                        label: Red
+                        priceModifier: 0
+                        stock: 50
+                      - value: blue
+                        label: Blue
+                        priceModifier: 50
+                        stock: 30
+                      - value: black
+                        label: Black
+                        priceModifier: 0
+                        stock: 100
+                  - id: "opt_002"
+                    name: "Size"
+                    type: radio
+                    isRequired: true
+                    sortOrder: 2
+                    options:
+                      - value: small
+                        label: Small
+                        priceModifier: 0
+                        stock: 75
+                      - value: medium
+                        label: Medium
+                        priceModifier: 100
+                        stock: 60
+                      - value: large
+                        label: Large
+                        priceModifier: 200
+                        stock: 40
+                  - id: "opt_003"
+                    name: "Custom Engraving"
+                    type: text
+                    isRequired: false
+                    sortOrder: 3
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      security:
+        - bearerAuth: []
+
+    post:
+      tags:
+        - Product Features
+      summary: Create customization option
+      description: Add a new customization option to a product.
+      operationId: createCustomizationOption
+      parameters:
+        - name: productId
+          in: path
+          description: Product ID
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCustomizationRequest'
+            example:
+              name: "Material"
+              type: select
+              isRequired: true
+              sortOrder: 4
+              options:
+                - value: cotton
+                  label: Cotton
+                  priceModifier: 0
+                  stock: 100
+                - value: polyester
+                  label: Polyester
+                  priceModifier: -50
+                  stock: 200
+                - value: silk
+                  label: Silk
+                  priceModifier: 300
+                  stock: 25
+      responses:
+        '201':
+          description: Customization option created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomizationOption'
+              example:
+                id: "opt_new_001"
+                productId: "product_123"
+                name: "Material"
+                type: select
+                isRequired: true
+                sortOrder: 4
+                options:
+                  - value: cotton
+                    label: Cotton
+                    priceModifier: 0
+                    stock: 100
+                  - value: polyester
+                    label: Polyester
+                    priceModifier: -50
+                    stock: 200
+                  - value: silk
+                    label: Silk
+                    priceModifier: 300
+                    stock: 25
+                createdAt: "2024-03-15T15:00:00Z"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      security:
+        - bearerAuth: []
+
+  /packages:
+    get:
+      tags:
+        - Product Features
+      summary: List product packages
+      description: |
+        Retrieve all product packages/bundles.
+        
+        ## Package Types
+        Packages group multiple products together with special pricing:
+        - **Starter Pack**: Entry-level bundle at discounted price
+        - **Business Bundle**: Professional package with volume discounts
+        - **Premium Kit**: Complete solution with all accessories
+        
+        ## Pricing
+        - `totalPrice`: Fixed price for entire package (overrides individual prices)
+        - `discountPercent`: Percentage off sum of individual item prices
+        - If neither set, package uses sum of current product prices
+      operationId: listPackages
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: isActive
+          in: query
+          schema:
+            type: boolean
+        - name: includeItems
+          in: query
+          description: Include package items in response
+          schema:
+            type: boolean
+            default: true
+      responses:
+        '200':
+          description: List of product packages
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedPackages'
+              example:
+                data:
+                  - id: "pkg_001"
+                    name: "Restaurant Starter Pack"
+                    description: "Everything you need to start your restaurant kitchen"
+                    discountPercent: 15
+                    totalPrice: 289000
+                    currency: DZD
+                    isActive: true
+                    items:
+                      - productId: "prod_kitchen_001"
+                        quantity: 1
+                        includedPrice: 120000
+                      - productId: "prod_appliance_001"
+                        quantity: 2
+                        includedPrice: 85000
+                      - productId: "prod_utensil_set_001"
+                        quantity: 1
+                        includedPrice: 45000
+                    createdAt: "2024-02-01T10:00:00Z"
+                    updatedAt: "2024-03-10T14:00:00Z"
+                pagination:
+                  total: 18
+                  page: 1
+                  limit: 20
+                  totalPages: 1
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      security:
+        - bearerAuth: []
+
+    post:
+      tags:
+        - Product Features
+      summary: Create product package
+      description: Create a new product package/bundle with multiple items.
+      operationId: createPackage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePackageRequest'
+            example:
+              name: "Office Essentials Bundle"
+              description: "Complete office setup for small businesses"
+              discountPercent: 20
+              currency: DZD
+              isActive: true
+              items:
+                - productId: "desk_001"
+                  quantity: 1
+                  includedPrice: 35000
+                - productId: "chair_001"
+                  quantity: 2
+                  includedPrice: 25000
+                - productId: "lamp_001"
+                  quantity: 2
+                  includedPrice: 8000
+                - productId: "organizer_001"
+                  quantity: 1
+                  includedPrice: 5000
+      responses:
+        '201':
+          description: Package created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductPackage'
+              example:
+                id: "pkg_new_001"
+                name: "Office Essentials Bundle"
+                description: "Complete office setup for small businesses"
+                discountPercent: 20
+                totalPrice: 98000
+                currency: DZD
+                isActive: true
+                items:
+                  - productId: "desk_001"
+                    quantity: 1
+                    includedPrice: 35000
+                  - productId: "chair_001"
+                    quantity: 2
+                    includedPrice: 25000
+                  - productId: "lamp_001"
+                    quantity: 2
+                    includedPrice: 8000
+                  - productId: "organizer_001"
+                    quantity: 1
+                    includedPrice: 5000
+                createdAt: "2024-03-15T16:00:00Z"
+                updatedAt: "2024-03-15T16:00:00Z"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      security:
+        - bearerAuth: []
+
+  # ============================================
+  # PHASE 6E: INSPECTION SYSTEM
+  # ============================================
+  /inspection:
+    get:
+      tags:
+        - Inspection System
+      summary: List inspections
+      description: |
+        Retrieve inspection services and bookings.
+        
+        ## Service Types
+        - **PRE_PRODUCTION**: Raw material and pre-production checks
+        - **DURING_PRODUCTION**: In-process quality monitoring
+        - **PRE_SHIPMENT**: Final inspection before shipping (most popular)
+        - **CONTAINER_LOADING**: Supervision during container loading
+        - **SAMPLE_INSPECTION**: Random sample testing
+        - **FACTORY_AUDIT**: Comprehensive facility audit
+        
+        ## Booking Status Flow
+        `REQUESTED` → `SCHEDULED` → `IN_PROGRESS` → `COMPLETED` | `FAILED` | `CANCELLED`
+      operationId: listInspections
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: type
+          in: query
+          description: Filter by service type
+          schema:
+            $ref: '#/components/schemas/InspectionType'
+        - name: status
+          in: query
+          description: Filter by booking status
+          schema:
+            $ref: '#/components/schemas/InspectionStatus'
+        - name: buyerId
+          in: query
+          schema:
+            type: string
+        - name: serviceOnly
+          in: query
+          description: Return only service definitions, no bookings
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: List of inspections/services
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedInspections'
+              example:
+                services:
+                  - id: "svc_pre_ship"
+                    name: "Pre-Shipment Inspection"
+                    description: "Final quality check before goods leave the factory"
+                    type: PRE_SHIPMENT
+                    basePrice: 25000
+                    currency: DZD
+                    typicalLeadTime: 3
+                    isActive: true
+                  - id: "svc_factory_audit"
+                    name: "Factory Audit"
+                    description: "Comprehensive audit of manufacturing facilities"
+                    type: FACTORY_AUDIT
+                    basePrice: 75000
+                    currency: DZD
+                    typicalLeadTime: 5
+                    isActive: true
+                bookings:
+                  - id: "book_001"
+                    bookingNumber: "INSPECT-2024-00042"
+                    serviceId: "svc_pre_ship"
+                    status: SCHEDULED
+                    preferredDate: "2024-03-20T09:00:00Z"
+                    scheduledAt: "2024-03-20T10:00:00Z"
+                    inspectorName: "Karim Hadj-Ahmed"
+                    createdAt: "2024-03-15T11:00:00Z"
+                pagination:
+                  totalServices: 6
+                  totalBookings: 15
+                  page: 1
+                  limit: 20
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      security:
+        - bearerAuth: []
+
+    post:
+      tags:
+        - Inspection System
+      summary: Book inspection service
+      description: |
+        Book an inspection service for quality control.
+        
+        ## Urgent Requests
+        Mark as urgent for +50% surcharge but faster scheduling (typically within 24-48 hours).
+        
+        ## What Happens Next
+        1. Booking confirmed with unique booking number
+        2. Inspector assigned based on availability
+        3. Schedule confirmed via email/SMS
+        4. Inspector conducts inspection
+        5. Report generated within 24 hours of completion
+      operationId: bookInspection
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateInspectionBookingRequest'
+            example:
+              serviceId: "svc_pre_ship"
+              buyerId: "buyer_user_001"
+              supplierCompanyId: "supplier_company_001"
+              productId: "product_123"
+              preferredDate: "2024-03-25T09:00:00Z"
+              address: "Zone Industrielle Oued Smar, Alger"
+              contactPerson: "Mohammed Benzaim"
+              contactPhone: "+213 555 123 456"
+              specialInstructions: "Focus on dimensional accuracy and surface finish"
+              isUrgent: false
+      responses:
+        '201':
+          description: Inspection booked successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InspectionBooking'
+              example:
+                id: "book_new_001"
+                bookingNumber: "INSPECT-2024-00050"
+                serviceId: "svc_pre_ship"
+                buyerId: "buyer_user_001"
+                supplierCompanyId: "supplier_company_001"
+                productId: "product_123"
+                preferredDate: "2024-03-25T09:00:00Z"
+                address: "Zone Industrielle Oued Smar, Alger"
+                contactPerson: "Mohammed Benzaim"
+                contactPhone: "+213 555 123 456"
+                status: REQUESTED
+                totalCost: 25000
+                currency: DZD
+                createdAt: "2024-03-15T17:00:00Z"
+                message: "Inspection booking confirmed. You will receive scheduling confirmation shortly."
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      security:
+        - bearerAuth: []
+
+  # ============================================
+  # PHASE 6F: EXHIBITIONS
+  # ============================================
+  /exhibitions:
+    get:
+      tags:
+        - Exhibitions
+      summary: List exhibitions
+      description: |
+        Retrieve exhibitions with filtering options.
+        
+        ## Exhibition Types
+        - **VIRTUAL_TRADE_SHOW**: Online-only trade show
+        - **INDUSTRY_EVENT**: Industry-specific event
+        - **PRODUCT_LAUNCH**: New product introduction event
+        - **PROCUREMENT_EVENT**: Buyer-seller matchmaking
+        - **NETWORKING_EVENT**: Professional networking
+        
+        ## Exhibition Modes
+        - **Virtual**: Fully online with virtual booths
+        - **Physical**: In-person at a venue
+        - **Hybrid**: Combination of virtual and physical
+        
+        ## Status Flow
+        `DRAFT` → `PUBLISHED` → `LIVE` → `ENDED` | `CANCELLED`
+      operationId: listExhibitions
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/ExhibitionStatus'
+        - name: type
+          in: query
+          schema:
+            $ref: '#/components/schemas/ExhibitionType'
+        - name: isVirtual
+          in: query
+          description: Filter by virtual/physical mode
+          schema:
+            type: boolean
+        - name: upcoming
+          in: query
+          description: Show only upcoming exhibitions
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: List of exhibitions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedExhibitions'
+              example:
+                data:
+                  - id: "exhib_001"
+                    title: "Algeria Manufacturing Expo 2024"
+                    description: "Premier B2B manufacturing exhibition connecting local and international buyers"
+                    slug: "algeria-manufacturing-expo-2024"
+                    type: VIRTUAL_TRADE_SHOW
+                    status: PUBLISHED
+                    startDate: "2024-04-15T09:00:00Z"
+                    endDate: "2024-04-18T18:00:00Z"
+                    isVirtual: true
+                    virtualUrl: "https://expo.algeriatrade.dz/manufacturing-2024"
+                    coverImage: "https://cdn.algeriatrade.dz/expo/manufacturing-cover.jpg"
+                    themeColor: "#006233"
+                    maxExhibitors: 200
+                    maxVisitors: 5000
+                    registrationFee: 0
+                    exhibitorCount: 85
+                    visitorCount: 1250
+                    createdAt: "2024-02-01T10:00:00Z"
+                pagination:
+                  total: 12
+                  page: 1
+                  limit: 20
+                  totalPages: 1
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      security:
+        - bearerAuth: []
+
+    post:
+      tags:
+        - Exhibitions
+      summary: Create exhibition
+      description: |
+        Create a new exhibition or event.
+        
+        ## Organizer Requirements
+        Only administrators can create exhibitions. Contact support to become an organizer.
+        
+        ## Capacity Planning
+        Set appropriate limits for exhibitors and visitors based on your infrastructure.
+      operationId: createExhibition
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateExhibitionRequest'
+            example:
+              title: "Algeria Tech Summit 2024"
+              description: "Connecting technology innovators across North Africa"
+              slug: "algeria-tech-summit-2024"
+              type: VIRTUAL_TRADE_SHOW
+              startDate: "2024-06-10T09:00:00Z"
+              endDate: "2024-06-12T18:00:00Z"
+              isVirtual: true
+              themeColor: "#1a73e8"
+              maxExhibitors: 100
+              maxVisitors: 2000
+              registrationFee: 5000
+              currency: DZD
+      responses:
+        '201':
+          description: Exhibition created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Exhibition'
+              example:
+                id: "exhib_new_001"
+                title: "Algeria Tech Summit 2024"
+                description: "Connecting technology innovators across North Africa"
+                slug: "algeria-tech-summit-2024"
+                type: VIRTUAL_TRADE_SHOW
+                status: DRAFT
+                startDate: "2024-06-10T09:00:00Z"
+                endDate: "2024-06-12T18:00:00Z"
+                isVirtual: true
+                themeColor: "#1a73e8"
+                maxExhibitors: 100
+                maxVisitors: 2000
+                registrationFee: 5000
+                currency: DZD
+                exhibitorCount: 0
+                visitorCount: 0
+                createdAt: "2024-03-15T18:00:00Z"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      security:
+        - bearerAuth: []
+
+  # ============================================
+  # PHASE 6G: SEARCH & DISCOVERY
+  # ============================================
+  /trending:
+    get:
+      tags:
+        - Search & Discovery
+      summary: Get trending products
+      description: |
+        Retrieve trending products based on weighted scoring algorithm.
+        
+        ## Scoring Algorithm
+        Trending score is calculated using weighted factors:
+        - View count weight: 1.0x
+        - Inquiry/RFQ count weight: 2.5x
+        - Order count weight: 3.0x
+        - Favorite count weight: 1.5x
+        
+        ## Period Types
+        - **daily**: Last 24 hours trends
+        - **weekly**: Last 7 days trends (default)
+        - **monthly**: Last 30 days trends
+        
+        ## Rank Movement Indicators
+        - ↑ : Moved up from previous period
+        - ↓ : Moved down from previous period
+        - ★ : New entry in top rankings
+        - — : No change in rank
+      operationId: getTrendingProducts
+      parameters:
+        - name: periodType
+          in: query
+          description: Analysis period
+          required: false
+          schema:
+            type: string
+            enum: [daily, weekly, monthly]
+            default: weekly
+        - name: categoryId
+          in: query
+          description: Filter by category
+          schema:
+            type: string
+        - name: limit
+          in: query
+          description: Number of results (max 50)
+          schema:
+            type: integer
+            default: 20
+            maximum: 50
+      responses:
+        '200':
+          description: Trending products list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrendingProductsResponse'
+              example:
+                periodType: weekly
+                periodStart: "2024-03-08T00:00:00Z"
+                periodEnd: "2024-03-15T00:00:00Z"
+                products:
+                  - rank: 1
+                    previousRank: 3
+                    movement: up
+                    productId: "prod_trend_001"
+                    productName: "Solar Water Heater 200L"
+                    score: 95.5
+                    viewCount: 1520
+                    inquiryCount: 89
+                    orderCount: 34
+                    favoriteCount: 156
+                    category: "Home Appliances"
+                    imageUrl: "https://cdn.algeriatrade.dz/products/solar-heater.jpg"
+                  - rank: 2
+                    previousRank: 1
+                    movement: down
+                    productId: "prod_trend_002"
+                    productName: "Industrial CNC Machine"
+                    score: 88.2
+                    viewCount: 980
+                    inquiryCount: 67
+                    orderCount: 28
+                    favoriteCount: 98
+                    category: "Machinery"
+                    imageUrl: "https://cdn.algeriatrade.dz/products/cnc-machine.jpg"
+                  - rank: 3
+                    previousRank: null
+                    movement: new
+                    productId: "prod_trend_003"
+                    productName: "Smart Agriculture Sensor Kit"
+                    score: 82.7
+                    viewCount: 2340
+                    inquiryCount: 124
+                    orderCount: 19
+                    favoriteCount: 87
+                    category: "Electronics"
+                    imageUrl: "https://cdn.algeriatrade.dz/products/agri-sensor.jpg"
+                    isNewEntry: true
+                totalResults: 25
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /market-insights:
+    get:
+      tags:
+        - Search & Discovery
+      summary: List market insights
+      description: |
+        Retrieve published market insights articles.
+        
+        ## Content Types
+        - **market_report**: Comprehensive market analysis reports
+        - **industry_analysis**: Industry-specific deep dives
+        - **buying_guide**: Purchasing guidance articles
+        - **trend_forecast**: Future trend predictions
+        - **price_analysis**: Pricing and cost analysis
+        
+        ## Target Audience
+        Articles can target:
+        - **buyers**: Procurement guidance, sourcing tips
+        - **suppliers**: Market opportunities, selling strategies
+        - **both**: General interest content
+      operationId: listMarketInsights
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [market_report, industry_analysis, buying_guide, trend_forecast, price_analysis]
+        - name: targetRole
+          in: query
+          schema:
+            type: string
+            enum: [buyer, supplier, both]
+        - name: categoryId
+          in: query
+          schema:
+            type: string
+        - name: featured
+          in: query
+          description: Show only featured articles
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: Market insights list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedMarketInsights'
+              example:
+                data:
+                  - id: "insight_001"
+                    title: "Algerian Textile Industry Report Q1 2024"
+                    summary: "Analysis of textile sector growth, challenges, and opportunities"
+                    type: market_report
+                    targetRole: both
+                    coverImage: "https://cdn.algeriatrade.dz/insights/textile-report.jpg"
+                    readingTime: 12
+                    viewCount: 2340
+                    likeCount: 156
+                    isPublished: true
+                    publishedAt: "2024-03-01T10:00:00Z"
+                    featuredUntil: "2024-04-01T00:00:00Z"
+                    author:
+                      name: "Economic Research Team"
+                      avatar: "https://cdn.algeriatrade.dz/authors/econ-team.jpg"
+                    createdAt: "2024-02-28T14:00:00Z"
+                pagination:
+                  total: 45
+                  page: 1
+                  limit: 20
+                  totalPages: 3
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      tags:
+        - Search & Discovery
+      summary: Create market insight article
+      description: Create a new market insight article (Admin only).
+      operationId: createMarketInsight
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateMarketInsightRequest'
+            example:
+              title: "Import Regulations Update March 2024"
+              content: "# Import Regulations Update\n\n## Key Changes...\n\n### Documentation Requirements..."
+              summary: "Overview of new import regulations affecting Algerian businesses"
+              type: market_report
+              targetRole: buyer
+              categoryId: "cat_trade_001"
+              isPublished: true
+              featuredUntil: "2024-04-15T00:00:00Z"
+              attachments:
+                - "https://storage.algeriatrade.dz/docs/regulations-march-2024.pdf"
+      responses:
+        '201':
+          description: Market insight created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MarketInsight'
+              example:
+                id: "insight_new_001"
+                title: "Import Regulations Update March 2024"
+                summary: "Overview of new import regulations affecting Algerian businesses"
+                type: market_report
+                targetRole: buyer
+                isPublished: true
+                publishedAt: "2024-03-15T18:00:00Z"
+                viewCount: 0
+                likeCount: 0
+                createdAt: "2024-03-15T18:00:00Z"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      security:
+        - bearerAuth: []
+
+  /buying-guides:
+    get:
+      tags:
+        - Search & Discovery
+      summary: List buying guides
+      description: |
+        Retrieve buying guides with structured content.
+        
+        ## Guide Structure
+        Each buying guide contains:
+        - **Sections**: Main content chapters
+        - **Tips**: Quick actionable tips
+        - **Common Mistakes**: Pitfalls to avoid
+        - **Checklist**: Interactive purchase checklist
+        
+        ## Difficulty Levels
+        - **beginner**: For first-time buyers
+        - **intermediate**: For experienced purchasers
+        - **advanced**: For professional procurement officers
+      operationId: listBuyingGuides
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: categoryId
+          in: query
+          schema:
+            type: string
+        - name: difficulty
+          in: query
+          schema:
+            type: string
+            enum: [beginner, intermediate, advanced]
+        - name: isPublished
+          in: query
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Buying guides list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedBuyingGuides'
+              example:
+                data:
+                  - id: "guide_001"
+                    title: "Complete Guide to Buying Industrial Machinery"
+                    slug: "complete-guide-industrial-machinery"
+                    summary: "Everything you need to know before purchasing industrial equipment"
+                    difficulty: intermediate
+                    sections:
+                      - title: "Assess Your Needs"
+                        content: "Before starting your search..."
+                        order: 1
+                      - title: "Understanding Specifications"
+                        content: "Key technical terms explained..."
+                        order: 2
+                    tips:
+                      - "Always request test certificates"
+                      - "Compare at least 3 suppliers"
+                      - "Consider total cost of ownership"
+                    commonMistakes:
+                      - "Buying based on price alone"
+                      - "Ignoring after-sales support"
+                      - "Not checking spare parts availability"
+                    checklist:
+                      - "Define budget range"
+                      - "List required specifications"
+                      - "Research potential suppliers"
+                      - "Request quotes from multiple vendors"
+                      - "Verify supplier credentials"
+                    coverImage: "https://cdn.algeriatrade.dz/guides/machinery.jpg"
+                    viewCount: 5670
+                    helpfulCount: 234
+                    notHelpfulCount: 12
+                    isPublished: true
+                    publishedAt: "2024-02-15T10:00:00Z"
+                    createdAt: "2024-02-10T14:00:00Z"
+                pagination:
+                  total: 28
+                  page: 1
+                  limit: 20
+                  totalPages: 2
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      tags:
+        - Search & Discovery
+      summary: Create buying guide
+      description: Create a new buying guide (Admin/Editor only).
+      operationId: createBuyingGuide
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBuyingGuideRequest'
+            example:
+              title: "How to Choose a Reliable Textile Supplier"
+              slug: "choose-reliable-textile-supplier"
+              content: "# Finding Reliable Textile Suppliers\n\n## Introduction..."
+              summary: "Step-by-step guide to vetting textile suppliers in Algeria"
+              categoryId: "cat_textile_001"
+              difficulty: beginner
+              sections:
+                - title: "Verify Business Credentials"
+                  content: "Check business licenses and certifications..."
+                  order: 1
+                - title: "Assess Production Capability"
+                  content: "Visit facilities or request virtual tours..."
+                  order: 2
+              tips:
+                - "Request samples before bulk orders"
+                - "Start with a trial order"
+                - "Ask for client references"
+              commonMistakes:
+                - "Skipping sample evaluation"
+                - "Not verifying export experience"
+                - "Ignoring communication responsiveness"
+              checklist:
+                - "Verify business registration"
+                - "Check quality certifications"
+                - "Request product samples"
+                - "Contact existing clients"
+                - "Negotiate payment terms"
+              isPublished: true
+              productIds:
+                - "prod_fabric_001"
+                - "prod_yarn_001"
+      responses:
+        '201':
+          description: Buying guide created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BuyingGuide'
+              example:
+                id: "guide_new_001"
+                title: "How to Choose a Reliable Textile Supplier"
+                slug: "choose-reliable-textile-supplier"
+                summary: "Step-by-step guide to vetting textile suppliers in Algeria"
+                difficulty: beginner
+                isPublished: true
+                publishedAt: "2024-03-15T19:00:00Z"
+                viewCount: 0
+                helpfulCount: 0
+                notHelpfulCount: 0
+                createdAt: "2024-03-15T19:00:00Z"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      security:
+        - bearerAuth: []
+
+  # ============================================
+  # PHASE 6H: SHIPPING & LOGISTICS
+  # ============================================
+  /shipping/rates:
+    get:
+      tags:
+        - Shipping & Logistics
+      summary: Get shipping rates
+      description: |
+        Calculate shipping costs between two locations.
+        
+        ## Coverage
+        All 58 Algerian wilayas supported with accurate rate calculation.
+        
+        ## Available Methods
+        - **STANDARD**: Regular ground delivery (3-7 days)
+        - **EXPRESS**: Priority delivery (1-2 days)
+        - **AIR_FREIGHT**: Air cargo for urgent/large shipments
+        - **SEA_FREIGHT**: Ocean freight for international
+        - **RAIL_FREIGHT**: Rail transport where available
+        - **PICKUP**: Customer pickup from warehouse
+        - **WHITE_GLOVE**: Premium handling with installation
+        
+        ## Dynamic Pricing Factors
+        - Base route rate
+        - Weight (per kg)
+        - Volume (per m³)
+        - Distance fuel surcharge
+        - Handling fees
+      operationId: getShippingRates
+      parameters:
+        - name: originWilaya
+          in: query
+          description: Origin wilaya code (e.g., "16" for Alger)
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 3
+        - name: destinationWilaya
+          in: query
+          description: Destination wilaya code
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 3
+        - name: weight
+          in: query
+          description: Total weight in kg
+          required: true
+          schema:
+            type: number
+            minimum: 0.1
+            maximum: 50000
+        - name: volume
+          in: query
+          description: Volume in cubic meters (m³)
+          schema:
+            type: number
+            minimum: 0.001
+        - name: method
+          in: query
+          description: Shipping method filter (optional, returns all if not specified)
+          schema:
+            $ref: '#/components/schemas/ShippingMethod'
+      responses:
+        '200':
+          description: Available shipping rates
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShippingRatesResponse'
+              example:
+                originWilaya: "16"
+                destinationWilaya: "31"
+                weight: 25
+                volume: 0.5
+                rates:
+                  - method: STANDARD
+                    carrierName: "AlgeriaPost Express"
+                    basePrice: 1500
+                    weightPrice: 50
+                    volumePrice: 200
+                    totalPrice: 3250
+                    currency: DZD
+                    estimatedDaysMin: 3
+                    estimatedDaysMax: 5
+                    trackingSupported: true
+                  - method: EXPRESS
+                    carrierName: "Speedy DZ"
+                    basePrice: 2500
+                    weightPrice: 100
+                    volumePrice: 400
+                    totalPrice: 7000
+                    currency: DZD
+                    estimatedDaysMin: 1
+                    estimatedDaysMax: 2
+                    trackingSupported: true
+                  - method: WHITE_GLOVE
+                    carrierName: "Premium Logistics"
+                    basePrice: 5000
+                    weightPrice: 200
+                    volumePrice: 600
+                    totalPrice: 11500
+                    currency: DZD
+                    estimatedDaysMin: 2
+                    estimatedDaysMax: 3
+                    trackingSupported: true
+                    includesInstallation: true
+                recommendedMethod: EXPRESS
+        '400':
+          $ref: '#/components/responses/BadRequest'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Invalid wilaya code: 99"
+                code: INVALID_WILAYA
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      tags:
+        - Shipping & Logistics
+      summary: Create custom shipping quote
+      description: |
+        Request a custom shipping quote for complex shipments.
+        
+        Use this for:
+        - Oversized cargo
+        - Special handling requirements
+        - International shipments
+        - Negotiated contract rates
+      operationId: createShippingQuote
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateShippingQuoteRequest'
+            example:
+              originWilaya: "16"
+              destinationWilaya: "31"
+              method: WHITE_GLOVE
+              weight: 500
+              dimensions:
+                length: 200
+                width: 150
+                height: 180
+                unit: cm
+              declaredValue: 2500000
+              requiresInsurance: true
+              specialInstructions: "Fragile electronics, climate-controlled transport required"
+              contactInfo:
+                name: "Company Logistics"
+                phone: "+213 555 999 888"
+                email: "logistics@company.dz"
+      responses:
+        '201':
+          description: Quote request created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShippingQuoteResponse'
+              example:
+                quoteId: "quote_001"
+                status: pending_review
+                estimatedPrice: 85000
+                currency: DZD
+                estimatedDeliveryDays: 5
+                message: "Your quote request has been received. A logistics specialist will contact you within 2 hours."
+                createdAt: "2024-03-15T20:00:00Z"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      security:
+        - bearerAuth: []
+
+  /shipments:
+    get:
+      tags:
+        - Shipping & Logistics
+      summary: List shipments
+      description: |
+        Retrieve shipments with tracking information.
+        
+        ## Shipment Status Flow
+        `PENDING` → `READY_TO_SHIP` → `SHIPPED` → `IN_TRANSIT` → `OUT_FOR_DELIVERY` → `DELIVERED`
+        
+        Exception states:
+        - **EXCEPTION**: Delivery issue encountered
+        - **RETURNED**: Returned to sender
+        - **LOST**: Shipment lost in transit
+        
+        ## Incoterms Reference
+        Supported incoterms define responsibility boundaries between buyer and seller.
+      operationId: listShipments
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/ShipmentStatus'
+        - name: orderId
+          in: query
+          schema:
+            type: string
+        - name: trackingNumber
+          in: query
+          schema:
+            type: string
+        - name: incoterm
+          in: query
+          schema:
+            $ref: '#/components/schemas/Incoterm'
+      responses:
+        '200':
+          description: Shipments list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedShipments'
+              example:
+                data:
+                  - id: "ship_001"
+                    trackingNumber: "ATDZ2024031500123"
+                    orderId: "order_12345"
+                    shippingMethod: EXPRESS
+                    incoterm: DDP
+                    originAddress:
+                        name: "Factory Warehouse"
+                        phone: "+213 555 111 222"
+                        address: "Zone Industrielle, Oued Smar"
+                        wilaya: "16"
+                        commune: "Dar El Beida"
+                    destinationAddress:
+                        name: "Customer Office"
+                        phone: "+213 555 333 444"
+                        address: "123 Rue Didouche Mourad"
+                        wilaya: "31"
+                        commune: "Oran Centre"
+                    weight: 25
+                    dimensions:
+                        length: 60
+                        width: 40
+                        height: 50
+                        unit: cm
+                    packageCount: 2
+                    shippingCost: 7000
+                    currency: DZD
+                    status: IN_TRANSIT
+                    estimatedDelivery: "2024-03-17T18:00:00Z"
+                    carrierName: "Speedy DZ"
+                    carrierTrackingUrl: "https://track.speedydz.dz/ATDZ2024031500123"
+                    trackingEventsData:
+                      - status: "Order Confirmed"
+                        location: "Alger"
+                        timestamp: "2024-03-15T10:00:00Z"
+                        description: "Shipment information received"
+                      - status: "Picked Up"
+                        location: "Oued Smar"
+                        timestamp: "2024-03-15T14:30:00Z"
+                        description: "Package picked up from warehouse"
+                      - status: "In Transit"
+                        location: "Blida"
+                        timestamp: "2024-03-16T08:00:00Z"
+                        description: "Package departed sorting facility"
+                    createdAt: "2024-03-15T09:00:00Z"
+                pagination:
+                  total: 42
+                  page: 1
+                  limit: 20
+                  totalPages: 3
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      security:
+        - bearerAuth: []
+
+    post:
+      tags:
+        - Shipping & Logistics
+      summary: Create shipment
+      description: |
+        Create a new shipment record.
+        
+        ## Address Format
+        Addresses must include all fields for proper routing:
+        - Name and contact phone
+        - Street address
+        - Wilaya code (numeric)
+        - Commune name
+      operationId: createShipment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateShipmentRequest'
+            example:
+              orderId: "order_67890"
+              shippingMethod: STANDARD
+              incoterm: DAP
+              originAddress:
+                name: "Supplier Warehouse"
+                phone: "+213 555 111 222"
+                address: "Zone Industrielle Chéraga"
+                wilaya: "16"
+                commune: "Chéraga"
+              destinationAddress:
+                name: "Buyer Receiving"
+                phone: "+213 661 234 567"
+                address: "45 Rue Larbi Ben M'hidi"
+                wilaya: "13"
+                commune: "Tizi Ouzou Centre"
+              weight: 15
+              dimensions:
+                length: 50
+                width: 30
+                height: 40
+                unit: cm
+              packageCount: 1
+              shippingRateId: "rate_standard_16_13"
+      responses:
+        '201':
+          description: Shipment created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Shipment'
+              example:
+                id: "ship_new_001"
+                trackingNumber: "ATDZ2024031500999"
+                orderId: "order_67890"
+                shippingMethod: STANDARD
+                incoterm: DAP
+                originAddress:
+                  name: "Supplier Warehouse"
+                  phone: "+213 555 111 222"
+                  address: "Zone Industrielle Chéraga"
+                  wilaya: "16"
+                  commune: "Chéraga"
+                destinationAddress:
+                  name: "Buyer Receiving"
+                  phone: "+213 661 234 567"
+                  address: "45 Rue Larbi Ben M'hidi"
+                  wilaya: "13"
+                  commune: "Tizi Ouzou Centre"
+                weight: 15
+                dimensions:
+                  length: 50
+                  width: 30
+                  height: 40
+                  unit: cm
+                packageCount: 1
+                shippingCost: 2800
+                currency: DZD
+                status: PENDING
+                estimatedDelivery: "2024-03-20T18:00:00Z"
+                createdAt: "2024-03-15T21:00:00Z"
+                message: "Shipment created. Tracking number: ATDZ2024031500999"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      security:
+        - bearerAuth: []
+
+# ============================================
+# COMPONENTS
+# ============================================
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        JWT Bearer Token Authentication
+        
+        ## Obtaining a Token
+        Authenticate via `/api/auth/login` to receive a JWT token.
+        
+        ## Token Format
+        Header: `Authorization: Bearer <jwt_token>`
+        
+        ## Token Expiry
+        Tokens expire after 24 hours. Use refresh token to obtain new access token.
+
+  responses:
+    BadRequest:
+      description: Bad Request - Invalid input parameters
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            validationError:
+              summary: Validation Error
+              value:
+                error: "Validation failed"
+                code: VALIDATION_ERROR
+                details:
+                  - field: "email"
+                    message: "Invalid email format"
+                  - field: "phone"
+                    message: "Phone number is required"
+            invalidInput:
+              summary: Invalid Input
+              value:
+                error: "Invalid input: amount must be positive"
+                code: INVALID_INPUT
+
+    Unauthorized:
+      description: Unauthorized - Invalid or missing authentication token
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "Authentication required"
+            code: UNAUTHORIZED
+            message: "Please provide a valid Bearer token in Authorization header"
+
+    Forbidden:
+      description: Forbidden - Insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "Access denied"
+            code: FORBIDDEN
+            message: "You don't have permission to perform this action"
+
+    NotFound:
+      description: Not Found - Resource does not exist
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "Resource not found"
+            code: NOT_FOUND
+            message: "The requested resource could not be found"
+
+    InternalServerError:
+      description: Internal Server Error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "Internal server error"
+            code: INTERNAL_ERROR
+            message: "An unexpected error occurred. Please try again later."
+
+  schemas:
+    # ----------------------------------------
+    # COMMON SCHEMAS
+    # ----------------------------------------
+    Error:
+      type: object
+      required:
+        - error
+        - code
+      properties:
+        error:
+          type: string
+          description: Human-readable error message
+        code:
+          type: string
+          description: Machine-readable error code
+        message:
+          type: string
+          description: Additional error details
+        details:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+              message:
+                type: string
+          description: Field-level validation errors
+        timestamp:
+          type: string
+          format: date-time
+          description: When the error occurred
+
+    Pagination:
+      type: object
+      properties:
+        total:
+          type: integer
+          description: Total number of items
+        page:
+          type: integer
+          description: Current page number
+        limit:
+          type: integer
+          description: Items per page
+        totalPages:
+          type: integer
+          description: Total number of pages
+
+    # ----------------------------------------
+    # ENUM SCHEMAS
+    # ----------------------------------------
+    VerificationLevel:
+      type: string
+      enum:
+        - BASIC
+        - VERIFIED
+        - CERTIFIED
+        - PREMIUM
+        - ENTERPRISE
+      description: |
+        Supplier verification levels:
+        - **BASIC**: Email & phone verified
+        - **VERIFIED**: Business documents verified
+        - **CERTIFIED**: On-site inspection passed
+        - **PREMIUM**: SGS/TUV third-party audit
+        - **ENTERPRISE**: Full enterprise verification
+
+    VerificationStatus:
+      type: string
+      enum:
+        - PENDING
+        - VERIFIED
+        - REJECTED
+        - SUSPENDED
+      description: Verification request status
+
+    VerificationType:
+      type: string
+      enum:
+        - BUSINESS_LICENSE
+        - TAX_COMPLIANCE
+        - BANK_ACCOUNT
+        - IDENTITY
+        - ADDRESS
+        - PHONE
+        - EMAIL
+        - PRODUCT_QUALITY
+        - PRODUCTION_CAPACITY
+        - EXPORT_LICENSE
+        - ISO_CERTIFICATION
+        - SGS_AUDIT
+        - CUSTOM
+      description: Types of verification available
+
+    EscrowStatus:
+      type: string
+      enum:
+        - PENDING
+        - FUNDED
+        - IN_ESCROW
+        - RELEASED
+        - REFUNDED
+        - PARTIAL_REFUND
+        - DISPUTED
+        - CANCELLED
+      description: Escrow account lifecycle status
+
+    DisputeStatus:
+      type: string
+      enum:
+        - OPEN
+        - INVESTIGATING
+        - MEDIATION
+        - ARBITRATION
+        - RESOLVED
+        - CANCELLED
+      description: Dispute resolution status
+
+    DisputeReason:
+      type: string
+      enum:
+        - NOT_AS_DESCRIBED
+        - QUALITY_ISSUES
+        - SHIPPING_DELAY
+        - WRONG_ITEM
+        - DAMAGED_GOODS
+        - QUANTITY_MISMATCH
+        - MISSING_ACCESSORIES
+        - OTHER
+      description: Reasons for opening a dispute
+
+    InspectionStatus:
+      type: string
+      enum:
+        - REQUESTED
+        - SCHEDULED
+        - IN_PROGRESS
+        - COMPLETED
+        - CANCELLED
+        - FAILED
+      description: Inspection booking status
+
+    InspectionType:
+      type: string
+      enum:
+        - PRE_PRODUCTION
+        - DURING_PRODUCTION
+        - PRE_SHIPMENT
+        - CONTAINER_LOADING
+        - SAMPLE_INSPECTION
+        - FACTORY_AUDIT
+      description: Types of inspection services
+
+    ExhibitionStatus:
+      type: string
+      enum:
+        - DRAFT
+        - PUBLISHED
+        - LIVE
+        - ENDED
+        - CANCELLED
+      description: Exhibition lifecycle status
+
+    ExhibitionType:
+      type: string
+      enum:
+        - VIRTUAL_TRADE_SHOW
+        - INDUSTRY_EVENT
+        - PRODUCT_LAUNCH
+        - PROCUREMENT_EVENT
+        - NETWORKING_EVENT
+      description: Types of exhibitions/events
+
+    ShippingMethod:
+      type: string
+      enum:
+        - STANDARD
+        - EXPRESS
+        - AIR_FREIGHT
+        - SEA_FREIGHT
+        - RAIL_FREIGHT
+        - PICKUP
+        - WHITE_GLOVE
+      description: Available shipping methods
+
+    Incoterm:
+      type: string
+      enum:
+        - EXW
+        - FCA
+        - CPT
+        - CIP
+        - DAP
+        - DDP
+        - FAS
+        - FOB
+        - CFR
+        - CIF
+      description: |
+        International commercial terms defining buyer/seller responsibilities:
+        - **EXW**: Ex Works - Seller's premises
+        - **FCA**: Free Carrier - Named place
+        - **CPT**: Carriage Paid To - Destination
+        - **CIP**: Carriage and Insurance Paid To
+        - **DAP**: Delivered at Place - Destination
+        - **DDP**: Delivered Duty Paid - Destination (seller pays all)
+        - **FAS**: Free Alongside Ship
+        - **FOB**: Free on Board - Vessel
+        - **CFR**: Cost and Freight - Destination
+        - **CIF**: Cost Insurance Freight - Destination
+
+    ShipmentStatus:
+      type: string
+      enum:
+        - PENDING
+        - READY_TO_SHIP
+        - SHIPPED
+        - IN_TRANSIT
+        - OUT_FOR_DELIVERY
+        - DELIVERED
+        - EXCEPTION
+        - RETURNED
+        - LOST
+      description: Shipment tracking status
+
+    # ----------------------------------------
+    # VERIFICATION SCHEMAS
+    # ----------------------------------------
+    Verification:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique verification ID
+        companyId:
+          type: string
+          description: Company being verified
+        level:
+          $ref: '#/components/schemas/VerificationLevel'
+        status:
+          $ref: '#/components/schemas/VerificationStatus'
+        type:
+          $ref: '#/components/schemas/VerificationType'
+        documents:
+          type: array
+          items:
+            type: string
+          description: Array of document URLs
+        inspectorName:
+          type: string
+          description: Assigned inspector name
+        inspectorId:
+          type: string
+          description: Inspector user ID
+        inspectionDate:
+          type: string
+          format: date-time
+          description: When inspection was conducted
+        inspectionNotes:
+          type: string
+          description: Notes from inspection
+        inspectionPhotos:
+          type: array
+          items:
+            type: string
+          description: Photo evidence URLs
+        inspectionVideos:
+          type: array
+          items:
+            type: string
+          description: Video evidence URLs
+        score:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: Overall verification score
+        categoryScores:
+          type: object
+          description: Category-wise scores as JSON object
+        issuedAt:
+          type: string
+          format: date-time
+          description: When certificate was issued
+        expiresAt:
+          type: string
+          format: date-time
+          description: Certificate expiration date
+        isValid:
+          type: boolean
+          description: Whether verification is currently valid
+        reviewedBy:
+          type: string
+          description: Admin reviewer ID
+        reviewedAt:
+          type: string
+          format: date-time
+          description: When review was completed
+        reviewNotes:
+          type: string
+          description: Review comments
+        rejectionReason:
+          type: string
+          description: Reason for rejection (if rejected)
+        badgeUrl:
+          type: string
+          format: uri
+          description: Awarded badge image URL
+        certificateUrl:
+          type: string
+          format: uri
+          description: Certificate document URL
+        certificateNumber:
+          type: string
+          description: Unique certificate identifier
+        createdAt:
+          type: string
+          format: date-time
+
+    PaginatedVerifications:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Verification'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    CreateVerificationRequest:
+      type: object
+      required:
+        - companyId
+        - type
+      properties:
+        companyId:
+          type: string
+          description: Company ID to verify
+        type:
+          $ref: '#/components/schemas/VerificationType'
+        level:
+          $ref: '#/components/schemas/VerificationLevel'
+          description: Target verification level (optional, inferred from type)
+        documents:
+          type: array
+          items:
+            type: string
+            format: uri
+          description: Supporting document URLs
+
+    ReviewVerificationRequest:
+      type: object
+      required:
+        - action
+        - status
+      properties:
+        action:
+          type: string
+          enum: [approve, reject, request_info]
+          description: Review action to take
+        status:
+          $ref: '#/components/schemas/VerificationStatus'
+        score:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: Verification score (for approvals)
+        categoryScores:
+          type: object
+          description: Detailed category scores
+        notes:
+          type: string
+          description: Review notes/comments
+        rejectionReason:
+          type: string
+          description: Reason for rejection (required when rejecting)
+
+    # ----------------------------------------
+    # ESCROW SCHEMAS
+    # ----------------------------------------
+    EscrowAccount:
+      type: object
+      properties:
+        id:
+          type: string
+        accountId:
+          type: string
+          description: Public account identifier (e.g., ESC-2024-000042)
+        orderId:
+          type: string
+          description: Associated order ID
+        amount:
+          type: number
+          format: float
+          description: Original escrow amount
+        currency:
+          type: string
+          default: DZD
+        releasedAmount:
+          type: number
+          format: float
+          description: Amount released to supplier
+        refundedAmount:
+          type: number
+          format: float
+          description: Amount refunded to buyer
+        feeAmount:
+          type: number
+          format: float
+          description: Platform fee charged
+        status:
+          $ref: '#/components/schemas/EscrowStatus'
+        fundedAt:
+          type: string
+          format: date-time
+        inEscrowAt:
+          type: string
+          format: date-time
+        releaseRequestedAt:
+          type: string
+          format: date-time
+        releasedAt:
+          type: string
+          format: date-time
+        refundRequestedAt:
+          type: string
+          format: date-time
+        refundedAt:
+          type: string
+          format: date-time
+        buyerId:
+          type: string
+        supplierCompanyId:
+          type: string
+        dispute:
+          $ref: '#/components/schemas/Dispute'
+        autoReleaseDays:
+          type: integer
+          default: 30
+          description: Days after which auto-release triggers
+        autoReleaseAt:
+          type: string
+          format: date-time
+        paymentMethod:
+          type: string
+          description: Payment method used
+        paymentReference:
+          type: string
+          description: Payment transaction reference
+        createdAt:
+          type: string
+          format: date-time
+
+    PaginatedEscrowAccounts:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/EscrowAccount'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    CreateEscrowRequest:
+      type: object
+      required:
+        - orderId
+        - amount
+        - buyerId
+        - supplierCompanyId
+      properties:
+        orderId:
+          type: string
+        amount:
+          type: number
+          format: float
+          minimum: 0
+        currency:
+          type: string
+          default: DZD
+        buyerId:
+          type: string
+        supplierCompanyId:
+          type: string
+        autoReleaseDays:
+          type: integer
+          default: 30
+          minimum: 1
+          maximum: 90
+        paymentMethod:
+          type: string
+
+    EscrowActionRequest:
+      type: object
+      required:
+        - action
+      properties:
+        action:
+          type: string
+          enum: [fund, release, refund, dispute]
+          description: Action to perform on escrow
+        amount:
+          type: number
+          format: float
+          description: Amount for fund action
+        paymentReference:
+          type: string
+          description: Payment reference for fund action
+        notes:
+          type: string
+          description: Notes for release/refund actions
+        reason:
+          type: string
+          description: Reason for refund/dispute
+        requestedAmount:
+          type: number
+          format: float
+          description: Amount in dispute/refund request
+        title:
+          type: string
+          description: Dispute title
+        description:
+          type: string
+          description: Dispute detailed description
+        disputeReason:
+          $ref: '#/components/schemas/DisputeReason'
+        evidence:
+          type: array
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+                enum: [photo, video, document]
+              url:
+                type: string
+                format: uri
+              description:
+                type: string
+          description: Supporting evidence for disputes
+
+    Dispute:
+      type: object
+      properties:
+        id:
+          type: string
+        escrowId:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        reason:
+          $ref: '#/components/schemas/DisputeReason'
+        status:
+          $ref: '#/components/schemas/DisputeStatus'
+        requestedAmount:
+          type: number
+          format: float
+        offeredAmount:
+          type: number
+          format: float
+        settledAmount:
+          type: number
+          format: float
+        openedBy:
+          type: string
+        buyerId:
+          type: string
+        supplierCompanyId:
+          type: string
+        evidence:
+          type: array
+          items:
+            type: object
+        resolution:
+          type: string
+        resolvedBy:
+          type: string
+        resolvedAt:
+          type: string
+          format: date-time
+        rulingInFavorOf:
+          type: string
+          enum: [buyer, supplier]
+        mediatorId:
+          type: string
+        mediatorAssignedAt:
+          type: string
+          format: date-time
+        responseDeadline:
+          type: string
+          format: date-time
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/DisputeMessage'
+        createdAt:
+          type: string
+          format: date-time
+
+    DisputeMessage:
+      type: object
+      properties:
+        id:
+          type: string
+        disputeId:
+          type: string
+        senderId:
+          type: string
+        senderRole:
+          type: string
+          enum: [buyer, supplier, mediator, admin]
+        content:
+          type: string
+        attachments:
+          type: array
+          items:
+            type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    # ----------------------------------------
+    # VIDEO SCHEMAS
+    # ----------------------------------------
+    Video:
+      type: object
+      properties:
+        id:
+          type: string
+        productId:
+          type: string
+          description: Product ID (for product videos)
+        companyId:
+          type: string
+          description: Company ID (for company videos)
+        title:
+          type: string
+        description:
+          type: string
+        videoUrl:
+          type: string
+          format: uri
+        thumbnailUrl:
+          type: string
+          format: uri
+        duration:
+          type: integer
+          description: Duration in seconds
+        type:
+          type: string
+          enum: [product_demo, factory_tour, testimonial, tutorial, company_intro, production_line, ceo_message, exhibition]
+        language:
+          type: string
+          enum: [ar, fr, en]
+        isPrimary:
+          type: boolean
+        status:
+          type: string
+          enum: [processing, ready, failed]
+        viewCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+
+    PaginatedVideos:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Video'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    VideoUploadForm:
+      type: object
+      required:
+        - file
+        - title
+        - type
+      properties:
+        file:
+          type: string
+          format: binary
+          description: Video file (MP4, WebM, MOV)
+        productId:
+          type: string
+        companyId:
+          type: string
+        title:
+          type: string
+          maxLength: 200
+        description:
+          type: string
+        type:
+          type: string
+          enum: [product_demo, factory_tour, testimonial, tutorial, company_intro, production_line, ceo_message, exhibition]
+        language:
+          type: string
+          enum: [ar, fr, en]
+        isPrimary:
+          type: boolean
+
+    CreateVideoRequest:
+      type: object
+      required:
+        - title
+        - videoUrl
+        - type
+      properties:
+        productId:
+          type: string
+        companyId:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        videoUrl:
+          type: string
+          format: uri
+        thumbnailUrl:
+          type: string
+          format: uri
+        duration:
+          type: integer
+        type:
+          type: string
+        language:
+          type: string
+          enum: [ar, fr, en]
+        isPrimary:
+          type: boolean
+
+    VirtualTour:
+      type: object
+      properties:
+        id:
+          type: string
+        companyId:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        tourUrl:
+          type: string
+          format: uri
+          description: 360° tour viewer URL or config
+        coverImage:
+          type: string
+          format: uri
+        type:
+          type: string
+          enum: [factory, office, showroom, warehouse]
+        hotspots:
+          type: array
+          items:
+            type: object
+            properties:
+              position:
+                type: object
+                properties:
+                  x:
+                    type: number
+                  y:
+                    type: number
+              title:
+                type: string
+              content:
+                type: string
+              mediaUrl:
+                type: string
+                format: uri
+          description: Interactive hotspot points
+        viewCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+
+    CreateVirtualTourRequest:
+      type: object
+      required:
+        - title
+        - tourUrl
+        - type
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        tourUrl:
+          type: string
+          format: uri
+        coverImage:
+          type: string
+          format: uri
+        type:
+          type: string
+          enum: [factory, office, showroom, warehouse]
+        hotspots:
+          type: array
+          items:
+            type: object
+            properties:
+              position:
+                type: object
+                properties:
+                  x:
+                    type: number
+                    format: float
+                  y:
+                    type: number
+                    format: float
+              title:
+                type: string
+              content:
+                type: string
+              mediaUrl:
+                type: string
+                format: uri
+
+    # ----------------------------------------
+    # PRODUCT FEATURES SCHEMAS
+    # ----------------------------------------
+    ProductCertification:
+      type: object
+      properties:
+        id:
+          type: string
+        productId:
+          type: string
+        name:
+          type: string
+          description: Certification name (e.g., CE, ISO 9001)
+        issuingBody:
+          type: string
+          description: Organization that issued the certificate
+        certificateNumber:
+          type: string
+        issueDate:
+          type: string
+          format: date
+        expiryDate:
+          type: string
+          format: date
+        certificateUrl:
+          type: string
+          format: uri
+        isValid:
+          type: boolean
+        verifiedBy:
+          type: string
+          description: Admin who verified this certification
+        verifiedAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+
+    PaginatedCertifications:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductCertification'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    CreateCertificationRequest:
+      type: object
+      required:
+        - productId
+        - name
+        - issuingBody
+      properties:
+        productId:
+          type: string
+        name:
+          type: string
+          description: Certification name
+        issuingBody:
+          type: string
+          description: Certifying organization
+        certificateNumber:
+          type: string
+        issueDate:
+          type: string
+          format: date
+        expiryDate:
+          type: string
+          format: date
+        certificateUrl:
+          type: string
+          format: uri
+
+    BulkPricingTier:
+      type: object
+      properties:
+        id:
+          type: string
+        productId:
+          type: string
+        minQuantity:
+          type: integer
+          minimum: 1
+          description: Minimum quantity for this tier
+        maxQuantity:
+          type: integer
+          description: Maximum quantity (null = unlimited)
+        unitPrice:
+          type: number
+          format: float
+          description: Price per unit at this tier
+        discountPercent:
+          type: number
+          format: float
+          description: Discount percentage from base price
+        currency:
+          type: string
+          default: DZD
+        validFrom:
+          type: string
+          format: date
+        validUntil:
+          type: string
+          format: date
+        isBestValue:
+          type: boolean
+          description: Whether this tier offers best value
+        createdAt:
+          type: string
+          format: date-time
+
+    CreateBulkPricingRequest:
+      type: object
+      required:
+        - minQuantity
+        - unitPrice
+      properties:
+        minQuantity:
+          type: integer
+          minimum: 1
+        maxQuantity:
+          type: integer
+        unitPrice:
+          type: number
+          format: float
+          minimum: 0
+        discountPercent:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 100
+        currency:
+          type: string
+          default: DZD
+        validFrom:
+          type: string
+          format: date
+        validUntil:
+          type: string
+          format: date
+
+    UpdateBulkPricingRequest:
+      type: object
+      required:
+        - id
+        - minQuantity
+        - unitPrice
+      properties:
+        id:
+          type: string
+        minQuantity:
+          type: integer
+          minimum: 1
+        maxQuantity:
+          type: integer
+        unitPrice:
+          type: number
+          format: float
+          minimum: 0
+        discountPercent:
+          type: number
+          format: float
+
+    CustomizationOption:
+      type: object
+      properties:
+        id:
+          type: string
+        productId:
+          type: string
+        name:
+          type: string
+          description: Option name (e.g., Color, Size, Material)
+        type:
+          type: string
+          enum: [select, radio, checkbox, text, number, color, file]
+          description: Input type for this option
+        isRequired:
+          type: boolean
+        options:
+          type: array
+          items:
+            type: object
+            properties:
+              value:
+                type: string
+              label:
+                type: string
+              priceModifier:
+                type: number
+                format: float
+              stock:
+                type: integer
+          description: Available values for select/radio/checkbox types
+        sortOrder:
+          type: integer
+          description: Display order
+        createdAt:
+          type: string
+          format: date-time
+
+    CreateCustomizationRequest:
+      type: object
+      required:
+        - name
+        - type
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+          enum: [select, radio, checkbox, text, number, color, file]
+        isRequired:
+          type: boolean
+          default: false
+        options:
+          type: array
+          items:
+            type: object
+            properties:
+              value:
+                type: string
+              label:
+                type: string
+              priceModifier:
+                type: number
+                format: float
+                default: 0
+              stock:
+                type: integer
+        sortOrder:
+          type: integer
+          default: 0
+
+    ProductPackage:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+          description: Package display name
+        description:
+          type: string
+        discountPercent:
+          type: number
+          format: float
+          description: Discount percentage off sum of items
+        totalPrice:
+          type: number
+          format: float
+          description: Fixed package price (overrides individual prices)
+        currency:
+          type: string
+          default: DZD
+        isActive:
+          type: boolean
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              productId:
+                type: string
+              quantity:
+                type: integer
+                default: 1
+              includedPrice:
+                type: number
+                format: float
+                description: Price override for this item in package
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    PaginatedPackages:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductPackage'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    CreatePackageRequest:
+      type: object
+      required:
+        - name
+        - items
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        discountPercent:
+          type: number
+          format: float
+          default: 0
+        totalPrice:
+          type: number
+          format: float
+        currency:
+          type: string
+          default: DZD
+        isActive:
+          type: boolean
+          default: true
+        items:
+          type: array
+          items:
+            type: object
+            required:
+              - productId
+            properties:
+              productId:
+                type: string
+              quantity:
+                type: integer
+                default: 1
+              includedPrice:
+                type: number
+                format: float
+
+    # ----------------------------------------
+    # INSPECTION SCHEMAS
+    # ----------------------------------------
+    InspectionService:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        type:
+          $ref: '#/components/schemas/InspectionType'
+        basePrice:
+          type: number
+          format: float
+        currency:
+          type: string
+          default: DZD
+        typicalLeadTime:
+          type: integer
+          description: Typical lead time in days
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    InspectionBooking:
+      type: object
+      properties:
+        id:
+          type: string
+        bookingNumber:
+          type: string
+          description: Unique booking reference (e.g., INSPECT-2024-00042)
+        serviceId:
+          type: string
+        buyerId:
+          type: string
+        supplierCompanyId:
+          type: string
+        productId:
+          type: string
+        orderId:
+          type: string
+        preferredDate:
+          type: string
+          format: date-time
+        address:
+          type: string
+          description: Inspection location address
+        contactPerson:
+          type: string
+        contactPhone:
+          type: string
+        specialInstructions:
+          type: string
+        status:
+          $ref: '#/components/schemas/InspectionStatus'
+        inspectorId:
+          type: string
+        inspectorName:
+          type: string
+        scheduledAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+        result:
+          type: object
+          description: Detailed inspection results as JSON
+        overallScore:
+          type: integer
+          minimum: 0
+          maximum: 100
+        passStatus:
+          type: string
+          enum: [pass, fail, conditional]
+        reportUrl:
+          type: string
+          format: uri
+        photos:
+          type: array
+          items:
+            type: string
+            format: uri
+        totalCost:
+          type: number
+          format: float
+        currency:
+          type: string
+          default: DZD
+        paidAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+
+    PaginatedInspections:
+      type: object
+      properties:
+        services:
+          type: array
+          items:
+            $ref: '#/components/schemas/InspectionService'
+        bookings:
+          type: array
+          items:
+            $ref: '#/components/schemas/InspectionBooking'
+        pagination:
+          type: object
+          properties:
+            totalServices:
+              type: integer
+            totalBookings:
+              type: integer
+            page:
+              type: integer
+            limit:
+              type: integer
+
+    CreateInspectionBookingRequest:
+      type: object
+      required:
+        - serviceId
+        - buyerId
+        - supplierCompanyId
+      properties:
+        serviceId:
+          type: string
+        buyerId:
+          type: string
+        supplierCompanyId:
+          type: string
+        productId:
+          type: string
+        orderId:
+          type: string
+        preferredDate:
+          type: string
+          format: date-time
+        address:
+          type: string
+        contactPerson:
+          type: string
+        contactPhone:
+          type: string
+        specialInstructions:
+          type: string
+        isUrgent:
+          type: boolean
+          default: false
+          description: Urgent requests incur 50% surcharge
+
+    # ----------------------------------------
+    # EXHIBITION SCHEMAS
+    # ----------------------------------------
+    Exhibition:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        slug:
+          type: string
+          unique: true
+        type:
+          $ref: '#/components/schemas/ExhibitionType'
+        status:
+          $ref: '#/components/schemas/ExhibitionStatus'
+        startDate:
+          type: string
+          format: date-time
+        endDate:
+          type: string
+          format: date-time
+        isVirtual:
+          type: boolean
+          default: true
+        physicalAddress:
+          type: string
+        virtualUrl:
+          type: string
+          format: uri
+        coverImage:
+          type: string
+          format: uri
+        logo:
+          type: string
+          format: uri
+        themeColor:
+          type: string
+          default: "#006233"
+        organizerId:
+          type: string
+        maxExhibitors:
+          type: integer
+        maxVisitors:
+          type: integer
+        registrationFee:
+          type: number
+          format: float
+          default: 0
+        currency:
+          type: string
+          default: DZD
+        exhibitorCount:
+          type: integer
+        visitorCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+
+    PaginatedExhibitions:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Exhibition'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    CreateExhibitionRequest:
+      type: object
+      required:
+        - title
+        - slug
+        - type
+        - startDate
+        - endDate
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        slug:
+          type: string
+          pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$'
+        type:
+          $ref: '#/components/schemas/ExhibitionType'
+        startDate:
+          type: string
+          format: date-time
+        endDate:
+          type: string
+          format: date-time
+        isVirtual:
+          type: boolean
+          default: true
+        physicalAddress:
+          type: string
+        virtualUrl:
+          type: string
+          format: uri
+        coverImage:
+          type: string
+          format: uri
+        logo:
+          type: string
+          format: uri
+        themeColor:
+          type: string
+          default: "#006233"
+        maxExhibitors:
+          type: integer
+        maxVisitors:
+          type: integer
+        registrationFee:
+          type: number
+          format: float
+          default: 0
+        currency:
+          type: string
+          default: DZD
+
+    # ----------------------------------------
+    # SEARCH & DISCOVERY SCHEMAS
+    # ----------------------------------------
+    TrendingProductsResponse:
+      type: object
+      properties:
+        periodType:
+          type: string
+          enum: [daily, weekly, monthly]
+        periodStart:
+          type: string
+          format: date-time
+        periodEnd:
+          type: string
+          format: date-time
+        products:
+          type: array
+          items:
+            type: object
+            properties:
+              rank:
+                type: integer
+              previousRank:
+                type: integer
+                nullable: true
+              movement:
+                type: string
+                enum: [up, down, new, same]
+              productId:
+                type: string
+              productName:
+                type: string
+              score:
+                type: number
+                format: float
+              viewCount:
+                type: integer
+              inquiryCount:
+                type: integer
+              orderCount:
+                type: integer
+              favoriteCount:
+                type: integer
+              category:
+                type: string
+              imageUrl:
+                type: string
+                format: uri
+              isNewEntry:
+                type: boolean
+        totalResults:
+          type: integer
+
+    MarketInsight:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        content:
+          type: string
+          description: Markdown or HTML content
+        summary:
+          type: string
+        categoryId:
+          type: string
+        type:
+          type: string
+          enum: [market_report, industry_analysis, buying_guide, trend_forecast, price_analysis]
+        targetRole:
+          type: string
+          enum: [buyer, supplier, both]
+        coverImage:
+          type: string
+          format: uri
+        attachments:
+          type: array
+          items:
+            type: string
+            format: uri
+        authorId:
+          type: string
+        author:
+          type: object
+          properties:
+            name:
+              type: string
+            avatar:
+              type: string
+              format: uri
+        readingTime:
+          type: integer
+          description: Estimated reading time in minutes
+        viewCount:
+          type: integer
+        likeCount:
+          type: integer
+        isPublished:
+          type: boolean
+        publishedAt:
+          type: string
+          format: date-time
+        featuredUntil:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+
+    PaginatedMarketInsights:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/MarketInsight'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    CreateMarketInsightRequest:
+      type: object
+      required:
+        - title
+        - content
+        - type
+      properties:
+        title:
+          type: string
+        content:
+          type: string
+          description: Markdown content
+        summary:
+          type: string
+        categoryId:
+          type: string
+        type:
+          type: string
+          enum: [market_report, industry_analysis, buying_guide, trend_forecast, price_analysis]
+        targetRole:
+          type: string
+          enum: [buyer, supplier, both]
+        coverImage:
+          type: string
+          format: uri
+        attachments:
+          type: array
+          items:
+            type: string
+            format: uri
+        isPublished:
+          type: boolean
+          default: false
+        featuredUntil:
+          type: string
+          format: date-time
+
+    BuyingGuide:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        slug:
+          type: string
+          unique: true
+        content:
+          type: string
+          description: Markdown content
+        summary:
+          type: string
+        categoryId:
+          type: string
+        sections:
+          type: array
+          items:
+            type: object
+            properties:
+              title:
+                type: string
+              content:
+                type: string
+              order:
+                type: integer
+        tips:
+          type: array
+          items:
+            type: string
+        commonMistakes:
+          type: array
+          items:
+            type: string
+        checklist:
+          type: array
+          items:
+            type: string
+        coverImage:
+          type: string
+          format: uri
+        videoUrl:
+          type: string
+          format: uri
+        productIds:
+          type: array
+          items:
+            type: string
+        authorId:
+          type: string
+        difficulty:
+          type: string
+          enum: [beginner, intermediate, advanced]
+        viewCount:
+          type: integer
+        helpfulCount:
+          type: integer
+        notHelpfulCount:
+          type: integer
+        isPublished:
+          type: boolean
+        publishedAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+
+    PaginatedBuyingGuides:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/BuyingGuide'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    CreateBuyingGuideRequest:
+      type: object
+      required:
+        - title
+        - slug
+        - content
+        - categoryId
+      properties:
+        title:
+          type: string
+        slug:
+          type: string
+          pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$'
+        content:
+          type: string
+          description: Markdown content
+        summary:
+          type: string
+        categoryId:
+          type: string
+        difficulty:
+          type: string
+          enum: [beginner, intermediate, advanced]
+          default: beginner
+        sections:
+          type: array
+          items:
+            type: object
+            properties:
+              title:
+                type: string
+              content:
+                type: string
+              order:
+                type: integer
+        tips:
+          type: array
+          items:
+            type: string
+        commonMistakes:
+          type: array
+          items:
+            type: string
+        checklist:
+          type: array
+          items:
+            type: string
+        coverImage:
+          type: string
+          format: uri
+        videoUrl:
+          type: string
+          format: uri
+        productIds:
+          type: array
+          items:
+            type: string
+        isPublished:
+          type: boolean
+          default: false
+
+    # ----------------------------------------
+    # SHIPPING SCHEMAS
+    # ----------------------------------------
+    ShippingRatesResponse:
+      type: object
+      properties:
+        originWilaya:
+          type: string
+        destinationWilaya:
+          type: string
+        weight:
+          type: number
+        volume:
+          type: number
+        rates:
+          type: array
+          items:
+            type: object
+            properties:
+              method:
+                $ref: '#/components/schemas/ShippingMethod'
+              carrierName:
+                type: string
+              basePrice:
+                type: number
+                format: float
+              weightPrice:
+                type: number
+                format: float
+              volumePrice:
+                type: number
+                format: float
+              totalPrice:
+                type: number
+                format: float
+              currency:
+                type: string
+              estimatedDaysMin:
+                type: integer
+              estimatedDaysMax:
+                type: integer
+              trackingSupported:
+                type: boolean
+              includesInstallation:
+                type: boolean
+                default: false
+        recommendedMethod:
+          $ref: '#/components/schemas/ShippingMethod'
+
+    CreateShippingQuoteRequest:
+      type: object
+      required:
+        - originWilaya
+        - destinationWilaya
+        - weight
+      properties:
+        originWilaya:
+          type: string
+        destinationWilaya:
+          type: string
+        method:
+          $ref: '#/components/schemas/ShippingMethod'
+        weight:
+          type: number
+          minimum: 0.1
+        dimensions:
+          type: object
+          properties:
+            length:
+              type: number
+            width:
+              type: number
+            height:
+              type: number
+            unit:
+              type: string
+              enum: [cm, m, inch]
+        declaredValue:
+          type: number
+        requiresInsurance:
+          type: boolean
+        specialInstructions:
+          type: string
+        contactInfo:
+          type: object
+          properties:
+            name:
+              type: string
+            phone:
+              type: string
+            email:
+              type: string
+              format: email
+
+    ShippingQuoteResponse:
+      type: object
+      properties:
+        quoteId:
+          type: string
+        status:
+          type: string
+          enum: [pending_review, ready, expired]
+        estimatedPrice:
+          type: number
+          format: float
+        currency:
+          type: string
+        estimatedDeliveryDays:
+          type: integer
+        message:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    Shipment:
+      type: object
+      properties:
+        id:
+          type: string
+        trackingNumber:
+          type: string
+          unique: true
+          description: Public tracking number
+        orderId:
+          type: string
+        shippingMethod:
+          $ref: '#/components/schemas/ShippingMethod'
+        shippingRateId:
+          type: string
+        originAddress:
+          type: object
+          properties:
+            name:
+              type: string
+            phone:
+              type: string
+            address:
+              type: string
+            wilaya:
+              type: string
+            commune:
+              type: string
+        destinationAddress:
+          type: object
+          properties:
+            name:
+              type: string
+            phone:
+              type: string
+            address:
+              type: string
+            wilaya:
+              type: string
+            commune:
+              type: string
+        incoterm:
+          $ref: '#/components/schemas/Incoterm'
+        weight:
+          type: number
+          description: Total weight in kg
+        dimensions:
+          type: object
+          properties:
+            length:
+              type: number
+            width:
+              type: number
+            height:
+              type: number
+            unit:
+              type: string
+        packageCount:
+          type: integer
+          default: 1
+        shippingCost:
+          type: number
+          format: float
+        currency:
+          type: string
+          default: DZD
+        status:
+          $ref: '#/components/schemas/ShipmentStatus'
+        trackingEventsData:
+          type: array
+          items:
+            type: object
+            properties:
+              status:
+                type: string
+              location:
+                type: string
+              timestamp:
+                type: string
+                format: date-time
+              description:
+                type: string
+              imageUrl:
+                type: string
+                format: uri
+        estimatedDelivery:
+          type: string
+          format: date-time
+        actualDelivery:
+          type: string
+          format: date-time
+        carrierName:
+          type: string
+        carrierTrackingUrl:
+          type: string
+          format: uri
+        waybillUrl:
+          type: string
+          format: uri
+        customsDocsUrl:
+          type: string
+          format: uri
+        insuranceDocsUrl:
+          type: string
+          format: uri
+        createdAt:
+          type: string
+          format: date-time
+
+    PaginatedShipments:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Shipment'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    CreateShipmentRequest:
+      type: object
+      required:
+        - orderId
+        - shippingMethod
+        - originAddress
+        - destinationAddress
+      properties:
+        orderId:
+          type: string
+        shippingMethod:
+          $ref: '#/components/schemas/ShippingMethod'
+        incoterm:
+          $ref: '#/components/schemas/Incoterm'
+          default: DAP
+        originAddress:
+          type: object
+          required:
+            - name
+            - phone
+            - address
+            - wilaya
+            - commune
+          properties:
+            name:
+              type: string
+            phone:
+              type: string
+            address:
+              type: string
+            wilaya:
+              type: string
+            commune:
+              type: string
+        destinationAddress:
+          type: object
+          required:
+            - name
+            - phone
+            - address
+            - wilaya
+            - commune
+          properties:
+            name:
+              type: string
+            phone:
+              type: string
+            address:
+              type: string
+            wilaya:
+              type: string
+            commune:
+              type: string
+        weight:
+          type: number
+        dimensions:
+          type: object
+          properties:
+            length:
+              type: number
+            width:
+              type: number
+            height:
+              type: number
+            unit:
+              type: string
+              enum: [cm, m, inch]
+        packageCount:
+          type: integer
+          default: 1
+        shippingRateId:
+          type: string

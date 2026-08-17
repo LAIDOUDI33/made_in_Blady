@@ -1,0 +1,1694 @@
+     1→// Inspection Booking Screen - AlgeriaTrade Mobile
+     2→// Écran de réservation d'inspection qualité
+     3→
+     4→import React, { useState, useEffect, useCallback } from 'react';
+     5→import {
+     6→  View,
+     7→  Text,
+     8→  StyleSheet,
+     9→  ScrollView,
+    10→  TouchableOpacity,
+    11→  Alert,
+    12→  ActivityIndicator,
+    13→  Platform,
+    14→  TextInput,
+    15→  Modal,
+    16→} from 'react-native';
+    17→import { Ionicons } from '@expo/vector-icons';
+    18→import { useNavigation, RouteProp, useRoute } from '@react-navigation/native';
+    19→
+    20→// Services
+    21→import apiService from '../../services/api';
+    22→
+    23→// Constants
+    24→import { Colors, FontFamily, FontSize, Spacing, BorderRadius, Shadows } from '../../utils/constants';
+    25→
+    26→// Types
+    27→import { RootStackParamList } from '../../navigation';
+    28→
+    29→type InspectionRouteProp = RouteProp<RootStackParamList, 'InspectionBooking'>;
+    30→
+    31→// ============================================
+    32→// Types & Interfaces
+    33→// ============================================
+    34→
+    35→export type InspectionType =
+    36→  | 'pre_production'
+    37→  | 'during_production'
+    38→  | 'pre_shipment'
+    39→  | 'container_loading'
+    40→  | 'sample_inspection'
+    41→  | 'factory_audit';
+    42→
+    43→export type InspectionStatus = 
+    44→  | 'pending'
+    45→  | 'scheduled'
+    46→  | 'in_progress'
+    47→  | 'completed'
+    48→  | 'cancelled'
+    49→  | 'failed';
+    50→
+    51→interface InspectionService {
+    52→  id: string;
+    53→  type: InspectionType;
+    54→  name: string;
+    55→  description: string;
+    56→  basePrice: number;
+    57→  currency: string;
+    58→  typicalLeadTime: number; // in days
+    59→  includesPhotoReport: boolean;
+    60→  includesLabTest: boolean;
+    61→  maxSamples?: number;
+    62→}
+    63→
+    64→interface InspectionBookingData {
+    65→  productId?: string;
+    66→  serviceId: string;
+    67→  inspectionType: InspectionType;
+    68→  preferredDate: Date;
+    69→  address: {
+    70→    street: string;
+    71→    city: string;
+    72→    wilaya: string;
+    73→    postalCode: string;
+    74→    contactPerson: string;
+    75→    phone: string;
+    76→  };
+    77→  specialInstructions?: string;
+    78→  isUrgent: boolean;
+    79→}
+    80→
+    81→interface InspectionResult {
+    82→  id: string;
+    83→  bookingId: string;
+    84→  overallScore: number; // 0-100
+    85→  status: 'pass' | 'fail' | 'conditional';
+    86→  summary: string;
+    87→  details: Array<{
+    88→    criterion: string;
+    89→    status: 'pass' | 'fail' | 'warning';
+    90→    notes?: string;
+    91→    photos?: string[];
+    92→  }>;
+    93→  photos: string[];
+    94→  reportUrl?: string;
+    95→  inspectorName: string;
+    96→  inspectedAt: Date;
+    97→  completedAt?: Date;
+    98→}
+    99→
+   100→interface BookingInfo {
+   101→  id: string;
+   102→  bookingNumber: string;
+   103→  status: InspectionStatus;
+   104→  service: InspectionService;
+   105→  scheduledDate?: Date;
+   106→  completedAt?: Date;
+   107→  result?: InspectionResult;
+   108→  totalAmount: number;
+   109→  isPaid: boolean;
+   110→  createdAt: Date;
+   111→}
+   112→
+   113→// ============================================
+   114→// Constants
+   115→// ============================================
+   116→
+   117→const INSPECTION_TYPES: Record<InspectionType, { 
+   118→  label: string; 
+   119→  icon: string; 
+   120→  color: string;
+   121→  description: string;
+   122→}> = {
+   123→  pre_production: {
+   124→    label: 'Pré-production',
+   125→    icon: 'clipboard-outline',
+   126→    color: Colors.primary,
+   127→    description: 'Vérification des matières premières et équipements avant production',
+   128→  },
+   129→  during_production: {
+   130→    label: 'En cours de production',
+   131→    icon: 'cog-outline',
+   132→    color: Colors.info,
+   133→    description: 'Contrôle qualité pendant le processus de fabrication',
+   134→  },
+   135→  pre_shipment: {
+   136→    label: 'Pré-expédition',
+   137→    icon: 'ship-outline',
+   138→    color: Colors.success,
+   139→    description: 'Inspection finale avant l\'expédition (le plus populaire)',
+   140→  },
+   141→  container_loading: {
+   142→    label: 'Chargement conteneur',
+   143→    icon: 'cube-outline',
+   144→    color: Colors.warning,
+   145→    description: 'Vérification du chargement et conditionnement',
+   146→  },
+   147→  sample_inspection: {
+   148→    label: 'Échantillon',
+   149→    icon: 'flask-outline',
+   150→    color: '#8B5CF6',
+   151→    description: 'Analyse d\'échantillons en laboratoire',
+   152→  },
+   153→  factory_audit: {
+   154→    label: 'Audit usine',
+   155→    icon: 'business-outline',
+   156→    color: Colors.secondary,
+   157→    description: 'Audit complet des installations et processus',
+   158→  },
+   159→};
+   160→
+   161→const WILAYAS = [
+   162→  'Alger', 'Oran', 'Constantine', 'Annaba', 'Blida', 'Batna', 'Sétif', 'Béjaïa',
+   163→  'Tlemcen', 'Biskra', 'Tébessa', 'El Oued', 'Skikda', 'Tiaret', 'M\'sila',
+   164→  'Mascara', 'Ain Témouchent', 'Saïda', 'Ghardaïa', 'Tizi Ouzou', 'Jijel',
+   165→  'Chlef', 'Sidi Bel Abbès', 'Bouira', 'Tarf', 'Tindouf', 'Tissemsilt',
+   166→  'El Ouff', 'Khenchela', 'Souk Ahras', 'Tipaza', 'Mila', 'Ain Defla',
+   167→  'Naâma', 'Ain Témouchent', 'Hamma Bouziane', 'M\'Ghair', 'Oum El Bouaghi',
+   168→  'Relizane', 'El M\'Ghair', 'El Bayadh', 'Illizi', ' Bordj Badji Mokhtar',
+   169→  'Béchar', 'Adrar', 'Djanet', 'Guelaat Sbi Meradi', 'Timimoun', 'Saléa',
+   170→  'Beni Abbes', 'Tamanrasset', 'In Guezzam', 'Tougourt', 'Djelfa', 'Laghouat',
+   171→];
+   172→
+   173→const TIME_SLOTS = [
+   174→  '08:00 - 10:00',
+   175→  '10:00 - 12:00',
+   176→  '13:00 - 15:00',
+   177→  '15:00 - 17:00',
+   178→];
+   179→
+   180→// ============================================
+   181→// Main Component
+   182→// ============================================
+   183→
+   184→export default function InspectionBookingScreen() {
+   185→  const route = useRoute<InspectionRouteProp>();
+   186→  const navigation = useNavigation();
+   187→  
+   188→  const { productId } = route.params || {};
+   189→  
+   190→  // State
+   191→  const [loading, setLoading] = useState(true);
+   192→  const [services, setServices] = useState<InspectionService[]>([]);
+   193→  const [selectedService, setSelectedService] = useState<InspectionService | null>(null);
+   194→  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+   195→  const [selectedTimeSlot, setSelectedTimeSlot] = useState<string | null>(null);
+   196→  const [step, setStep] = useState(1); // 1: Select type, 2: Details, 3: Confirm, 4: Result
+   197→  
+   198→  // Form state
+   199→  const [street, setStreet] = useState('');
+   200→  const [city, setCity] = useState('');
+   201→  const [wilaya, setWilaya] = useState('');
+   202→  const [postalCode, setPostalCode] = useState('');
+   203→  const [contactPerson, setContactPerson] = useState('');
+   204→  const [phone, setPhone] = useState('');
+   205→  const [specialInstructions, setSpecialInstructions] = useState('');
+   206→  const [isUrgent, setIsUrgent] = useState(false);
+   207→  
+   208→  // Booking & Result state
+   209→  const [currentBooking, setCurrentBooking] = useState<BookingInfo | null>(null);
+   210→  const [submitting, setSubmitting] = useState(false);
+   211→  const [showCalendarModal, setShowCalendarModal] = useState(false);
+   212→  const [showWilayaModal, setShowWilayaModal] = useState(false);
+   213→
+   214→  // Load services
+   215→  const loadServices = useCallback(async () => {
+   216→    try {
+   217→      const data = await apiService.getInspectionServices();
+   218→      setServices(data);
+   219→    } catch (error) {
+   220→      console.error('[InspectionBookingScreen] Error loading services:', error);
+   221→      Alert.alert('Erreur', 'Impossible de charger les services d\'inspection.');
+   222→    } finally {
+   223→      setLoading(false);
+   224→    }
+   225→  }, []);
+   226→
+   227→  useEffect(() => {
+   228→    loadServices();
+   229→  }, [loadServices]);
+   230→
+   231→  // Select service and move to next step
+   232→  const handleSelectService = (service: InspectionService) => {
+   233→    setSelectedService(service);
+   234→    setStep(2);
+   235→  };
+   236→
+   237→  // Generate calendar days
+   238→  const generateCalendarDays = () => {
+   239→    const days = [];
+   240→    const today = new Date();
+   241→    
+   242→    for (let i = 1; i <= 30; i++) {
+   243→      const date = new Date(today);
+   244→      date.setDate(today.getDate() + i);
+   245→      
+   246→      // Skip weekends (optional)
+   247→      // if (date.getDay() === 0 || date.getDay() === 6) continue;
+   248→      
+   249→      days.push(date);
+   250→    }
+   251→    
+   252→    return days;
+   253→  };
+   254→
+   255→  // Handle date selection
+   256→  const handleDateSelect = (date: Date) => {
+   257→    setSelectedDate(date);
+   258→    setShowCalendarModal(false);
+   259→  };
+   260→
+   261→  // Validate form
+   262→  const validateForm = (): boolean => {
+   263→    if (!street.trim()) {
+   264→      Alert.alert('Erreur', 'Veuillez entrer l\'adresse.');
+   265→      return false;
+   266→    }
+   267→    if (!city.trim()) {
+   268→      Alert.alert('Erreur', 'Veuillez entrer la ville.');
+   269→      return false;
+   270→    }
+   271→    if (!wilaya) {
+   272→      Alert.alert('Erreur', 'Veuillez sélectionner la wilaya.');
+   273→      return false;
+   274→    }
+   275→    if (!contactPerson.trim()) {
+   276→      Alert.alert('Erreur', 'Veuillez entrer le nom du contact.');
+   277→      return false;
+   278→    }
+   279→    if (!phone.trim()) {
+   280→      Alert.alert('Erreur', 'Veuillez entrer un numéro de téléphone.');
+   281→      return false;
+   282→    }
+   283→    if (!selectedDate) {
+   284→      Alert.alert('Erreur', 'Veuillez sélectionner une date.');
+   285→      return false;
+   286→    }
+   287→    if (!selectedTimeSlot) {
+   288→      Alert.alert('Erreur', 'Veuillez sélectionner un créneau horaire.');
+   289→      return false;
+   290→    }
+   291→    return true;
+   292→  };
+   293→
+   294→  // Submit booking
+   295→  const handleSubmitBooking = async () => {
+   296→    if (!validateForm() || !selectedService) return;
+   297→
+   298→    setSubmitting(true);
+   299→
+   300→    try {
+   301→      const booking = await apiService.bookInspection({
+   302→        productId,
+   303→        serviceId: selectedService.id,
+   304→        inspectionType: selectedService.type,
+   305→        preferredDate: selectedDate!,
+   306→        address: {
+   307→          street,
+   308→          city,
+   309→          wilaya,
+   310→          postalCode,
+   311→          contactPerson,
+   312→          phone,
+   313→        },
+   314→        specialInstructions: specialInstructions || undefined,
+   315→        isUrgent,
+   316→      });
+   317→
+   318→      setCurrentBooking(booking);
+   319→      setStep(3); // Confirmation step
+   320→      
+   321→      Alert.alert(
+   322→        'Réservation confirmée !',
+   323→        `Votre réservation ${booking.bookingNumber} a été enregistrée.`,
+   324→        [{ text: 'OK' }]
+   325→      );
+   326→    } catch (error) {
+   327→      console.error('[InspectionBookingScreen] Error booking:', error);
+   328→      Alert.alert('Erreur', 'Impossible de finaliser la réservation. Veuillez réessayer.');
+   329→    } finally {
+   330→      setSubmitting(false);
+   331→    }
+   332→  };
+   333→
+   334→  // Calculate total price
+   335→  const calculateTotal = (): number => {
+   336→    if (!selectedService) return 0;
+   337→    
+   338→    let total = selectedService.basePrice;
+   339→    
+   340→    if (isUrgent) {
+   341→      total *= 1.5; // 50% surcharge for urgent
+   342→    }
+   343→    
+   344→    return Math.round(total * 100) / 100;
+   345→  };
+   346→
+   347→  // Render loading
+   348→  if (loading) {
+   349→    return (
+   350→      <View style={styles.loadingContainer}>
+   351→        <ActivityIndicator size="large" color={Colors.primary} />
+   352→        <Text style={styles.loadingText}>Chargement...</Text>
+   353→      </View>
+   354→    );
+   355→  }
+   356→
+   357→  // Step 1: Select Service Type
+   358→  if (step === 1) {
+   359→    return (
+   360→      <View style={styles.container}>
+   361→        {/* Header */}
+   362→        <View style={styles.header}>
+   363→          <TouchableOpacity 
+   364→            style={styles.backButton}
+   365→            onPress={() => navigation.goBack()}
+   366→          >
+   367→            <Ionicons name="arrow-back" size={24} color={Colors.text} />
+   368→          </TouchableOpacity>
+   369→          <Text style={styles.headerTitle}>Réserver une inspection</Text>
+   370→          <View style={{ width: 40 }} />
+   371→        </View>
+   372→
+   373→        <ScrollView 
+   374→          style={styles.scrollView}
+   375→          showsVerticalScrollIndicator={false}
+   376→        >
+   377→          {/* Info Banner */}
+   378→          <View style={styles.infoBanner}>
+   379→            <Ionicons name="shield-checkmark" size={24} color={Colors.primary} />
+   380→            <View style={styles.infoBannerContent}>
+   381→              <Text style={styles.infoBannerTitle}>Inspection professionnelle</Text>
+   382→              <Text style={styles.infoBannerText}>
+   383→                Nos inspecteurs certifiés vérifient la qualité de vos produits avant expédition.
+   384→              </Text>
+   385→            </View>
+   386→          </View>
+   387→
+   388→          {/* Service Types */}
+   389→          <View style={styles.section}>
+   390→            <Text style={styles.sectionTitle}>Choisissez le type d'inspection</Text>
+   391→            
+   392→            {services.map(service => {
+   393→              const config = INSPECTION_TYPES[service.type];
+   394→              
+   395→              return (
+   396→                <TouchableOpacity
+   397→                  key={service.id}
+   398→                  style={styles.serviceCard}
+   399→                  onPress={() => handleSelectService(service)}
+   400→                  activeOpacity={0.7}
+   401→                >
+   402→                  <View style={[styles.serviceIconContainer, { backgroundColor: config.color + '15' }]}>
+   403→                    <Ionicons name={config.icon as any} size={28} color={config.color} />
+   404→                  </View>
+   405→                  
+   406→                  <View style={styles.serviceContent}>
+   407→                    <Text style={styles.serviceName}>{config.label}</Text>
+   408→                    <Text style={styles.serviceDescription} numberOfLines={2}>
+   409→                      {config.description}
+   410→                    </Text>
+   411→                    
+   412→                    <View style={styles.serviceMeta}>
+   413→                      <View style={styles.metaItem}>
+   414→                        <Ionicons name="time-outline" size={14} color={Colors.textSecondary} />
+   415→                        <Text style={styles.metaText}>
+   416→                          ~{service.typicalLeadTime} jours
+   417→                        </Text>
+   418→                      </View>
+   419→                      
+   420→                      {service.includesPhotoReport && (
+   421→                        <View style={[styles.metaItem, styles.metaItemSuccess]}>
+   422→                          <Ionicons name="camera-outline" size={14} color={Colors.success} />
+   423→                          <Text style={[styles.metaText, styles.metaTextSuccess]}>
+   424→                            Photos incluses
+   425→                          </Text>
+   426→                        </View>
+   427→                      )}
+   428→                    </View>
+   429→                  </View>
+   430→
+   431→                  <View style={styles.priceContainer}>
+   432→                    <Text style={styles.priceValue}>
+   433→                      {service.basePrice.toLocaleString('fr-FR')} {service.currency}
+   434→                    </Text>
+   435→                    <Ionicons name="chevron-forward" size={20} color={Colors.textTertiary} />
+   436→                  </View>
+   437→                </TouchableOpacity>
+   438→              );
+   439→            })}
+   440→          </View>
+   441→
+   442→          {/* How it works */}
+   443→          <View style={styles.howItWorksSection}>
+   444→            <Text style={styles.sectionTitle}>Comment ça marche ?</Text>
+   445→            
+   446→            <View style={styles.stepsList}>
+   447→              {[
+   448→                { step: 1, title: 'Choisissez', desc: 'Sélectionnez le type d\'inspection' },
+   449→                { step: 2, title: 'Planifiez', desc: 'Définissez la date et le lieu' },
+   450→                { step: 3, title: 'Payez', desc: 'Effectuez le paiement sécurisé' },
+   451→                { step: 4, title: 'Recevez', desc: 'Obtenez votre rapport détaillé' },
+   452→              ].map(item => (
+   453→                <View key={item.step} style={styles.stepItem}>
+   454→                  <View style={styles.stepNumber}>
+   455→                    <Text style={styles.stepNumberText}>{item.step}</Text>
+   456→                  </View>
+   457→                  <View style={styles.stepContent}>
+   458→                    <Text style={styles.stepTitle}>{item.title}</Text>
+   459→                    <Text style={styles.stepDescription}>{item.desc}</Text>
+   460→                  </View>
+   461→                </View>
+   462→              ))}
+   463→            </View>
+   464→          </View>
+   465→        </ScrollView>
+   466→      </View>
+   467→    );
+   468→  }
+   469→
+   470→  // Step 2: Details Form
+   471→  if (step === 2) {
+   472→    return (
+   473→      <View style={styles.container}>
+   474→        {/* Header */}
+   475→        <View style={styles.header}>
+   476→          <TouchableOpacity 
+   477→            style={styles.backButton}
+   478→            onPress={() => setStep(1)}
+   479→          >
+   480→            <Ionicons name="arrow-back" size={24} color={Colors.text} />
+   481→          </TouchableOpacity>
+   482→          <Text style={styles.headerTitle}>Détails de la réservation</Text>
+   483→          <View style={{ width: 40 }} />
+   484→        </View>
+   485→
+   486→        <ScrollView 
+   487→          style={styles.scrollView}
+   488→          showsVerticalScrollIndicator={false}
+   489→        >
+   490→          {/* Selected Service Summary */}
+   491→          {selectedService && (
+   492→            <View style={styles.selectedServiceBanner}>
+   493→              <View style={[
+   494→                styles.selectedServiceIcon, 
+   495→                { backgroundColor: INSPECTION_TYPES[selectedService.type].color + '15' }
+   496→              ]}>
+   497→                <Ionicons 
+   498→                  name={INSPECTION_TYPES[selectedService.type].icon as any} 
+   499→                  size={20} 
+   500→                  color={INSPECTION_TYPES[selectedService.type].color} 
+   501→                />
+   502→              </View>
+   503→              <View style={styles.selectedServiceInfo}>
+   504→                <Text style={styles.selectedServiceName}>
+   505→                  {INSPECTION_TYPES[selectedService.type].label}
+   506→                </Text>
+   507→                <Text style={styles.selectedServicePrice}>
+   508→                  À partir de {selectedService.basePrice.toLocaleString('fr-FR')} {selectedService.currency}
+   509→                </Text>
+   510→              </View>
+   511→              <TouchableOpacity onPress={() => setStep(1)}>
+   512→                <Ionicons name="create-outline" size={20} color={Colors.primary} />
+   513→              </TouchableOpacity>
+   514→            </View>
+   515→          )}
+   516→
+   517→          {/* Address Section */}
+   518→          <View style={styles.formSection}>
+   519→            <Text style={styles.formSectionTitle}>Adresse d'inspection</Text>
+   520→            
+   521→            <TextInput
+   522→              style={styles.textInput}
+   523→              value={street}
+   524→              onChangeText={setStreet}
+   525→              placeholder="Adresse *"
+   526→              placeholderTextColor={Colors.textTertiary}
+   527→            />
+   528→
+   529→            <View style={styles.rowInputs}>
+   530→              <TextInput
+   531→                style={[styles.textInput, styles.flexInput]}
+   532→                value={city}
+   533→                onChangeText={setCity}
+   534→                placeholder="Ville *"
+   535→                placeholderTextColor={Colors.textTertiary}
+   536→              />
+   537→              
+   538→              <TouchableOpacity
+   539→                style={[styles.textInput, styles.selectInput]}
+   540→                onPress={() => setShowWilayaModal(true)}
+   541→              >
+   542→                <Text style={[styles.selectText, wilaya ? styles.selectTextFilled : {}]}>
+   543→                  {wilaya || 'Wilaya *'}
+   544→                </Text>
+   545→                <Ionicons name="chevron-down" size={16} color={Colors.textTertiary} />
+   546→              </TouchableOpacity>
+   547→            </View>
+   548→
+   549→            <TextInput
+   550→              style={styles.textInput}
+   551→              value={postalCode}
+   552→              onChangeText={setPostalCode}
+   553→              placeholder="Code postal"
+   554→              placeholderTextColor={Colors.textTertiary}
+   555→              keyboardType="number-pad"
+   556→            />
+   557→          </View>
+   558→
+   559→          {/* Contact Section */}
+   560→          <View style={styles.formSection}>
+   561→            <Text style={styles.formSectionTitle}>Contact sur place</Text>
+   562→            
+   563→            <TextInput
+   564→              style={styles.textInput}
+   565→              value={contactPerson}
+   566→              onChangeText={setContactPerson}
+   567→              placeholder="Nom du contact *"
+   568→              placeholderTextColor={Colors.textTertiary}
+   569→            />
+   570→
+   571→            <TextInput
+   572→              style={styles.textInput}
+   573→              value={phone}
+   574→              onChangeText={setPhone}
+   575→              placeholder="Téléphone *"
+   576→              placeholderTextColor={Colors.textTertiary}
+   577→              keyboardType="phone-pad"
+   578→            />
+   579→          </View>
+   580→
+   581→          {/* Date & Time */}
+   582→          <View style={styles.formSection}>
+   583→            <Text style={styles.formSectionTitle}>Date et heure préférées</Text>
+   584→            
+   585→            <TouchableOpacity
+   586→              style={styles.dateSelector}
+   587→              onPress={() => setShowCalendarModal(true)}
+   588→            >
+   589→              <Ionicons name="calendar-outline" size={20} color={Colors.primary} />
+   590→              <Text style={styles.dateText}>
+   591→                {selectedDate 
+   592→                  ? selectedDate.toLocaleDateString('fr-FR', { 
+   593→                      weekday: 'long', 
+   594→                      day: 'numeric', 
+   595→                      month: 'long', 
+   596→                      year: 'numeric' 
+   597→                    })
+   598→                  : 'Sélectionner une date *'
+   599→                }
+   600→              </Text>
+   601→              <Ionicons name="chevron-forward" size={18} color={Colors.textTertiary} />
+   602→            </TouchableOpacity>
+   603→
+   604→            <View style={styles.timeSlotsContainer}>
+   605→              {TIME_SLOTS.map(slot => (
+   606→                <TouchableOpacity
+   607→                  key={slot}
+   608→                  style={[
+   609→                    styles.timeSlot,
+   610→                    selectedTimeSlot === slot && styles.timeSlotSelected
+   611→                  ]}
+   612→                  onPress={() => setSelectedTimeSlot(slot)}
+   613→                >
+   614→                  <Text style={[
+   615→                    styles.timeSlotText,
+   616→                    selectedTimeSlot === slot && styles.timeSlotTextSelected
+   617→                  ]}>
+   618→                    {slot}
+   619→                  </Text>
+   620→                </TouchableOpacity>
+   621→              ))}
+   622→            </View>
+   623→          </View>
+   624→
+   625→          {/* Options */}
+   626→          <View style={styles.formSection}>
+   627→            <Text style={styles.formSectionTitle}>Options supplémentaires</Text>
+   628→            
+   629→            <TouchableOpacity
+   630→              style={styles.optionRow}
+   631→              onPress={() => setIsUrgent(!isUrgent)}
+   632→            >
+   633→              <View style={[styles.checkbox, isUrgent && styles.checkboxChecked]}>
+   634→                {isUrgent && <Ionicons name="checkmark" size={16} color={Colors.white} />}
+   635→              </View>
+   636→              <View style={styles.optionContent}>
+   637→                <Text style={styles.optionLabel}>Demande urgente (+50%)</Text>
+   638→                <Text style={styles.optionDescription}>
+   639→                  Inspection sous 48h (si disponible)
+   640→                </Text>
+   641→              </View>
+   642→            </TouchableOpacity>
+   643→
+   644→            <TextInput
+   645→              style={[styles.textInput, styles.textArea]}
+   646→              value={specialInstructions}
+   647→              onChangeText={setSpecialInstructions}
+   648→              placeholder="Instructions spéciales (optionnel)"
+   649→              placeholderTextColor={Colors.textTertiary}
+   650→              multiline
+   651→              numberOfLines={3}
+   652→            />
+   653→          </View>
+   654→
+   655→          {/* Price Summary */}
+   656→          <View style={styles.priceSummary}>
+   657→            <Text style={styles.priceSummaryTitle}>Récapitulatif</Text>
+   658→            
+   659→            <View style={styles.priceRow}>
+   660→              <Text style={styles.priceLabel}>
+   661→                {INSPECTION_TYPES[selectedService?.type]?.label || 'Inspection'}
+   662→              </Text>
+   663→              <Text style={styles.priceAmount}>
+   664→                {selectedService?.basePrice.toLocaleString('fr-FR')} {selectedService?.currency}
+   665→              </Text>
+   666→            </View>
+   667→            
+   668→            {isUrgent && (
+   669→              <View style={styles.priceRow}>
+   670→                <Text style={[styles.priceLabel, { color: Colors.warning }]}>
+   671→                  Supplément urgent
+   672→                </Text>
+   673→                <Text style={[styles.priceAmount, { color: Colors.warning }]}>
+   674→                  +{Math.round((selectedService?.basePrice || 0) * 0.5).toLocaleString('fr-FR')}
+   675→                </Text>
+   676→              </View>
+   677→            )}
+   678→            
+   679→            <View style={[styles.priceRow, styles.totalRow]}>
+   680→              <Text style={styles.totalLabel}>Total</Text>
+   681→              <Text style={styles.totalAmount}>
+   682→                {calculateTotal().toLocaleString('fr-FR')} {selectedService?.currency || 'DZD'}
+   683→              </Text>
+   684→            </View>
+   685→          </View>
+   686→
+   687→          {/* Submit Button */}
+   688→          <TouchableOpacity
+   689→            style={[styles.submitButton, submitting && styles.submitButtonDisabled]}
+   690→            onPress={handleSubmitBooking}
+   691→            disabled={submitting}
+   692→          >
+   693→            {submitting ? (
+   694→              <ActivityIndicator color={Colors.white} />
+   695→            ) : (
+   696→              <>
+   697→                <Ionicons name="checkmark-circle" size={20} color={Colors.white} />
+   698→                <Text style={styles.submitButtonText}>Confirmer la réservation</Text>
+   699→              </>
+   700→            )}
+   701→          </TouchableOpacity>
+   702→        </ScrollView>
+   703→
+   704→        {/* Wilaya Picker Modal */}
+   705→        <Modal visible={showWilayaModal} transparent animationType="slide">
+   706→          <View style={styles.modalOverlay}>
+   707→            <View style={styles.pickerModal}>
+   708→              <View style={styles.pickerHeader}>
+   709→                <TouchableOpacity onPress={() => setShowWilayaModal(false)}>
+   710→                  <Text style={styles.pickerCancelText}>Annuler</Text>
+   711→                </TouchableOpacity>
+   712→                <Text style={styles.pickerTitle}>Sélectionner la wilaya</Text>
+   713→                <View style={{ width: 60 }} />
+   714→              </View>
+   715→              
+   716→              <ScrollView style={styles.pickerList}>
+   717→                {WILAYAS.map(w => (
+   718→                  <TouchableOpacity
+   719→                    key={w}
+   720→                    style={[styles.pickerItem, wilaya === w && styles.pickerItemSelected]}
+   721→                    onPress={() => {
+   722→                      setWilaya(w);
+   723→                      setShowWilayaModal(false);
+   724→                    }}
+   725→                  >
+   726→                    <Text style={[styles.pickerItemText, wilaya === w && styles.pickerItemSelectedText]}>
+   727→                      {w}
+   728→                    </Text>
+   729→                    {wilaya === w && (
+   730→                      <Ionicons name="checkmark" size={20} color={Colors.primary} />
+   731→                    )}
+   732→                  </TouchableOpacity>
+   733→                ))}
+   734→              </ScrollView>
+   735→            </View>
+   736→          </View>
+   737→        </Modal>
+   738→
+   739→        {/* Calendar Modal */}
+   740→        <Modal visible={showCalendarModal} transparent animationType="slide">
+   741→          <View style={styles.modalOverlay}>
+   742→            <View style={styles.pickerModal}>
+   743→              <View style={styles.pickerHeader}>
+   744→                <TouchableOpacity onPress={() => setShowCalendarModal(false)}>
+   745→                  <Text style={styles.pickerCancelText}>Annuler</Text>
+   746→                </TouchableOpacity>
+   747→                <Text style={styles.pickerTitle}>Choisir une date</Text>
+   748→                <View style={{ width: 60 }} />
+   749→              </View>
+   750→              
+   751→              <ScrollView style={styles.calendarGrid}>
+   752→                {generateCalendarDays().map((date, index) => {
+   753→                  const isSelected = selectedDate?.toDateString() === date.toDateString();
+   754→                  const dayName = date.toLocaleDateString('fr-FR', { weekday: 'short' });
+   755→                  
+   756→                  return (
+   757→                    <TouchableOpacity
+   758→                      key={index}
+   759→                      style={[
+   760→                        styles.calendarDay,
+   761→                        isSelected && styles.calendarDaySelected
+   762→                      ]}
+   763→                      onPress={() => handleDateSelect(date)}
+   764→                    >
+   765→                      <Text style={[styles.dayName, isSelected && styles.dayNameSelected]}>
+   766→                        {dayName}
+   767→                      </Text>
+   768→                      <Text style={[styles.dayNumber, isSelected && styles.dayNumberSelected]}>
+   769→                        {date.getDate()}
+   770→                      </Text>
+   771→                      <Text style={[styles.monthName, isSelected && styles.monthNameSelected]}>
+   772→                        {date.toLocaleDateString('fr-FR', { month: 'short' })}
+   773→                      </Text>
+   774→                    </TouchableOpacity>
+   775→                  );
+   776→                })}
+   777→              </ScrollView>
+   778→            </View>
+   779→          </View>
+   780→        </Modal>
+   781→      </View>
+   782→    );
+   783→  }
+   784→
+   785→  // Step 3: Confirmation / Result View
+   786→  return (
+   787→    <View style={styles.container}>
+   788→      <View style={styles.header}>
+   789→        <TouchableOpacity 
+   790→          style={styles.backButton}
+   791→          onPress={() => navigation.goBack()}
+   792→        >
+   793→          <Ionicons name="arrow-back" size={24} color={Colors.text} />
+   794→        </TouchableOpacity>
+   795→        <Text style={styles.headerTitle}>Ma réservation</Text>
+   796→        <View style={{ width: 40 }} />
+   797→      </View>
+   798→
+   799→      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+   800→        {currentBooking && (
+   801→          <>
+   802→            {/* Status Card */}
+   803→            <View style={[
+   804→              styles.statusCard,
+   805→              { borderLeftColor: getStatusColor(currentBooking.status) }
+   806→            ]}>
+   807→              <View style={styles.statusHeader}>
+   808→                <Ionicons 
+   809→                  name={getStatusIcon(currentBooking.status)} 
+   810→                  size={32} 
+   811→                  color={getStatusColor(currentBooking.status)} 
+   812→                />
+   813→                <View style={styles.statusInfo}>
+   814→                  <Text style={styles.bookingNumber}>{currentBooking.bookingNumber}</Text>
+   815→                  <Text style={[styles.statusText, { color: getStatusColor(currentBooking.status) }]}>
+   816→                    {getStatusText(currentBooking.status)}
+   817→                  </Text>
+   818→                </View>
+   819→              </View>
+   820→
+   821→              {!currentBooking.isPaid && currentBooking.status !== 'cancelled' && (
+   822→                <TouchableOpacity style={styles.payButton}>
+   823→                  <Ionicons name="card-outline" size={18} color={Colors.white} />
+   824→                  <Text style={styles.payButtonText}>
+   825→                    Payer {currentBooking.totalAmount.toLocaleString('fr-FR')} DZD
+   826→                  </Text>
+   827→                </TouchableOpacity>
+   828→              )}
+   829→
+   830→              {currentBooking.isPaid && (
+   831→                <View style={styles.paidBadge}>
+   832→                  <Ionicons name="checkmark-circle" size={14} color={Colors.success} />
+   833→                  <Text style={styles.paidText}>Payée</Text>
+   834→                </View>
+   835→              )}
+   836→            </View>
+   837→
+   838→            {/* Service Info */}
+   839→            <View style={styles.detailCard}>
+   840→              <Text style={styles.detailTitle}>Service réservé</Text>
+   841→              <View style={styles.detailRow}>
+   842→                <Text style={styles.detailLabel}>Type</Text>
+   843→                <Text style={styles.detailValue}>
+   844→                  {INSPECTION_TYPES[currentBooking.service.type]?.label}
+   845→                </Text>
+   846→              </View>
+   847→              <View style={styles.detailRow}>
+   848→                <Text style={styles.detailLabel}>Date prévue</Text>
+   849→                <Text style={styles.detailValue}>
+   850→                  {currentBooking.scheduledDate 
+   851→                    ? new Date(currentBooking.scheduledDate).toLocaleDateString('fr-FR')
+   852→                    : 'À définir'
+   853→                  }
+   854→                </Text>
+   855→              </View>
+   856→              <View style={styles.detailRow}>
+   857→                <Text style={styles.detailLabel}>Montant</Text>
+   858→                <Text style={styles.detailValue}>
+   859→                  {currentBooking.totalAmount.toLocaleString('fr-FR')} DZD
+   860→                </Text>
+   861→              </View>
+   862→            </View>
+   863→
+   864→            {/* Result (if completed) */}
+   865→            {currentBooking.result && (
+   866→              <View style={[styles.resultCard, { 
+   867→                borderLeftColor: currentBooking.result.status === 'pass' 
+   868→                  ? Colors.success 
+   869→                  : currentBooking.result.status === 'fail' 
+   870→                    ? Colors.error 
+   871→                    : Colors.warning 
+   872→              }]}>
+   873→                <Text style={styles.resultTitle}>Résultat de l'inspection</Text>
+   874→                
+   875→                <View style={styles.scoreContainer}>
+   876→                  <Text style={styles.scoreValue}>{currentBooking.result.overallScore}/100</Text>
+   877→                  <View style={[
+   878→                    styles.scoreBadge,
+   879→                    { backgroundColor: currentBooking.result.status === 'pass' 
+   880→                      ? Colors.successLight 
+   881→                      : currentBooking.result.status === 'fail' 
+   882→                        ? Colors.errorLight 
+   883→                        : Colors.warningLight 
+   884→                    }
+   885→                  ]}>
+   886→                    <Text style={[
+   887→                      styles.scoreBadgeText,
+   888→                      { color: currentBooking.result.status === 'pass' 
+   889→                        ? Colors.success 
+   890→                        : currentBooking.result.status === 'fail' 
+   891→                          ? Colors.error 
+   892→                          : Colors.warning 
+   893→                      }
+   894→                    ]}>
+   895→                      {currentBooking.result.status.toUpperCase()}
+   896→                    </Text>
+   897→                  </View>
+   898→                </View>
+   899→
+   900→                <Text style={styles.resultSummary}>{currentBooking.result.summary}</Text>
+   901→
+   902→                {currentBooking.result.reportUrl && (
+   903→                  <TouchableOpacity style={styles.reportButton}>
+   904→                    <Ionicons name="document-text-outline" size={18} color={Colors.primary} />
+   905→                    <Text style={styles.reportButtonText}>Voir le rapport complet</Text>
+   906→                    <Ionicons name="open-outline" size={16} color={Colors.primary} />
+   907→                  </TouchableOpacity>
+   908→                )}
+   909→
+   910→                {/* Result details */}
+   911→                {currentBooking.result.details.slice(0, 3).map((detail, index) => (
+   912→                  <View key={index} style={styles.criterionRow}>
+   913→                    <View style={[
+   914→                      styles.criterionDot,
+   915→                      { backgroundColor: detail.status === 'pass' 
+   916→                        ? Colors.success 
+   917→                        : detail.status === 'fail' 
+   918→                          ? Colors.error 
+   919→                          : Colors.warning 
+   920→                      ]}
+   921→                    ]}
+   922→                    />
+   923→                    <Text style={styles.criterionText} numberOfLines={1}>
+   924→                      {detail.criterion}
+   925→                    </Text>
+   926→                    <Text style={[
+   927→                      styles.criterionStatus,
+   928→                      { color: detail.status === 'pass' 
+   929→                        ? Colors.success 
+   930→                        : detail.status === 'fail' 
+   931→                          ? Colors.error 
+   932→                          : Colors.warning 
+   933→                      }
+   934→                    ]}>
+   935→                      {detail.status === 'pass' ? 'OK' : detail.status === 'fail' ? 'ÉCHEC' : 'ATTENTION'}
+   936→                    </Text>
+   937→                  </View>
+   938→                ))}
+   939→              </View>
+   940→            )}
+   941→          </>
+   942→        )}
+   943→      </ScrollView>
+   944→    </View>
+   945→  );
+   946→}
+   947→
+   948→// Helper functions
+   949→function getStatusColor(status: InspectionStatus): string {
+   950→  switch (status) {
+   951→    case 'scheduled': return Colors.info;
+   952→    case 'in_progress': return Colors.warning;
+   953→    case 'completed':
+   954→    case 'pass': return Colors.success;
+   955→    case 'failed':
+   956→    case 'fail': return Colors.error;
+   957→    case 'cancelled': return Colors.textTertiary;
+   958→    default: return Colors.textTertiary;
+   959→  }
+   960→}
+   961→
+   962→function getStatusIcon(status: InspectionStatus): string {
+   963→  switch (status) {
+   964→    case 'pending': return 'time-outline';
+   965→    case 'scheduled': return 'calendar-outline';
+   966→    case 'in_progress': return 'sync-outline';
+   967→    case 'completed':
+   968→    case 'pass': return 'checkmark-circle';
+   969→    case 'failed':
+   970→    case 'fail': return 'close-circle';
+   971→    case 'cancelled': return 'ban-outline';
+   972→    default: return 'ellipsis-circle';
+   973→  }
+   974→}
+   975→
+   976→function getStatusText(status: InspectionStatus): string {
+   977→  switch (status) {
+   978→    case 'pending': return 'En attente';
+   979→    case 'scheduled': return 'Planifiée';
+   980→    case 'in_progress': return 'En cours';
+   981→    case 'completed': return 'Terminée';
+   982→    case 'failed': return 'Échouée';
+   983→    case 'cancelled': return 'Annulée';
+   984→    default: return status;
+   985→  }
+   986→}
+   987→
+   988→// ============================================
+   989→// Styles
+   990→// ============================================
+   991→
+   992→const styles = StyleSheet.create({
+   993→  container: {
+   994→    flex: 1,
+   995→    backgroundColor: Colors.background,
+   996→  },
+   997→  loadingContainer: {
+   998→    flex: 1,
+   999→    justifyContent: 'center',
+  1000→    alignItems: 'center',
+  1001→    backgroundColor: Colors.background,
+  1002→  },
+  1003→  loadingText: {
+  1004→    marginTop: Spacing.md,
+  1005→    fontSize: FontSize.base,
+  1006→    color: Colors.textSecondary,
+  1007→    fontFamily: FontFamily.medium,
+  1008→  },
+  1009→  header: {
+  1010→    flexDirection: 'row',
+  1011→    alignItems: 'center',
+  1012→    justifyContent: 'space-between',
+  1013→    paddingHorizontal: Spacing.md,
+  1014→    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+  1015→    paddingBottom: Spacing.md,
+  1016→    backgroundColor: Colors.white,
+  1017→    borderBottomWidth: 1,
+  1018→    borderBottomColor: Colors.borderLight,
+  1019→  },
+  1020→  backButton: {
+  1021→    width: 40,
+  1022→    height: 40,
+  1023→    borderRadius: 20,
+  1024→    backgroundColor: Colors.surface,
+  1025→    justifyContent: 'center',
+  1026→    alignItems: 'center',
+  1027→  },
+  1028→  headerTitle: {
+  1029→    fontSize: FontSize.lg,
+  1030→    fontWeight: '600',
+  1031→    color: Colors.text,
+  1032→    fontFamily: FontFamily.semiBold,
+  1033→  },
+  1034→  scrollView: {
+  1035→    flex: 1,
+  1036→  },
+  1037→
+  1038→  // Info Banner
+  1039→  infoBanner: {
+  1040→    flexDirection: 'row',
+  1041→    margin: Spacing.md,
+  1042→    padding: Spacing.md,
+  1043→    backgroundColor: Colors.primaryLight,
+  1044→    borderRadius: BorderRadius.lg,
+  1045→    alignItems: 'center',
+  1046→  },
+  1047→  infoBannerContent: {
+  1048→    flex: 1,
+  1049→    marginLeft: Spacing.sm,
+  1050→  },
+  1051→  infoBannerTitle: {
+  1052→    fontSize: FontSize.base,
+  1053→    fontWeight: '600',
+  1054→    color: Colors.primary,
+  1055→    fontFamily: FontFamily.semiBold,
+  1056→    marginBottom: 2,
+  1057→  },
+  1058→  infoBannerText: {
+  1059→    fontSize: FontSize.sm,
+  1060→    color: Colors.primaryDark,
+  1061→    fontFamily: FontFamily.regular,
+  1062→  },
+  1063→
+  1064→  // Sections
+  1065→  section: {
+  1066→    padding: Spacing.md,
+  1067→  },
+  1068→  sectionTitle: {
+  1069→    fontSize: FontSize.lg,
+  1070→    fontWeight: '600',
+  1071→    color: Colors.text,
+  1072→    fontFamily: FontFamily.semiBold,
+  1073→    marginBottom: Spacing.md,
+  1074→  },
+  1075→
+  1076→  // Service Cards
+  1077→  serviceCard: {
+  1078→    flexDirection: 'row',
+  1079→    backgroundColor: Colors.white,
+  1080→    borderRadius: BorderRadius.lg,
+  1081→    padding: Spacing.md,
+  1082→    marginBottom: Spacing.sm,
+  1083→    ...Shadows.sm,
+  1084→  },
+  1085→  serviceIconContainer: {
+  1086→    width: 56,
+  1087→    height: 56,
+  1088→    borderRadius: BorderRadius.md,
+  1089→    justifyContent: 'center',
+  1090→    alignItems: 'center',
+  1091→    marginRight: Spacing.md,
+  1092→  },
+  1093→  serviceContent: {
+  1094→    flex: 1,
+  1095→  },
+  1096→  serviceName: {
+  1097→    fontSize: FontSize.base,
+  1098→    fontWeight: '600',
+  1099→    color: Colors.text,
+  1100→    fontFamily: FontFamily.semiBold,
+  1101→    marginBottom: 4,
+  1102→  },
+  1103→  serviceDescription: {
+  1104→    fontSize: FontSize.xs,
+  1105→    color: Colors.textTertiary,
+  1106→    fontFamily: FontFamily.regular,
+  1107→    marginBottom: Spacing.sm,
+  1108→  },
+  1109→  serviceMeta: {
+  1110→    flexDirection: 'row',
+  1111→    gap: Spacing.md,
+  1112→  },
+  1113→  metaItem: {
+  1114→    flexDirection: 'row',
+  1115→    alignItems: 'center',
+  1116→    gap: 4,
+  1117→  },
+  1118→  metaItemSuccess: {},
+  1119→  metaText: {
+  1120→    fontSize: FontSize.xs,
+  1121→    color: Colors.textSecondary,
+  1122→    fontFamily: FontFamily.regular,
+  1123→  },
+  1124→  metaTextSuccess: {
+  1125→    color: Colors.success,
+  1126→  },
+  1127→  priceContainer: {
+  1128→    alignItems: 'flex-end',
+  1129→    justifyContent: 'space-between',
+  1130→    paddingLeft: Spacing.sm,
+  1131→  },
+  1132→  priceValue: {
+  1133→    fontSize: FontSize.sm,
+  1134→    fontWeight: '600',
+  1135→    color: Colors.primary,
+  1136→    fontFamily: FontFamily.semiBold,
+  1137→  },
+  1138→
+  1139→  // How it works
+  1140→  howItWorksSection: {
+  1141→    padding: Spacing.md,
+  1142→  },
+  1143→  stepsList: {
+  1144→    backgroundColor: Colors.white,
+  1145→    borderRadius: BorderRadius.lg,
+  1146→    padding: Spacing.md,
+  1147→    ...Shadows.sm,
+  1148→  },
+  1149→  stepItem: {
+  1150→    flexDirection: 'row',
+  1151→    alignItems: 'center',
+  1152→    paddingVertical: Spacing.sm,
+  1153→  },
+  1154→  stepNumber: {
+  1155→    width: 28,
+  1156→    height: 28,
+  1157→    borderRadius: 14,
+  1158→    backgroundColor: Colors.primary,
+  1159→    justifyContent: 'center',
+  1160→    alignItems: 'center',
+  1161→    marginRight: Spacing.md,
+  1162→  },
+  1163→  stepNumberText: {
+  1164→    fontSize: FontSize.sm,
+  1165→    fontWeight: '600',
+  1166→    color: Colors.white,
+  1167→    fontFamily: FontFamily.semiBold,
+  1168→  },
+  1169→  stepContent: {
+  1170→    flex: 1,
+  1171→  },
+  1172→  stepTitle: {
+  1173→    fontSize: FontSize.base,
+  1174→    fontWeight: '500',
+  1175→    color: Colors.text,
+  1176→    fontFamily: FontFamily.medium,
+  1177→  },
+  1178→  stepDescription: {
+  1179→    fontSize: FontSize.xs,
+  1180→    color: Colors.textTertiary,
+  1181→    fontFamily: FontFamily.regular,
+  1182→  },
+  1183→
+  1184→  // Selected Service Banner
+  1185→  selectedServiceBanner: {
+  1186→    flexDirection: 'row',
+  1187→    alignItems: 'center',
+  1188→    margin: Spacing.md,
+  1189→    padding: Spacing.md,
+  1190→    backgroundColor: Colors.surface,
+  1191→    borderRadius: BorderRadius.lg,
+  1192→  },
+  1193→  selectedServiceIcon: {
+  1194→    width: 44,
+  1195→    height: 44,
+  1196→    borderRadius: BorderRadius.md,
+  1197→    justifyContent: 'center',
+  1198→    alignItems: 'center',
+  1199→  },
+  1200→  selectedServiceInfo: {
+  1201→    flex: 1,
+  1202→    marginLeft: Spacing.sm,
+  1203→  },
+  1204→  selectedServiceName: {
+  1205→    fontSize: FontSize.base,
+  1206→    fontWeight: '600',
+  1207→    color: Colors.text,
+  1208→    fontFamily: FontFamily.semiBold,
+  1209→  },
+  1210→  selectedServicePrice: {
+  1211→    fontSize: FontSize.sm,
+  1212→    color: Colors.textSecondary,
+  1213→    fontFamily: FontFamily.regular,
+  1214→  },
+  1215→
+  1216→  // Form
+  1217→  formSection: {
+  1218→    paddingHorizontal: Spacing.md,
+  1219→    marginBottom: Spacing.lg,
+  1220→  },
+  1221→  formSectionTitle: {
+  1222→    fontSize: FontSize.base,
+  1223→    fontWeight: '600',
+  1224→    color: Colors.text,
+  1225→    fontFamily: FontFamily.semiBold,
+  1226→    marginBottom: Spacing.sm,
+  1227→  },
+  1228→  textInput: {
+  1229→    borderWidth: 1,
+  1230→    borderColor: Colors.border,
+  1231→    borderRadius: BorderRadius.md,
+  1232→    paddingHorizontal: Spacing.md,
+  1233→    paddingVertical: Spacing.md,
+  1234→    fontSize: FontSize.base,
+  1235→    color: Colors.text,
+  1236→    fontFamily: FontFamily.regular,
+  1237→    backgroundColor: Colors.white,
+  1238→    marginBottom: Spacing.sm,
+  1239→  },
+  1240→  textArea: {
+  1241→    minHeight: 80,
+  1242→    textAlignVertical: 'top',
+  1243→  },
+  1244→  rowInputs: {
+  1245→    flexDirection: 'row',
+  1246→    gap: Spacing.sm,
+  1247→  },
+  1248→  flexInput: {
+  1249→    flex: 1,
+  1250→  },
+  1251→  selectInput: {
+  1252→    flex: 1,
+  1253→    flexDirection: 'row',
+  1254→    alignItems: 'center',
+  1255→    justifyContent: 'space-between',
+  1256→  },
+  1257→  selectText: {
+  1258→    fontSize: FontSize.base,
+  1259→    color: Colors.textTertiary,
+  1260→    fontFamily: FontFamily.regular,
+  1261→  },
+  1262→  selectTextFilled: {
+  1263→    color: Colors.text,
+  1264→  },
+  1265→
+  1266→  // Date & Time
+  1267→  dateSelector: {
+  1268→    flexDirection: 'row',
+  1269→    alignItems: 'center',
+  1270→    backgroundColor: Colors.white,
+  1271→    borderWidth: 1,
+  1272→    borderColor: Colors.border,
+  1273→    borderRadius: BorderRadius.md,
+  1274→    paddingHorizontal: Spacing.md,
+  1275→    paddingVertical: Spacing.md,
+  1276→    marginBottom: Spacing.md,
+  1277→  },
+  1278→  dateText: {
+  1279→    flex: 1,
+  1280→    fontSize: FontSize.base,
+  1281→    color: selectedDate ? Colors.text : Colors.textTertiary,
+  1282→    marginLeft: Spacing.sm,
+  1283→    fontFamily: FontFamily.regular,
+  1284→  },
+  1285→  timeSlotsContainer: {
+  1286→    flexDirection: 'row',
+  1287→    flexWrap: 'wrap',
+  1288→    gap: Spacing.sm,
+  1289→  },
+  1290→  timeSlot: {
+  1291→    paddingHorizontal: Spacing.md,
+  1292→    paddingVertical: Spacing.sm,
+  1293→    backgroundColor: Colors.white,
+  1294→    borderRadius: BorderRadius.md,
+  1295→    borderWidth: 1,
+  1296→    borderColor: Colors.border,
+  1297→  },
+  1298→  timeSlotSelected: {
+  1299→    backgroundColor: Colors.primary,
+  1300→    borderColor: Colors.primary,
+  1301→  },
+  1302→  timeSlotText: {
+  1303→    fontSize: FontSize.sm,
+  1304→    color: Colors.text,
+  1305→    fontFamily: FontFamily.medium,
+  1306→  },
+  1307→  timeSlotTextSelected: {
+  1308→    color: Colors.white,
+  1309→  },
+  1310→
+  1311→  // Options
+  1312→  optionRow: {
+  1313→    flexDirection: 'row',
+  1314→    alignItems: 'center',
+  1315→    paddingVertical: Spacing.sm,
+  1316→  },
+  1317→  checkbox: {
+  1318→    width: 22,
+  1319→    height: 22,
+  1320→    borderRadius: 6,
+  1321→    borderWidth: 2,
+  1322→    borderColor: Colors.border,
+  1323→    marginRight: Spacing.sm,
+  1324→    justifyContent: 'center',
+  1325→    alignItems: 'center',
+  1326→  },
+  1327→  checkboxChecked: {
+  1328→    backgroundColor: Colors.primary,
+  1329→    borderColor: Colors.primary,
+  1330→  },
+  1331→  optionContent: {
+  1332→    flex: 1,
+  1333→  },
+  1334→  optionLabel: {
+  1335→    fontSize: FontSize.base,
+  1336→    fontWeight: '500',
+  1337→    color: Colors.text,
+  1338→    fontFamily: FontFamily.medium,
+  1339→  },
+  1340→  optionDescription: {
+  1341→    fontSize: FontSize.xs,
+  1342→    color: Colors.textTertiary,
+  1343→    fontFamily: FontFamily.regular,
+  1344→  },
+  1345→
+  1346→  // Price Summary
+  1347→  priceSummary: {
+  1348→    marginHorizontal: Spacing.md,
+  1349→    padding: Spacing.md,
+  1350→    backgroundColor: Colors.white,
+  1351→    borderRadius: BorderRadius.lg,
+  1352→    ...Shadows.sm,
+  1353→    marginBottom: Spacing.lg,
+  1354→  },
+  1355→  priceSummaryTitle: {
+  1356→    fontSize: FontSize.base,
+  1357→    fontWeight: '600',
+  1358→    color: Colors.text,
+  1359→    fontFamily: FontFamily.semiBold,
+  1360→    marginBottom: Spacing.md,
+  1361→  },
+  1362→  priceRow: {
+  1363→    flexDirection: 'row',
+  1364→    justifyContent: 'space-between',
+  1365→    paddingVertical: Spacing.xs,
+  1366→  },
+  1367→  priceLabel: {
+  1368→    fontSize: FontSize.sm,
+  1369→    color: Colors.textSecondary,
+  1370→    fontFamily: FontFamily.regular,
+  1371→  },
+  1372→  priceAmount: {
+  1373→    fontSize: FontSize.sm,
+  1374→    color: Colors.text,
+  1375→    fontFamily: FontFamily.medium,
+  1376→  },
+  1377→  totalRow: {
+  1378→    borderTopWidth: 1,
+  1379→    borderTopColor: Colors.borderLight,
+  1380→    marginTop: Spacing.sm,
+  1381→    paddingTop: Spacing.sm,
+  1382→  },
+  1383→  totalLabel: {
+  1384→    fontSize: FontSize.base,
+  1385→    fontWeight: '600',
+  1386→    color: Colors.text,
+  1387→    fontFamily: FontFamily.semiBold,
+  1388→  },
+  1389→  totalAmount: {
+  1390→    fontSize: FontSize.lg,
+  1391→    fontWeight: 'bold',
+  1392→    color: Colors.primary,
+  1393→    fontFamily: FontFamily.bold,
+  1394→  },
+  1395→
+  1396→  // Submit Button
+  1397→  submitButton: {
+  1398→    flexDirection: 'row',
+  1399→    justifyContent: 'center',
+  1400→    alignItems: 'center',
+  1401→    backgroundColor: Colors.primary,
+  1402→    marginHorizontal: Spacing.md,
+  1403→    paddingVertical: Spacing.md,
+  1404→    borderRadius: BorderRadius.lg,
+  1405→    marginBottom: Spacing.xl,
+  1406→    gap: Spacing.sm,
+  1407→  },
+  1408→  submitButtonDisabled: {
+  1409→    opacity: 0.6,
+  1410→  },
+  1411→  submitButtonText: {
+  1412→    fontSize: FontSize.base,
+  1413→    fontWeight: '600',
+  1414→    color: Colors.white,
+  1415→    fontFamily: FontFamily.semiBold,
+  1416→  },
+  1417→
+  1418→  // Modals
+  1419→  modalOverlay: {
+  1420→    flex: 1,
+  1421→    backgroundColor: Colors.overlay,
+  1422→    justifyContent: 'flex-end',
+  1423→  },
+  1424→  pickerModal: {
+  1425→    backgroundColor: Colors.white,
+  1426→    borderTopLeftRadius: BorderRadius.xxl,
+  1427→    borderTopRightRadius: BorderRadius.xxl,
+  1428→    maxHeight: '70%',
+  1429→  },
+  1430→  pickerHeader: {
+  1431→    flexDirection: 'row',
+  1432→    alignItems: 'center',
+  1433→    justifyContent: 'space-between',
+  1434→    paddingHorizontal: Spacing.md,
+  1435→    paddingTop: Platform.OS === 'ios' ? 40 : Spacing.lg,
+  1436→    paddingBottom: Spacing.md,
+  1437→    borderBottomWidth: 1,
+  1438→    borderBottomColor: Colors.borderLight,
+  1439→  },
+  1440→  pickerCancelText: {
+  1441→    fontSize: FontSize.base,
+  1442→    color: Colors.primary,
+  1443→    fontFamily: FontFamily.medium,
+  1444→    width: 60,
+  1445→  },
+  1446→  pickerTitle: {
+  1447→    fontSize: FontSize.lg,
+  1448→    fontWeight: '600',
+  1449→    color: Colors.text,
+  1450→    fontFamily: FontFamily.semiBold,
+  1451→  },
+  1452→  pickerList: {
+  1453→    maxHeight: 400,
+  1454→  },
+  1455→  pickerItem: {
+  1456→    flexDirection: 'row',
+  1457→    alignItems: 'center',
+  1458→    justifyContent: 'space-between',
+  1459→    paddingVertical: Spacing.md,
+  1460→    paddingHorizontal: Spacing.lg,
+  1461→    borderBottomWidth: 1,
+  1462→    borderBottomColor: Colors.borderLight,
+  1463→  },
+  1464→  pickerItemSelected: {
+  1465→    backgroundColor: Colors.primary + '10',
+  1466→  },
+  1467→  pickerItemText: {
+  1468→    fontSize: FontSize.base,
+  1469→    color: Colors.text,
+  1470→    fontFamily: FontFamily.regular,
+  1471→  },
+  1472→  pickerItemSelectedText: {
+  1473→    color: Colors.primary,
+  1474→    fontWeight: '500',
+  1475→  },
+  1476→  calendarGrid: {
+  1477→    flexDirection: 'row',
+  1478→    flexWrap: 'wrap',
+  1479→    padding: Spacing.sm,
+  1480→  },
+  1481→  calendarDay: {
+  1482→    width: (SCREEN_WIDTH - Spacing.lg) / 4,
+  1483→    aspectRatio: 0.75,
+  1484→    backgroundColor: Colors.surface,
+  1485→    borderRadius: BorderRadius.md,
+  1486→    margin: Spacing.xs,
+  1487→    justifyContent: 'center',
+  1488→    alignItems: 'center',
+  1489→  },
+  1490→  calendarDaySelected: {
+  1491→    backgroundColor: Colors.primary,
+  1492→  },
+  1493→  dayName: {
+  1494→    fontSize: 9,
+  1495→    color: Colors.textTertiary,
+  1496→    fontFamily: FontFamily.regular,
+  1497→    textTransform: 'uppercase',
+  1498→  },
+  1499→  dayNameSelected: {
+  1500→    color: Colors.white + 'AA',
+  1501→  },
+  1502→  dayNumber: {
+  1503→    fontSize: FontSize.lg,
+  1504→    fontWeight: '600',
+  1505→    color: Colors.text,
+  1506→    fontFamily: FontFamily.semiBold,
+  1507→  },
+  1508→  dayNumberSelected: {
+  1509→    color: Colors.white,
+  1510→  },
+  1511→  monthName: {
+  1512→    fontSize: 9,
+  1513→    color: Colors.textTertiary,
+  1514→    fontFamily: FontFamily.regular,
+  1515→  },
+  1516→  monthNameSelected: {
+  1517→    color: Colors.white + 'AA',
+  1518→  },
+  1519→
+  1520→  // Confirmation Screen
+  1521→  statusCard: {
+  1522→    margin: Spacing.md,
+  1523→    padding: Spacing.lg,
+  1524→    backgroundColor: Colors.white,
+  1525→    borderRadius: BorderRadius.xl,
+  1526→    borderLeftWidth: 4,
+  1527→    ...Shadows.md,
+  1528→  },
+  1529→  statusHeader: {
+  1530→    flexDirection: 'row',
+  1531→    alignItems: 'center',
+  1532→    marginBottom: Spacing.md,
+  1533→  },
+  1534→  statusInfo: {
+  1535→    marginLeft: Spacing.md,
+  1536→    flex: 1,
+  1537→  },
+  1538→  bookingNumber: {
+  1539→    fontSize: FontSize.sm,
+  1540→    color: Colors.textTertiary,
+  1541→    fontFamily: FontFamily.regular,
+  1542→  },
+  1543→  statusText: {
+  1544→    fontSize: FontSize.lg,
+  1545→    fontWeight: '600',
+  1546→    fontFamily: FontFamily.semiBold,
+  1547→  },
+  1548→  payButton: {
+  1549→    flexDirection: 'row',
+  1550→    justifyContent: 'center',
+  1551→    alignItems: 'center',
+  1552→    backgroundColor: Colors.primary,
+  1553→    paddingVertical: Spacing.sm,
+  1554→    borderRadius: BorderRadius.md,
+  1555→    gap: Spacing.sm,
+  1556→  },
+  1557→  payButtonText: {
+  1558→    fontSize: FontSize.sm,
+  1559→    fontWeight: '500',
+  1560→    color: Colors.white,
+  1561→    fontFamily: FontFamily.medium,
+  1562→  },
+  1563→  paidBadge: {
+  1564→    flexDirection: 'row',
+  1565→    alignSelf: 'flex-start',
+  1566→    alignItems: 'center',
+  1567→    backgroundColor: Colors.successLight,
+  1568→    paddingHorizontal: Spacing.sm,
+  1569→    paddingVertical: Spacing.xs,
+  1570→    borderRadius: BorderRadius.full,
+  1571→    gap: 4,
+  1572→  },
+  1573→  paidText: {
+  1574→    fontSize: FontSize.sm,
+  1575→    fontWeight: '500',
+  1576→    color: Colors.success,
+  1577→    fontFamily: FontFamily.medium,
+  1578→  },
+  1579→  detailCard: {
+  1580→    marginHorizontal: Spacing.md,
+  1581→    marginBottom: Spacing.md,
+  1582→    padding: Spacing.md,
+  1583→    backgroundColor: Colors.white,
+  1584→    borderRadius: BorderRadius.lg,
+  1585→    ...Shadows.sm,
+  1586→  },
+  1587→  detailTitle: {
+  1588→    fontSize: FontSize.base,
+  1589→    fontWeight: '600',
+  1590→    color: Colors.text,
+  1591→    fontFamily: FontFamily.semiBold,
+  1592→    marginBottom: Spacing.md,
+  1593→  },
+  1594→  detailRow: {
+  1595→    flexDirection: 'row',
+  1596→    justifyContent: 'space-between',
+  1597→    paddingVertical: Spacing.xs,
+  1598→  },
+  1599→  detailLabel: {
+  1600→    fontSize: FontSize.sm,
+  1601→    color: Colors.textSecondary,
+  1602→    fontFamily: FontFamily.regular,
+  1603→  },
+  1604→  detailValue: {
+  1605→    fontSize: FontSize.sm,
+  1606→    color: Colors.text,
+  1607→    fontWeight: '500',
+  1608→    fontFamily: FontFamily.medium,
+  1609→  },
+  1610→  resultCard: {
+  1611→    marginHorizontal: Spacing.md,
+  1612→    marginBottom: Spacing.md,
+  1613→    padding: Spacing.md,
+  1614→    backgroundColor: Colors.white,
+  1615→    borderRadius: BorderRadius.lg,
+  1616→    borderLeftWidth: 4,
+  1617→    ...Shadows.sm,
+  1618→  },
+  1619→  resultTitle: {
+  1620→    fontSize: FontSize.base,
+  1621→    fontWeight: '600',
+  1622→    color: Colors.text,
+  1623→    fontFamily: FontFamily.semiBold,
+  1624→    marginBottom: Spacing.md,
+  1625→  },
+  1626→  scoreContainer: {
+  1627→    flexDirection: 'row',
+  1628→    alignItems: 'center',
+  1629→    marginBottom: Spacing.md,
+  1630→  },
+  1631→  scoreValue: {
+  1632→    fontSize: FontSize.xxxl,
+  1633→    fontWeight: 'bold',
+  1634→    color: Colors.text,
+  1635→    fontFamily: FontFamily.bold,
+  1636→    marginRight: Spacing.md,
+  1637→  },
+  1638→  scoreBadge: {
+  1639→    paddingHorizontal: Spacing.sm,
+  1640→    paddingVertical: Spacing.xs,
+  1641→    borderRadius: BorderRadius.full,
+  1642→  },
+  1643→  scoreBadgeText: {
+  1644→    fontSize: FontSize.xs,
+  1645→    fontWeight: '600',
+  1646→    fontFamily: FontFamily.semiBold,
+  1647→  },
+  1648→  resultSummary: {
+  1649→    fontSize: FontSize.sm,
+  1650→    color: Colors.textSecondary,
+  1651→    fontFamily: FontFamily.regular,
+  1652→    lineHeight: 20,
+  1653→    marginBottom: Spacing.md,
+  1654→  },
+  1655→  reportButton: {
+  1656→    flexDirection: 'row',
+  1657→    alignItems: 'center',
+  1658→    padding: Spacing.md,
+  1659→    backgroundColor: Colors.primaryLight,
+  1660→    borderRadius: BorderRadius.md,
+  1661→    marginBottom: Spacing.md,
+  1662→  },
+  1663→  reportButtonText: {
+  1664→    flex: 1,
+  1665→    fontSize: FontSize.sm,
+  1666→    fontWeight: '500',
+  1667→    color: Colors.primary,
+  1668→    marginLeft: Spacing.sm,
+  1669→    fontFamily: FontFamily.medium,
+  1670→  },
+  1671→  criterionRow: {
+  1672→    flexDirection: 'row',
+  1673→    alignItems: 'center',
+  1674→    paddingVertical: Spacing.xs,
+  1675→  },
+  1676→  criterionDot: {
+  1677→    width: 8,
+  1678→    height: 8,
+  1679→    borderRadius: 4,
+  1680→    marginRight: Spacing.sm,
+  1681→  },
+  1682→  criterionText: {
+  1683→    flex: 1,
+  1684→    fontSize: FontSize.sm,
+  1685→    color: Colors.text,
+  1686→    fontFamily: FontFamily.regular,
+  1687→  },
+  1688→  criterionStatus: {
+  1689→    fontSize: FontSize.xs,
+  1690→    fontWeight: '500',
+  1691→    fontFamily: FontFamily.medium,
+  1692→  },
+  1693→});
+  1694→

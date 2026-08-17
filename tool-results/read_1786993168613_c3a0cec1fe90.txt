@@ -1,0 +1,914 @@
+     1→import React, { useState, useEffect, useCallback, useRef } from 'react';
+     2→import {
+     3→  View,
+     4→  Text,
+     5→  StyleSheet,
+     6→  FlatList,
+     7→  RefreshControl,
+     8→  TouchableOpacity,
+     9→  Image,
+    10→  Dimensions,
+    11→  ActivityIndicator,
+    12→  Alert,
+    13→} from 'react-native';
+    14→import { Ionicons } from '@expo/vector-icons';
+    15→import { useNavigation } from '@react-navigation/native';
+    16→import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+    17→
+    18→// Components
+    19→import SearchBar from '../../components/SearchBar';
+    20→import ProductCard from '../../components/ProductCard';
+    21→import StarRating from '../../components/StarRating';
+    22→
+    23→// Services
+    24→import { offlineService, useOfflineStatus } from '../../services/offline';
+    25→
+    26→// Constants
+    27→import { Colors, FontFamily, FontSize, Spacing, BorderRadius, Shadows } from '../../utils/constants';
+    28→
+    29→// Types
+    30→import { RootStackParamList } from '../../navigation';
+    31→
+    32→type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
+    33→
+    34→const { width: SCREEN_WIDTH } = Dimensions.get('window');
+    35→
+    36→// Mock data for demonstration (would come from API)
+    37→const CATEGORIES = [
+    38→  { id: '1', name: 'Agriculture', icon: '🌾', count: 3400, color: '#10B981' },
+    39→  { id: '2', name: 'Construction', icon: '🏗️', count: 5200, color: '#F59E0B' },
+    40→  { id: '3', name: 'Technologie', icon: '💻', count: 2800, color: '#3B82F6' },
+    41→  { id: '4', name: 'Alimentation', icon: '🍽️', count: 4100, color: '#EF4444' },
+    42→  { id: '5', name: 'Textile', icon: '👕', count: 1900, color: '#8B5CF6' },
+    43→  { id: '6', name: 'Chimie', icon: '🧪', count: 1500, color: '#EC4899' },
+    44→];
+    45→
+    46→interface Product {
+    47→  id: string;
+    48→  name: string;
+    49→  price: number;
+    50→  currency: string;
+    51→  image: string | null;
+    52→  supplier: string;
+    53→  rating: number;
+    54→  reviews: number;
+    55→  location: string;
+    56→  category: string;
+    57→}
+    58→
+    59→const FEATURED_PRODUCTS: Product[] = [
+    60→  {
+    61→    id: '1',
+    62→    name: 'Panneau Solaire 300W Monocristallin',
+    63→    price: 45000,
+    64→    currency: 'DZD',
+    65→    image: null,
+    66→    supplier: 'SolarTech Algérie',
+    67→    rating: 4.8,
+    68→    reviews: 124,
+    69→    location: 'Alger',
+    70→    category: 'Technologie',
+    71→  },
+    72→  {
+    73→    id: '2',
+    74→    name: 'Ciment Portland CE I 42.5 - Sac 50kg',
+    75→    price: 6500,
+    76→    currency: 'DZD',
+    77→    image: null,
+    78→    supplier: 'SCIMAT',
+    79→    rating: 4.6,
+    80→    reviews: 89,
+    81→    location: 'Skikda',
+    82→    category: 'Construction',
+    83→  },
+    84→  {
+    85→    id: '3',
+    86→    name: "Huile d'Olive Extra Vierge - Bidon 5L",
+    87→    price: 8500,
+    88→    currency: 'DZD',
+    89→    image: null,
+    90→    supplier: 'Les Oliviers de Béjaïa',
+    91→    rating: 4.9,
+    92→    reviews: 256,
+    93→    location: 'Béjaïa',
+    94→    category: 'Agriculture',
+    95→  },
+    96→];
+    97→
+    98→const STATS = [
+    99→  { label: 'Produits', value: '2,500+', subtitle: 'Disponibles', color: '#006233' },
+   100→  { label: 'Fournisseurs', value: '850+', subtitle: 'Vérifiés', color: '#D52B1E' },
+   101→  { label: 'RFQs Actifs', value: '120', subtitle: 'En cours', color: '#F59E0B' },
+   102→];
+   103→
+   104→export default function HomeScreen() {
+   105→  const navigation = useNavigation<NavigationProp>();
+   106→  
+   107→  // State
+   108→  const [products, setProducts] = useState<Product[]>(FEATURED_PRODUCTS);
+   109→  const [featuredProducts, setFeaturedProducts] = useState<Product[]>(FEATURED_PRODUCTS);
+   110→  const [loading, setLoading] = useState(true);
+   111→  const [refreshing, setRefreshing] = useState(false);
+   112→  const [searchQuery, setSearchQuery] = useState('');
+   113→  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+   114→  
+   115→  // Offline status hook
+   116→  const { isOnline, isOffline } = useOfflineStatus();
+   117→  
+   118→  // Ref for preventing race conditions
+   119→  const isMountedRef = useRef(true);
+   120→
+   121→  // Load data with offline support
+   122→  const loadData = useCallback(async (showRefreshAnimation: boolean = false) => {
+   123→    try {
+   124→      if (showRefreshAnimation) {
+   125→        setRefreshing(true);
+   126→      }
+   127→
+   128→      // Try to get cached data first for instant display
+   129→      const cachedProducts = await offlineService.getCachedData<Product[]>('home_products');
+   130→      const cachedFeatured = await offlineService.getCachedData<Product[]>('featured_products');
+   131→      
+   132→      if (cachedProducts && isMountedRef.current) {
+   133→        setProducts(cachedProducts);
+   134→        setLoading(false);
+   135→      }
+   136→      
+   137→      if (cachedFeatured && isMountedRef.current) {
+   138→        setFeaturedProducts(cachedFeatured);
+   139→      }
+   140→
+   141→      // Fetch fresh data if online
+   142→      if (isOnline || await offlineService.isConnected()) {
+   143→        try {
+   144→          // Simulate API call - replace with actual API call
+   145→          // const response = await fetch(`${API_URL}/products?limit=20`);
+   146→          // const data = await response.json();
+   147→          
+   148→          // For now, using mock data with simulated delay
+   149→          await new Promise(resolve => setTimeout(resolve, 1000));
+   150→          
+   151→          const freshProducts: Product[] = FEATURED_PRODUCTS; // Would be data.data from API
+   152→          const freshFeatured: Product[] = FEATURED_PRODUCTS.slice(0, 3);
+   153→          
+   154→          if (isMountedRef.current) {
+   155→            setProducts(freshProducts);
+   156→            setFeaturedProducts(freshFeatured);
+   157→            setLastUpdated(new Date());
+   158→            
+   159→            // Cache the fresh data
+   160→            await offlineService.cacheData('home_products', freshProducts, 30); // 30 min TTL
+   161→            await offlineService.cacheData('featured_products', freshFeatured, 30);
+   162→          }
+   163→        } catch (fetchError) {
+   164→          console.error('Fetch error:', fetchError);
+   165→          // Keep cached data on display
+   166→          if (!cachedProducts && isMountedRef.current) {
+   167→            setLoading(false);
+   168→          }
+   169→        }
+   170→      } else {
+   171→        // Offline mode - show cached data or empty state
+   172→        if (!cachedProducts && isMountedRef.current) {
+   173→          setLoading(false);
+   174→        }
+   175→      }
+   176→    } catch (error) {
+   177→      console.error('Load data error:', error);
+   178→      if (isMountedRef.current) {
+   179→        setLoading(false);
+   180→      }
+   181→    } finally {
+   182→      if (isMountedRef.current) {
+   183→        setLoading(false);
+   184→        setRefreshing(false);
+   185→      }
+   186→    }
+   187→  }, [isOnline]);
+   188→
+   189→  // Initial load and cleanup
+   190→  useEffect(() => {
+   191→    isMountedRef.current = true;
+   192→    loadData();
+   193→
+   194→    return () => {
+   195→      isMountedRef.current = false;
+   196→    };
+   197→  }, [loadData]);
+   198→
+   199→  // Pull-to-refresh handler
+   200→  const onRefresh = useCallback(() => {
+   201→    loadData(true);
+   202→  }, [loadData]);
+   203→
+   204→  // Search handler
+   205→  const handleSearch = (query: string) => {
+   206→    if (query.trim()) {
+   207→      navigation.navigate('ProductList', { searchQuery: query });
+   208→    }
+   209→  };
+   210→
+   211→  // Category press handler
+   212→  const handleCategoryPress = (categoryName: string) => {
+   213→    navigation.navigate('ProductList', { category: categoryName });
+   214→  };
+   215→
+   216→  // Product press handler
+   217→  const handleProductPress = (productId: string) => {
+   218→    navigation.navigate('ProductDetail', { productId });
+   219→  };
+   220→
+   221→  // Retry button handler
+   222→  const handleRetry = () => {
+   223→    setLoading(true);
+   224→    loadData();
+   225→  };
+   226→
+   227→  // Render category item
+   228→  const renderCategoryItem = ({ item }: { item: typeof CATEGORIES[0] }) => (
+   229→    <TouchableOpacity
+   230→      style={styles.categoryItem}
+   231→      onPress={() => handleCategoryPress(item.name)}
+   232→      activeOpacity={0.7}
+   233→    >
+   234→      <View style={[styles.categoryIconContainer, { backgroundColor: `${item.color}20` }]}>
+   235→        <Text style={styles.categoryEmoji}>{item.icon}</Text>
+   236→      </View>
+   237→      <Text style={styles.categoryName} numberOfLines={1}>{item.name}</Text>
+   238→      <Text style={styles.categoryCount}>{item.count.toLocaleString()}</Text>
+   239→    </TouchableOpacity>
+   240→  );
+   241→
+   242→  // Render featured product
+   243→  const renderFeaturedProduct = ({ item }: { item: Product }) => (
+   244→    <TouchableOpacity
+   245→      style={styles.productCard}
+   246→      onPress={() => handleProductPress(item.id)}
+   247→      activeOpacity={0.7}
+   248→    >
+   249→      {/* Product Image Placeholder */}
+   250→      <View style={styles.productImagePlaceholder}>
+   251→        {item.image ? (
+   252→          <Image source={{ uri: item.image }} style={styles.productImage} resizeMode="cover" />
+   253→        ) : (
+   254→          <Ionicons name="image-outline" size={40} color={Colors.textTertiary} />
+   255→        )}
+   256→      </View>
+   257→
+   258→      {/* Product Info */}
+   259→      <View style={styles.productInfo}>
+   260→        <Text style={styles.productName} numberOfLines={2}>{item.name}</Text>
+   261→        
+   262→        <StarRating rating={item.rating} size={14} showCount count={item.reviews} />
+   263→        
+   264→        <View style={styles.productFooter}>
+   265→          <Text style={styles.productPrice}>
+   266→            {item.price.toLocaleString()} {item.currency}
+   267→          </Text>
+   268→          <Ionicons name="chevron-forward" size={16} color={Colors.textSecondary} />
+   269→        </View>
+   270→        
+   271→        <View style={styles.supplierRow}>
+   272→          <Ionicons name="storefront-outline" size={12} color={Colors.textTertiary} />
+   273→          <Text style={styles.supplierName} numberOfLines={1}>{item.supplier}</Text>
+   274→          <Ionicons name="location-outline" size={12} color={Colors.textTertiary} />
+   275→          <Text style={styles.locationText}>{item.location}</Text>
+   276→        </View>
+   277→      </View>
+   278→    </TouchableOpacity>
+   279→  );
+   280→
+   281→  // Render stat card
+   282→  const renderStatCard = ({ item, index }: { item: typeof STATS[0]; index: number }) => (
+   283→    <View key={item.label} style={[styles.statCard, index === STATS.length - 1 && styles.statCardLast]}>
+   284→      <View style={[styles.statIndicator, { backgroundColor: `${item.color}20` }]}>
+   285→        <View style={[styles.statDot, { backgroundColor: item.color }]} />
+   286→      </View>
+   287→      <Text style={[styles.statValue, { color: item.color }]}>{item.value}</Text>
+   288→      <Text style={styles.statLabel}>{item.label}</Text>
+   289→      <Text style={styles.statSubtitle}>{item.subtitle}</Text>
+   290→    </View>
+   291→  );
+   292→
+   293→  // Loading state
+   294→  if (loading) {
+   295→    return (
+   296→      <View style={styles.loadingContainer}>
+   297→        <ActivityIndicator size="large" color={Colors.primary} />
+   298→        <Text style={styles.loadingText}>Chargement...</Text>
+   299→      </View>
+   300→    );
+   301→  }
+   302→
+   303→  return (
+   304→    <View style={styles.container}>
+   305→      {/* Header with Search */}
+   306→      <View style={styles.header}>
+   307→        <View style={styles.headerTop}>
+   308→          <View>
+   309→            <Text style={styles.greeting}>
+   310→              {new Date().getHours() < 18 ? 'Bonjour 👋' : 'Bonsoir 🌙'}
+   311→            </Text>
+   312→            <Text style={styles.subGreeting}>Trouvez les meilleurs fournisseurs</Text>
+   313→          </View>
+   314→          <TouchableOpacity 
+   315→            style={styles.notificationButton}
+   316→            onPress={() => navigation.navigate('Messages')}
+   317→          >
+   318→            <Ionicons name="notifications-outline" size={24} color={Colors.text} />
+   319→            <View style={styles.notificationBadge} />
+   320→          </TouchableOpacity>
+   321→        </View>
+   322→
+   323→        {/* Offline Banner */}
+   324→        {isOffline && (
+   325→          <View style={styles.offlineBanner}>
+   326→            <Ionicons name="cloud-offline-outline" size={16} color="#92400E" />
+   327→            <Text style={styles.offlineText}>Mode hors ligne - Données mises en cache</Text>
+   328→          </View>
+   329→        )}
+   330→
+   331→        <SearchBar
+   332→          value={searchQuery}
+   333→          onChangeText={setSearchQuery}
+   334→          onSubmitEditing={() => handleSearch(searchQuery)}
+   335→          placeholder="Rechercher produits, fournisseurs..."
+   336→        />
+   337→
+   338→        {/* Last Updated Indicator */}
+   339→        {lastUpdated && !refreshing && (
+   340→          <Text style={styles.lastUpdatedText}>
+   341→            Mis à jour à {lastUpdated.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+   342→          </Text>
+   343→        )}
+   344→      </View>
+   345→
+   346→      {/* Stats Cards */}
+   347→      <View style={styles.statsContainer}>
+   348→        {STATS.map((stat, index) => renderStatCard({ item: stat, index }))}
+   349→      </View>
+   350→
+   351→      {/* Quick Actions */}
+   352→      <View style={styles.quickActionsContainer}>
+   353→        <TouchableOpacity
+   354→          style={styles.quickActionButton}
+   355→          onPress={() => navigation.navigate('CreateRFQ')}
+   356→          activeOpacity={0.7}
+   357→        >
+   358→          <View style={styles.quickActionIcon}>
+   359→            <Ionicons name="add-circle" size={24} color={Colors.white} />
+   360→          </View>
+   361→          <Text style={styles.quickActionText}>Poster un AO</Text>
+   362→        </TouchableOpacity>
+   363→
+   364→        <TouchableOpacity
+   365→          style={[styles.quickActionButton, styles.quickActionButtonSecondary]}
+   366→          onPress={() => navigation.navigate('RFQList')}
+   367→          activeOpacity={0.7}
+   368→        >
+   369→          <View style={[styles.quickActionIcon, styles.quickActionIconSecondary]}>
+   370→            <Ionicons name="document-text" size={24} color={Colors.primary} />
+   371→          </View>
+   372→          <Text style={[styles.quickActionText, styles.quickActionTextSecondary]}>Voir les AO</Text>
+   373→        </TouchableOpacity>
+   374→      </View>
+   375→
+   376→      {/* Main Content List */}
+   377→      <FlatList
+   378→        data={[]}
+   379→        renderItem={() => null}
+   380→        ListHeaderComponent={
+   381→          <>
+   382→            {/* Categories Section */}
+   383→            <View style={styles.section}>
+   384→              <View style={styles.sectionHeader}>
+   385→                <Text style={styles.sectionTitle}>Catégories</Text>
+   386→                <TouchableOpacity>
+   387→                  <Text style={styles.seeAllText}>Voir tout</Text>
+   388→                </TouchableOpacity>
+   389→              </View>
+   390→              
+   391→              <FlatList
+   392→                data={CATEGORIES}
+   393→                renderItem={renderCategoryItem}
+   394→                keyExtractor={(item) => item.id}
+   395→                horizontal
+   396→                showsHorizontalScrollIndicator={false}
+   397→                contentContainerStyle={styles.categoriesList}
+   398→              />
+   399→            </View>
+   400→
+   401→            {/* Featured Products Section */}
+   402→            <View style={styles.section}>
+   403→              <View style={styles.sectionHeader}>
+   404→                <Text style={styles.sectionTitle}>⭐ Produits Vedettes</Text>
+   405→                <TouchableOpacity onPress={() => navigation.navigate('ProductList')}>
+   406→                  <Text style={styles.seeAllText}>Voir tout →</Text>
+   407→                </TouchableOpacity>
+   408→              </View>
+   409→              
+   410→              <FlatList
+   411→                data={featuredProducts}
+   412→                renderItem={renderFeaturedProduct}
+   413→                keyExtractor={(item) => item.id}
+   414→                horizontal
+   415→                showsHorizontalScrollIndicator={false}
+   416→                contentContainerStyle={styles.productsList}
+   417→              />
+   418→            </View>
+   419→
+   420→            {/* Promotional Banner */}
+   421→            <TouchableOpacity style={styles.promoBanner} activeOpacity={0.8}>
+   422→              <View style={styles.promoContent}>
+   423→                <Text style={styles.promoTitle}>Devenez Fournisseur</Text>
+   424→                <Text style={styles.promoSubtitle}>
+   425→                  Rejoignez +2500 entreprises sur AlgeriaTrade
+   426→                </Text>
+   427→                <View style={styles.promoButton}>
+   428→                  <Text style={styles.promoButtonText}>En savoir plus</Text>
+   429→                </View>
+   430→              </View>
+   431→              <Ionicons name="arrow-forward-circle" size={60} color={`${Colors.white}30`} />
+   432→            </TouchableOpacity>
+   433→
+   434→            {/* All Products Section */}
+   435→            <View style={styles.section}>
+   436→              <View style={styles.sectionHeader}>
+   437→                <Text style={styles.sectionTitle}>📦 Derniers Produits</Text>
+   438→              </View>
+   439→              
+   440→              <FlatList
+   441→                data={products.slice(0, 4)} // Show first 4 products in grid
+   442→                renderItem={({ item }) => (
+   443→                  <TouchableOpacity
+   444→                    style={styles.gridProductCard}
+   445→                    onPress={() => handleProductPress(item.id)}
+   446→                    activeOpacity={0.7}
+   447→                  >
+   448→                    <View style={styles.gridProductImagePlaceholder}>
+   449→                      {item.image ? (
+   450→                        <Image source={{ uri: item.image }} style={styles.gridProductImage} resizeMode="cover" />
+   451→                      ) : (
+   452→                        <Ionicons name="image-outline" size={30} color={Colors.textTertiary} />
+   453→                      )}
+   454→                    </View>
+   455→                    <View style={styles.gridProductInfo}>
+   456→                      <Text style={styles.gridProductName} numberOfLines={2}>{item.name}</Text>
+   457→                      <Text style={styles.gridProductPrice}>{item.price.toLocaleString()} DZD</Text>
+   458→                      <View style={styles.gridSupplierRow}>
+   459→                        <Ionicons name="location-outline" size={10} color={Colors.textTertiary} />
+   460→                        <Text style={styles.gridLocationText} numberOfLines={1}>{item.location}</Text>
+   461→                      </View>
+   462→                    </View>
+   463→                  </TouchableOpacity>
+   464→                )}
+   465→                keyExtractor={(item) => `grid-${item.id}`}
+   466→                numColumns={2}
+   467→                columnWrapperStyle={styles.gridRow}
+   468→                scrollEnabled={false}
+   469→                ListEmptyComponent={
+   470→                  <View style={styles.emptyState}>
+   471→                    <Ionicons name="cube-outline" size={48} color={Colors.textTertiary} />
+   472→                    <Text style={styles.emptyText}>Aucun produit trouvé</Text>
+   473→                    {isOffline && (
+   474→                      <Text style={styles.emptySubtext}>Connectez-vous pour voir les derniers produits</Text>
+   475→                    )}
+   476→                    <TouchableOpacity style={styles.retryButton} onPress={handleRetry}>
+   477→                      <Ionicons name="refresh" size={18} color={Colors.white} />
+   478→                      <Text style={styles.retryButtonText}>Réessayer</Text>
+   479→                    </TouchableOpacity>
+   480→                  </View>
+   481→                }
+   482→              />
+   483→            </View>
+   484→          </>
+   485→        }
+   486→        refreshControl={
+   487→          <RefreshControl 
+   488→            refreshing={refreshing} 
+   489→            onRefresh={onRefresh} 
+   490→            tintColor={Colors.primary}
+   491→            colors={[Colors.primary]}
+   492→          />
+   493→        }
+   494→        contentContainerStyle={styles.listContent}
+   495→        showsVerticalScrollIndicator={false}
+   496→      />
+   497→    </View>
+   498→  );
+   499→}
+   500→
+   501→const styles = StyleSheet.create({
+   502→  container: {
+   503→    flex: 1,
+   504→    backgroundColor: Colors.background,
+   505→  },
+   506→  loadingContainer: {
+   507→    flex: 1,
+   508→    justifyContent: 'center',
+   509→    alignItems: 'center',
+   510→    backgroundColor: Colors.background,
+   511→  },
+   512→  loadingText: {
+   513→    marginTop: Spacing.md,
+   514→    fontSize: FontSize.base,
+   515→    color: Colors.textSecondary,
+   516→    fontFamily: FontFamily.regular,
+   517→  },
+   518→  header: {
+   519→    paddingHorizontal: Spacing.lg,
+   520→    paddingTop: Spacing.lg,
+   521→    paddingBottom: Spacing.sm,
+   522→    backgroundColor: Colors.background,
+   523→  },
+   524→  headerTop: {
+   525→    flexDirection: 'row',
+   526→    justifyContent: 'space-between',
+   527→    alignItems: 'center',
+   528→    marginBottom: Spacing.md,
+   529→  },
+   530→  greeting: {
+   531→    fontSize: FontSize.xl,
+   532→    fontWeight: 'bold',
+   533→    color: Colors.text,
+   534→    fontFamily: FontFamily.bold,
+   535→  },
+   536→  subGreeting: {
+   537→    fontSize: FontSize.sm,
+   538→    color: Colors.textSecondary,
+   539→    marginTop: 2,
+   540→    fontFamily: FontFamily.regular,
+   541→  },
+   542→  notificationButton: {
+   543→    width: 44,
+   544→    height: 44,
+   545→    borderRadius: 22,
+   546→    backgroundColor: Colors.surface,
+   547→    justifyContent: 'center',
+   548→    alignItems: 'center',
+   549→  },
+   550→  notificationBadge: {
+   551→    position: 'absolute',
+   552→    top: 10,
+   553→    right: 10,
+   554→    width: 10,
+   555→    height: 10,
+   556→    borderRadius: 5,
+   557→    backgroundColor: Colors.error,
+   558→    borderWidth: 2,
+   559→    borderColor: Colors.surface,
+   560→  },
+   561→  offlineBanner: {
+   562→    flexDirection: 'row',
+   563→    alignItems: 'center',
+   564→    justifyContent: 'center',
+   565→    backgroundColor: '#FEF3C7',
+   566→    paddingVertical: 8,
+   567→    paddingHorizontal: Spacing.md,
+   568→    borderRadius: BorderRadius.md,
+   569→    marginBottom: Spacing.sm,
+   570→    gap: 6,
+   571→  },
+   572→  offlineText: {
+   573→    color: '#92400E',
+   574→    fontSize: FontSize.xs,
+   575→    fontFamily: FontFamily.medium,
+   576→  },
+   577→  lastUpdatedText: {
+   578→    fontSize: FontSize.xs,
+   579→    color: Colors.textTertiary,
+   580→    marginTop: Spacing.xs,
+   581→    textAlign: 'right',
+   582→    fontFamily: FontFamily.regular,
+   583→  },
+   584→  statsContainer: {
+   585→    flexDirection: 'row',
+   586→    marginHorizontal: Spacing.lg,
+   587→    paddingVertical: Spacing.md,
+   588→    paddingHorizontal: Spacing.md,
+   589→    backgroundColor: Colors.surface,
+   590→    borderRadius: BorderRadius.lg,
+   591→    marginBottom: Spacing.lg,
+   592→    ...Shadows.sm,
+   593→  },
+   594→  statCard: {
+   595→    flex: 1,
+   596→    alignItems: 'center',
+   597→    borderRightWidth: 1,
+   598→    borderRightColor: Colors.borderLight,
+   599→    paddingHorizontal: Spacing.xs,
+   600→  },
+   601→  statCardLast: {
+   602→    borderRightWidth: 0,
+   603→  },
+   604→  statIndicator: {
+   605→    width: 32,
+   606→    height: 32,
+   607→    borderRadius: 16,
+   608→    justifyContent: 'center',
+   609→    alignItems: 'center',
+   610→    marginBottom: 4,
+   611→  },
+   612→  statDot: {
+   613→    width: 10,
+   614→    height: 10,
+   615→    borderRadius: 5,
+   616→  },
+   617→  statValue: {
+   618→    fontSize: FontSize.sm,
+   619→    fontWeight: 'bold',
+   620→    fontFamily: FontFamily.semiBold,
+   621→  },
+   622→  statLabel: {
+   623→    fontSize: FontSize.xs,
+   624→    color: Colors.text,
+   625→    fontFamily: FontFamily.medium,
+   626→    marginTop: 2,
+   627→  },
+   628→  statSubtitle: {
+   629→    fontSize: 10,
+   630→    color: Colors.textTertiary,
+   631→    fontFamily: FontFamily.regular,
+   632→  },
+   633→  quickActionsContainer: {
+   634→    flexDirection: 'row',
+   635→    paddingHorizontal: Spacing.lg,
+   636→    gap: Spacing.md,
+   637→    marginBottom: Spacing.lg,
+   638→  },
+   639→  quickActionButton: {
+   640→    flex: 1,
+   641→    flexDirection: 'row',
+   642→    alignItems: 'center',
+   643→    backgroundColor: Colors.primary,
+   644→    paddingVertical: Spacing.sm,
+   645→    paddingHorizontal: Spacing.md,
+   646→    borderRadius: BorderRadius.lg,
+   647→    gap: Spacing.sm,
+   648→  },
+   649→  quickActionButtonSecondary: {
+   650→    backgroundColor: `${Colors.primary}10`,
+   651→  },
+   652→  quickActionIcon: {
+   653→    width: 36,
+   654→    height: 36,
+   655→    borderRadius: 18,
+   656→    backgroundColor: `${Colors.white}20`,
+   657→    justifyContent: 'center',
+   658→    alignItems: 'center',
+   659→  },
+   660→  quickActionIconSecondary: {
+   661→    backgroundColor: `${Colors.primary}20`,
+   662→  },
+   663→  quickActionText: {
+   664→    fontSize: FontSize.sm,
+   665→    fontWeight: '600',
+   666→    color: Colors.white,
+   667→    fontFamily: FontFamily.semiBold,
+   668→  },
+   669→  quickActionTextSecondary: {
+   670→    color: Colors.primary,
+   671→  },
+   672→  section: {
+   673→    marginBottom: Spacing.lg,
+   674→  },
+   675→  sectionHeader: {
+   676→    flexDirection: 'row',
+   677→    justifyContent: 'space-between',
+   678→    alignItems: 'center',
+   679→    paddingHorizontal: Spacing.lg,
+   680→    marginBottom: Spacing.md,
+   681→  },
+   682→  sectionTitle: {
+   683→    fontSize: FontSize.lg,
+   684→    fontWeight: 'bold',
+   685→    color: Colors.text,
+   686→    fontFamily: FontFamily.semiBold,
+   687→  },
+   688→  seeAllText: {
+   689→    fontSize: FontSize.sm,
+   690→    color: Colors.primary,
+   691→    fontFamily: FontFamily.medium,
+   692→  },
+   693→  categoriesList: {
+   694→    paddingHorizontal: Spacing.lg,
+   695→  },
+   696→  categoryItem: {
+   697→    width: 90,
+   698→    alignItems: 'center',
+   699→    marginRight: Spacing.md,
+   700→  },
+   701→  categoryIconContainer: {
+   702→    width: 60,
+   703→    height: 60,
+   704→    borderRadius: 16,
+   705→    justifyContent: 'center',
+   706→    alignItems: 'center',
+   707→    marginBottom: Spacing.xs,
+   708→  },
+   709→  categoryEmoji: {
+   710→    fontSize: 28,
+   711→  },
+   712→  categoryName: {
+   713→    fontSize: FontSize.xs,
+   714→    fontWeight: '500',
+   715→    color: Colors.text,
+   716→    textAlign: 'center',
+   717→    fontFamily: FontFamily.medium,
+   718→  },
+   719→  categoryCount: {
+   720→    fontSize: FontSize.xs,
+   721→    color: Colors.textTertiary,
+   722→    marginTop: 2,
+   723→    fontFamily: FontFamily.regular,
+   724→  },
+   725→  productsList: {
+   726→    paddingHorizontal: Spacing.lg,
+   727→  },
+   728→  productCard: {
+   729→    width: 220,
+   730→    backgroundColor: Colors.surface,
+   731→    borderRadius: BorderRadius.lg,
+   732→    marginRight: Spacing.md,
+   733→    overflow: 'hidden',
+   734→    ...Shadows.sm,
+   735→  },
+   736→  productImagePlaceholder: {
+   737→    height: 140,
+   738→    backgroundColor: Colors.borderLight,
+   739→    justifyContent: 'center',
+   740→    alignItems: 'center',
+   741→  },
+   742→  productImage: {
+   743→    width: '100%',
+   744→    height: '100%',
+   745→  },
+   746→  productInfo: {
+   747→    padding: Spacing.md,
+   748→  },
+   749→  productName: {
+   750→    fontSize: FontSize.sm,
+   751→    fontWeight: '500',
+   752→    color: Colors.text,
+   753→    marginBottom: Spacing.xs,
+   754→    lineHeight: 18,
+   755→    fontFamily: FontFamily.medium,
+   756→  },
+   757→  productFooter: {
+   758→    flexDirection: 'row',
+   759→    justifyContent: 'space-between',
+   760→    alignItems: 'center',
+   761→    marginTop: Spacing.sm,
+   762→  },
+   763→  productPrice: {
+   764→    fontSize: FontSize.base,
+   765→    fontWeight: 'bold',
+   766→    color: Colors.primary,
+   767→    fontFamily: FontFamily.semiBold,
+   768→  },
+   769→  supplierRow: {
+   770→    flexDirection: 'row',
+   771→    alignItems: 'center',
+   772→    marginTop: Spacing.xs,
+   773→    gap: 4,
+   774→  },
+   775→  supplierName: {
+   776→    flex: 1,
+   777→    fontSize: FontSize.xs,
+   778→    color: Colors.textSecondary,
+   779→    fontFamily: FontFamily.regular,
+   780→  },
+   781→  locationText: {
+   782→    fontSize: FontSize.xs,
+   783→    color: Colors.textTertiary,
+   784→    fontFamily: FontFamily.regular,
+   785→  },
+   786→  promoBanner: {
+   787→    marginHorizontal: Spacing.lg,
+   788→    marginBottom: Spacing.lg,
+   789→    padding: Spacing.lg,
+   790→    backgroundColor: Colors.primary,
+   791→    borderRadius: BorderRadius.xl,
+   792→    flexDirection: 'row',
+   793→    justifyContent: 'space-between',
+   794→    alignItems: 'center',
+   795→  },
+   796→  promoContent: {
+   797→    flex: 1,
+   798→  },
+   799→  promoTitle: {
+   800→    fontSize: FontSize.lg,
+   801→    fontWeight: 'bold',
+   802→    color: Colors.white,
+   803→    fontFamily: FontFamily.bold,
+   804→  },
+   805→  promoSubtitle: {
+   806→    fontSize: FontSize.sm,
+   807→    color: `${Colors.white}CC`,
+   808→    marginTop: 4,
+   809→    fontFamily: FontFamily.regular,
+   810→  },
+   811→  promoButton: {
+   812→    alignSelf: 'flex-start',
+   813→    marginTop: Spacing.md,
+   814→    paddingHorizontal: Spacing.md,
+   815→    paddingVertical: Spacing.xs,
+   816→    backgroundColor: Colors.white,
+   817→    borderRadius: BorderRadius.full,
+   818→  },
+   819→  promoButtonText: {
+   820→    fontSize: FontSize.sm,
+   821→    fontWeight: '600',
+   822→    color: Colors.primary,
+   823→    fontFamily: FontFamily.semiBold,
+   824→  },
+   825→  listContent: {
+   826→    paddingBottom: 100, // Space for bottom nav
+   827→  },
+   828→  gridRow: {
+   829→    gap: Spacing.md,
+   830→    paddingHorizontal: Spacing.lg,
+   831→  },
+   832→  gridProductCard: {
+   833→    flex: 1,
+   834→    backgroundColor: Colors.surface,
+   835→    borderRadius: BorderRadius.md,
+   836→    overflow: 'hidden',
+   837→    maxWidth: (SCREEN_WIDTH - Spacing.lg * 2 - Spacing.md) / 2,
+   838→    ...Shadows.sm,
+   839→  },
+   840→  gridProductImagePlaceholder: {
+   841→    height: 120,
+   842→    backgroundColor: Colors.borderLight,
+   843→    justifyContent: 'center',
+   844→    alignItems: 'center',
+   845→  },
+   846→  gridProductImage: {
+   847→    width: '100%',
+   848→    height: '100%',
+   849→  },
+   850→  gridProductInfo: {
+   851→    padding: Spacing.sm,
+   852→  },
+   853→  gridProductName: {
+   854→    fontSize: FontSize.xs,
+   855→    fontWeight: '500',
+   856→    color: Colors.text,
+   857→    lineHeight: 16,
+   858→    fontFamily: FontFamily.medium,
+   859→    marginBottom: 4,
+   860→  },
+   861→  gridProductPrice: {
+   862→    fontSize: FontSize.sm,
+   863→    fontWeight: 'bold',
+   864→    color: Colors.primary,
+   865→    fontFamily: FontFamily.semiBold,
+   866→  },
+   867→  gridSupplierRow: {
+   868→    flexDirection: 'row',
+   869→    alignItems: 'center',
+   870→    marginTop: 4,
+   871→    gap: 2,
+   872→  },
+   873→  gridLocationText: {
+   874→    flex: 1,
+   875→    fontSize: 10,
+   876→    color: Colors.textTertiary,
+   877→    fontFamily: FontFamily.regular,
+   878→  },
+   879→  emptyState: {
+   880→    alignItems: 'center',
+   881→    paddingVertical: Spacing.xl * 2,
+   882→    paddingHorizontal: Spacing.lg,
+   883→  },
+   884→  emptyText: {
+   885→    fontSize: FontSize.base,
+   886→    color: Colors.textSecondary,
+   887→    marginTop: Spacing.md,
+   888→    fontFamily: FontFamily.medium,
+   889→  },
+   890→  emptySubtext: {
+   891→    fontSize: FontSize.sm,
+   892→    color: Colors.textTertiary,
+   893→    marginTop: Spacing.xs,
+   894→    fontFamily: FontFamily.regular,
+   895→    textAlign: 'center',
+   896→  },
+   897→  retryButton: {
+   898→    flexDirection: 'row',
+   899→    alignItems: 'center',
+   900→    marginTop: Spacing.md,
+   901→    backgroundColor: Colors.primary,
+   902→    paddingHorizontal: Spacing.lg,
+   903→    paddingVertical: Spacing.sm,
+   904→    borderRadius: BorderRadius.full,
+   905→    gap: Spacing.xs,
+   906→  },
+   907→  retryButtonText: {
+   908→    color: Colors.white,
+   909→    fontWeight: '600',
+   910→    fontSize: FontSize.sm,
+   911→    fontFamily: FontFamily.semiBold,
+   912→  },
+   913→});
+   914→

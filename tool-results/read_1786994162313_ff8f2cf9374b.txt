@@ -1,0 +1,1870 @@
+     1→// Exhibition Screen - AlgeriaTrade Mobile
+     2→// Écran des expositions et événements B2B
+     3→
+     4→import React, { useState, useEffect, useCallback } from 'react';
+     5→import {
+     6→  View,
+     7→  Text,
+     8→  StyleSheet,
+     9→  ScrollView,
+    10→  FlatList,
+    11→  TouchableOpacity,
+    12→  Image,
+    13→  Alert,
+    14→  ActivityIndicator,
+    15→  Platform,
+    16→  Modal,
+    17→  TextInput,
+    18→} from 'react-native';
+    19→import { Ionicons } from '@expo/vector-icons';
+    20→import { useNavigation, RouteProp, useRoute } from '@react-navigation/native';
+    21→
+    22→// Services
+    23→import apiService from '../../services/api';
+    24→import { offlineService, useOfflineStatus } from '../../services/offline';
+    25→
+    26→// Constants
+    27→import { Colors, FontFamily, FontSize, Spacing, BorderRadius, Shadows } from '../../utils/constants';
+    28→
+    29→// Types
+    30→import { RootStackParamList } from '../../navigation';
+    31→
+    32→type ExhibitionRouteProp = RouteProp<RootStackParamList, 'Exhibition'>;
+    33→
+    34→// ============================================
+    35→// Types & Interfaces
+    36→// ============================================
+    37→
+    38→export type ExhibitionType =
+    39→  | 'virtual_trade_show'
+    40→  | 'industry_event'
+    41→  | 'product_launch'
+    42→  | 'procurement_event'
+    43→  | 'networking_event'
+    44→  | 'conference';
+    45→
+    46→export type ExhibitionStatus = 'upcoming' | 'live' | 'ended' | 'cancelled';
+    47→
+    48→export type RegistrationType = 'visitor' | 'exhibitor' | 'speaker' | 'press';
+    49→
+    50→interface ExhibitionEvent {
+    51→  id: string;
+    52→  exhibitionId: string;
+    53→  title: string;
+    54→  description?: string;
+    55→  type: 'seminar' | 'workshop' | 'keynote' | 'networking_session' | 'demo' | 'presentation';
+    56→  startTime: Date;
+    57→  endTime: Date;
+    58→  speakers?: Array<{ name: string; company?: string; photoUrl?: string }>;
+    59→  capacity: number;
+    60→  registeredCount: number;
+    61→  location?: string; // For physical events - room/hall name
+    62→  recordingUrl?: string;
+    63→}
+    64→
+    65→interface ExhibitionBooth {
+    66→  id: string;
+    67→  exhibitionId: string;
+    68→  boothNumber: string;
+    69→  companyName: string;
+    70→  companyLogo?: string;
+    71→  bannerImage?: string;
+    72→  description?: string;
+    73→  products: Array<{ id: string; name: string; image?: string }>;
+    74→  staffIds: string[];
+    75→  welcomeMessage?: string;
+    76→  website?: string;
+    77→  contactEmail?: string;
+    78→  isVirtual: boolean;
+    79→  arAvailable: boolean;
+    80→  visitorCount: number;
+    81→}
+    82→
+    83→interface Exhibition {
+    84→  id: string;
+    85→  title: string;
+    86→  description: string;
+    87→  type: ExhibitionType;
+    88→  status: ExhibitionStatus;
+    89→  startDate: Date;
+    90→  endDate: Date;
+    91→  coverImage?: string;
+    92→  logo?: string;
+    93→  isVirtual: boolean;
+    94→  isPhysical: boolean;
+    95→  location?: {
+    96→    venue: string;
+    97→    address: string;
+    98→    city: string;
+    99→    wilaya: string;
+   100→  };
+   101→  virtualPlatform?: string;
+   102→  maxExhibitors: number;
+   103→  maxVisitors: number;
+   104→  currentExhibitors: number;
+   105→  currentVisitors: number;
+   106→  registrationFee?: number;
+   107→  currency?: string;
+   108→  featured: boolean;
+   109→  organizerName: string;
+   110→  organizerLogo?: string;
+   111→  themeColor?: string;
+   112→  booths?: ExhibitionBooth[];
+   113→  events?: ExhibitionEvent[];
+   114→  userRegistration?: {
+   115→    id: string;
+   116→    type: RegistrationType;
+   117→    status: 'registered' | 'checked_in' | 'attended' | 'cancelled';
+   118→    registeredAt: Date;
+   119→    checkedInAt?: Date;
+   120→  };
+   121→}
+   122→
+   123→interface ExhibitionScreenProps {
+   124→  exhibitionId?: string;
+   125→}
+   126→
+   127→// ============================================
+   128→// Constants
+   129→// ============================================
+   130→
+   131→const EXHIBITION_TYPE_CONFIG: Record<ExhibitionType, { 
+   132→  label: string; 
+   133→  icon: string; 
+   134→  color: string;
+   135→}> = {
+   136→  virtual_trade_show: { label: 'Salon virtuel', icon: 'globe-outline', color: Colors.primary },
+   137→  industry_event: { label: 'Événement sectoriel', icon: 'business-outline', color: Colors.info },
+   138→  product_launch: { label: 'Lancement produit', icon: 'rocket-outline', color: Colors.warning },
+   139→  procurement_event: { label: 'Événement achats', icon: 'cart-outline', color: Colors.success },
+   140→  networking_event: { label: 'Networking', icon: 'people-outline', color: '#8B5CF6' },
+   141→  conference: { label: 'Conférence', icon: 'mic-outline', color: Colors.secondary },
+   142→};
+   143→
+   144→const REGISTRATION_TYPES: Array<{ value: RegistrationType; label: string; description: string; price: string }> = [
+   145→  { value: 'visitor', label: 'Visiteur', description: 'Accès aux exposants et conférences', price: 'Gratuit' },
+   146→  { value: 'exhibitor', label: 'Exposant', description: 'Stand virtuel avec produits', price: 'Sur devis' },
+   147→  { value: 'speaker', label: 'Conférencier', description: 'Présentation lors de l\'événement', price: 'Sur invitation' },
+   148→  { value: 'press', label: 'Presse', description: 'Accès presse et interviews', price: 'Sur demande' },
+   149→];
+   150→
+   151→const EVENT_TYPE_CONFIG: Record<string, { label: string; icon: string; color: string }> = {
+   152→  seminar: { label: 'Séminaire', icon: 'school-outline', color: Colors.primary },
+   153→  workshop: { label: 'Atelier', icon: 'construct-outline', color: Colors.info },
+   154→  keynote: { label: 'Conférence principale', icon: 'mic-outline', color: Colors.warning },
+   155→  networking_session: { label: 'Session networking', icon: 'people-outline', color: Colors.success },
+   156→  demo: { label: 'Démonstration', icon: 'play-circle-outline', color: '#8B5CF6' },
+   157→  presentation: { label: 'Présentation', icon: 'desktop-outline', color: Colors.secondary },
+   158→};
+   159→
+   160→// ============================================
+   161→// Main Component
+   162→// ============================================
+   163→
+   164→export default function ExhibitionScreen(props: ExhibitionScreenProps) {
+   165→  const route = useRoute<ExhibitionRouteProp>();
+   166→  const navigation = useNavigation();
+   167→  
+   168→  const exhibitionId = props.exhibitionId || (route.params?.id as string);
+   169→  
+   170→  // State
+   171→  const [loading, setLoading] = useState(true);
+   172→  const [refreshing, setRefreshing] = useState(false);
+   173→  const [exhibitions, setExhibitions] = useState<Exhibition[]>([]);
+   174→  const [selectedExhibition, setSelectedExhibition] = useState<Exhibition | null>(null);
+   175→  const [showRegistrationModal, setShowRegistrationModal] = useState(false);
+   176→  const [selectedRegistrationType, setSelectedRegistrationType] = useState<RegistrationType>('visitor');
+   177→  const [companyName, setCompanyName] = useState('');
+   178→  const [jobTitle, setJobTitle] = useState('');
+   179→  const [interests, setInterests] = useState('');
+   180→  const [registering, setRegistering] = useState(false);
+   181→  const [activeTab, setActiveTab] = useState<'info' | 'booths' | 'events' | 'networking'>('info');
+   182→  const [isOffline] = useOfflineStatus();
+   183→
+   184→  // Load exhibitions or single exhibition
+   185→  const loadData = useCallback(async () => {
+   186→    try {
+   187→      if (exhibitionId) {
+   188→        const data = await apiService.getExhibitionDetail(exhibitionId);
+   189→        setSelectedExhibition(data);
+   190→      } else {
+   191→        const data = await apiService.getExhibitions();
+   192→        setExhibitions(data);
+   193→        
+   194→        // Cache for offline
+   195→        if (!isOffline) {
+   196→          await offlineService.cacheExhibitions(data);
+   197→        }
+   198→      }
+   199→    } catch (error) {
+   200→      console.error('[ExhibitionScreen] Error loading data:', error);
+   201→      
+   202→      // Try cache if offline
+   203→      if (isOffline || !exhibitionId) {
+   204→        const cached = await offlineService.getCachedExhibitions();
+   205→        if (cached.length > 0) {
+   206→          if (exhibitionId) {
+   207→            setSelectedExhibition(cached.find(e => e.id === exhibitionId) || null);
+   208→          } else {
+   209→            setExhibitions(cached);
+   210→          }
+   211→        }
+   212→      }
+   213→    } finally {
+   214→      setLoading(false);
+   215→      setRefreshing(false);
+   216→    }
+   217→  }, [exhibitionId, isOffline]);
+   218→
+   219→  useEffect(() => {
+   220→    loadData();
+   221→  }, [loadData]);
+   222→
+   223→  // Pull to refresh
+   224→  const onRefresh = async () => {
+   225→    setRefreshing(true);
+   226→    await loadData();
+   227→  };
+   228→
+   229→  // Register for exhibition
+   230→  const handleRegister = async () => {
+   231→    if (!selectedExhibition) return;
+   232→
+   233→    setRegistering(true);
+   234→
+   235→    try {
+   236→      await apiService.registerForExhibition(selectedExhibition.id, {
+   237→        type: selectedRegistrationType,
+   238→        companyName: companyName || undefined,
+   239→        jobTitle: jobTitle || undefined,
+   240→        interests: interests || undefined,
+   241→      });
+   242→
+   243→      Alert.alert(
+   244→        'Inscription confirmée !',
+   245→        `Vous êtes inscrit en tant que ${REGISTRATION_TYPES.find(r => r.value === selectedRegistrationType)?.label}.`,
+   246→        [{ text: 'OK', onPress: () => {
+   247→          setShowRegistrationModal(false);
+   248→          loadData(); // Reload to show registration status
+   249→        }}]
+   250→      );
+   251→    } catch (error) {
+   252→      console.error('[ExhibitionScreen] Error registering:', error);
+   253→      Alert.alert('Erreur', 'Impossible de finaliser l\'inscription.');
+   254→    } finally {
+   255→      setRegistering(false);
+   256→    }
+   257→  };
+   258→
+   259→  // Schedule meeting with exhibitor
+   260→  const handleScheduleMeeting = (booth: ExhibitionBooth) => {
+   261→    Alert.alert(
+   262→      'Planifier une réunion',
+   263→      `Souhaitez-vous planifier une réunion avec ${booth.companyName} ?`,
+   264→      [
+   265→        { text: 'Annuler', style: 'cancel' },
+   266→        { text: 'Confirmer', onPress: () => {
+   267→          navigation.navigate('Messages' as any, {
+   268→            conversationId: `exhibition_${selectedExhibition?.id}_${booth.id}`,
+   269→            userName: booth.companyName,
+   270→          });
+   271→        }}
+   272→      ]
+   273→    );
+   274→  };
+   275→
+   276→  // Format date range
+   277→  const formatDateRange = (start: Date, end: Date): string => {
+   278→    const startDate = new Date(start);
+   279→    const endDate = new Date(end);
+   280→    
+   281→    if (startDate.toDateString() === endDate.toDateString()) {
+   282→      return startDate.toLocaleDateString('fr-FR', {
+   283→        day: 'numeric',
+   284→        month: 'long',
+   285→        year: 'numeric',
+   286→      });
+   287→    }
+   288→
+   289→    return `${startDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })} - ${endDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+   290→  };
+   291→
+   292→  // Render loading
+   293→  if (loading) {
+   294→    return (
+   295→      <View style={styles.loadingContainer}>
+   296→        <ActivityIndicator size="large" color={Colors.primary} />
+   297→        <Text style={styles.loadingText}>Chargement...</Text>
+   298→      </View>
+   299→    );
+   300→  }
+   301→
+   302→  // List view (no specific exhibition selected)
+   303→  if (!exhibitionId && !selectedExhibition) {
+   304→    return (
+   305→      <View style={styles.container}>
+   306→        {/* Header */}
+   307→        <View style={styles.header}>
+   308→          <Text style={styles.headerTitle}>Expositions & Événements</Text>
+   309→          <TouchableOpacity style={styles.filterButton}>
+   310→            <Ionicons name="filter-outline" size={20} color={Colors.text} />
+   311→          </TouchableOpacity>
+   312→        </View>
+   313→
+   314→        <FlatList
+   315→          data={exhibitions}
+   316→          keyExtractor={(item) => item.id}
+   317→          refreshControl={
+   318→            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+   319→          }
+   320→          contentContainerStyle={styles.listContent}
+   321→          renderItem={({ item }) => (
+   322→            <TouchableOpacity
+   323→              style={styles.exhibitionCard}
+   324→              onPress={() => setSelectedExhibition(item)}
+   325→              activeOpacity={0.7}
+   326→            >
+   327→              {/* Cover Image */}
+   328→              <View style={styles.cardImageContainer}>
+   329→                {item.coverImage ? (
+   330→                  <Image source={{ uri: item.coverImage }} style={styles.cardImage} />
+   331→                ) : (
+   332→                  <View style={[styles.cardImagePlaceholder, { backgroundColor: EXHIBITION_TYPE_CONFIG[item.type]?.color + '20' }]}>
+   333→                    <Ionicons 
+   334→                      name={EXHIBITION_TYPE_CONFIG[item.type]?.icon as any} 
+   335→                      size={48} 
+   336→                      color={EXHIBITION_TYPE_CONFIG[item.type]?.color} 
+   337→                    />
+   338→                  </View>
+   339→                )}
+   340→                
+   341→                {/* Status Badge */}
+   342→                <View style={[
+   343→                  styles.statusBadge,
+   344→                  { backgroundColor: item.status === 'live' ? Colors.error : item.status === 'upcoming' ? Colors.primary : Colors.textTertiary }
+   345→                ]}>
+   346→                  <Text style={styles.statusText}>
+   347→                    {item.status === 'live' ? 'EN DIRECT' : item.status === 'upcoming' ? 'À VENIR' : 'TERMINÉ'}
+   348→                  </Text>
+   349→                </View>
+   350→
+   351→                {/* Featured Badge */}
+   352→                {item.featured && (
+   353→                  <View style={styles.featuredBadge}>
+   354→                    <Ionicons name="star" size={12} color="#F59E0B" />
+   355→                    <Text style={styles.featuredBadgeText}>En vedette</Text>
+   356→                  </View>
+   357→                )}
+   358→
+   359→                {/* Type Badge */}
+   360→                <View style={[styles.typeBadge, { backgroundColor: EXHIBITION_TYPE_CONFIG[item.type]?.color }]}>
+   361→                  <Text style={styles.typeBadgeText}>
+   362→                    {EXHIBITION_TYPE_CONFIG[item.type]?.label}
+   363→                  </Text>
+   364→                </View>
+   365→              </View>
+   366→
+   367→              {/* Content */}
+   368→              <View style={styles.cardContent}>
+   369→                <Text style={styles.cardTitle} numberOfLines={2}>{item.title}</Text>
+   370→                
+   371→                <Text style={styles.cardDescription} numberOfLines={2}>
+   372→                  {item.description}
+   373→                </Text>
+   374→
+   375→                <View style={styles.cardMeta}>
+   376→                  <View style={styles.metaItem}>
+   377→                    <Ionicons name="calendar-outline" size={14} color={Colors.textSecondary} />
+   378→                    <Text style={styles.metaText}>
+   379→                      {formatDateRange(item.startDate, item.endDate)}
+   380→                    </Text>
+   381→                  </View>
+   382→                  
+   383→                  {item.location && (
+   384→                    <View style={styles.metaItem}>
+   385→                      <Ionicons name="location-outline" size={14} color={Colors.textSecondary} />
+   386→                      <Text style={styles.metaText} numberOfLines={1}>
+   387→                        {item.location.city}, {item.location.wilaya}
+   388→                      </Text>
+   389→                    </View>
+   390→                  )}
+   391→                </View>
+   392→
+   393→                <View style={styles.cardFooter}>
+   394→                  <View style={styles.statsRow}>
+   395→                    <View style={styles.statItem}>
+   396→                      <Ionicons name="storefront-outline" size={14} color={Colors.textTertiary} />
+   397→                      <Text style={styles.statText}>
+   398→                        {item.currentExhibitors}/{item.maxExhibitors} exposants
+   399→                      </Text>
+   400→                    </View>
+   401→                    <View style={styles.statItem}>
+   402→                      <Ionicons name="people-outline" size={14} color={Colors.textTertiary} />
+   403→                      <Text style={styles.statText}>
+   404→                        {item.currentVisitors?.toLocaleString() || '0'} visiteurs
+   405→                      </Text>
+   406→                    </View>
+   407→                  </View>
+   408→
+   409→                  {!item.userRegistration && item.status === 'upcoming' && (
+   410→                    <TouchableOpacity 
+   411→                      style={styles.registerButton}
+   412→                      onPress={() => {
+   413→                        setSelectedExhibition(item);
+   414→                        setShowRegistrationModal(true);
+   415→                      }}
+   416→                    >
+   417→                      <Text style={styles.registerButtonText}>S'inscrire</Text>
+   418→                    </TouchableOpacity>
+   419→                  )}
+   420→
+   421→                  {item.userRegistration && (
+   422→                    <View style={styles.registeredBadge}>
+   423→                      <Ionicons name="checkmark-circle" size={14} color={Colors.success} />
+   424→                      <Text style={styles.registeredText}>Inscrit</Text>
+   425→                    </View>
+   426→                  )}
+   427→                </View>
+   428→              </View>
+   429→            </TouchableOpacity>
+   430→          )}
+   431→          ListEmptyComponent={
+   432→            <View style={styles.emptyContainer}>
+   433→              <Ionicons name="calendar-outline" size={64} color={Colors.textTertiary} />
+   434→              <Text style={styles.emptyTitle}>Aucun événement</Text>
+   435→              <Text style={styles.emptySubtitle}>
+   436→                Revenez plus tard pour découvrir les prochaines expositions.
+   437→              </Text>
+   438→            </View>
+   439→          }
+   440→        />
+   441→
+   442→        {/* Registration Modal */}
+   443→        <RegistrationModal
+   444→          visible={showRegistrationModal}
+   445→          exhibition={selectedExhibition}
+   446→          onClose={() => setShowRegistrationModal(false)}
+   447→          onRegister={handleRegister}
+   448→          loading={registering}
+   449→        />
+   450→      </View>
+   451→    );
+   452→  }
+   453→
+   454→  // Detail view (single exhibition)
+   455→  if (!selectedExhibition) return null;
+   456→
+   457→  const typeConfig = EXHIBITION_TYPE_CONFIG[selectedExhibition.type];
+   458→
+   459→  return (
+   460→    <View style={styles.container}>
+   461→      {/* Header with Cover */}
+   462→      <View style={styles.detailHeaderContainer}>
+   463→        {selectedExhibition.coverImage ? (
+   464→          <Image source={{ uri: selectedExhibition.coverImage }} style={styles.detailCoverImage} />
+   465→        ) : (
+   466→          <View style={[styles.detailCoverPlaceholder, { backgroundColor: typeConfig?.color + '30' }]}>
+   467→            <Ionicons name={typeConfig?.icon as any} size={64} color={typeConfig?.color} />
+   468→          </View>
+   469→        )}
+   470→        
+   471→        <View style={styles.detailHeaderOverlay}>
+   472→          <TouchableOpacity 
+   473→            style={styles.backButton}
+   474→            onPress={() => {
+   475→              if (exhibitionId) {
+   476→                navigation.goBack();
+   477→              } else {
+   478→                setSelectedExhibition(null);
+   479→              }
+   480→            }}
+   481→          >
+   482→            <Ionicons name="arrow-back" size={24} color={Colors.white} />
+   483→          </TouchableOpacity>
+   484→          
+   485→          <View style={styles.detailHeaderActions}>
+   486→            <TouchableOpacity style={styles.headerActionButton}>
+   487→              <Ionicons name="share-social-outline" size={22} color={Colors.white} />
+   488→            </TouchableOpacity>
+   489→            <TouchableOpacity style={styles.headerActionButton}>
+   490→              <Ionicons name="heart-outline" size={22} color={Colors.white} />
+   491→            </TouchableOpacity>
+   492→          </View>
+   493→        </View>
+   494→
+   495→        {/* Gradient overlay */}
+   496→        <View style={styles.gradientOverlay} />
+   497→      </View>
+   498→
+   499→      {/* Title Section */}
+   500→      <View style={styles.titleSection}>
+   501→        <View style={styles.badgesRow}>
+   502→          <View style={[
+   503→            styles.detailTypeBadge, 
+   504→            { backgroundColor: typeConfig?.color }
+   505→          ]}>
+   506→            <Text style={styles.detailTypeBadgeText}>{typeConfig?.label}</Text>
+   507→          </View>
+   508→          
+   509→          <View style={[
+   510→            styles.detailStatusBadge,
+   511→            { 
+   512→              backgroundColor: selectedExhibition.status === 'live' 
+   513→                ? Colors.error 
+   514→                : selectedExhibition.status === 'upcoming' 
+   515→                  ? Colors.success 
+   516→                  : Colors.textTertiary 
+   517→            }
+   518→          ]}>
+   519→            <View style={[
+   520→              styles.statusDot,
+   521→              { backgroundColor: selectedExhibition.status === 'live' ? Colors.error : Colors.success }
+   522→            ]} />
+   523→            <Text style={styles.detailStatusText}>
+   524→              {selectedExhibition.status === 'live' ? 'En direct' : selectedExhibition.status === 'upcoming' ? 'À venir' : 'Terminé'}
+   525→            </Text>
+   526→          </View>
+   527→        </View>
+   528→
+   529→        <Text style={styles.detailTitle}>{selectedExhibition.title}</Text>
+   530→        
+   531→        <Text style={styles.detailOrganizer}>
+   532→          Organisé par {selectedExhibition.organizerName}
+   533→        </Text>
+   534→
+   535→        <View style={styles.dateLocationRow}>
+   536→          <View style={styles.dateLocationItem}>
+   537→            <Ionicons name="calendar-outline" size={18} color={Colors.primary} />
+   538→            <Text style={styles.dateLocationText}>
+   539→              {formatDateRange(selectedExhibition.startDate, selectedExhibition.endDate)}
+   540→            </Text>
+   541→          </View>
+   542→          
+   543→          {selectedExhibition.location && (
+   544→            <View style={styles.dateLocationItem}>
+   545→              <Ionicons name="location-outline" size={18} color={Colors.primary} />
+   546→              <Text style={styles.dateLocationText} numberOfLines={1}>
+   547→                {selectedExhibition.location.venue}, {selectedExhibition.location.city}
+   548→              </Text>
+   549→            </View>
+   550→          )}
+   551→        </View>
+   552→      </View>
+   553→
+   554→      {/* Stats Bar */}
+   555→      <View style={styles.statsBar}>
+   556→        <View style={styles.statBox}>
+   557→          <Text style={styles.statValue}>{selectedExhibition.currentExhibitors}</Text>
+   558→          <Text style={styles.statLabel}>Exposants</Text>
+   559→        </View>
+   560→        <View style={styles.statDivider} />
+   561→        <View style={styles.statBox}>
+   562→          <Text style={styles.statValue}>{selectedExhibition.currentVisitors?.toLocaleString() || '0'}</Text>
+   563→          <Text style={styles.statLabel}>Visiteurs</Text>
+   564→        </View>
+   565→        <View style={styles.statDivider} />
+   566→        <View style={styles.statBox}>
+   567→          <Text style={styles.statValue}>{selectedExhibition.events?.length || 0}</Text>
+   568→          <Text style={styles.statLabel}>Événements</Text>
+   569→        </View>
+   570→      </View>
+   571→
+   572→      {/* Tabs */}
+   573→      <View style={styles.tabBar}>
+   574→        {(['info', 'booths', 'events', 'networking'] as const).map(tab => (
+   575→          <TouchableOpacity
+   576→            key={tab}
+   577→            style={[styles.tab, activeTab === tab && styles.activeTab]}
+   578→            onPress={() => setActiveTab(tab)}
+   579→          >
+   580→            <Text style={[styles.tabText, activeTab === tab && styles.activeTabText]}>
+   581→              {tab === 'info' ? 'Info' : tab === 'booths' ? 'Exposants' : tab === 'events' ? 'Programme' : 'Network'}
+   582→            </Text>
+   583→          </TouchableOpacity>
+   584→        ))}
+   585→      </View>
+   586→
+   587→      {/* Tab Content */}
+   588→      <ScrollView 
+   589→        style={styles.tabContent}
+   590→        showsVerticalScrollIndicator={false}
+   591→      >
+   592→        {activeTab === 'info' && (
+   593→          <View style={styles.infoSection}>
+   594→            <Text style={styles.sectionTitle}>Description</Text>
+   595→            <Text style={styles.descriptionText}>{selectedExhibition.description}</Text>
+   596→
+   597→            {selectedExhibition.registrationFee !== undefined && (
+   598→              <View style={styles.feeSection}>
+   599→                <Text style={styles.sectionTitle}>Tarifs d'inscription</Text>
+   600→                <FlatList
+   601→                  data={REGISTRATION_TYPES.filter(t => t.value !== 'speaker')}
+   602→                  keyExtractor={(item) => item.value}
+   603→                  scrollEnabled={false}
+   604→                  renderItem={({ item }) => (
+   605→                    <View style={styles.feeItem}>
+   606→                      <Text style={styles.feeTypeLabel}>{item.label}</Text>
+   607→                      <Text style={styles.feePrice}>{item.price}</Text>
+   608→                    </View>
+   609→                  )}
+   610→                />
+   611→              </View>
+   612→            )}
+   613→
+   614→            {/* CTA Button */}
+   615→            {!selectedExhibition.userRegistration && selectedExhibition.status === 'upcoming' && (
+   616→              <TouchableOpacity
+   617→                style={styles.ctaButton}
+   618→                onPress={() => setShowRegistrationModal(true)}
+   619→              >
+   620→                <Ionicons name="person-add-outline" size={20} color={Colors.white} />
+   621→                <Text style={styles.ctaButtonText}>S'inscrire à l'événement</Text>
+   622→              </TouchableOpacity>
+   623→            )}
+   624→
+   625→            {selectedExhibition.userRegistration && (
+   626→              <View style={styles.alreadyRegistered}>
+   627→                <Ionicons name="checkmark-circle" size={20} color={Colors.success} />
+   628→                <View style={styles.registeredInfo}>
+   629→                  <Text style={styles.registeredTitle}>Vous êtes inscrit !</Text>
+   630→                  <Text style={styles.registeredType}>
+   631→                    En tant que {REGISTRATION_TYPES.find(r => r.value === selectedExhibition.userRegistration?.type)?.label}
+   632→                  </Text>
+   633→                </View>
+   634→              </View>
+   635→            )}
+   636→          </View>
+   637→        )}
+   638→
+   639→        {activeTab === 'booths' && (
+   640→          <View style={styles.boothsSection}>
+   641→            <Text style={styles.sectionTitle}>
+   642→              Exposants ({selectedExhibition.booths?.length || 0})
+   643→            </Text>
+   644→            
+   645→            {selectedExhibition.booths?.map(booth => (
+   646→              <TouchableOpacity
+   647→                key={booth.id}
+   648→                style={styles.boothCard}
+   649→                activeOpacity={0.7}
+   650→              >
+   651→                <View style={styles.boothHeader}>
+   652→                  <View style={styles.boothCompanyInfo}>
+   653→                    {booth.companyLogo ? (
+   654→                      <Image source={{ uri: booth.companyLogo }} style={styles.companyLogo} />
+   655→                    ) : (
+   656→                      <View style={styles.companyLogoPlaceholder}>
+   657→                        <Ionicons name="business-outline" size={24} color={Colors.textTertiary} />
+   658→                      </View>
+   659→                    )}
+   660→                    <View>
+   661→                      <Text style={styles.companyName}>{booth.companyName}</Text>
+   662→                      <Text style={styles.boothNumber}>Stand {booth.boothNumber}</Text>
+   663→                    </View>
+   664→                  </View>
+   665→                  
+   666→                  {booth.arAvailable && (
+   667→                    <View style={styles.arBadge}>
+   668→                      <Ionicons name="cube-outline" size={12} color={Colors.white} />
+   669→                      <Text style={styles.arBadgeText}>AR</Text>
+   670→                    </View>
+   671→                  )}
+   672→                </View>
+   673→
+   674→                {booth.bannerImage && (
+   675→                  <Image source={{ uri: booth.bannerImage }} style={styles.boothBanner} />
+   676→                )}
+   677→
+   678→                {booth.welcomeMessage && (
+   679→                  <Text style={styles.welcomeMessage} numberOfLines={2}>
+   680→                    "{booth.welcomeMessage}"
+   681→                  </Text>
+   682→                )}
+   683→
+   684→                {booth.products.length > 0 && (
+   685→                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.productsScroll}>
+   686→                    {booth.products.map(product => (
+   687→                      <View key={product.id} style={styles.productChip}>
+   688→                        {product.image ? (
+   689→                          <Image source={{ uri: product.image }} style={styles.productImage} />
+   690→                        ) : null}
+   691→                        <Text style={styles.productName} numberOfLines={1}>
+   692→                          {product.name}
+   693→                        </Text>
+   694→                      </View>
+   695→                    ))}
+   696→                  </ScrollView>
+   697→                )}
+   698→
+   699→                <View style={styles.boothFooter}>
+   700→                  <View style={styles.visitorCount}>
+   701→                    <Ionicons name="eye-outline" size={14} color={Colors.textTertiary} />
+   702→                    <Text style={styles.visitorCountText}>
+   703→                      {booth.visitorCount} visiteurs
+   704→                    </Text>
+   705→                  </View>
+   706→                  
+   707→                  <TouchableOpacity
+   708→                    style={styles.meetingButton}
+   709→                    onPress={() => handleScheduleMeeting(booth)}
+   710→                  >
+   711→                    <Ionicons name="calendar-outline" size={14} color={Colors.primary} />
+   712→                    <Text style={styles.meetingButtonText}>Réunion</Text>
+   713→                  </TouchableOpacity>
+   714→                </View>
+   715→              </TouchableOpacity>
+   716→            )) || (
+   717→              <View style={styles.emptySection}>
+   718→                <Ionicons name="storefront-outline" size={48} color={Colors.textTertiary} />
+   719→                <Text style={styles.emptyText}>Aucun exposant pour le moment</Text>
+   720→              </View>
+   721→            )}
+   722→          </View>
+   723→        )}
+   724→
+   725→        {activeTab === 'events' && (
+   726→          <View style={styles.eventsSection}>
+   727→            <Text style={styles.sectionTitle}>
+   728→              Programme ({selectedExhibition.events?.length || 0})
+   729→            </Text>
+   730→            
+   731→            {selectedExhibition.events?.map((event, index) => {
+   732→              const eventTypeConfig = EVENT_TYPE_CONFIG[event.type];
+   733→              
+   734→              return (
+   735→                <TouchableOpacity key={event.id} style={styles.eventCard}>
+   736→                  <View style={styles.eventTimeColumn}>
+   737→                    <Text style={styles.eventStartTime}>
+   738→                      {new Date(event.startTime).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+   739→                    </Text>
+   740→                    <Text style={styles.eventEndTime}>
+   741→                      {new Date(event.endTime).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+   742→                    </Text>
+   743→                  </View>
+   744→                  
+   745→                  <View style={styles.eventDivider} />
+   746→                  
+   747→                  <View style={styles.eventContent}>
+   748→                    <View style={styles.eventHeaderRow}>
+   749→                      <View style={[
+   750→                        styles.eventTypeBadge,
+   751→                        { backgroundColor: eventTypeConfig?.color + '20' }
+   752→                      ]}>
+   753→                        <Ionicons 
+   754→                          name={eventTypeConfig?.icon as any} 
+   755→                          size={12} 
+   756→                          color={eventTypeConfig?.color} 
+   757→                        />
+   758→                        <Text style={[styles.eventTypeText, { color: eventTypeConfig?.color }]}>
+   759→                          {eventTypeConfig?.label}
+   760→                        </Text>
+   761→                      </View>
+   762→                      
+   763→                      <Text style={styles.eventCapacity}>
+   764→                        {event.registeredCount}/{event.capacity} places
+   765→                      </Text>
+   766→                    </View>
+   767→                    
+   768→                    <Text style={styles.eventTitle}>{event.title}</Text>
+   769→                    
+   770→                    {event.speakers && event.speakers.length > 0 && (
+   771→                      <View style={styles.speakersRow}>
+   772→                        {event.speakers.slice(0, 3).map((speaker, idx) => (
+   773→                          <View key={idx} style={styles.speakerItem}>
+   774→                            {speaker.photoUrl ? (
+   775→                              <Image source={{ uri: speaker.photoUrl }} style={styles.speakerPhoto} />
+   776→                            ) : (
+   777→                              <View style={styles.speakerPhotoPlaceholder}>
+   778→                                <Ionicons name="person" size={12} color={Colors.white} />
+   779→                              </View>
+   780→                            )}
+   781→                            <Text style={styles.speakerName}>{speaker.name}</Text>
+   782→                          </View>
+   783→                        ))}
+   784→                        {event.speakers.length > 3 && (
+   785→                          <Text style={styles.moreSpeakers}>+{event.speakers.length - 3}</Text>
+   786→                        )}
+   787→                      </View>
+   788→                    )}
+   789→                    
+   790→                    {event.location && (
+   791→                      <View style={styles.eventLocation}>
+   792→                        <Ionicons name="location-outline" size={12} color={Colors.textTertiary} />
+   793→                        <Text style={styles.eventLocationText}>{event.location}</Text>
+   794→                      </View>
+   795→                    )}
+   796→                  </View>
+   797→                </TouchableOpacity>
+   798→              );
+   799→            }) || (
+   800→              <View style={styles.emptySection}>
+   801→                <Ionicons name="calendar-outline" size={48} color={Colors.textTertiary} />
+   802→                <Text style={styles.emptyText}>Aucun événement programmé</Text>
+   803→              </View>
+   804→            )}
+   805→          </View>
+   806→        )}
+   807→
+   808→        {activeTab === 'networking' && (
+   809→          <View style={styles.networkingSection}>
+   810→            <Text style={styles.sectionTitle}>Fonctionnalités Networking</Text>
+   811→            
+   812→            <View style={styles.networkingFeatures}>
+   813→              <TouchableOpacity style={styles.networkingFeature}>
+   814→                <View style={styles.featureIconContainer}>
+   815→                  <Ionicons name="people-outline" size={28} color={Colors.primary} />
+   816→                </View>
+   817→                <Text style={styles.featureTitle}>Participants</Text>
+   818→                <Text style={styles.featureDescription}>
+   819→                  Découvrez les autres participants et connectez-vous
+   820→                </Text>
+   821→              </TouchableOpacity>
+   822→
+   823→              <TouchableOpacity style={styles.networkingFeature}>
+   824→                <View style={styles.featureIconContainer}>
+   825→                  <Ionicons name="chatbubbles-outline" size={28} color={Colors.info} />
+   826→                </View>
+   827→                <Text style={styles.featureTitle}>Chat en direct</Text>
+   828→                <Text style={styles.featureDescription}>
+   829→                  Discutez avec les exposants et autres visiteurs
+   830→                </Text>
+   831→              </TouchableOpacity>
+   832→
+   833→              <TouchableOpacity style={styles.networkingFeature}>
+   834→                <View style={styles.featureIconContainer}>
+   835→                  <Ionicons name="swap-vertical-outline" size={28} color={Colors.success} />
+   836→                </View>
+   837→                <Text style={styles.featureTitle}>B2B Meetings</Text>
+   838→                <Text style={styles.featureDescription}>
+   839→                  Planifiez des réunions d'affaires avec les exposants
+   840→                </Text>
+   841→              </TouchableOpacity>
+   842→
+   843→              <TouchableOpacity style={styles.networkingFeature}>
+   844→                <View style={styles.featureIconContainer}>
+   845→                  <Ionicons name="card-outline" size={28} color={Colors.warning} />
+   846→                </View>
+   847→                <Text style={styles.featureTitle">Carte de visite</Text>
+   848→                <Text style={styles.featureDescription}>
+   849→                  Échangez vos coordonnées numériquement
+   850→                </Text>
+   851→              </TouchableOpacity>
+   852→            </View>
+   853→          </View>
+   854→        )}
+   855→      </ScrollView>
+   856→
+   857→      {/* Registration Modal */}
+   858→      <RegistrationModal
+   859→        visible={showRegistrationModal}
+   860→        exhibition={selectedExhibition}
+   861→        onClose={() => setShowRegistrationModal(false)}
+   862→        onRegister={handleRegister}
+   863→        loading={registering}
+   864→      />
+   865→    </View>
+   866→  );
+   867→}
+   868→
+   869→// ============================================
+   870→// Sub-Components
+   871→// ============================================
+   872→
+   873→function RegistrationModal({
+   874→  visible,
+   875→  exhibition,
+   876→  onClose,
+   877→  onRegister,
+   878→  loading,
+   879→}: {
+   880→  visible: boolean;
+   881→  exhibition: Exhibition | null;
+   882→  onClose: () => void;
+   883→  onRegister: () => void;
+   884→  loading: boolean;
+   885→}) {
+   886→  const [selectedType, setSelectedType] = useState<RegistrationType>('visitor');
+   887→  const [company, setCompany] = useState('');
+   888→  const [job, setJob] = useState('');
+   889→  const [interest, setInterest] = useState('');
+   890→
+   891→  if (!exhibition) return null;
+   892→
+   893→  return (
+   894→    <Modal visible={visible} transparent animationType="slide">
+   895→      <View style={styles.modalOverlay}>
+   896→        <View style={styles.registrationModal}>
+   897→          <View style={styles.registrationHeader}>
+   898→            <TouchableOpacity onPress={onClose}>
+   899→              <Ionicons name="close" size={24} color={Colors.text} />
+   900→            </TouchableOpacity>
+   901→            <Text style={styles.registrationTitle}>Inscription</Text>
+   902→            <View style={{ width: 24 }} />
+   903→          </View>
+   904→
+   905→          <Text style={styles.exhibitionName}>{exhibition.title}</Text>
+   906→
+   907→          <Text style={styles.selectTypeLabel}>Type d'inscription</Text>
+   908→          
+   909→          {REGISTRATION_TYPES.map(type => (
+   910→            <TouchableOpacity
+   911→              key={type.value}
+   912→              style={[
+   913→                styles.registrationTypeOption,
+   914→                selectedType === type.value && styles.registrationTypeSelected
+   915→              ]}
+   916→              onPress={() => setSelectedType(type.value)}
+   917→            >
+   918→              <View style={[
+   919→                styles.typeRadio,
+   920→                selectedType === type.value && styles.typeRadioSelected
+   921→              ]}>
+   922→                {selectedType === type.value && (
+   923→                  <View style={styles.typeRadioInner} />
+   924→                )}
+   925→              </View>
+   926→              <View style={styles.typeContent}>
+   927→                <Text style={styles.typeName}>{type.label}</Text>
+   928→                <Text style={styles.typeDesc}>{type.description}</Text>
+   929→              </View>
+   930→              <Text style={styles.typePrice}>{type.price}</Text>
+   931→            </TouchableOpacity>
+   932→          ))}
+   933→
+   934→          {(selectedType === 'exhibitor' || selectedType === 'speaker') && (
+   935→            <>
+   936→              <TextInput
+   937→                style={styles.regInput}
+   938→                value={company}
+   939→                onChangeText={setCompany}
+   940→                placeholder="Nom de l'entreprise"
+   941→                placeholderTextColor={Colors.textTertiary}
+   942→              />
+   943→              <TextInput
+   944→                style={styles.regInput}
+   945→                value={job}
+   946→                onChangeText={setJob}
+   947→                placeholder="Poste / Fonction"
+   948→                placeholderTextColor={Colors.textTertiary}
+   949→              />
+   950→            </>
+   951→          )}
+   952→
+   953→          <TextInput
+   954→            style={[styles.regInput, styles.regTextArea]}
+   955→            value={interest}
+   956→            onChangeText={setInterest}
+   957→            placeholder="Centres d'intérêt (optionnel)"
+   958→            placeholderTextColor={Colors.textTertiary}
+   959→            multiline
+   960→            numberOfLines={2}
+   961→          />
+   962→
+   963→          <TouchableOpacity
+   964→            style={[styles.confirmButton, loading && styles.confirmButtonDisabled]}
+   965→            onPress={onRegister}
+   966→            disabled={loading}
+   967→          >
+   968→            {loading ? (
+   969→              <ActivityIndicator color={Colors.white} />
+   970→            ) : (
+   971→              <Text style={styles.confirmButtonText}>Confirmer l'inscription</Text>
+   972→            )}
+   973→          </TouchableOpacity>
+   974→        </View>
+   975→      </View>
+   976→    </Modal>
+   977→  );
+   978→}
+   979→
+   980→// Import RefreshControl
+   981→import { RefreshControl } from 'react-native-gesture-handler';
+   982→
+   983→// ============================================
+   984→// Styles
+   985→// ============================================
+   986→
+   987→const styles = StyleSheet.create({
+   988→  container: {
+   989→    flex: 1,
+   990→    backgroundColor: Colors.background,
+   991→  },
+   992→  loadingContainer: {
+   993→    flex: 1,
+   994→    justifyContent: 'center',
+   995→    alignItems: 'center',
+   996→    backgroundColor: Colors.background,
+   997→  },
+   998→  loadingText: {
+   999→    marginTop: Spacing.md,
+  1000→    fontSize: FontSize.base,
+  1001→    color: Colors.textSecondary,
+  1002→    fontFamily: FontFamily.medium,
+  1003→  },
+  1004→
+  1005→  // List View
+  1006→  header: {
+  1007→    flexDirection: 'row',
+  1008→    alignItems: 'center',
+  1009→    justifyContent: 'space-between',
+  1010→    paddingHorizontal: Spacing.md,
+  1011→    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+  1012→    paddingBottom: Spacing.md,
+  1013→    backgroundColor: Colors.white,
+  1014→  },
+  1015→  headerTitle: {
+  1016→    fontSize: FontSize.xl,
+  1017→    fontWeight: 'bold',
+  1018→    color: Colors.text,
+  1019→    fontFamily: FontFamily.bold,
+  1020→  },
+  1021→  filterButton: {
+  1022→    width: 40,
+  1023→    height: 40,
+  1024→    borderRadius: 20,
+  1025→    backgroundColor: Colors.surface,
+  1026→    justifyContent: 'center',
+  1027→    alignItems: 'center',
+  1028→  },
+  1029→  listContent: {
+  1030→    padding: Spacing.md,
+  1031→  },
+  1032→  exhibitionCard: {
+  1033→    backgroundColor: Colors.white,
+  1034→    borderRadius: BorderRadius.xl,
+  1035→    overflow: 'hidden',
+  1036→    marginBottom: Spacing.md,
+  1037→    ...Shadows.md,
+  1038→  },
+  1039→  cardImageContainer: {
+  1040→    height: 180,
+  1041→    position: 'relative',
+  1042→  },
+  1043→  cardImage: {
+  1044→    width: '100%',
+  1045→    height: '100%',
+  1046→  },
+  1047→  cardImagePlaceholder: {
+  1048→    flex: 1,
+  1049→    justifyContent: 'center',
+  1050→    alignItems: 'center',
+  1051→  },
+  1052→  statusBadge: {
+  1053→    position: 'absolute',
+  1054→    top: Spacing.sm,
+  1055→    left: Spacing.sm,
+  1056→    paddingHorizontal: Spacing.sm,
+  1057→    paddingVertical: 4,
+  1058→    borderRadius: BorderRadius.full,
+  1059→  },
+  1060→  statusText: {
+  1061→    fontSize: 10,
+  1062→    fontWeight: '700',
+  1063→    color: Colors.white,
+  1064→    fontFamily: FontFamily.bold,
+  1065→  },
+  1066→  featuredBadge: {
+  1067→    position: 'absolute',
+  1068→    top: Spacing.sm,
+  1069→    right: Spacing.sm,
+  1070→    flexDirection: 'row',
+  1071→    alignItems: 'center',
+  1072→    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+  1073→    paddingHorizontal: Spacing.sm,
+  1074→    paddingVertical: 4,
+  1075→    borderRadius: BorderRadius.full,
+  1076→    gap: 4,
+  1077→  },
+  1078→  featuredBadgeText: {
+  1079→    fontSize: 10,
+  1080→    fontWeight: '600',
+  1081→    color: '#F59E0B',
+  1082→    fontFamily: FontFamily.semiBold,
+  1083→  },
+  1084→  typeBadge: {
+  1085→    position: 'absolute',
+  1086→    bottom: Spacing.sm,
+  1087→    left: Spacing.sm,
+  1088→    paddingHorizontal: Spacing.sm,
+  1089→    paddingVertical: 4,
+  1090→    borderRadius: 4,
+  1091→  },
+  1092→  typeBadgeText: {
+  1093→    fontSize: 10,
+  1094→    fontWeight: '500',
+  1095→    color: Colors.white,
+  1096→    fontFamily: FontFamily.medium,
+  1097→  },
+  1098→  cardContent: {
+  1099→    padding: Spacing.md,
+  1100→  },
+  1101→  cardTitle: {
+  1102→    fontSize: FontSize.lg,
+  1103→    fontWeight: '600',
+  1104→    color: Colors.text,
+  1105→    fontFamily: FontFamily.semiBold,
+  1106→    marginBottom: Spacing.xs,
+  1107→  },
+  1108→  cardDescription: {
+  1109→    fontSize: FontSize.sm,
+  1110→    color: Colors.textSecondary,
+  1111→    fontFamily: FontFamily.regular,
+  1112→    marginBottom: Spacing.sm,
+  1113→    lineHeight: 18,
+  1114→  },
+  1115→  cardMeta: {
+  1116→    marginBottom: Spacing.sm,
+  1117→  },
+  1118→  metaItem: {
+  1119→    flexDirection: 'row',
+  1120→    alignItems: 'center',
+  1121→    gap: 4,
+  1122→    marginBottom: 4,
+  1123→  },
+  1124→  metaText: {
+  1125→    fontSize: FontSize.xs,
+  1126→    color: Colors.textSecondary,
+  1127→    fontFamily: FontFamily.regular,
+  1128→  },
+  1129→  cardFooter: {
+  1130→    flexDirection: 'row',
+  1131→    alignItems: 'center',
+  1132→    justifyContent: 'space-between',
+  1133→    borderTopWidth: 1,
+  1134→    borderTopColor: Colors.borderLight,
+  1135→    paddingTop: Spacing.sm,
+  1136→  },
+  1137→  statsRow: {
+  1138→    flexDirection: 'row',
+  1139→    gap: Spacing.md,
+  1140→  },
+  1141→  statItem: {
+  1142→    flexDirection: 'row',
+  1143→    alignItems: 'center',
+  1144→    gap: 4,
+  1145→  },
+  1146→  statText: {
+  1147→    fontSize: FontSize.xs,
+  1148→    color: Colors.textTertiary,
+  1149→    fontFamily: FontFamily.regular,
+  1150→  },
+  1151→  registerButton: {
+  1152→    paddingHorizontal: Spacing.md,
+  1153→    paddingVertical: Spacing.sm,
+  1154→    backgroundColor: Colors.primary,
+  1155→    borderRadius: BorderRadius.full,
+  1156→  },
+  1157→  registerButtonText: {
+  1158→    fontSize: FontSize.sm,
+  1159→    fontWeight: '600',
+  1160→    color: Colors.white,
+  1161→    fontFamily: FontFamily.semiBold,
+  1162→  },
+  1163→  registeredBadge: {
+  1164→    flexDirection: 'row',
+  1165→    alignItems: 'center',
+  1166→    gap: 4,
+  1167→  },
+  1168→  registeredText: {
+  1169→    fontSize: FontSize.sm,
+  1170→    fontWeight: '500',
+  1171→    color: Colors.success,
+  1172→    fontFamily: FontFamily.medium,
+  1173→  },
+  1174→
+  1175→  // Empty State
+  1176→  emptyContainer: {
+  1177→    alignItems: 'center',
+  1178→    paddingVertical: Spacing.xxxl,
+  1179→  },
+  1180→  emptyTitle: {
+  1181→    marginTop: Spacing.md,
+  1182→    fontSize: FontSize.lg,
+  1183→    fontWeight: '600',
+  1184→    color: Colors.text,
+  1185→    fontFamily: FontFamily.semiBold,
+  1186→  },
+  1187→  emptySubtitle: {
+  1188→    marginTop: Spacing.xs,
+  1189→    fontSize: FontSize.sm,
+  1190→    color: Colors.textTertiary,
+  1191→    fontFamily: FontFamily.regular,
+  1192→    textAlign: 'center',
+  1193→    paddingHorizontal: Spacing.xl,
+  1194→  },
+  1195→
+  1196→  // Detail View
+  1197→  detailHeaderContainer: {
+  1198→    height: 250,
+  1199→    position: 'relative',
+  1200→  },
+  1201→  detailCoverImage: {
+  1202→    width: '100%',
+  1203→    height: '100%',
+  1204→  },
+  1205→  detailCoverPlaceholder: {
+  1206→    flex: 1,
+  1207→    justifyContent: 'center',
+  1208→    alignItems: 'center',
+  1209→  },
+  1210→  detailHeaderOverlay: {
+  1211→    position: 'absolute',
+  1212→    top: 0,
+  1213→    left: 0,
+  1214→    right: 0,
+  1215→    flexDirection: 'row',
+  1216→    alignItems: 'center',
+  1217→    justifyContent: 'space-between',
+  1218→    paddingHorizontal: Spacing.md,
+  1219→    paddingTop: Platform.OS === 'ios' ? 50 : 30,
+  1220→  },
+  1221→  backButton: {
+  1222→    width: 40,
+  1223→    height: 40,
+  1224→    borderRadius: 20,
+  1225→    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+  1226→    justifyContent: 'center',
+  1227→    alignItems: 'center',
+  1228→  },
+  1229→  detailHeaderActions: {
+  1230→    flexDirection: 'row',
+  1231→    gap: Spacing.sm,
+  1232→  },
+  1233→  headerActionButton: {
+  1234→    width: 40,
+  1235→    height: 40,
+  1236→    borderRadius: 20,
+  1237→    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+  1238→    justifyContent: 'center',
+  1239→    alignItems: 'center',
+  1240→  },
+  1241→  gradientOverlay: {
+  1242→    position: 'absolute',
+  1243→    bottom: 0,
+  1244→    left: 0,
+  1245→    right: 0,
+  1246→    height: 80,
+  1247→    backgroundColor: 'linear-gradient(transparent, rgba(0,0,0,0.3))',
+  1248→  },
+  1249→  titleSection: {
+  1250→    padding: Spacing.md,
+  1251→    backgroundColor: Colors.white,
+  1252→  },
+  1253→  badgesRow: {
+  1254→    flexDirection: 'row',
+  1255→    gap: Spacing.sm,
+  1256→    marginBottom: Spacing.sm,
+  1257→  },
+  1258→  detailTypeBadge: {
+  1259→    paddingHorizontal: Spacing.sm,
+  1260→    paddingVertical: 4,
+  1261→    borderRadius: 4,
+  1262→  },
+  1263→  detailTypeBadgeText: {
+  1264→    fontSize: FontSize.xs,
+  1265→    fontWeight: '600',
+  1266→    color: Colors.white,
+  1267→    fontFamily: FontFamily.semiBold,
+  1268→  },
+  1269→  detailStatusBadge: {
+  1270→    flexDirection: 'row',
+  1271→    alignItems: 'center',
+  1272→    paddingHorizontal: Spacing.sm,
+  1273→    paddingVertical: 4,
+  1274→    borderRadius: BorderRadius.full,
+  1275→    gap: 4,
+  1276→  },
+  1277→  statusDot: {
+  1278→    width: 8,
+  1279→    height: 8,
+  1280→    borderRadius: 4,
+  1281→  },
+  1282→  detailStatusText: {
+  1283→    fontSize: FontSize.xs,
+  1284→    fontWeight: '600',
+  1285→    color: Colors.white,
+  1286→    fontFamily: FontFamily.semiBold,
+  1287→  },
+  1288→  detailTitle: {
+  1289→    fontSize: FontSize.xxl,
+  1290→    fontWeight: 'bold',
+  1291→    color: Colors.text,
+  1292→    fontFamily: FontFamily.bold,
+  1293→    marginBottom: Spacing.xs,
+  1294→  },
+  1295→  detailOrganizer: {
+  1296→    fontSize: FontSize.sm,
+  1297→    color: Colors.textSecondary,
+  1298→    fontFamily: FontFamily.regular,
+  1299→    marginBottom: Spacing.sm,
+  1300→  },
+  1301→  dateLocationRow: {
+  1302→    gap: Spacing.md,
+  1303→  },
+  1304→  dateLocationItem: {
+  1305→    flexDirection: 'row',
+  1306→    alignItems: 'center',
+  1307→    gap: 6,
+  1308→  },
+  1309→  dateLocationText: {
+  1310→    fontSize: FontSize.sm,
+  1311→    color: Colors.textSecondary,
+  1312→    fontFamily: FontFamily.regular,
+  1313→  },
+  1314→  statsBar: {
+  1315→    flexDirection: 'row',
+  1316→    backgroundColor: Colors.white,
+  1317→    paddingVertical: Spacing.md,
+  1318→    borderBottomWidth: 1,
+  1319→    borderBottomColor: Colors.borderLight,
+  1320→  },
+  1321→  statBox: {
+  1322→    flex: 1,
+  1323→    alignItems: 'center',
+  1324→  },
+  1325→  statValue: {
+  1326→    fontSize: FontSize.lg,
+  1327→    fontWeight: 'bold',
+  1328→    color: Colors.text,
+  1329→    fontFamily: FontFamily.bold,
+  1330→  },
+  1331→  statLabel: {
+  1332→    fontSize: FontSize.xs,
+  1333→    color: Colors.textTertiary,
+  1334→    fontFamily: FontFamily.regular,
+  1335→  },
+  1336→  statDivider: {
+  1337→    width: 1,
+  1338→    height: 32,
+  1339→    backgroundColor: Colors.borderLight,
+  1340→  },
+  1341→
+  1342→  // Tabs
+  1343→  tabBar: {
+  1344→    flexDirection: 'row',
+  1345→    backgroundColor: Colors.white,
+  1346→    borderBottomWidth: 1,
+  1347→    borderBottomColor: Colors.borderLight,
+  1348→  },
+  1349→  tab: {
+  1350→    flex: 1,
+  1351→    paddingVertical: Spacing.md,
+  1352→    alignItems: 'center',
+  1353→  },
+  1354→  activeTab: {
+  1355→    borderBottomWidth: 2,
+  1356→    borderBottomColor: Colors.primary,
+  1357→  },
+  1358→  tabText: {
+  1359→    fontSize: FontSize.sm,
+  1360→    color: Colors.textTertiary,
+  1361→    fontWeight: '500',
+  1362→    fontFamily: FontFamily.medium,
+  1363→  },
+  1364→  activeTabText: {
+  1365→    color: Colors.primary,
+  1366→    fontWeight: '600',
+  1367→  },
+  1368→  tabContent: {
+  1369→    flex: 1,
+  1370→    backgroundColor: Colors.background,
+  1371→  },
+  1372→
+  1373→  // Info Tab
+  1374→  infoSection: {
+  1375→    padding: Spacing.md,
+  1376→  },
+  1377→  sectionTitle: {
+  1378→    fontSize: FontSize.lg,
+  1379→    fontWeight: '600',
+  1380→    color: Colors.text,
+  1381→    fontFamily: FontFamily.semiBold,
+  1382→    marginBottom: Spacing.sm,
+  1383→  },
+  1384→  descriptionText: {
+  1385→    fontSize: FontSize.base,
+  1386→    color: Colors.textSecondary,
+  1387→    lineHeight: 22,
+  1388→    fontFamily: FontFamily.regular,
+  1389→    marginBottom: Spacing.lg,
+  1390→  },
+  1391→  feeSection: {
+  1392→    marginBottom: Spacing.lg,
+  1393→  },
+  1394→  feeItem: {
+  1395→    flexDirection: 'row',
+  1396→    justifyContent: 'space-between',
+  1397→    paddingVertical: Spacing.sm,
+  1398→    borderBottomWidth: 1,
+  1399→    borderBottomColor: Colors.borderLight,
+  1400→  },
+  1401→  feeTypeLabel: {
+  1402→    fontSize: FontSize.base,
+  1403→    color: Colors.text,
+  1404→    fontFamily: FontFamily.medium,
+  1405→  },
+  1406→  feePrice: {
+  1407→    fontSize: FontSize.base,
+  1408→    fontWeight: '600',
+  1409→    color: Colors.primary,
+  1410→    fontFamily: FontFamily.semiBold,
+  1411→  },
+  1412→  ctaButton: {
+  1413→    flexDirection: 'row',
+  1414→    justifyContent: 'center',
+  1415→    alignItems: 'center',
+  1416→    backgroundColor: Colors.primary,
+  1417→    paddingVertical: Spacing.md,
+  1418→    borderRadius: BorderRadius.lg,
+  1419→    gap: Spacing.sm,
+  1420→    ...Shadows.md,
+  1421→  },
+  1422→  ctaButtonText: {
+  1423→    fontSize: FontSize.base,
+  1424→    fontWeight: '600',
+  1425→    color: Colors.white,
+  1426→    fontFamily: FontFamily.semiBold,
+  1427→  },
+  1428→  alreadyRegistered: {
+  1429→    flexDirection: 'row',
+  1430→    alignItems: 'center',
+  1431→    backgroundColor: Colors.successLight,
+  1432→    padding: Spacing.md,
+  1433→    borderRadius: BorderRadius.lg,
+  1434→    gap: Spacing.md,
+  1435→  },
+  1436→  registeredInfo: {
+  1437→    flex: 1,
+  1438→  },
+  1439→  registeredTitle: {
+  1440→    fontSize: FontSize.base,
+  1441→    fontWeight: '600',
+  1442→    color: Colors.success,
+  1443→    fontFamily: FontFamily.semiBold,
+  1444→  },
+  1445→  registeredType: {
+  1446→    fontSize: FontSize.sm,
+  1447→    color: Colors.textSecondary,
+  1448→    fontFamily: FontFamily.regular,
+  1449→  },
+  1450→
+  1451→  // Booths Tab
+  1452→  boothsSection: {
+  1453→    padding: Spacing.md,
+  1454→  },
+  1455→  boothCard: {
+  1456→    backgroundColor: Colors.white,
+  1457→    borderRadius: BorderRadius.lg,
+  1458→    padding: Spacing.md,
+  1459→    marginBottom: Spacing.md,
+  1460→    ...Shadows.sm,
+  1461→  },
+  1462→  boothHeader: {
+  1463→    flexDirection: 'row',
+  1464→    alignItems: 'center',
+  1465→    justifyContent: 'space-between',
+  1466→    marginBottom: Spacing.sm,
+  1467→  },
+  1468→  boothCompanyInfo: {
+  1469→    flexDirection: 'row',
+  1470→    alignItems: 'center',
+  1471→    flex: 1,
+  1472→  },
+  1473→  companyLogo: {
+  1474→    width: 44,
+  1475→    height: 44,
+  1476→    borderRadius: BorderRadius.md,
+  1477→    backgroundColor: Colors.surface,
+  1478→    marginRight: Spacing.sm,
+  1479→  },
+  1480→  companyLogoPlaceholder: {
+  1481→    width: 44,
+  1482→    height: 44,
+  1483→    borderRadius: BorderRadius.md,
+  1484→    backgroundColor: Colors.surface,
+  1485→    justifyContent: 'center',
+  1486→    alignItems: 'center',
+  1487→    marginRight: Spacing.sm,
+  1488→  },
+  1489→  companyName: {
+  1490→    fontSize: FontSize.base,
+  1491→    fontWeight: '600',
+  1492→    color: Colors.text,
+  1493→    fontFamily: FontFamily.semiBold,
+  1494→  },
+  1495→  boothNumber: {
+  1496→    fontSize: FontSize.xs,
+  1497→    color: Colors.textTertiary,
+  1498→    fontFamily: FontFamily.regular,
+  1499→  },
+  1500→  arBadge: {
+  1501→    flexDirection: 'row',
+  1502→    alignItems: 'center',
+  1503→    backgroundColor: '#8B5CF6',
+  1504→    paddingHorizontal: Spacing.sm,
+  1505→    paddingVertical: 4,
+  1506→    borderRadius: BorderRadius.full,
+  1507→    gap: 4,
+  1508→  },
+  1509→  arBadgeText: {
+  1510→    fontSize: 10,
+  1511→    fontWeight: '600',
+  1512→    color: Colors.white,
+  1513→    fontFamily: FontFamily.semiBold,
+  1514→  },
+  1515→  boothBanner: {
+  1516→    width: '100%',
+  1517→    height: 100,
+  1518→    borderRadius: BorderRadius.md,
+  1519→    marginBottom: Spacing.sm,
+  1520→  },
+  1521→  welcomeMessage: {
+  1522→    fontSize: FontSize.sm,
+  1523→    color: Colors.textSecondary,
+  1524→    fontStyle: 'italic',
+  1525→    fontFamily: FontFamily.regular,
+  1526→    marginBottom: Spacing.sm,
+  1527→  },
+  1528→  productsScroll: {
+  1529→    marginBottom: Spacing.sm,
+  1530→  },
+  1531→  productChip: {
+  1532→    flexDirection: 'row',
+  1533→    alignItems: 'center',
+  1534→    backgroundColor: Colors.surface,
+  1535→    paddingHorizontal: Spacing.sm,
+  1536→    paddingVertical: Spacing.xs,
+  1537→    borderRadius: BorderRadius.full,
+  1538→    marginRight: Spacing.xs,
+  1539→  },
+  1540→  productImage: {
+  1541→    width: 24,
+  1542→    height: 24,
+  1543→    borderRadius: 12,
+  1544→    marginRight: 4,
+  1545→  },
+  1546→  productName: {
+  1547→    fontSize: FontSize.xs,
+  1548→    color: Colors.text,
+  1549→    fontFamily: FontFamily.regular,
+  1550→  },
+  1551→  boothFooter: {
+  1552→    flexDirection: 'row',
+  1553→    alignItems: 'center',
+  1554→    justifyContent: 'space-between',
+  1555→    borderTopWidth: 1,
+  1556→    borderTopColor: Colors.borderLight,
+  1557→    paddingTop: Spacing.sm,
+  1558→  },
+  1559→  visitorCount: {
+  1560→    flexDirection: 'row',
+  1561→    alignItems: 'center',
+  1562→    gap: 4,
+  1563→  },
+  1564→  visitorCountText: {
+  1565→    fontSize: FontSize.xs,
+  1566→    color: Colors.textTertiary,
+  1567→    fontFamily: FontFamily.regular,
+  1568→  },
+  1569→  meetingButton: {
+  1570→    flexDirection: 'row',
+  1571→    alignItems: 'center',
+  1572→    backgroundColor: Colors.primaryLight,
+  1573→    paddingHorizontal: Spacing.sm,
+  1574→    paddingVertical: Spacing.xs,
+  1575→    borderRadius: BorderRadius.full,
+  1576→    gap: 4,
+  1577→  },
+  1578→  meetingButtonText: {
+  1579→    fontSize: FontSize.xs,
+  1580→    fontWeight: '500',
+  1581→    color: Colors.primary,
+  1582→    fontFamily: FontFamily.medium,
+  1583→  },
+  1584→
+  1585→  // Events Tab
+  1586→  eventsSection: {
+  1587→    padding: Spacing.md,
+  1588→  },
+  1589→  eventCard: {
+  1590→    flexDirection: 'row',
+  1591→    backgroundColor: Colors.white,
+  1592→    borderRadius: BorderRadius.lg,
+  1593→    padding: Spacing.md,
+  1594→    marginBottom: Spacing.sm,
+  1595→    ...Shadows.sm,
+  1596→  },
+  1597→  eventTimeColumn: {
+  1598→    alignItems: 'center',
+  1599→    paddingRight: Spacing.md,
+  1600→    borderRightWidth: 1,
+  1601→    borderRightColor: Colors.borderLight,
+  1602→    marginRight: Spacing.md,
+  1603→  },
+  1604→  eventStartTime: {
+  1605→    fontSize: FontSize.base,
+  1606→    fontWeight: '600',
+  1607→    color: Colors.text,
+  1608→    fontFamily: FontFamily.semiBold,
+  1609→  },
+  1610→  eventEndTime: {
+  1611→    fontSize: FontSize.xs,
+  1612→    color: Colors.textTertiary,
+  1613→    fontFamily: FontFamily.regular,
+  1614→  },
+  1615→  eventDivider: {},
+  1616→  eventContent: {
+  1617→    flex: 1,
+  1618→  },
+  1619→  eventHeaderRow: {
+  1620→    flexDirection: 'row',
+  1621→    alignItems: 'center',
+  1622→    justifyContent: 'space-between',
+  1623→    marginBottom: Spacing.xs,
+  1624→  },
+  1625→  eventTypeBadge: {
+  1626→    flexDirection: 'row',
+  1627→    alignItems: 'center',
+  1628→    paddingHorizontal: Spacing.xs,
+  1629→    paddingVertical: 2,
+  1630→    borderRadius: 4,
+  1631→    gap: 4,
+  1632→  },
+  1633→  eventTypeText: {
+  1634→    fontSize: 10,
+  1635→    fontWeight: '500',
+  1636→    fontFamily: FontFamily.medium,
+  1637→  },
+  1638→  eventCapacity: {
+  1639→    fontSize: FontSize.xs,
+  1640→    color: Colors.textTertiary,
+  1641→    fontFamily: FontFamily.regular,
+  1642→  },
+  1643→  eventTitle: {
+  1644→    fontSize: FontSize.base,
+  1645→    fontWeight: '500',
+  1646→    color: Colors.text,
+  1647→    fontFamily: FontFamily.medium,
+  1648→    marginBottom: Spacing.xs,
+  1649→  },
+  1650→  speakersRow: {
+  1651→    flexDirection: 'row',
+  1652→    alignItems: 'center',
+  1653→    marginBottom: Spacing.xs,
+  1654→  },
+  1655→  speakerItem: {
+  1656→    flexDirection: 'row',
+  1657→    alignItems: 'center',
+  1658→    marginRight: Spacing.sm,
+  1659→  },
+  1660→  speakerPhoto: {
+  1661→    width: 24,
+  1662→    height: 24,
+  1663→    borderRadius: 12,
+  1664→    marginRight: 4,
+  1665→  },
+  1666→  speakerPhotoPlaceholder: {
+  1667→    width: 24,
+  1668→    height: 24,
+  1669→    borderRadius: 12,
+  1670→    backgroundColor: Colors.textTertiary,
+  1671→    justifyContent: 'center',
+  1672→    alignItems: 'center',
+  1673→    marginRight: 4,
+  1674→  },
+  1675→  speakerName: {
+  1676→    fontSize: FontSize.xs,
+  1677→    color: Colors.textSecondary,
+  1678→    fontFamily: FontFamily.regular,
+  1679→  },
+  1680→  moreSpeakers: {
+  1681→    fontSize: FontSize.xs,
+  1682→    color: Colors.primary,
+  1683→    fontWeight: '500',
+  1684→    fontFamily: FontFamily.medium,
+  1685→  },
+  1686→  eventLocation: {
+  1687→    flexDirection: 'row',
+  1688→    alignItems: 'center',
+  1689→    gap: 4,
+  1690→  },
+  1691→  eventLocationText: {
+  1692→    fontSize: FontSize.xs,
+  1693→    color: Colors.textTertiary,
+  1694→    fontFamily: FontFamily.regular,
+  1695→  },
+  1696→
+  1697→  // Networking Tab
+  1698→  networkingSection: {
+  1699→    padding: Spacing.md,
+  1700→  },
+  1701→  networkingFeatures: {
+  1702→    gap: Spacing.sm,
+  1703→  },
+  1704→  networkingFeature: {
+  1705→    flexDirection: 'row',
+  1706→    backgroundColor: Colors.white,
+  1707→    borderRadius: BorderRadius.lg,
+  1708→    padding: Spacing.md,
+  1709→    alignItems: 'center',
+  1710→    ...Shadows.sm,
+  1711→  },
+  1712→  featureIconContainer: {
+  1713→    width: 56,
+  1714→    height: 56,
+  1715→    borderRadius: BorderRadius.md,
+  1716→    backgroundColor: Colors.surface,
+  1717→    justifyContent: 'center',
+  1718→    alignItems: 'center',
+  1719→    marginRight: Spacing.md,
+  1720→  },
+  1721→  featureTitle: {
+  1722→    fontSize: FontSize.base,
+  1723→    fontWeight: '600',
+  1724→    color: Colors.text,
+  1725→    fontFamily: FontFamily.semiBold,
+  1726→    marginBottom: 2,
+  1727→  },
+  1728→  featureDescription: {
+  1729→    fontSize: FontSize.xs,
+  1730→    color: Colors.textTertiary,
+  1731→    fontFamily: FontFamily.regular,
+  1732→    flex: 1,
+  1733→  },
+  1734→
+  1735→  // Empty section in tabs
+  1736→  emptySection: {
+  1737→    alignItems: 'center',
+  1738→    paddingVertical: Spacing.xxxl,
+  1739→  },
+  1740→  emptyText: {
+  1741→    marginTop: Spacing.md,
+  1742→    fontSize: FontSize.base,
+  1743→    color: Colors.textTertiary,
+  1744→    fontFamily: FontFamily.regular,
+  1745→  },
+  1746→
+  1747→  // Registration Modal
+  1748→  modalOverlay: {
+  1749→    flex: 1,
+  1750→    backgroundColor: Colors.overlay,
+  1751→    justifyContent: 'flex-end',
+  1752→  },
+  1753→  registrationModal: {
+  1754→    backgroundColor: Colors.white,
+  1755→    borderTopLeftRadius: BorderRadius.xxl,
+  1756→    borderTopRightRadius: BorderRadius.xxl,
+  1757→    padding: Spacing.lg,
+  1758→    paddingBottom: Platform.OS === 'ios' ? 40 : Spacing.lg,
+  1759→    maxHeight: '85%',
+  1760→  },
+  1761→  registrationHeader: {
+  1762→    flexDirection: 'row',
+  1763→    alignItems: 'center',
+  1764→    justifyContent: 'space-between',
+  1765→    marginBottom: Spacing.md,
+  1766→  },
+  1767→  registrationTitle: {
+  1768→    fontSize: FontSize.lg,
+  1769→    fontWeight: '600',
+  1770→    color: Colors.text,
+  1771→    fontFamily: FontFamily.semiBold,
+  1772→  },
+  1773→  exhibitionName: {
+  1774→    fontSize: FontSize.base,
+  1775→    color: Colors.textSecondary,
+  1776→    fontFamily: FontFamily.regular,
+  1777→    marginBottom: Spacing.md,
+  1778→  },
+  1779→  selectTypeLabel: {
+  1780→    fontSize: FontSize.sm,
+  1781→    fontWeight: '500',
+  1782→    color: Colors.text,
+  1783→    fontFamily: FontFamily.medium,
+  1784→    marginBottom: Spacing.sm,
+  1785→  },
+  1786→  registrationTypeOption: {
+  1787→    flexDirection: 'row',
+  1788→    alignItems: 'center',
+  1789→    padding: Spacing.md,
+  1790→    backgroundColor: Colors.surface,
+  1791→    borderRadius: BorderRadius.md,
+  1792→    marginBottom: Spacing.sm,
+  1793→  },
+  1794→  registrationTypeSelected: {
+  1795→    borderWidth: 1,
+  1796→    borderColor: Colors.primary,
+  1797→    backgroundColor: Colors.primary + '08',
+  1798→  },
+  1799→  typeRadio: {
+  1800→    width: 22,
+  1801→    height: 22,
+  1802→    borderRadius: 11,
+  1803→    borderWidth: 2,
+  1804→    borderColor: Colors.border,
+  1805→    marginRight: Spacing.md,
+  1806→    justifyContent: 'center',
+  1807→    alignItems: 'center',
+  1808→  },
+  1809→  typeRadioSelected: {
+  1810→    borderColor: Colors.primary,
+  1811→  },
+  1812→  typeRadioInner: {
+  1813→    width: 12,
+  1814→    height: 12,
+  1815→    borderRadius: 6,
+  1816→    backgroundColor: Colors.primary,
+  1817→  },
+  1818→  typeContent: {
+  1819→    flex: 1,
+  1820→  },
+  1821→  typeName: {
+  1822→    fontSize: FontSize.base,
+  1823→    fontWeight: '500',
+  1824→    color: Colors.text,
+  1825→    fontFamily: FontFamily.medium,
+  1826→  },
+  1827→  typeDesc: {
+  1828→    fontSize: FontSize.xs,
+  1829→    color: Colors.textTertiary,
+  1830→    fontFamily: FontFamily.regular,
+  1831→  },
+  1832→  typePrice: {
+  1833→    fontSize: FontSize.sm,
+  1834→    fontWeight: '600',
+  1835→    color: Colors.primary,
+  1836→    fontFamily: FontFamily.semiBold,
+  1837→  },
+  1838→  regInput: {
+  1839→    borderWidth: 1,
+  1840→    borderColor: Colors.border,
+  1841→    borderRadius: BorderRadius.md,
+  1842→    paddingHorizontal: Spacing.md,
+  1843→    paddingVertical: Spacing.sm,
+  1844→    fontSize: FontSize.base,
+  1845→    color: Colors.text,
+  1846→    fontFamily: FontFamily.regular,
+  1847→    marginBottom: Spacing.sm,
+  1848→  },
+  1849→  regTextArea: {
+  1850→    minHeight: 70,
+  1851→    textAlignVertical: 'top',
+  1852→  },
+  1853→  confirmButton: {
+  1854→    backgroundColor: Colors.primary,
+  1855→    paddingVertical: Spacing.md,
+  1856→    borderRadius: BorderRadius.lg,
+  1857→    alignItems: 'center',
+  1858→    marginTop: Spacing.sm,
+  1859→  },
+  1860→  confirmButtonDisabled: {
+  1861→    opacity: 0.6,
+  1862→  },
+  1863→  confirmButtonText: {
+  1864→    fontSize: FontSize.base,
+  1865→    fontWeight: '600',
+  1866→    color: Colors.white,
+  1867→    fontFamily: FontFamily.semiBold,
+  1868→  },
+  1869→});
+  1870→

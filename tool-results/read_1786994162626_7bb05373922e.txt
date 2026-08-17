@@ -1,0 +1,1691 @@
+     1→// Product Customizer Component - AlgeriaTrade Mobile
+     2→// Composant de personnalisation de produit avec options, tarifs et certifications
+     3→
+     4→import React, { useState, useMemo } from 'react';
+     5→import {
+     6→  View,
+     7→  Text,
+     8→  StyleSheet,
+     9→  ScrollView,
+    10→  TouchableOpacity,
+    11→  Image,
+    12→  Modal,
+    13→  FlatList,
+    14→} from 'react-native';
+    15→import { Ionicons } from '@expo/vector-icons';
+    16→
+    17→// Constants
+    18→import { Colors, FontFamily, FontSize, Spacing, BorderRadius, Shadows } from '../utils/constants';
+    19→
+    20→// ============================================
+    21→// Types & Interfaces
+    22→// ============================================
+    23→
+    24→export type CustomizationOptionType =
+    25→  | 'select'
+    26→  | 'radio'
+    27→  | 'checkbox'
+    28→  | 'text'
+    29→  | 'number'
+    30→  | 'file'
+    31→  | 'color';
+    32→
+    33→interface CustomizationOption {
+    34→  id: string;
+    35→  name: string;
+    36→  type: CustomizationOptionType;
+    37→  required: boolean;
+    38→  sortOrder: number;
+    39→  values?: Array<{
+    40→    id: string;
+    41→    label: string;
+    42→    priceModifier?: number; // Additional cost for this option
+    43→    colorHex?: string; // For color type
+    44→    image?: string; // For visual options
+    45→  }>;
+    46→  defaultValue?: string;
+    47→}
+    48→
+    49→interface BulkPricingTier {
+    50→  id: string;
+    51→  productId: string;
+    52→  minQuantity: number;
+    53→  maxQuantity?: number;
+    54→  unitPrice: number;
+    55→  currency: string;
+    56→  discountPercent: number;
+    57→  isBestValue?: boolean;
+    58→}
+    59→
+    60→interface ProductCertification {
+    61→  id: string;
+    62→  name: string;
+    63→  issuingBody: string;
+    64→  certificateNumber: string;
+    65→  issueDate: Date;
+    66→  expiryDate?: Date;
+    67→  documentUrl: string;
+    68→  isValid: boolean;
+    69→  iconUrl?: string;
+    70→}
+    71→
+    72→interface RelatedProduct {
+    73→  id: string;
+    74→  name: string;
+    75→  price: number;
+    76→  currency: string;
+    77→  image?: string;
+    78→  supplier: string;
+    79→  relationType: 'related' | 'up_sell' | 'cross_sell' | 'complementary' | 'alternative';
+    80→}
+    81→
+    82→interface ProductCustomizerProps {
+    83→  // Product base info
+    84→  productId: string;
+    85→  basePrice: number;
+    86→  currency: string;
+    87→  
+    88→  // Customization options
+    89→  customizationOptions?: CustomizationOption[];
+    90→  
+    91→  // Bulk pricing
+    92→  bulkPricingTiers?: BulkPricingTier[];
+    93→  
+    94→  // Certifications
+    95→  certifications?: ProductCertification[];
+    96→  
+    97→  // Related products
+    98→  relatedProducts?: RelatedProduct[];
+    99→  
+   100→  // Callbacks
+   101→  onSelectionChange?: (selections: Record<string, any>, totalPrice: number) => void;
+   102→  onAddToCart?: (quantity: number, selections: Record<string, any>) => void;
+   103→  onViewCertification?: (cert: ProductCertification) => void;
+   104→  onPressRelatedProduct?: (product: RelatedProduct) => void;
+   105→  
+   106→  // Display options
+   107→  compact?: boolean;
+   108→  showHeader?: boolean;
+   109→  initialQuantity?: number;
+   110→}
+   111→
+   112→// ============================================
+   113→// Constants
+   114→// ============================================
+   115→
+   116→const RELATION_TYPE_CONFIG: Record<string, { label: string; color: string }> = {
+   117→  related: { label: 'Similaire', color: Colors.info },
+   118→  up_sell: { label: 'Premium', color: Colors.warning },
+   119→  cross_sell: { label: 'Complémentaire', color: Colors.success },
+   120→  complementary: { label: 'Accesoire', color: Colors.primary },
+   121→  alternative: { label: 'Alternative', color: Colors.textSecondary },
+   122→};
+   123→
+   124→const CERTIFICATION_ICONS: Record<string, string> = {
+   125→  CE: 'shield-checkmark',
+   126→  ISO: 'medal',
+   127→  SGS: 'verified',
+   128→  TUV: 'security',
+   129→  default: 'document-text',
+   130→};
+   131→
+   132→// ============================================
+   133→// Sub-Components
+   134→// ============================================
+   135→
+   136→function OptionSelector({
+   137→  option,
+   138→  value,
+   139→  onChange,
+   140→}: {
+   141→  option: CustomizationOption;
+   142→  value: any;
+   143→  onChange: (value: any) => void;
+   144→}) {
+   145→  switch (option.type) {
+   146→    case 'color':
+   147→      return <ColorPicker option={option} value={value} onChange={onChange} />;
+   148→    case 'radio':
+   149→      return <RadioGroup option={option} value={value} onChange={onChange} />;
+   150→    case 'checkbox':
+   151→      return <CheckboxGroup option={option} value={value} onChange={onChange} />;
+   152→    case 'select':
+   153→      return <SelectDropdown option={option} value={value} onChange={onChange} />;
+   154→    case 'text':
+   155→    case 'number':
+   156→      return <TextInputField option={option} value={value} onChange={onChange} />;
+   157→    default:
+   158→      return null;
+   159→  }
+   160→}
+   161→
+   162→function ColorPicker({
+   163→  option,
+   164→  value,
+   165→  onChange,
+   166→}: {
+   167→  option: CustomizationOption;
+   168→  value: string;
+   169→  onChange: (value: string) => void;
+   170→}) {
+   171→  return (
+   172→    <View style={styles.optionContainer}>
+   173→      <View style={styles.optionHeader}>
+   174→        <Text style={styles.optionName}>{option.name}</Text>
+   175→        {option.required && <Text style={styles.requiredStar}>*</Text>}
+   176→      </View>
+   177→      
+   178→      <View style={styles.colorOptions}>
+   179→        {option.values?.map(v => (
+   180→          <TouchableOpacity
+   181→            key={v.id}
+   182→            style={[
+   183→              styles.colorSwatch,
+   184→              value === v.id && styles.colorSwatchSelected,
+   185→              { backgroundColor: v.colorHex || '#ccc' }
+   186→            ]}
+   187→            onPress={() => onChange(v.id)}
+   188→            activeOpacity={0.7}
+   189→          >
+   190→            {value === v.id && (
+   191→              <Ionicons name="checkmark" size={16} color="#fff" />
+   192→            )}
+   193→            
+   194→            {v.priceModifier !== undefined && v.priceModifier > 0 && (
+   195→              <View style={styles.priceModifierBadge}>
+   196→                <Text style={styles.priceModifierText}>+{v.priceModifier}</Text>
+   197→              </View>
+   198→            )}
+   199→          </TouchableOpacity>
+   200→        ))}
+   201→      </View>
+   202→      
+   203→      {option.values?.find(v => v.id === value)?.label && (
+   204→        <Text style={styles.selectedValue}>
+   205→          {option.values.find(v => v.id === value)?.label}
+   206→        </Text>
+   207→      )}
+   208→    </View>
+   209→  );
+   210→}
+   211→
+   212→function RadioGroup({
+   213→  option,
+   214→  value,
+   215→  onChange,
+   216→}: {
+   217→  option: CustomizationOption;
+   218→  value: string;
+   219→  onChange: (value: string) => void;
+   220→}) {
+   221→  return (
+   222→    <View style={styles.optionContainer}>
+   223→      <View style={styles.optionHeader}>
+   224→        <Text style={styles.optionName}>{option.name}</Text>
+   225→        {option.required && <Text style={styles.requiredStar}>*</Text>}
+   226→      </View>
+   227→      
+   228→      {option.values?.map(v => (
+   229→        <TouchableOpacity
+   230→          key={v.id}
+   231→          style={[styles.radioItem, value === v.id && styles.radioItemSelected]}
+   232→          onPress={() => onChange(v.id)}
+   233→          activeOpacity={0.7}
+   234→        >
+   235→          <View style={[
+   236→            styles.radioCircle,
+   237→            value === v.id && styles.radioCircleSelected
+   238→          ]}>
+   239→            {value === v.id && <View style={styles.radioInner} />}
+   240→          </View>
+   241→          
+   242→          <View style={styles.radioContent}>
+   243→            <Text style={[styles.radioLabel, value === v.id && styles.radioLabelSelected]}>
+   244→              {v.label}
+   245→            </Text>
+   246→            {v.image && (
+   247→              <Image source={{ uri: v.image }} style={styles.optionImage} />
+   248→            )}
+   249→          </View>
+   250→          
+   251→          {v.priceModifier !== undefined && (
+   252→            <Text style={styles.optionPriceModifier}>
+   253→              {v.priceModifier > 0 ? '+' : ''}{v.priceModifier.toLocaleString('fr-FR')}
+   254→            </Text>
+   255→          )}
+   256→        </TouchableOpacity>
+   257→      ))}
+   258→    </View>
+   259→  );
+   260→}
+   261→
+   262→function CheckboxGroup({
+   263→  option,
+   264→  value,
+   265→  onChange,
+   266→}: {
+   267→  option: CustomizationOption;
+   268→  value: string[];
+   269→  onChange: (value: string[]) => void;
+   270→}) {
+   271→  const toggleValue = (id: string) => {
+   272→    const newValue = value.includes(id)
+   273→      ? value.filter(v => v !== id)
+   274→      : [...value, id];
+   275→    onChange(newValue);
+   276→  };
+   277→
+   278→  return (
+   279→    <View style={styles.optionContainer}>
+   280→      <View style={styles.optionHeader}>
+   281→        <Text style={styles.optionName}>{option.name}</Text>
+   282→        {option.required && <Text style={styles.requiredStar}>*</Text>}
+   283→      </View>
+   284→      
+   285→      {option.values?.map(v => (
+   286→        <TouchableOpacity
+   287→          key={v.id}
+   288→          style={styles.checkboxItem}
+   289→          onPress={() => toggleValue(v.id)}
+   290→          activeOpacity={0.7}
+   291→        >
+   292→          <View style={[
+   293→            styles.checkbox,
+   294→            value.includes(v.id) && styles.checkboxSelected
+   295→          ]}>
+   296→            {value.includes(v.id) && (
+   297→              <Ionicons name="checkmark" size={14} color="#fff" />
+   298→            )}
+   299→          </View>
+   300→          
+   301→          <Text style={styles.checkboxLabel}>{v.label}</Text>
+   302→          
+   303→          {v.priceModifier !== undefined && (
+   304→            <Text style={styles.optionPriceModifier}>
+   305→              +{v.priceModifier.toLocaleString('fr-FR')}
+   306→            </Text>
+   307→          )}
+   308→        </TouchableOpacity>
+   309→      ))}
+   310→    </View>
+   311→  );
+   312→}
+   313→
+   314→function SelectDropdown({
+   315→  option,
+   316→  value,
+   317→  onChange,
+   318→}: {
+   319→  option: CustomizationOption;
+   320→  value: string;
+   321→  onChange: (value: string) => void;
+   322→}) {
+   323→  return (
+   324→    <View style={styles.optionContainer}>
+   325→      <View style={styles.optionHeader}>
+   326→        <Text style={styles.optionName}>{option.name}</Text>
+   327→        {option.required && <Text style={styles.requiredStar}>*</Text>}
+   328→      </View>
+   329→      
+   330→      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.selectScroll}>
+   331→        {option.values?.map(v => (
+   332→          <TouchableOpacity
+   333→            key={v.id}
+   334→            style={[
+   335→              styles.selectChip,
+   336→              value === v.id && styles.selectChipSelected
+   337→            ]}
+   338→            onPress={() => onChange(v.id)}
+   339→            activeOpacity={0.7}
+   340→          >
+   341→            <Text style={[
+   342→              styles.selectChipText,
+   343→              value === v.id && styles.selectChipTextSelected
+   344→            ]}>
+   345→              {v.label}
+   346→            </Text>
+   347→            {v.priceModifier !== undefined && v.priceModifier > 0 && (
+   348→              <Text style={styles.chipPrice}>+{v.priceModifier}</Text>
+   349→            )}
+   350→          </TouchableOpacity>
+   351→        ))}
+   352→      </ScrollView>
+   353→    </View>
+   354→  );
+   355→}
+   356→
+   357→function TextInputField({
+   358→  option,
+   359→  value,
+   360→  onChange,
+   361→}: {
+   362→  option: CustomizationOption;
+   363→  value: string;
+   364→  onChange: (value: string) => void;
+   365→}) {
+   366→  return (
+   367→    <View style={styles.optionContainer}>
+   368→      <View style={styles.optionHeader}>
+   369→        <Text style={styles.optionName}>{option.name}</Text>
+   370→        {option.required && <Text style={styles.requiredStar}>*</Text>}
+   371→      </View>
+   372→      
+   373→      <TextInput
+   374→        style={styles.textInput}
+   375→        value={value || ''}
+   376→        onChangeText={onChange}
+   377→        placeholder={`Entrez ${option.name.toLowerCase()}...`}
+   378→        placeholderTextColor={Colors.textTertiary}
+   379→        keyboardType={option.type === 'number' ? 'decimal-pad' : 'default'}
+   380→      />
+   381→    </View>
+   382→  );
+   383→}
+   384→
+   385→import { TextInput } from 'react-native';
+   386→
+   387→// Bulk Pricing Table
+   388→function BulkPricingTable({ 
+   389→  tiers, 
+   390→  currency, 
+   391→  selectedTier, 
+   392→  onSelectTier 
+   393→}: { 
+   394→  tiers: BulkPricingTier[]; 
+   395→  currency: string; 
+   396→  selectedTier: string | null;
+   397→  onSelectTier: (tierId: string) => void;
+   398→}) {
+   399→  if (!tiers || tiers.length === 0) return null;
+   400→
+   401→  return (
+   402→    <View style={styles.pricingSection}>
+   403→      <View style={styles.sectionHeader}>
+   404→        <Ionicons name="pricetags-outline" size={20} color={Colors.primary} />
+   405→        <Text style={styles.sectionTitle}>Tarifs par quantité</Text>
+   406→      </View>
+   407→
+   408→      <View style={styles.pricingTable}>
+   409→        {/* Header */}
+   410→        <View style={styles.pricingHeader}>
+   411→          <Text style={styles.pricingHeaderText}>Quantité</Text>
+   412→          <Text style={styles.pricingHeaderText}>Prix unitaire</Text>
+   413→          <Text style={styles.pricingHeaderText}>Remise</Text>
+   414→        </View>
+   415→
+   416→        {/* Rows */}
+   417→        {tiers.map(tier => (
+   418→          <TouchableOpacity
+   419→            key={tier.id}
+   420→            style={[
+   421→              styles.pricingRow,
+   422→              selectedTier === tier.id && styles.pricingRowSelected,
+   423→              tier.isBestValue && styles.pricingRowBestValue,
+   424→            ]}
+   425→            onPress={() => onSelectTier(tier.id)}
+   426→            activeOpacity={0.7}
+   427→          >
+   428→            <View style={styles.quantityCell}>
+   429→              <Text style={styles.quantityText}>
+   430→                {tier.minQuantity}+
+   431→                {tier.maxQuantity ? ` - ${tier.maxQuantity}` : ''}
+   432→              </Text>
+   433→              {tier.isBestValue && (
+   434→                <View style={styles.bestValueBadge}>
+   435→                  <Text style={styles.bestValueText}>Meilleur prix</Text>
+   436→                </View>
+   437→              )}
+   438→            </View>
+   439→            
+   440→            <Text style={[
+   441→              styles.priceCell,
+   442→              selectedTier === tier.id && styles.priceCellSelected,
+   443→            ]}>
+   444→              {tier.unitPrice.toLocaleString('fr-FR')} {currency}
+   445→            </Text>
+   446→            
+   447→            <View style={styles.discountCell}>
+   448→              <Text style={styles.discountText}>
+   449→                -{tier.discountPercent}%
+   450→              </Text>
+   451→            </View>
+   452→            
+   453→            {selectedTier === tier.id && (
+   454→              <Ionicons name="checkmark-circle" size={20} color={Colors.primary} />
+   455→            )}
+   456→          </TouchableOpacity>
+   457→        ))}
+   458→      </View>
+   459→
+   460→      {/* Savings info */}
+   461→      {selectedTier && tiers.find(t => t.id === selectedTier)?.discountPercent > 0 && (
+   462→        <View style={styles.savingsBanner}>
+   463→          <Ionicons name="trending-down-outline" size={16} color={Colors.success} />
+   464→          <Text style={styles.savingsText}>
+   465→            Vous économisez {tiers.find(t => t.id === selectedTier)?.discountPercent}% sur le prix unitaire !
+   466→          </Text>
+   467→        </View>
+   468→      )}
+   469→    </View>
+   470→  );
+   471→}
+   472→
+   473→// Certification Viewer
+   474→function CertificationViewer({
+   475→  certifications,
+   476→  onViewCertificate,
+   477→}: {
+   478→  certifications: ProductCertification[];
+   479→  onViewCertificate: (cert: ProductCertification) => void;
+   480→}) {
+   481→  if (!certifications || certifications.length === 0) return null;
+   482→
+   483→  const [showAll, setShowAll] = useState(false);
+   484→
+   485→  const displayCerts = showAll ? certifications : certifications.slice(0, 3);
+   486→
+   487→  return (
+   488→    <View style={styles.certSection}>
+   489→      <View style={styles.sectionHeader}>
+   490→        <Ionicons name="shield-checkmark-outline" size={20} color={Colors.success} />
+   491→        <Text style={styles.sectionTitle}>Certifications</Text>
+   492→        {certifications.length > 3 && (
+   493→          <TouchableOpacity onPress={() => setShowAll(!showAll)}>
+   494→            <Text style={styles.showAllText}>
+   495→              {showAll ? 'Voir moins' : `Voir tout (${certifications.length})`}
+   496→            </Text>
+   497→          </TouchableOpacity>
+   498→        )}
+   499→      </View>
+   500→
+   501→      {displayCerts.map(cert => (
+   502→        <TouchableOpacity
+   503→          key={cert.id}
+   504→          style={[
+   505→            styles.certCard,
+   506→            !cert.isValid && styles.certCardInvalid,
+   507→          ]}
+   508→          onPress={() => onViewCertificate(cert)}
+   509→          activeOpacity={0.7}
+   510→        >
+   511→          <View style={[
+   512→            styles.certIconContainer,
+   513→            { backgroundColor: cert.isValid ? Colors.successLight : Colors.errorLight }
+   514→          ]}>
+   515→            <Ionicons
+   516→              name={(CERTIFICATION_ICONS[cert.name] || CERTIFICATION_ICONS.default) as any}
+   517→              size={24}
+   518→              color={cert.isValid ? Colors.success : Colors.error}
+   519→            />
+   520→          </View>
+   521→
+   522→          <View style={styles.certContent}>
+   523→            <Text style={styles.certName}>{cert.name}</Text>
+   524→            <Text style={styles.certIssuer}>{cert.issuingBody}</Text>
+   525→            <Text style={styles.certNumber}>N° {cert.certificateNumber}</Text>
+   526→          </View>
+   527→
+   528→          <View style={styles.certStatusContainer}>
+   529→            <View style={[
+   530→              styles.certStatusBadge,
+   531→              { backgroundColor: cert.isValid ? Colors.successLight : Colors.errorLight }
+   532→            ]}>
+   533→              <Text style={[
+   534→                styles.certStatusText,
+   535→                { color: cert.isValid ? Colors.success : Colors.error }
+   536→              ]}>
+   537→                {cert.isValid ? 'Valide' : 'Expiré'}
+   538→              </Text>
+   539→            </View>
+   540→            
+   541→            <Ionicons name="document-text-outline" size={20} color={Colors.textTertiary} />
+   542→          </View>
+   543→        </TouchableOpacity>
+   544→      ))}
+   545→    </View>
+   546→  );
+   547→}
+   548→
+   549→// Related Products Carousel
+   550→function RelatedProductsCarousel({
+   551→  products,
+   552→  onPressProduct,
+   553→}: {
+   554→  products: RelatedProduct[];
+   555→  onPressProduct: (product: RelatedProduct) => void;
+   556→}) {
+   557→  if (!products || products.length === 0) return null;
+   558→
+   559→  return (
+   560→    <View style={styles.relatedSection}>
+   561→      <View style={styles.sectionHeader}>
+   562→        <Ionicons name="link-outline" size={20} color={Colors.info} />
+   563→        <Text style={styles.sectionTitle}>Produits associés</Text>
+   564→      </View>
+   565→
+   566→      <FlatList
+   567→        data={products}
+   568→        keyExtractor={(item) => item.id}
+   569→        horizontal
+   570→        showsHorizontalScrollIndicator={false}
+   571→        contentContainerStyle={styles.relatedList}
+   572→        renderItem={({ item }) => {
+   573→          const relationConfig = RELATION_TYPE_CONFIG[item.relationType] || RELATION_TYPE_CONFIG.related;
+   574→
+   575→          return (
+   576→            <TouchableOpacity
+   577→              style={styles.relatedCard}
+   578→              onPress={() => onPressProduct(item)}
+   579→              activeOpacity={0.7}
+   580→            >
+   581→              <View style={styles.relatedImageContainer}>
+   582→                {item.image ? (
+   583→                  <Image source={{ uri: item.image }} style={styles.relatedImage} />
+   584→                ) : (
+   585→                  <View style={styles.relatedImagePlaceholder}>
+   586→                    <Ionicons name="cube-outline" size={32} color={Colors.textTertiary} />
+   587→                  </View>
+   588→                )}
+   589→                
+   590→                <View style={[styles.relationBadge, { backgroundColor: relationConfig.color }]}>
+   591→                  <Text style={styles.relationBadgeText}>{relationConfig.label}</Text>
+   592→                </View>
+   593→              </View>
+   594→
+   595→              <View style={styles.relatedContent}>
+   596→                <Text style={styles.relatedName} numberOfLines={2}>{item.name}</Text>
+   597→                <Text style={styles.relatedSupplier}>{item.supplier}</Text>
+   598→                <Text style={styles.relatedPrice}>
+   599→                  {item.price.toLocaleString('fr-FR')} {item.currency}
+   600→                </Text>
+   601→              </View>
+   602→            </TouchableOpacity>
+   603→          );
+   604→        }}
+   605→      />
+   606→    </View>
+   607→  );
+   608→}
+   609→
+   610→// Certificate Detail Modal
+   611→function CertificateDetailModal({
+   612→  certificate,
+   613→  visible,
+   614→  onClose,
+   615→}: {
+   616→  certificate: ProductCertification | null;
+   617→  visible: boolean;
+   618→  onClose: () => void;
+   619→}) {
+   620→  if (!certificate) return null;
+   621→
+   622→  return (
+   623→    <Modal visible={visible} transparent animationType="slide">
+   624→      <View style={styles.modalOverlay}>
+   625→        <View style={styles.certModal}>
+   626→          <View style={styles.modalHeader}>
+   627→            <TouchableOpacity onPress={onClose}>
+   628→              <Ionicons name="close" size={24} color={Colors.text} />
+   629→            </TouchableOpacity>
+   630→            <Text style={styles.modalTitle}>Détails du certificat</Text>
+   631→            <View style={{ width: 24 }} />
+   632→          </View>
+   633→
+   634→          <View style={styles.certDetailIconContainer}>
+   635→            <Ionicons
+   636→              name={(CERTIFICATION_ICONS[certificate.name] || CERTIFICATION_ICONS.default) as any}
+   637→              size={48}
+   638→              color={certificate.isValid ? Colors.success : Colors.error}
+   639→            />
+   640→          </View>
+   641→
+   642→          <Text style={styles.certDetailName}>{certificate.name}</Text>
+   643→          <Text style={styles.certDetailIssuer}>{certificate.issuingBody}</Text>
+   644→
+   645→          <View style={styles.certDetailsGrid}>
+   646→            <View style={styles.detailItem}>
+   647→              <Text style={styles.detailLabel}>Numéro</Text>
+   648→              <Text style={styles.detailValue}>{certificate.certificateNumber}</Text>
+   649→            </View>
+   650→            <View style={styles.detailItem}>
+   651→              <Text style={styles.detailLabel}>Date d'émission</Text>
+   652→              <Text style={styles.detailValue}>
+   653→                {new Date(certificate.issueDate).toLocaleDateString('fr-FR')}
+   654→              </Text>
+   655→            </View>
+   656→            {certificate.expiryDate && (
+   657→              <View style={styles.detailItem}>
+   658→                <Text style={styles.detailLabel}>Expiration</Text>
+   659→                <Text style={styles.detailValue}>
+   660→                  {new Date(certificate.expiryDate).toLocaleDateString('fr-FR')}
+   661→                </Text>
+   662→              </View>
+   663→            )}
+   664→            <View style={styles.detailItem}>
+   665→              <Text style={styles.detailLabel}>Statut</Text>
+   666→              <View style={[
+   667→                styles.statusBadge,
+   668→                { backgroundColor: certificate.isValid ? Colors.successLight : Colors.errorLight }
+   669→              ]}>
+   670→                <Text style={[
+   671→                  styles.statusText,
+   672→                  { color: certificate.isValid ? Colors.success : Colors.error }
+   673→                ]}>
+   674→                  {certificate.isValid ? 'Valide' : 'Expiré'}
+   675→                </Text>
+   676→              </View>
+   677→            </View>
+   678→          </View>
+   679→
+   680→          <TouchableOpacity style={styles.viewDocumentButton}>
+   681→            <Ionicons name="document-text-outline" size={18} color={Colors.primary} />
+   682→            <Text style={styles.viewDocumentButtonText}>Voir le document PDF</Text>
+   683→          </TouchableOpacity>
+   684→        </View>
+   685→      </View>
+   686→    </Modal>
+   687→  );
+   688→}
+   689→
+   690→// ============================================
+   691→// Main Component
+   692→// ============================================
+   693→
+   694→export default function ProductCustomizer({
+   695→  productId,
+   696→  basePrice,
+   697→  currency,
+   698→  customizationOptions = [],
+   699→  bulkPricingTiers = [],
+   700→  certifications = [],
+   701→  relatedProducts = [],
+   702→  onSelectionChange,
+   703→  onAddToCart,
+   704→  onViewCertification,
+   705→  onPressRelatedProduct,
+   706→  compact = false,
+   707→  showHeader = true,
+   708→  initialQuantity = 1,
+   709→}: ProductCustomizerProps) {
+   710→  // State
+   711→  const [selections, setSelections] = useState<Record<string, any>>({});
+   712→  const [quantity, setQuantity] = useState(initialQuantity);
+   713→  const [selectedTier, setSelectedTier] = useState<string | null>(null);
+   714→  const [showCertModal, setShowCertModal] = useState(false);
+   715→  const [selectedCert, setSelectedCert] = useState<ProductCertification | null>(null);
+   716→
+   717→  // Calculate total price based on selections and quantity
+   718→  const totalPrice = useMemo(() => {
+   719→    let price = basePrice;
+   720→
+   721→    // Apply customization option modifiers
+   722→    Object.entries(selections).forEach(([optionId, value]) => {
+   723→      const option = customizationOptions.find(o => o.id === optionId);
+   724→      if (!option) return;
+   725→
+   726→      if (Array.isArray(value)) {
+   727→        // Checkbox - sum all selected
+   728→        value.forEach((valId: string) => {
+   729→          const val = option.values?.find(v => v.id === valId);
+   730→          if (val?.priceModifier) {
+   731→            price += val.priceModifier;
+   732→          }
+   733→        });
+   734→      } else {
+   735→        // Single selection
+   736→        const val = option.values?.find(v => v.id === value);
+   737→        if (val?.priceModifier) {
+   738→          price += val.priceModifier;
+   739→        }
+   740→      }
+   741→    });
+   742→
+   743→    // Apply bulk pricing discount
+   744→    if (bulkPricingTiers.length > 0) {
+   745→      const applicableTier = bulkPricingTiers.find(tier =>
+   746→        quantity >= tier.minQuantity &&
+   747→        (!tier.maxQuantity || quantity <= tier.maxQuantity)
+   748→      );
+   749→
+   750→      if (applicableTier) {
+   751→        price = applicableTier.unitPrice;
+   752→      }
+   753→    }
+   754→
+   755→    return Math.round(price * quantity * 100) / 100;
+   756→  }, [selections, quantity, basePrice, customizationOptions, bulkPricingTiers]);
+   757→
+   758→  // Handle selection change
+   759→  const handleSelectionChange = (optionId: string, value: any) => {
+   760→    const newSelections = { ...selections, [optionId]: value };
+   761→    setSelections(newSelections);
+   762→    onSelectionChange?.(newSelections, totalPrice);
+   763→  };
+   764→
+   765→  // Handle add to cart
+   766→  const handleAddToCart = () => {
+   767→    // Validate required fields
+   768→    const missingRequired = customizationOptions
+   769→      .filter(opt => opt.required)
+   770→      .filter(opt => {
+   771→        const value = selections[opt.id];
+   772→        if (opt.type === 'checkbox') {
+   773→          return !Array.isArray(value) || value.length === 0;
+   774→        }
+   775→        return !value || (typeof value === 'string' && value.trim() === '');
+   776→      });
+   777→
+   778→    if (missingRequired.length > 0) {
+   779→      // Would show error in real app
+   780→      console.log('[ProductCustomizer] Missing required:', missingRequired.map(o => o.name));
+   781→    }
+   782→
+   783→    onAddToCart?.(quantity, selections);
+   784→  };
+   785→
+   786→  // Handle view certification
+   787→  const handleViewCertification = (cert: ProductCertification) => {
+   788→    setSelectedCert(cert);
+   789→    setShowCertModal(true);
+   790→    onViewCertification?.(cert);
+   791→  };
+   792→
+   793→  // Compact mode - just show price summary
+   794→  if (compact) {
+   795→    return (
+   796→      <View style={styles.compactContainer}>
+   797→        <View style={styles.compactPriceRow}>
+   798→          <Text style={styles.compactTotalLabel}>Total</Text>
+   799→          <Text style={styles.compactTotalPrice}>
+   800→            {totalPrice.toLocaleString('fr-FR')} {currency}
+   801→          </Text>
+   802→        </View>
+   803→        
+   804→        {bulkPricingTiers.length > 0 && (
+   805→          <TouchableOpacity 
+   806→            style={styles.bulkInfoButton}
+   807→            onPress={() => {} /* Would expand in full mode */}
+   808→          >
+   809→            <Ionicons name="pricetag-outline" size={14} color={Colors.primary} />
+   810→            <Text style={styles.bulkInfoText}>
+   811→              Tarif {quantity >= 100 ? 'grossiste' : quantity >= 10 ? 'semi-gros' : 'unitaire'}
+   812→            </Text>
+   813→          </TouchableOpacity>
+   814→        )}
+   815→      </View>
+   816→    );
+   817→  }
+   818→
+   819→  // Full mode
+   820→  return (
+   821→    <View style={styles.container}>
+   822→      {/* Header */}
+   823→      {showHeader && (
+   824→        <View style={styles.header}>
+   825→          <Text style={styles.headerTitle}>Personnaliser votre commande</Text>
+   826→          <Text style={styles.headerSubtitle}>
+   827→            Choisissez les options et la quantité souhaitée
+   828→          </Text>
+   829→        </View>
+   830→      )}
+   831→
+   832→      <ScrollView 
+   833→        style={styles.scrollView} 
+   834→        showsVerticalScrollIndicator={false}
+   835→      >
+   836→        {/* Customization Options */}
+   837→        {customizationOptions.length > 0 && (
+   838→          <View style={styles.optionsSection}>
+   839→            <View style={styles.sectionHeader}>
+   840→              <Ionicons name="options-outline" size={20} color={Colors.primary} />
+   841→              <Text style={styles.sectionTitle}>Options disponibles</Text>
+   842→            </View>
+   843→
+   844→            {customizationOptions
+   845→              .sort((a, b) => a.sortOrder - b.sortOrder)
+   846→              .map(option => (
+   847→                <OptionSelector
+   848→                  key={option.id}
+   849→                  option={option}
+   850→                  value={selections[option.id]}
+   851→                  onChange={(value) => handleSelectionChange(option.id, value)}
+   852→                />
+   853→              ))
+   854→            }
+   855→          </View>
+   856→        )}
+   857→
+   858→        {/* Quantity Selector */}
+   859→        <View style={styles.quantitySection}>
+   860→          <View style={styles.sectionHeader}>
+   861→            <Ionicons name="cube-outline" size={20} color={Colors.primary} />
+   862→            <Text style={styles.sectionTitle}>Quantité</Text>
+   863→          </View>
+   864→
+   865→          <View style={styles.quantityControls}>
+   866→            <TouchableOpacity
+   867→              style={styles.quantityButton}
+   868→              onPress={() => setQuantity(Math.max(1, quantity - 1))}
+   869→            >
+   870→              <Ionicons name="remove" size={20} color={Colors.text} />
+   871→            </TouchableOpacity>
+   872→
+   873→            <TextInput
+   874→              style={styles.quantityInput}
+   875→              value={String(quantity)}
+   876→              onChangeText={(text) => {
+   877→                const num = parseInt(text) || 1;
+   878→                setQuantity(Math.max(1, num));
+   879→              }}
+   880→              keyboardType="number-pad"
+   881→              textAlign="center"
+   882→            />
+   883→
+   884→            <TouchableOpacity
+   885→              style={styles.quantityButton}
+   886→              onPress={() => setQuantity(quantity + 1)}
+   887→            >
+   888→              <Ionicons name="add" size={20} color={Colors.text} />
+   889→            </TouchableOpacity>
+   890→          </View>
+   891→
+   892→          {/* Quick quantity buttons */}
+   893→          <View style={styles.quickQuantityButtons}>
+   894→            {[10, 25, 50, 100].map(qty => (
+   895→              <TouchableOpacity
+   896→                key={qty}
+   897→                style={[
+   898→                  styles.quickQtyButton,
+   899→                  quantity === qty && styles.quickQtyButtonSelected,
+   900→                ]}
+   901→                onPress={() => setQuantity(qty)}
+   902→              >
+   903→                <Text style={[
+   904→                  styles.quickQtyButtonText,
+   905→                  quantity === qty && styles.quickQtyButtonTextSelected,
+   906→                ]}>
+   907→                  {qty}
+   908→                </Text>
+   909→              </TouchableOpacity>
+   910→            ))}
+   911→          </View>
+   912→        </View>
+   913→
+   914→        {/* Bulk Pricing */}
+   915→        <BulkPricingTable
+   916→          tiers={bulkPricingTiers}
+   917→          currency={currency}
+   918→          selectedTier={selectedTier}
+   919→          onSelectTier={setSelectedTier}
+   920→        />
+   921→
+   922→        {/* Certifications */}
+   923→        <CertificationViewer
+   924→          certifications={certifications}
+   925→          onViewCertificate={handleViewCertification}
+   926→        />
+   927→
+   928→        {/* Related Products */}
+   929→        <RelatedProductsCarousel
+   930→          products={relatedProducts}
+   931→          onPressProduct={onPressRelatedProduct || (() => {})}
+   932→        />
+   933→
+   934→        {/* Bottom spacing for sticky footer */}
+   935→        <View style={{ height: 120 }} />
+   936→      </ScrollView>
+   937→
+   938→      {/* Sticky Footer */}
+   939→      <View style={styles.footer}>
+   940→        <View style={styles.footerPriceContainer}>
+   941→          <Text style={styles.footerTotalLabel}>Total</Text>
+   942→          <Text style={styles.footerTotalPrice}>
+   943→            {totalPrice.toLocaleString('fr-FR')} {currency}
+   944→          </Text>
+   945→          {quantity > 1 && (
+   946→            <Text style={styles.footerUnitPrice}>
+   947→              ({(totalPrice / quantity).toLocaleString('fr-FR')} {currency}/unité)
+   948→            </Text>
+   949→          )}
+   950→        </View>
+   951→
+   952→        <TouchableOpacity
+   953→          style={styles.addToCartButton}
+   954→          onPress={handleAddToCart}
+   955→          activeOpacity={0.8}
+   956→        >
+   957→          <Ionicons name="cart-outline" size={20} color={Colors.white} />
+   958→          <Text style={styles.addToCartButtonText}>Ajouter au panier</Text>
+   959→        </TouchableOpacity>
+   960→      </View>
+   961→
+   962→      {/* Certificate Modal */}
+   963→      <CertificateDetailModal
+   964→        certificate={selectedCert}
+   965→        visible={showCertModal}
+   966→        onClose={() => setShowCertModal(false)}
+   967→      />
+   968→    </View>
+   969→  );
+   970→}
+   971→
+   972→// ============================================
+   973→// Styles
+   974→// ============================================
+   975→
+   976→const styles = StyleSheet.create({
+   977→  container: {
+   978→    flex: 1,
+   979→    backgroundColor: Colors.background,
+   980→  },
+   981→
+   982→  // Compact Mode
+   983→  compactContainer: {
+   984→    paddingVertical: Spacing.sm,
+   985→  },
+   986→  compactPriceRow: {
+   987→    flexDirection: 'row',
+   988→    alignItems: 'center',
+   989→    justifyContent: 'space-between',
+   990→  },
+   991→  compactTotalLabel: {
+   992→    fontSize: FontSize.sm,
+   993→    color: Colors.textSecondary,
+   994→    fontFamily: FontFamily.regular,
+   995→  },
+   996→  compactTotalPrice: {
+   997→    fontSize: FontSize.lg,
+   998→    fontWeight: 'bold',
+   999→    color: Colors.primary,
+  1000→    fontFamily: FontFamily.bold,
+  1001→  },
+  1002→  bulkInfoButton: {
+  1003→    flexDirection: 'row',
+  1004→    alignItems: 'center',
+  1005→    marginTop: Spacing.xs,
+  1006→    gap: 4,
+  1007→  },
+  1008→  bulkInfoText: {
+  1009→    fontSize: FontSize.xs,
+  1010→    color: Colors.primary,
+  1011→    fontFamily: FontFamily.medium,
+  1012→  },
+  1013→
+  1014→  // Header
+  1015→  header: {
+  1016→    paddingHorizontal: Spacing.md,
+  1017→    paddingTop: Spacing.lg,
+  1018→    paddingBottom: Spacing.md,
+  1019→  },
+  1020→  headerTitle: {
+  1021→    fontSize: FontSize.xl,
+  1022→    fontWeight: 'bold',
+  1023→    color: Colors.text,
+  1024→    fontFamily: FontFamily.bold,
+  1025→  },
+  1026→  headerSubtitle: {
+  1027→    fontSize: FontSize.sm,
+  1028→    color: Colors.textSecondary,
+  1029→    fontFamily: FontFamily.regular,
+  1030→    marginTop: Spacing.xs,
+  1031→  },
+  1032→
+  1033→  // ScrollView
+  1034→  scrollView: {
+  1035→    flex: 1,
+  1036→  },
+  1037→
+  1038→  // Sections
+  1039→  sectionHeader: {
+  1040→    flexDirection: 'row',
+  1041→    alignItems: 'center',
+  1042→    gap: Spacing.sm,
+  1043→    marginBottom: Spacing.md,
+  1044→  },
+  1045→  sectionTitle: {
+  1046→    fontSize: FontSize.lg,
+  1047→    fontWeight: '600',
+  1048→    color: Colors.text,
+  1049→    fontFamily: FontFamily.semiBold,
+  1050→  },
+  1051→
+  1052→  // Options Section
+  1053→  optionsSection: {
+  1054→    padding: Spacing.md,
+  1055→  },
+  1056→  optionContainer: {
+  1057→    marginBottom: Spacing.lg,
+  1058→  },
+  1059→  optionHeader: {
+  1060→    flexDirection: 'row',
+  1061→    alignItems: 'center',
+  1062→    marginBottom: Spacing.sm,
+  1063→  },
+  1064→  optionName: {
+  1065→    fontSize: FontSize.base,
+  1066→    fontWeight: '500',
+  1067→    color: Colors.text,
+  1068→    fontFamily: FontFamily.medium,
+  1069→  },
+  1070→  requiredStar: {
+  1071→    fontSize: FontSize.base,
+  1072→    color: Colors.error,
+  1073→    marginLeft: 4,
+  1074→  },
+  1075→
+  1076→  // Color Picker
+  1077→  colorOptions: {
+  1078→    flexDirection: 'row',
+  1079→    flexWrap: 'wrap',
+  1080→    gap: Spacing.sm,
+  1081→  },
+  1082→  colorSwatch: {
+  1083→    width: 44,
+  1084→    height: 44,
+  1085→    borderRadius: 22,
+  1086→    justifyContent: 'center',
+  1087→    alignItems: 'center',
+  1088→    borderWidth: 2,
+  1089→    borderColor: 'transparent',
+  1090→  },
+  1091→  colorSwatchSelected: {
+  1092→    borderColor: Colors.text,
+  1093→    shadowColor: '#000',
+  1094→    shadowOffset: { width: 0, height: 2 },
+  1095→    shadowOpacity: 0.25,
+  1096→    shadowRadius: 4,
+  1097→    elevation: 4,
+  1098→  },
+  1099→  priceModifierBadge: {
+  1100→    position: 'absolute',
+  1101→    bottom: -4,
+  1102→    right: -4,
+  1103→    backgroundColor: Colors.primary,
+  1104→    borderRadius: BorderRadius.full,
+  1105→    paddingHorizontal: 4,
+  1106→    paddingVertical: 1,
+  1107→  },
+  1108→  priceModifierText: {
+  1109→    fontSize: 9,
+  1110→    fontWeight: '600',
+  1111→    color: Colors.white,
+  1112→    fontFamily: FontFamily.semiBold,
+  1113→  },
+  1114→  selectedValue: {
+  1115→    fontSize: FontSize.sm,
+  1116→    color: Colors.textSecondary,
+  1117→    marginTop: Spacing.xs,
+  1118→    fontFamily: FontFamily.regular,
+  1119→  },
+  1120→
+  1121→  // Radio Group
+  1122→  radioItem: {
+  1123→    flexDirection: 'row',
+  1124→    alignItems: 'center',
+  1125→    paddingVertical: Spacing.sm,
+  1126→    borderBottomWidth: 1,
+  1127→    borderBottomColor: Colors.borderLight,
+  1128→  },
+  1129→  radioItemSelected: {
+  1130→    backgroundColor: Colors.surface,
+  1131→  },
+  1132→  radioCircle: {
+  1133→    width: 22,
+  1134→    height: 22,
+  1135→    borderRadius: 11,
+  1136→    borderWidth: 2,
+  1137→    borderColor: Colors.border,
+  1138→    marginRight: Spacing.sm,
+  1139→    justifyContent: 'center',
+  1140→    alignItems: 'center',
+  1141→  },
+  1142→  radioCircleSelected: {
+  1143→    borderColor: Colors.primary,
+  1144→  },
+  1145→  radioInner: {
+  1146→    width: 12,
+  1147→    height: 12,
+  1148→    borderRadius: 6,
+  1149→    backgroundColor: Colors.primary,
+  1150→  },
+  1151→  radioContent: {
+  1152→    flex: 1,
+  1153→    flexDirection: 'row',
+  1154→    alignItems: 'center',
+  1155→  },
+  1156→  radioLabel: {
+  1157→    fontSize: FontSize.base,
+  1158→    color: Colors.text,
+  1159→    fontFamily: FontFamily.regular,
+  1160→  },
+  1161→  radioLabelSelected: {
+  1162→    fontWeight: '500',
+  1163→    fontFamily: FontFamily.medium,
+  1164→  },
+  1165→  optionImage: {
+  1166→    width: 32,
+  1167→    height: 32,
+  1168→    borderRadius: 4,
+  1169→    marginLeft: Spacing.sm,
+  1170→  },
+  1171→  optionPriceModifier: {
+  1172→    fontSize: FontSize.sm,
+  1173→    fontWeight: '500',
+  1174→    color: Colors.success,
+  1175→    fontFamily: FontFamily.medium,
+  1176→  },
+  1177→
+  1178→  // Checkbox Group
+  1179→  checkboxItem: {
+  1180→    flexDirection: 'row',
+  1181→    alignItems: 'center',
+  1182→    paddingVertical: Spacing.sm,
+  1183→    borderBottomWidth: 1,
+  1184→    borderBottomColor: Colors.borderLight,
+  1185→  },
+  1186→  checkbox: {
+  1187→    width: 22,
+  1188→    height: 22,
+  1189→    borderRadius: 6,
+  1190→    borderWidth: 2,
+  1191→    borderColor: Colors.border,
+  1192→    marginRight: Spacing.sm,
+  1193→    justifyContent: 'center',
+  1194→    alignItems: 'center',
+  1195→  },
+  1196→  checkboxSelected: {
+  1197→    backgroundColor: Colors.primary,
+  1198→    borderColor: Colors.primary,
+  1199→  },
+  1200→  checkboxLabel: {
+  1201→    flex: 1,
+  1202→    fontSize: FontSize.base,
+  1203→    color: Colors.text,
+  1204→    fontFamily: FontFamily.regular,
+  1205→  },
+  1206→
+  1207→  // Select Dropdown
+  1208→  selectScroll: {
+  1209→    flexGrow: 0,
+  1210→  },
+  1211→  selectChip: {
+  1212→    flexDirection: 'row',
+  1213→    alignItems: 'center',
+  1214→    paddingHorizontal: Spacing.md,
+  1215→    paddingVertical: Spacing.sm,
+  1216→    backgroundColor: Colors.surface,
+  1217→    borderRadius: BorderRadius.full,
+  1218→    marginRight: Spacing.sm,
+  1219→    borderWidth: 1,
+  1220→    borderColor: Colors.border,
+  1221→  },
+  1222→  selectChipSelected: {
+  1223→    backgroundColor: Colors.primary,
+  1224→    borderColor: Colors.primary,
+  1225→  },
+  1226→  selectChipText: {
+  1227→    fontSize: FontSize.sm,
+  1228→    color: Colors.text,
+  1229→    fontFamily: FontFamily.regular,
+  1230→  },
+  1231→  selectChipTextSelected: {
+  1232→    color: Colors.white,
+  1233→    fontWeight: '500',
+  1234→  },
+  1235→  chipPrice: {
+  1236→    fontSize: FontSize.xs,
+  1237→    color: Colors.success,
+  1238→    marginLeft: Spacing.xs,
+  1239→    fontWeight: '500',
+  1240→    fontFamily: FontFamily.medium,
+  1241→  },
+  1242→
+  1243→  // Text Input Field
+  1244→  textInput: {
+  1245→    borderWidth: 1,
+  1246→    borderColor: Colors.border,
+  1247→    borderRadius: BorderRadius.md,
+  1248→    paddingHorizontal: Spacing.md,
+  1249→    paddingVertical: Spacing.sm,
+  1250→    fontSize: FontSize.base,
+  1251→    color: Colors.text,
+  1252→    fontFamily: FontFamily.regular,
+  1253→  },
+  1254→
+  1255→  // Quantity Section
+  1256→  quantitySection: {
+  1257→    padding: Spacing.md,
+  1258→  },
+  1259→  quantityControls: {
+  1260→    flexDirection: 'row',
+  1261→    alignItems: 'center',
+  1262→    justifyContent: 'center',
+  1263→    gap: Spacing.lg,
+  1264→  },
+  1265→  quantityButton: {
+  1266→    width: 44,
+  1267→    height: 44,
+  1268→    borderRadius: 22,
+  1269→    backgroundColor: Colors.surface,
+  1270→    justifyContent: 'center',
+  1271→    alignItems: 'center',
+  1272→    borderWidth: 1,
+  1273→    borderColor: Colors.border,
+  1274→  },
+  1275→  quantityInput: {
+  1276→    width: 80,
+  1277→    fontSize: FontSize.lg,
+  1278→    fontWeight: '600',
+  1279→    color: Colors.text,
+  1280→    fontFamily: FontFamily.semiBold,
+  1281→    paddingVertical: Spacing.sm,
+  1282→    backgroundColor: Colors.surface,
+  1283→    borderRadius: BorderRadius.md,
+  1284→    borderWidth: 1,
+  1285→    borderColor: Colors.border,
+  1286→  },
+  1287→  quickQuantityButtons: {
+  1288→    flexDirection: 'row',
+  1289→    justifyContent: 'center',
+  1290→    gap: Spacing.sm,
+  1291→    marginTop: Spacing.md,
+  1292→  },
+  1293→  quickQtyButton: {
+  1294→    paddingHorizontal: Spacing.md,
+  1295→    paddingVertical: Spacing.xs,
+  1296→    backgroundColor: Colors.surface,
+  1297→    borderRadius: BorderRadius.full,
+  1298→    borderWidth: 1,
+  1299→    borderColor: Colors.border,
+  1300→  },
+  1301→  quickQtyButtonSelected: {
+  1302→    backgroundColor: Colors.primary,
+  1303→    borderColor: Colors.primary,
+  1304→  },
+  1305→  quickQtyButtonText: {
+  1306→    fontSize: FontSize.sm,
+  1307→    color: Colors.text,
+  1308→    fontFamily: FontFamily.medium,
+  1309→  },
+  1310→  quickQtyButtonTextSelected: {
+  1311→    color: Colors.white,
+  1312→  },
+  1313→
+  1314→  // Bulk Pricing Table
+  1315→  pricingSection: {
+  1316→    padding: Spacing.md,
+  1317→  },
+  1318→  pricingTable: {
+  1319→    backgroundColor: Colors.white,
+  1320→    borderRadius: BorderRadius.lg,
+  1321→    overflow: 'hidden',
+  1322→    ...Shadows.sm,
+  1323→  },
+  1324→  pricingHeader: {
+  1325→    flexDirection: 'row',
+  1326→    paddingVertical: Spacing.sm,
+  1327→    paddingHorizontal: Spacing.md,
+  1328→    backgroundColor: Colors.surfaceVariant,
+  1329→    borderBottomWidth: 1,
+  1330→    borderBottomColor: Colors.borderLight,
+  1331→  },
+  1332→  pricingHeaderText: {
+  1333→    flex: 1,
+  1334→    fontSize: FontSize.xs,
+  1335→    fontWeight: '600',
+  1336→    color: Colors.textSecondary,
+  1337→    fontFamily: FontFamily.semiBold,
+  1338→    textTransform: 'uppercase',
+  1339→  },
+  1340→  pricingRow: {
+  1341→    flexDirection: 'row',
+  1342→    alignItems: 'center',
+  1343→    paddingVertical: Spacing.md,
+  1344→    paddingHorizontal: Spacing.md,
+  1345→    borderBottomWidth: 1,
+  1346→    borderBottomColor: Colors.borderLight,
+  1347→  },
+  1348→  pricingRowSelected: {
+  1349→    backgroundColor: Colors.primary + '08',
+  1350→  },
+  1351→  pricingRowBestValue: {
+  1352→    borderLeftWidth: 3,
+  1353→    borderLeftColor: '#F59E0B',
+  1354→  },
+  1355→  quantityCell: {
+  1356→    flex: 1.5,
+  1357→    flexDirection: 'row',
+  1358→    alignItems: 'center',
+  1359→  },
+  1360→  quantityText: {
+  1361→    fontSize: FontSize.sm,
+  1362→    color: Colors.text,
+  1363→    fontFamily: FontFamily.medium,
+  1364→  },
+  1365→  bestValueBadge: {
+  1366→    backgroundColor: '#F59E0B',
+  1367→    paddingHorizontal: Spacing.xs,
+  1368→    paddingVertical: 2,
+  1369→    borderRadius: 4,
+  1370→    marginLeft: Spacing.sm,
+  1371→  },
+  1372→  bestValueText: {
+  1373→    fontSize: 9,
+  1374→    fontWeight: '600',
+  1375→    color: Colors.white,
+  1376→    fontFamily: FontFamily.semiBold,
+  1377→  },
+  1378→  priceCell: {
+  1379→    flex: 1,
+  1380→    fontSize: FontSize.base,
+  1381→    fontWeight: '600',
+  1382→    color: Colors.text,
+  1383→    fontFamily: FontFamily.semiBold,
+  1384→  },
+  1385→  priceCellSelected: {
+  1386→    color: Colors.primary,
+  1387→  },
+  1388→  discountCell: {},
+  1389→  discountText: {
+  1390→    fontSize: FontSize.sm,
+  1391→    fontWeight: '500',
+  1392→    color: Colors.success,
+  1393→    fontFamily: FontFamily.medium,
+  1394→  },
+  1395→  savingsBanner: {
+  1396→    flexDirection: 'row',
+  1397→    alignItems: 'center',
+  1398→    backgroundColor: Colors.successLight,
+  1399→    padding: Spacing.sm,
+  1400→    borderRadius: BorderRadius.md,
+  1401→    marginTop: Spacing.sm,
+  1402→    gap: Spacing.xs,
+  1403→  },
+  1404→  savingsText: {
+  1405→    flex: 1,
+  1406→    fontSize: FontSize.sm,
+  1407→    color: Colors.success,
+  1408→    fontFamily: FontFamily.medium,
+  1409→  },
+  1410→
+  1411→  // Certifications Section
+  1412→  certSection: {
+  1413→    padding: Spacing.md,
+  1414→  },
+  1415→  certCard: {
+  1416→    flexDirection: 'row',
+  1417→    alignItems: 'center',
+  1418→    backgroundColor: Colors.white,
+  1419→    padding: Spacing.md,
+  1420→    borderRadius: BorderRadius.lg,
+  1421→    marginBottom: Spacing.sm,
+  1422→    ...Shadows.sm,
+  1423→  },
+  1424→  certCardInvalid: {
+  1425→    opacity: 0.7,
+  1426→  },
+  1427→  certIconContainer: {
+  1428→    width: 48,
+  1429→    height: 48,
+  1430→    borderRadius: BorderRadius.md,
+  1431→    justifyContent: 'center',
+  1432→    alignItems: 'center',
+  1433→    marginRight: Spacing.md,
+  1434→  },
+  1435→  certContent: {
+  1436→    flex: 1,
+  1437→  },
+  1438→  certName: {
+  1439→    fontSize: FontSize.base,
+  1440→    fontWeight: '600',
+  1441→    color: Colors.text,
+  1442→    fontFamily: FontFamily.semiBold,
+  1443→  },
+  1444→  certIssuer: {
+  1445→    fontSize: FontSize.sm,
+  1446→    color: Colors.textSecondary,
+  1447→    fontFamily: FontFamily.regular,
+  1448→  },
+  1449→  certNumber: {
+  1450→    fontSize: FontSize.xs,
+  1451→    color: Colors.textTertiary,
+  1452→    fontFamily: FontFamily.regular,
+  1453→  },
+  1454→  certStatusContainer: {
+  1455→    alignItems: 'flex-end',
+  1456→    gap: Spacing.xs,
+  1457→  },
+  1458→  certStatusBadge: {
+  1459→    paddingHorizontal: Spacing.sm,
+  1460→    paddingVertical: 2,
+  1461→    borderRadius: BorderRadius.full,
+  1462→  },
+  1463→  certStatusText: {
+  1464→    fontSize: FontSize.xs,
+  1465→    fontWeight: '500',
+  1466→    fontFamily: FontFamily.medium,
+  1467→  },
+  1468→  showAllText: {
+  1469→    fontSize: FontSize.sm,
+  1470→    color: Colors.primary,
+  1471→    fontWeight: '500',
+  1472→    fontFamily: FontFamily.medium,
+  1473→  },
+  1474→
+  1475→  // Related Products
+  1476→  relatedSection: {
+  1477→    padding: Spacing.md,
+  1478→  },
+  1479→  relatedList: {
+  1480→    paddingRight: Spacing.md,
+  1481→  },
+  1482→  relatedCard: {
+  1483→    width: 150,
+  1484→    backgroundColor: Colors.white,
+  1485→    borderRadius: BorderRadius.lg,
+  1486→    overflow: 'hidden',
+  1487→    marginRight: Spacing.sm,
+  1488→    ...Shadows.sm,
+  1489→  },
+  1490→  relatedImageContainer: {
+  1491→    height: 100,
+  1492→    position: 'relative',
+  1493→  },
+  1494→  relatedImage: {
+  1495→    width: '100%',
+  1496→    height: '100%',
+  1497→  },
+  1498→  relatedImagePlaceholder: {
+  1499→    flex: 1,
+  1500→    justifyContent: 'center',
+  1501→    alignItems: 'center',
+  1502→    backgroundColor: Colors.surface,
+  1503→  },
+  1504→  relationBadge: {
+  1505→    position: 'absolute',
+  1506→    top: Spacing.xs,
+  1507→    left: Spacing.xs,
+  1508→    paddingHorizontal: Spacing.xs,
+  1509→    paddingVertical: 2,
+  1510→    borderRadius: 4,
+  1511→  },
+  1512→  relationBadgeText: {
+  1513→    fontSize: 9,
+  1514→    fontWeight: '600',
+  1515→    color: Colors.white,
+  1516→    fontFamily: FontFamily.semiBold,
+  1517→  },
+  1518→  relatedContent: {
+  1519→    padding: Spacing.sm,
+  1520→  },
+  1521→  relatedName: {
+  1522→    fontSize: FontSize.sm,
+  1523→    fontWeight: '500',
+  1524→    color: Colors.text,
+  1525→    fontFamily: FontFamily.medium,
+  1526→    lineHeight: 16,
+  1527→    marginBottom: 2,
+  1528→  },
+  1529→  relatedSupplier: {
+  1530→    fontSize: FontSize.xs,
+  1531→    color: Colors.textTertiary,
+  1532→    fontFamily: FontFamily.regular,
+  1533→    marginBottom: 4,
+  1534→  },
+  1535→  relatedPrice: {
+  1536→    fontSize: FontSize.base,
+  1537→    fontWeight: '600',
+  1538→    color: Colors.primary,
+  1539→    fontFamily: FontFamily.semiBold,
+  1540→  },
+  1541→
+  1542→  // Footer
+  1543→  footer: {
+  1544→    position: 'absolute',
+  1545→    bottom: 0,
+  1546→    left: 0,
+  1547→    right: 0,
+  1548→    flexDirection: 'row',
+  1549→    alignItems: 'center',
+  1550→    backgroundColor: Colors.white,
+  1551→    paddingHorizontal: Spacing.md,
+  1552→    paddingVertical: Spacing.md,
+  1553→    borderTopWidth: 1,
+  1554→    borderTopColor: Colors.borderLight,
+  1555→    ...Shadows.lg,
+  1556→  },
+  1557→  footerPriceContainer: {
+  1558→    flex: 1,
+  1559→  },
+  1560→  footerTotalLabel: {
+  1561→    fontSize: FontSize.sm,
+  1562→    color: Colors.textSecondary,
+  1563→    fontFamily: FontFamily.regular,
+  1564→  },
+  1565→  footerTotalPrice: {
+  1566→    fontSize: FontSize.xl,
+  1567→    fontWeight: 'bold',
+  1568→    color: Colors.primary,
+  1569→    fontFamily: FontFamily.bold,
+  1570→  },
+  1571→  footerUnitPrice: {
+  1572→    fontSize: FontSize.xs,
+  1573→    color: Colors.textTertiary,
+  1574→    fontFamily: FontFamily.regular,
+  1575→  },
+  1576→  addToCartButton: {
+  1577→    flexDirection: 'row',
+  1578→    alignItems: 'center',
+  1579→    backgroundColor: Colors.primary,
+  1580→    paddingHorizontal: Spacing.lg,
+  1581→    paddingVertical: Spacing.md,
+  1582→    borderRadius: BorderRadius.lg,
+  1583→    gap: Spacing.sm,
+  1584→  },
+  1585→  addToCartButtonText: {
+  1586→    fontSize: FontSize.base,
+  1587→    fontWeight: '600',
+  1588→    color: Colors.white,
+  1589→    fontFamily: FontFamily.semiBold,
+  1590→  },
+  1591→
+  1592→  // Certificate Modal
+  1593→  modalOverlay: {
+  1594→    flex: 1,
+  1595→    backgroundColor: Colors.overlay,
+  1596→    justifyContent: 'flex-end',
+  1597→  },
+  1598→  certModal: {
+  1599→    backgroundColor: Colors.white,
+  1600→    borderTopLeftRadius: BorderRadius.xxl,
+  1601→    borderTopRightRadius: BorderRadius.xxl,
+  1602→    padding: Spacing.lg,
+  1603→    paddingBottom: Platform.OS === 'ios' ? 40 : Spacing.lg,
+  1604→  },
+  1605→  modalHeader: {
+  1606→    flexDirection: 'row',
+  1607→    alignItems: 'center',
+  1608→    justifyContent: 'space-between',
+  1609→    marginBottom: Spacing.lg,
+  1610→  },
+  1611→  modalTitle: {
+  1612→    fontSize: FontSize.lg,
+  1613→    fontWeight: '600',
+  1614→    color: Colors.text,
+  1615→    fontFamily: FontFamily.semiBold,
+  1616→  },
+  1617→  certDetailIconContainer: {
+  1618→    width: 80,
+  1619→    height: 80,
+  1620→    borderRadius: 40,
+  1621→    alignSelf: 'center',
+  1622→    backgroundColor: Colors.surface,
+  1623→    justifyContent: 'center',
+  1624→    alignItems: 'center',
+  1625→    marginBottom: Spacing.md,
+  1626→  },
+  1627→  certDetailName: {
+  1628→    fontSize: FontSize.xl,
+  1629→    fontWeight: 'bold',
+  1630→    color: Colors.text,
+  1631→    textAlign: 'center',
+  1632→    fontFamily: FontFamily.bold,
+  1633→  },
+  1634→  certDetailIssuer: {
+  1635→    fontSize: FontSize.base,
+  1636→    color: Colors.textSecondary,
+  1637→    textAlign: 'center',
+  1638→    fontFamily: FontFamily.regular,
+  1639→    marginBottom: Spacing.lg,
+  1640→  },
+  1641→  certDetailsGrid: {
+  1642→    flexDirection: 'row',
+  1643→    flexWrap: 'wrap',
+  1644→    marginHorizontal: -Spacing.sm,
+  1645→    marginBottom: Spacing.lg,
+  1646→  },
+  1647→  detailItem: {
+  1648→    width: '50%',
+  1649→    padding: Spacing.sm,
+  1650→    marginBottom: Spacing.sm,
+  1651→  },
+  1652→  detailLabel: {
+  1653→    fontSize: FontSize.xs,
+  1654→    color: Colors.textTertiary,
+  1655→    fontFamily: FontFamily.regular,
+  1656→    marginBottom: 4,
+  1657→  },
+  1658→  detailValue: {
+  1659→    fontSize: FontSize.sm,
+  1660→    fontWeight: '500',
+  1661→    color: Colors.text,
+  1662→    fontFamily: FontFamily.medium,
+  1663→  },
+  1664→  statusBadge: {
+  1665→    alignSelf: 'flex-start',
+  1666→    paddingHorizontal: Spacing.sm,
+  1667→    paddingVertical: 4,
+  1668→    borderRadius: BorderRadius.full,
+  1669→  },
+  1670→  statusText: {
+  1671→    fontSize: FontSize.xs,
+  1672→    fontWeight: '600',
+  1673→    fontFamily: FontFamily.semiBold,
+  1674→  },
+  1675→  viewDocumentButton: {
+  1676→    flexDirection: 'row',
+  1677→    alignItems: 'center',
+  1678→    justifyContent: 'center',
+  1679→    backgroundColor: Colors.primaryLight,
+  1680→    paddingVertical: Spacing.md,
+  1681→    borderRadius: BorderRadius.lg,
+  1682→    gap: Spacing.sm,
+  1683→  },
+  1684→  viewDocumentButtonText: {
+  1685→    fontSize: FontSize.base,
+  1686→    fontWeight: '500',
+  1687→    color: Colors.primary,
+  1688→    fontFamily: FontFamily.medium,
+  1689→  },
+  1690→});
+  1691→

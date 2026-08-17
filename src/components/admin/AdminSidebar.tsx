@@ -23,7 +23,14 @@ import {
   AlertTriangle,
   Bell,
   ListChecks,
-  MapPin
+  MapPin,
+  ShieldCheck,
+  Lock,
+  Video,
+  ClipboardCheck,
+  CalendarDays,
+  Truck,
+  TrendingUp
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -134,6 +141,49 @@ const navigation: NavSection[] = [
         title: 'Analytics & Rapports',
         href: '/admin/analytics',
         icon: <BarChart3 className="h-5 w-5" />,
+      },
+    ],
+  },
+  {
+    title: 'Modules Phase 6',
+    items: [
+      {
+        title: 'Vérifications',
+        href: '/admin/verifications',
+        icon: <ShieldCheck className="h-5 w-5" />,
+        badge: 5,
+      },
+      {
+        title: 'Escrow & Litiges',
+        href: '/admin/escrow',
+        icon: <Lock className="h-5 w-5" />,
+        badge: 1,
+      },
+      {
+        title: 'Modération Contenu',
+        href: '/admin/content',
+        icon: <Video className="h-5 w-5" />,
+        badge: 3,
+      },
+      {
+        title: 'Inspections',
+        href: '/admin/inspections',
+        icon: <ClipboardCheck className="h-5 w-5" />,
+      },
+      {
+        title: 'Expositions',
+        href: '/admin/exhibitions',
+        icon: <CalendarDays className="h-5 w-5" />,
+      },
+      {
+        title: 'Expédition',
+        href: '/admin/shipping',
+        icon: <Truck className="h-5 w-5" />,
+      },
+      {
+        title: 'Métriques Phase 6',
+        href: '/admin/analytics/phase6-metrics',
+        icon: <TrendingUp className="h-5 w-5" />,
       },
     ],
   },

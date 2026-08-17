@@ -1,0 +1,941 @@
+     1→// Verification Screen - AlgeriaTrade Mobile
+     2→// Écran de vérification du compte fournisseur
+     3→
+     4→import React, { useState, useEffect, useCallback } from 'react';
+     5→import {
+     6→  View,
+     7→  Text,
+     8→  StyleSheet,
+     9→  ScrollView,
+    10→  TouchableOpacity,
+    11→  Image,
+    12→  Alert,
+    13→  ActivityIndicator,
+    14→  Platform,
+    15→  Modal,
+    16→  RefreshControl,
+    17→} from 'react-native';
+    18→import { Ionicons } from '@expo/vector-icons';
+    19→import * as ImagePicker from 'expo-image-picker';
+    20→import { useNavigation, RouteProp } from '@react-navigation/native';
+    21→
+    22→// Services
+    23→import apiService from '../../services/api';
+    24→import { offlineService } from '../../services/offline';
+    25→
+    26→// Constants
+    27→import { Colors, FontFamily, FontSize, Spacing, BorderRadius, Shadows } from '../../utils/constants';
+    28→
+    29→// Types
+    30→import { RootStackParamList } from '../../navigation';
+    31→
+    32→type VerificationRouteProp = RouteProp<RootStackParamList, 'Verification'>;
+    33→type NavigationProp = ReturnType<typeof useNavigation>;
+    34→
+    35→// ============================================
+    36→// Types & Interfaces
+    37→// ============================================
+    38→
+    39→export type VerificationLevel = 'BASIC' | 'VERIFIED' | 'CERTIFIED' | 'PREMIUM' | 'ENTERPRISE';
+    40→
+    41→export type VerificationType =
+    42→  | 'business_license'
+    43→  | 'tax_compliance'
+    44→  | 'bank_account'
+    45→  | 'identity'
+    46→  | 'address'
+    47→  | 'phone'
+    48→  | 'email'
+    49→  | 'product_quality'
+    50→  | 'production_capacity'
+    51→  | 'export_license'
+    52→  | 'iso_certification'
+    53→  | 'sgs_audit';
+    54→
+    55→interface VerificationBadge {
+    56→  id: string;
+    57→  name: string;
+    58→  icon: string;
+    59→  color: string;
+    60→  level: VerificationLevel;
+    61→  description: string;
+    62→}
+    63→
+    64→interface VerificationDocument {
+    65→  id: string;
+    66→  type: VerificationType;
+    67→  uri: string;
+    68→  name: string;
+    69→  uploadedAt?: Date;
+    70→  status: 'pending' | 'approved' | 'rejected';
+    71→}
+    72→
+    73→interface VerificationStatus {
+    74→  currentLevel: VerificationLevel;
+    75→  score: number;
+    76→  verifications: Array<{
+    77→    id: string;
+    78→    type: VerificationType;
+    79→    status: 'pending' | 'submitted' | 'under_review' | 'approved' | 'rejected';
+    80→    submittedAt?: Date;
+    81→    reviewedAt?: Date;
+    82→    notes?: string;
+    83→  }>;
+    84→  badges: VerificationBadge[];
+    85→}
+    86→
+    87→// ============================================
+    88→// Constants
+    89→// ============================================
+    90→
+    91→const VERIFICATION_LEVELS: Record<VerificationLevel, { label: string; color: string; icon: string }> = {
+    92→  BASIC: { label: 'Basique', color: Colors.textTertiary, icon: 'shield-checkmark-outline' },
+    93→  VERIFIED: { label: 'Vérifié', color: Colors.info, icon: 'shield-checkmark' },
+    94→  CERTIFIED: { label: 'Certifié', color: Colors.success, icon: 'award' },
+    95→  PREMIUM: { label: 'Premium', color: Colors.warning, icon: 'star' },
+    96→  ENTERPRISE: { label: 'Entreprise', color: '#8B5CF6', icon: 'business' },
+    97→};
+    98→
+    99→const VERIFICATION_TYPES: Array<{ type: VerificationType; label: string; description: string; required: boolean }> = [
+   100→  { type: 'business_license', label: 'Registre de commerce', description: 'Document officiel d\'immatriculation', required: true },
+   101→  { type: 'tax_compliance', label: 'Conformité fiscale', description: 'Attestation fiscale en cours de validité', required: true },
+   102→  { type: 'identity', label: 'Pièce d\'identité', description: 'Carte d\'identité nationale ou passeport', required: true },
+   103→  { type: 'bank_account', label: 'RIB bancaire', description: 'Relevé d\'identité bancaire', required: false },
+   104→  { type: 'address', label: 'Justificatif de domicile', description: 'Facture ou titre de propriété', required: false },
+   105→  { type: 'iso_certification', label: 'Certification ISO', description: 'Certification ISO si applicable', required: false },
+   106→  { type: 'export_license', label: 'Licence d\'exportation', description: 'Autorisation d\'exportation', required: false },
+   107→];
+   108→
+   109→const BADGE_ICONS: Record<string, string> = {
+   110→  verified_seller: 'checkmark-circle',
+   111→  quality_assured: 'shield-checkmark',
+   112→  fast_responder: 'flash',
+   113→  top_rated: 'star',
+   114→  trusted_partner: 'hand-left',
+   115→  certified_exporter: 'globe',
+   116→};
+   117→
+   118→// Helper functions
+   119→function getStatusColor(status: string): string {
+   120→  switch (status) {
+   121→    case 'approved': return Colors.success;
+   122→    case 'rejected': return Colors.error;
+   123→    case 'under_review': return Colors.warning;
+   124→    case 'submitted': return Colors.info;
+   125→    default: return Colors.textTertiary;
+   126→  }
+   127→}
+   128→
+   129→function getStatusText(status: string): string {
+   130→  switch (status) {
+   131→    case 'approved': return 'Approuvé';
+   132→    case 'rejected': return 'Rejeté';
+   133→    case 'under_review': return 'En cours';
+   134→    case 'submitted': return 'Soumis';
+   135→    default: return 'En attente';
+   136→  }
+   137→}
+   138→
+   139→// ============================================
+   140→// Main Component
+   141→// ============================================
+   142→
+   143→export default function VerificationScreen() {
+   144→  const navigation = useNavigation<NavigationProp>();
+   145→  
+   146→  // State
+   147→  const [loading, setLoading] = useState(true);
+   148→  const [refreshing, setRefreshing] = useState(false);
+   149→  const [verificationData, setVerificationData] = useState<VerificationStatus | null>(null);
+   150→  const [selectedDocuments, setSelectedDocuments] = useState<VerificationDocument[]>([]);
+   151→  const [showUploadModal, setShowUploadModal] = useState(false);
+   152→  const [selectedType, setSelectedType] = useState<VerificationType | null>(null);
+   153→  const [submitting, setSubmitting] = useState(false);
+   154→
+   155→  // Load verification data
+   156→  const loadVerificationData = useCallback(async () => {
+   157→    try {
+   158→      const data = await apiService.getVerifications();
+   159→      setVerificationData(data);
+   160→    } catch (error) {
+   161→      console.error('[VerificationScreen] Error loading data:', error);
+   162→      // Try to load from cache
+   163→      const cached = await offlineService.getCachedVerification();
+   164→      if (cached) {
+   165→        setVerificationData(cached);
+   166→      }
+   167→    } finally {
+   168→      setLoading(false);
+   169→      setRefreshing(false);
+   170→    }
+   171→  }, []);
+   172→
+   173→  useEffect(() => {
+   174→    loadVerificationData();
+   175→  }, [loadVerificationData]);
+   176→
+   177→  // Pull to refresh
+   178→  const onRefresh = async () => {
+   179→    setRefreshing(true);
+   180→    await loadVerificationData();
+   181→  };
+   182→
+   183→  // Document picker
+   184→  const pickDocument = async (type: VerificationType) => {
+   185→    try {
+   186→      // Request permissions
+   187→      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+   188→      
+   189→      if (!permissionResult.granted) {
+   190→        Alert.alert('Permission requise', 'Veuillez autoriser l\'accès à la galerie pour télécharger des documents.');
+   191→        return;
+   192→      }
+   193→
+   194→      const result = await ImagePicker.launchImageLibraryAsync({
+   195→        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+   196→        allowsEditing: true,
+   197→        aspect: [4, 3],
+   198→        quality: 0.8,
+   199→      });
+   200→
+   201→      if (!result.canceled && result.assets[0]) {
+   202→        const newDoc: VerificationDocument = {
+   203→          id: `${Date.now()}`,
+   204→          type,
+   205→          uri: result.assets[0].uri,
+   206→          name: `${type}_${Date.now()}.jpg`,
+   207→          status: 'pending',
+   208→        };
+   209→        
+   210→        setSelectedDocuments(prev => [...prev, newDoc]);
+   211→        setShowUploadModal(false);
+   212→        
+   213→        // Cache document for offline upload
+   214→        await offlineService.cacheVerificationDocument(newDoc);
+   215→      }
+   216→    } catch (error) {
+   217→      console.error('[VerificationScreen] Error picking document:', error);
+   218→      Alert.alert('Erreur', 'Impossible de sélectionner le document.');
+   219→    }
+   220→  };
+   221→
+   222→  // Take photo
+   223→  const takePhoto = async (type: VerificationType) => {
+   224→    try {
+   225→      const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+   226→      
+   227→      if (!permissionResult.granted) {
+   228→        Alert.alert('Permission requise', 'Veuillez autoriser l\'appareil photo.');
+   229→        return;
+   230→      }
+   231→
+   232→      const result = await ImagePicker.launchCameraAsync({
+   233→        allowsEditing: true,
+   234→        aspect: [4, 3],
+   235→        quality: 0.8,
+   236→      });
+   237→
+   238→      if (!result.canceled && result.assets[0]) {
+   239→        const newDoc: VerificationDocument = {
+   240→          id: `${Date.now()}`,
+   241→          type,
+   242→          uri: result.assets[0].uri,
+   243→          name: `photo_${type}_${Date.now()}.jpg`,
+   244→          status: 'pending',
+   245→        };
+   246→        
+   247→        setSelectedDocuments(prev => [...prev, newDoc]);
+   248→        setShowUploadModal(false);
+   249→        
+   250→        await offlineService.cacheVerificationDocument(newDoc);
+   251→      }
+   252→    } catch (error) {
+   253→      console.error('[VerificationScreen] Error taking photo:', error);
+   254→      Alert.alert('Erreur', 'Impossible de prendre la photo.');
+   255→    }
+   256→  };
+   257→
+   258→  // Submit verification request
+   259→  const submitVerification = async () => {
+   260→    if (selectedDocuments.length === 0) {
+   261→      Alert.alert('Erreur', 'Veuillez ajouter au moins un document.');
+   262→      return;
+   263→    }
+   264→
+   265→    setSubmitting(true);
+   266→    
+   267→    try {
+   268→      // Upload each document
+   269→      for (const doc of selectedDocuments) {
+   270→        const formData = new FormData();
+   271→        formData.append('type', doc.type);
+   272→        formData.append('document', {
+   273→          uri: doc.uri,
+   274→          name: doc.name,
+   275→          type: 'image/jpeg',
+   276→        } as any);
+   277→
+   278→        await apiService.submitVerification(formData);
+   279→      }
+   280→
+   281→      Alert.alert(
+   282→        'Succès',
+   283→        'Votre demande de vérification a été soumise. Vous recevrez une notification lors de la validation.',
+   284→        [{ text: 'OK', onPress: () => {
+   285→          setSelectedDocuments([]);
+   286→          loadVerificationData();
+   287→        }}]
+   288→      );
+   289→    } catch (error) {
+   290→      console.error('[VerificationScreen] Error submitting verification:', error);
+   291→      Alert.alert('Erreur', 'Une erreur est survenue lors de la soumission. Veuillez réessayer.');
+   292→    } finally {
+   293→      setSubmitting(false);
+   294→    }
+   295→  };
+   296→
+   297→  // Remove selected document
+   298→  const removeDocument = (id: string) => {
+   299→    setSelectedDocuments(prev => prev.filter(doc => doc.id !== id));
+   300→  };
+   301→
+   302→  // Get level progress percentage
+   303→  const getProgressForNextLevel = (): number => {
+   304→    if (!verificationData) return 0;
+   305→    
+   306→    const levels: VerificationLevel[] = ['BASIC', 'VERIFIED', 'CERTIFIED', 'PREMIUM', 'ENTERPRISE'];
+   307→    const currentIdx = levels.indexOf(verificationData.currentLevel);
+   308→    const nextIdx = Math.min(currentIdx + 1, levels.length - 1);
+   309→    
+   310→    // Calculate based on approved verifications
+   311→    const totalRequired = VERIFICATION_TYPES.filter(v => v.required).length;
+   312→    const approvedCount = verificationData.verifications.filter(
+   313→      v => v.status === 'approved'
+   314→    ).length;
+   315→    
+   316→    return Math.min(100, Math.round((approvedCount / totalRequired) * 100));
+   317→  };
+   318→
+   319→  // Render loading state
+   320→  if (loading) {
+   321→    return (
+   322→      <View style={styles.loadingContainer}>
+   323→        <ActivityIndicator size="large" color={Colors.primary} />
+   324→        <Text style={styles.loadingText}>Chargement...</Text>
+   325→      </View>
+   326→    );
+   327→  }
+   328→
+   329→  return (
+   330→    <View style={styles.container}>
+   331→      {/* Header */}
+   332→      <View style={styles.header}>
+   333→        <TouchableOpacity 
+   334→          style={styles.backButton}
+   335→          onPress={() => navigation.goBack()}
+   336→        >
+   337→          <Ionicons name="arrow-back" size={24} color={Colors.text} />
+   338→        </TouchableOpacity>
+   339→        <Text style={styles.headerTitle}>Vérification</Text>
+   340→        <View style={{ width: 40 }} />
+   341→      </View>
+   342→
+   343→      <ScrollView
+   344→        style={styles.scrollView}
+   345→        refreshControl={
+   346→          <RefreshControl
+   347→            refreshing={refreshing}
+   348→            onRefresh={onRefresh}
+   349→            colors={[Colors.primary]}
+   350→            tintColor={Colors.primary}
+   351→          />
+   352→        }
+   353→        showsVerticalScrollIndicator={false}
+   354→      >
+   355→        {/* Current Status Card */}
+   356→        {verificationData && (
+   357→          <View style={styles.statusCard}>
+   358→            <View style={styles.levelContainer}>
+   359→              <View style={[styles.levelBadge, { backgroundColor: VERIFICATION_LEVELS[verificationData.currentLevel].color }]}>
+   360→                <Ionicons 
+   361→                  name={VERIFICATION_LEVELS[verificationData.currentLevel].icon as any} 
+   362→                  size={32} 
+   363→                  color={Colors.white} 
+   364→                />
+   365→              </View>
+   366→              <View style={styles.levelInfo}>
+   367→                <Text style={styles.levelLabel}>Niveau actuel</Text>
+   368→                <Text style={[styles.levelName, { color: VERIFICATION_LEVELS[verificationData.currentLevel].color }]}>
+   369→                  {VERIFICATION_LEVELS[verificationData.currentLevel].label}
+   370→                </Text>
+   371→                <Text style={styles.scoreText}>
+   372→                  Score de confiance: {verificationData.score}/100
+   373→                </Text>
+   374→              </View>
+   375→            </View>
+   376→
+   377→            {/* Progress Bar */}
+   378→            <View style={styles.progressContainer}>
+   379→              <View style={styles.progressBar}>
+   380→                <View 
+   381→                  style={[
+   382→                    styles.progressFill, 
+   383→                    { width: `${getProgressForNextLevel()}%` }
+   384→                  ]} 
+   385→                />
+   386→              </View>
+   387→              <Text style={styles.progressText}>{getProgressForNextLevel()}% vers le niveau suivant</Text>
+   388→            </View>
+   389→
+   390→            {/* Badges */}
+   391→            {verificationData.badges.length > 0 && (
+   392→              <View style={styles.badgesSection}>
+   393→                <Text style={styles.sectionTitle}>Badges obtenus</Text>
+   394→                <View style={styles.badgesRow}>
+   395→                  {verificationData.badges.map(badge => (
+   396→                    <View key={badge.id} style={[styles.badgeItem, { backgroundColor: badge.color + '20' }]}>
+   397→                      <Ionicons 
+   398→                        name={(BADGE_ICONS[badge.icon] || 'medal') as any} 
+   399→                        size={20} 
+   400→                        color={badge.color} 
+   401→                      />
+   402→                      <Text style={[styles.badgeName, { color: badge.color }]}>
+   403→                        {badge.name}
+   404→                      </Text>
+   405→                    </View>
+   406→                  ))}
+   407→                </View>
+   408→              </View>
+   409→            )}
+   410→          </View>
+   411→        )}
+   412→
+   413→        {/* Verification Types List */}
+   414→        <View style={styles.section}>
+   415→          <Text style={styles.sectionTitle}>Documents à fournir</Text>
+   416→          
+   417→          {VERIFICATION_TYPES.map(item => {
+   418→            const verification = verificationData?.verifications.find(v => v.type === item.type);
+   419→            const isSubmitted = verification?.status === 'submitted' || verification?.status === 'under_review';
+   420→            const isApproved = verification?.status === 'approved';
+   421→            
+   422→            return (
+   423→              <TouchableOpacity
+   424→                key={item.type}
+   425→                style={[
+   426→                  styles.verificationItem,
+   427→                  isApproved && styles.verificationItemApproved,
+   428→                ]}
+   429→                onPress={() => {
+   430→                  if (!isApproved) {
+   431→                    setSelectedType(item.type);
+   432→                    setShowUploadModal(true);
+   433→                  }
+   434→                }}
+   435→                disabled={isApproved}
+   436→              >
+   437→                <View style={styles.verificationIconContainer}>
+   438→                  <Ionicons
+   439→                    name={
+   440→                      isApproved 
+   441→                        ? 'checkmark-circle' 
+   442→                        : isSubmitted 
+   443→                          ? 'time' 
+   444→                          : 'document-text-outline'
+   445→                    }
+   446→                    size={24}
+   447→                    color={
+   448→                      isApproved 
+   449→                        ? Colors.success 
+   450→                        : isSubmitted 
+   451→                          ? Colors.warning 
+   452→                          : Colors.textTertiary
+   453→                    }
+   454→                  />
+   455→                </View>
+   456→                
+   457→                <View style={styles.verificationContent}>
+   458→                  <Text style={styles.verificationLabel}>{item.label}</Text>
+   459→                  <Text style={styles.verificationDescription}>{item.description}</Text>
+   460→                  
+   461→                  {verification && (
+   462→                    <View style={[
+   463→                      styles.statusBadge,
+   464→                      { backgroundColor: getStatusColor(verification.status) + '20' }
+   465→                    ]}>
+   466→                      <Text style={[
+   467→                        styles.statusText,
+   468→                        { color: getStatusColor(verification.status) }
+   469→                      ]}>
+   470→                        {getStatusText(verification.status)}
+   471→                      </Text>
+   472→                    </View>
+   473→                  )}
+   474→                </View>
+   475→
+   476→                <Ionicons 
+   477→                  name={isApproved ? 'lock-closed' : 'chevron-forward'} 
+   478→                  size={20} 
+   479→                  color={isApproved ? Colors.textTertiary : Colors.primary} 
+   480→                />
+   481→              </TouchableOpacity>
+   482→            );
+   483→          })}
+   484→        </View>
+   485→
+   486→        {/* Selected Documents Preview */}
+   487→        {selectedDocuments.length > 0 && (
+   488→          <View style={styles.selectedSection}>
+   489→            <Text style={styles.sectionTitle}>Documents sélectionnés ({selectedDocuments.length})</Text>
+   490→            
+   491→            {selectedDocuments.map(doc => (
+   492→              <View key={doc.id} style={styles.documentPreview}>
+   493→                <Image source={{ uri: doc.uri }} style={styles.documentImage} />
+   494→                <View style={styles.documentInfo}>
+   495→                  <Text style={styles.documentName} numberOfLines={1}>
+   496→                    {VERIFICATION_TYPES.find(t => t.type === doc.type)?.label || doc.type}
+   497→                  </Text>
+   498→                  <Text style={styles.documentStatus}>Prêt à envoyer</Text>
+   499→                </View>
+   500→                <TouchableOpacity
+   501→                  style={styles.removeButton}
+   502→                  onPress={() => removeDocument(doc.id)}
+   503→                >
+   504→                  <Ionicons name="close-circle" size={24} color={Colors.error} />
+   505→                </TouchableOpacity>
+   506→              </View>
+   507→            ))}
+   508→
+   509→            <TouchableOpacity
+   510→              style={[styles.submitButton, submitting && styles.submitButtonDisabled]}
+   511→              onPress={submitVerification}
+   512→              disabled={submitting}
+   513→            >
+   514→              {submitting ? (
+   515→                <ActivityIndicator color={Colors.white} />
+   516→              ) : (
+   517→                <>
+   518→                  <Ionicons name="send" size={20} color={Colors.white} />
+   519→                  <Text style={styles.submitButtonText}>Envoyer la demande</Text>
+   520→                </>
+   521→              )}
+   522→            </TouchableOpacity>
+   523→          </View>
+   524→        )}
+   525→
+   526→        {/* Info Section */}
+   527→        <View style={styles.infoSection}>
+   528→          <Text style={styles.infoTitle}>Pourquoi se vérifier ?</Text>
+   529→          
+   530→          <View style={styles.infoItem}>
+   531→            <Ionicons name="trending-up-outline" size={20} color={Colors.primary} />
+   532→            <View style={styles.infoContent}>
+   533→              <Text style={styles.infoLabel}>+40% de visibilité</Text>
+   534→              <Text style={styles.infoDescription}>Les fournisseurs vérifiés apparaissent en premier dans les recherches.</Text>
+   535→            </View>
+   536→          </View>
+   537→          
+   538→          <View style={styles.infoItem}>
+   539→            <Ionicons name="shield-checkmark-outline" size={20} color={Colors.success} />
+   540→            <View style={styles.infoContent}>
+   541→              <Text style={styles.infoLabel}>Confiance accrue</Text>
+   542→              <Text style={styles.infoDescription}>Les acheteurs privilégient les fournisseurs certifiés.</Text>
+   543→            </View>
+   544→          </View>
+   545→          
+   546→          <View style={styles.infoItem}>
+   547→            <Ionicons name="chatbubbles-outline" size={20} color={Colors.warning} />
+   548→            <View style={styles.infoContent}>
+   549→              <Text style={styles.infoLabel}>Plus de contacts</Text>
+   550→              <Text style={styles.infoDescription}>Recevez jusqu'à 3x plus de demandes de devis.</Text>
+   551→            </View>
+   552→          </View>
+   553→        </View>
+   554→      </ScrollView>
+   555→
+   556→      {/* Upload Modal */}
+   557→      <Modal
+   558→        visible={showUploadModal}
+   559→        transparent
+   560→        animationType="slide"
+   561→        onRequestClose={() => setShowUploadModal(false)}
+   562→      >
+   563→        <View style={styles.modalOverlay}>
+   564→          <View style={styles.modalContent}>
+   565→            <Text style={styles.modalTitle}>Ajouter un document</Text>
+   566→            
+   567→            <TouchableOpacity
+   568→              style={styles.modalOption}
+   569→              onPress={() => selectedType && pickDocument(selectedType)}
+   570→            >
+   571→              <Ionicons name="images-outline" size={28} color={Colors.primary} />
+   572→              <View style={styles.modalOptionContent}>
+   573→                <Text style={styles.modalOptionTitle}>Depuis la galerie</Text>
+   574→                <Text style={styles.modalOptionDesc}>Choisir une image existante</Text>
+   575→              </View>
+   576→            </TouchableOpacity>
+   577→            
+   578→            <TouchableOpacity
+   579→              style={styles.modalOption}
+   580→              onPress={() => selectedType && takePhoto(selectedType)}
+   581→            >
+   582→              <Ionicons name="camera-outline" size={28} color={Colors.primary} />
+   583→              <View style={styles.modalOptionContent}>
+   584→                <Text style={styles.modalOptionTitle}>Prendre une photo</Text>
+   585→                <Text style={styles.modalOptionDesc}>Utiliser l'appareil photo</Text>
+   586→              </View>
+   587→            </TouchableOpacity>
+   588→            
+   589→            <TouchableOpacity
+   590→              style={styles.modalCancelButton}
+   591→              onPress={() => setShowUploadModal(false)}
+   592→            >
+   593→              <Text style={styles.modalCancelText}>Annuler</Text>
+   594→            </TouchableOpacity>
+   595→          </View>
+   596→        </View>
+   597→      </Modal>
+   598→    </View>
+   599→  );
+   600→}
+   601→
+   602→// ============================================
+   603→// Styles
+   604→// ============================================
+   605→
+   606→const styles = StyleSheet.create({
+   607→  container: {
+   608→    flex: 1,
+   609→    backgroundColor: Colors.background,
+   610→  },
+   611→  loadingContainer: {
+   612→    flex: 1,
+   613→    justifyContent: 'center',
+   614→    alignItems: 'center',
+   615→    backgroundColor: Colors.background,
+   616→  },
+   617→  loadingText: {
+   618→    marginTop: Spacing.md,
+   619→    fontSize: FontSize.base,
+   620→    color: Colors.textSecondary,
+   621→    fontFamily: FontFamily.medium,
+   622→  },
+   623→  header: {
+   624→    flexDirection: 'row',
+   625→    alignItems: 'center',
+   626→    justifyContent: 'space-between',
+   627→    paddingHorizontal: Spacing.md,
+   628→    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+   629→    paddingBottom: Spacing.md,
+   630→    backgroundColor: Colors.white,
+   631→    borderBottomWidth: 1,
+   632→    borderBottomColor: Colors.borderLight,
+   633→  },
+   634→  backButton: {
+   635→    width: 40,
+   636→    height: 40,
+   637→    borderRadius: 20,
+   638→    backgroundColor: Colors.surface,
+   639→    justifyContent: 'center',
+   640→    alignItems: 'center',
+   641→  },
+   642→  headerTitle: {
+   643→    fontSize: FontSize.lg,
+   644→    fontWeight: '600',
+   645→    color: Colors.text,
+   646→    fontFamily: FontFamily.semiBold,
+   647→  },
+   648→  scrollView: {
+   649→    flex: 1,
+   650→  },
+   651→  statusCard: {
+   652→    margin: Spacing.md,
+   653→    padding: Spacing.lg,
+   654→    backgroundColor: Colors.white,
+   655→    borderRadius: BorderRadius.xl,
+   656→    ...Shadows.md,
+   657→  },
+   658→  levelContainer: {
+   659→    flexDirection: 'row',
+   660→    alignItems: 'center',
+   661→    marginBottom: Spacing.lg,
+   662→  },
+   663→  levelBadge: {
+   664→    width: 64,
+   665→    height: 64,
+   666→    borderRadius: 32,
+   667→    justifyContent: 'center',
+   668→    alignItems: 'center',
+   669→    marginRight: Spacing.md,
+   670→  },
+   671→  levelInfo: {
+   672→    flex: 1,
+   673→  },
+   674→  levelLabel: {
+   675→    fontSize: FontSize.sm,
+   676→    color: Colors.textSecondary,
+   677→    fontFamily: FontFamily.regular,
+   678→    marginBottom: 2,
+   679→  },
+   680→  levelName: {
+   681→    fontSize: FontSize.xl,
+   682→    fontWeight: 'bold',
+   683→    fontFamily: FontFamily.bold,
+   684→    marginBottom: 4,
+   685→  },
+   686→  scoreText: {
+   687→    fontSize: FontSize.sm,
+   688→    color: Colors.textSecondary,
+   689→    fontFamily: FontFamily.regular,
+   690→  },
+   691→  progressContainer: {
+   692→    marginBottom: Spacing.lg,
+   693→  },
+   694→  progressBar: {
+   695→    height: 8,
+   696→    backgroundColor: Colors.surfaceVariant,
+   697→    borderRadius: 4,
+   698→    overflow: 'hidden',
+   699→  },
+   700→  progressFill: {
+   701→    height: '100%',
+   702→    backgroundColor: Colors.primary,
+   703→    borderRadius: 4,
+   704→  },
+   705→  progressText: {
+   706→    fontSize: FontSize.xs,
+   707→    color: Colors.textTertiary,
+   708→    textAlign: 'right',
+   709→    marginTop: Spacing.xs,
+   710→    fontFamily: FontFamily.regular,
+   711→  },
+   712→  badgesSection: {
+   713→    borderTopWidth: 1,
+   714→    borderTopColor: Colors.borderLight,
+   715→    paddingTop: Spacing.md,
+   716→  },
+   717→  sectionTitle: {
+   718→    fontSize: FontSize.md,
+   719→    fontWeight: '600',
+   720→    color: Colors.text,
+   721→    fontFamily: FontFamily.semiBold,
+   722→    marginBottom: Spacing.md,
+   723→  },
+   724→  badgesRow: {
+   725→    flexDirection: 'row',
+   726→    flexWrap: 'wrap',
+   727→    gap: Spacing.sm,
+   728→  },
+   729→  badgeItem: {
+   730→    flexDirection: 'row',
+   731→    alignItems: 'center',
+   732→    paddingHorizontal: Spacing.sm,
+   733→    paddingVertical: Spacing.xs,
+   734→    borderRadius: BorderRadius.full,
+   735→    gap: 4,
+   736→  },
+   737→  badgeName: {
+   738→    fontSize: FontSize.xs,
+   739→    fontWeight: '500',
+   740→    fontFamily: FontFamily.medium,
+   741→  },
+   742→  section: {
+   743→    marginHorizontal: Spacing.md,
+   744→    marginBottom: Spacing.md,
+   745→  },
+   746→  verificationItem: {
+   747→    flexDirection: 'row',
+   748→    alignItems: 'center',
+   749→    padding: Spacing.md,
+   750→    backgroundColor: Colors.white,
+   751→    borderRadius: BorderRadius.lg,
+   752→    marginBottom: Spacing.sm,
+   753→    ...Shadows.sm,
+   754→  },
+   755→  verificationItemApproved: {
+   756→    opacity: 0.7,
+   757→    borderLeftWidth: 3,
+   758→    borderLeftColor: Colors.success,
+   759→  },
+   760→  verificationIconContainer: {
+   761→    width: 44,
+   762→    height: 44,
+   763→    borderRadius: 22,
+   764→    backgroundColor: Colors.surface,
+   765→    justifyContent: 'center',
+   766→    alignItems: 'center',
+   767→    marginRight: Spacing.md,
+   768→  },
+   769→  verificationContent: {
+   770→    flex: 1,
+   771→  },
+   772→  verificationLabel: {
+   773→    fontSize: FontSize.base,
+   774→    fontWeight: '500',
+   775→    color: Colors.text,
+   776→    fontFamily: FontFamily.medium,
+   777→    marginBottom: 2,
+   778→  },
+   779→  verificationDescription: {
+   780→    fontSize: FontSize.xs,
+   781→    color: Colors.textTertiary,
+   782→    fontFamily: FontFamily.regular,
+   783→  },
+   784→  statusBadge: {
+   785→    alignSelf: 'flex-start',
+   786→    paddingHorizontal: Spacing.sm,
+   787→    paddingVertical: 2,
+   788→    borderRadius: BorderRadius.full,
+   789→    marginTop: Spacing.xs,
+   790→  },
+   791→  statusText: {
+   792→    fontSize: FontSize.xs,
+   793→    fontWeight: '500',
+   794→    fontFamily: FontFamily.medium,
+   795→  },
+   796→  selectedSection: {
+   797→    marginHorizontal: Spacing.md,
+   798→    marginBottom: Spacing.md,
+   799→    padding: Spacing.md,
+   800→    backgroundColor: Colors.white,
+   801→    borderRadius: BorderRadius.lg,
+   802→    ...Shadows.sm,
+   803→  },
+   804→  documentPreview: {
+   805→    flexDirection: 'row',
+   806→    alignItems: 'center',
+   807→    paddingVertical: Spacing.sm,
+   808→    borderBottomWidth: 1,
+   809→    borderBottomColor: Colors.borderLight,
+   810→  },
+   811→  documentImage: {
+   812→    width: 56,
+   813→    height: 56,
+   814→    borderRadius: BorderRadius.md,
+   815→    backgroundColor: Colors.surface,
+   816→  },
+   817→  documentInfo: {
+   818→    flex: 1,
+   819→    marginLeft: Spacing.md,
+   820→  },
+   821→  documentName: {
+   822→    fontSize: FontSize.sm,
+   823→    fontWeight: '500',
+   824→    color: Colors.text,
+   825→    fontFamily: FontFamily.medium,
+   826→  },
+   827→  documentStatus: {
+   828→    fontSize: FontSize.xs,
+   829→    color: Colors.success,
+   830→    fontFamily: FontFamily.regular,
+   831→  },
+   832→  removeButton: {
+   833→    padding: Spacing.xs,
+   834→  },
+   835→  submitButton: {
+   836→    flexDirection: 'row',
+   837→    justifyContent: 'center',
+   838→    alignItems: 'center',
+   839→    backgroundColor: Colors.primary,
+   840→    paddingVertical: Spacing.md,
+   841→    borderRadius: BorderRadius.lg,
+   842→    marginTop: Spacing.md,
+   843→    gap: Spacing.sm,
+   844→  },
+   845→  submitButtonDisabled: {
+   846→    opacity: 0.6,
+   847→  },
+   848→  submitButtonText: {
+   849→    fontSize: FontSize.base,
+   850→    fontWeight: '600',
+   851→    color: Colors.white,
+   852→    fontFamily: FontFamily.semiBold,
+   853→  },
+   854→  infoSection: {
+   855→    margin: Spacing.md,
+   856→    padding: Spacing.md,
+   857→    backgroundColor: Colors.infoLight,
+   858→    borderRadius: BorderRadius.lg,
+   859→  },
+   860→  infoTitle: {
+   861→    fontSize: FontSize.md,
+   862→    fontWeight: '600',
+   863→    color: Colors.text,
+   864→    fontFamily: FontFamily.semiBold,
+   865→    marginBottom: Spacing.md,
+   866→  },
+   867→  infoItem: {
+   868→    flexDirection: 'row',
+   869→    alignItems: 'flex-start',
+   870→    marginBottom: Spacing.md,
+   871→  },
+   872→  infoContent: {
+   873→    flex: 1,
+   874→    marginLeft: Spacing.sm,
+   875→  },
+   876→  infoLabel: {
+   877→    fontSize: FontSize.sm,
+   878→    fontWeight: '500',
+   879→    color: Colors.text,
+   880→    fontFamily: FontFamily.medium,
+   881→  },
+   882→  infoDescription: {
+   883→    fontSize: FontSize.xs,
+   884→    color: Colors.textSecondary,
+   885→    fontFamily: FontFamily.regular,
+   886→    marginTop: 2,
+   887→  },
+   888→  modalOverlay: {
+   889→    flex: 1,
+   890→    backgroundColor: Colors.overlay,
+   891→    justifyContent: 'flex-end',
+   892→  },
+   893→  modalContent: {
+   894→    backgroundColor: Colors.white,
+   895→    borderTopLeftRadius: BorderRadius.xxl,
+   896→    borderTopRightRadius: BorderRadius.xxl,
+   897→    padding: Spacing.lg,
+   898→    paddingBottom: Platform.OS === 'ios' ? 40 : Spacing.lg,
+   899→  },
+   900→  modalTitle: {
+   901→    fontSize: FontSize.lg,
+   902→    fontWeight: '600',
+   903→    color: Colors.text,
+   904→    fontFamily: FontFamily.semiBold,
+   905→    textAlign: 'center',
+   906→    marginBottom: Spacing.lg,
+   907→  },
+   908→  modalOption: {
+   909→    flexDirection: 'row',
+   910→    alignItems: 'center',
+   911→    padding: Spacing.md,
+   912→    backgroundColor: Colors.surface,
+   913→    borderRadius: BorderRadius.lg,
+   914→    marginBottom: Spacing.sm,
+   915→  },
+   916→  modalOptionContent: {
+   917→    marginLeft: Spacing.md,
+   918→  },
+   919→  modalOptionTitle: {
+   920→    fontSize: FontSize.base,
+   921→    fontWeight: '500',
+   922→    color: Colors.text,
+   923→    fontFamily: FontFamily.medium,
+   924→  },
+   925→  modalOptionDesc: {
+   926→    fontSize: FontSize.sm,
+   927→    color: Colors.textTertiary,
+   928→    fontFamily: FontFamily.regular,
+   929→  },
+   930→  modalCancelButton: {
+   931→    paddingVertical: Spacing.md,
+   932→    alignItems: 'center',
+   933→    marginTop: Spacing.sm,
+   934→  },
+   935→  modalCancelText: {
+   936→    fontSize: FontSize.base,
+   937→    color: Colors.error,
+   938→    fontFamily: FontFamily.medium,
+   939→  },
+   940→});
+   941→

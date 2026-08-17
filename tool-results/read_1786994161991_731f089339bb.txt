@@ -1,0 +1,1672 @@
+     1→// Shipment Tracker Screen - AlgeriaTrade Mobile
+     2→// Écran de suivi des expéditions en temps réel
+     3→
+     4→import React, { useState, useEffect, useCallback } from 'react';
+     5→import {
+     6→  View,
+     7→  Text,
+     8→  StyleSheet,
+     9→  ScrollView,
+    10→  TouchableOpacity,
+    11→  Alert,
+    12→  ActivityIndicator,
+    13→  Platform,
+    14→  Modal,
+    15→  TextInput,
+    16→  Dimensions,
+    17→} from 'react-native';
+    18→import { Ionicons } from '@expo/vector-icons';
+    19→import { useNavigation, RouteProp, useRoute } from '@react-navigation/native';
+    20→
+    21→// Services
+    22→import apiService from '../../services/api';
+    23→import { pushNotificationService } from '../../services/pushNotifications';
+    24→
+    25→// Constants
+    26→import { Colors, FontFamily, FontSize, Spacing, BorderRadius, Shadows } from '../../utils/constants';
+    27→
+    28→// Types
+    29→import { RootStackParamList } from '../../navigation';
+    30→
+    31→type ShipmentRouteProp = RouteProp<RootStackParamList, 'ShipmentTracker'>;
+    32→
+    33→const { width: SCREEN_WIDTH } = Dimensions.get('window');
+    34→
+    35→// ============================================
+    36→// Types & Interfaces
+    37→// ============================================
+    38→
+    39→export type ShipmentStatus =
+    40→  | 'pending'
+    41→  | 'ready_to_ship'
+    42→  | 'shipped'
+    43→  | 'in_transit'
+    44→  | 'out_for_delivery'
+    45→  | 'delivered'
+    46→  | 'failed_delivery'
+    47→  | 'returned'
+    48→  | 'lost'
+    49→  | 'exception';
+    50→
+    51→export type ShippingMethod =
+    52→  | 'standard'
+    53→  | 'express'
+    54→  | 'air_freight'
+    55→  | 'sea_freight'
+    56→  | 'rail_freight'
+    57→  | 'pickup'
+    58→  | 'white_glove';
+    59→
+    60→export type Incoterm = 
+    61→  | 'EXW' | 'FCA' | 'CPT' | 'CIP' | 'DAP' | 'DDP'
+    62→  | 'FAS' | 'FOB' | 'CFR' | 'CIF';
+    63→
+    64→interface TrackingEvent {
+    65→  id: string;
+    66→  status: ShipmentStatus;
+    67→  description: string;
+    68→  location?: string;
+    69→  timestamp: Date;
+    70→  photoUrl?: string;
+    71→}
+    72→
+    73→interface ShipmentData {
+    74→  id: string;
+    75→  orderId: string;
+    76→  trackingNumber: string;
+    77→  carrierName: string;
+    78→  carrierLogo?: string;
+    79→  carrierPhone?: string;
+    80→  status: ShipmentStatus;
+    81→  shippingMethod: ShippingMethod;
+    82→  incoterm: Incoterm;
+    83→  
+    84→  // Addresses
+    85→  originAddress: {
+    86→    name: string;
+    87→    street: string;
+    88→    city: string;
+    89→    wilaya: string;
+    90→    postalCode: string;
+    91→    country: string;
+    92→  };
+    93→  
+    94→  destinationAddress: {
+    95→    name: string;
+    96→    street: string;
+    97→    city: string;
+    98→    wilaya: string;
+    99→    postalCode: string;
+   100→    country: string;
+   101→    deliveryInstructions?: string;
+   102→  };
+   103→  
+   104→  // Package info
+   105→  weight: number;
+   106→  dimensions?: {
+   107→    length: number;
+   108→    width: number;
+   109→    height: number;
+   110→    unit: 'cm' | 'in';
+   111→  };
+   112→  packageCount: number;
+   113→  
+   114→  // Dates
+   115→  estimatedDeliveryStart?: Date;
+   116→  estimatedDeliveryEnd?: Date;
+   117→  actualDeliveryDate?: Date;
+   118→  shippedAt?: Date;
+   119→  deliveredAt?: Date;
+   120→  
+   121→  // Cost
+   122→  shippingCost: number;
+   123→  currency: string;
+   124→  
+   125→  // Tracking
+   126→  trackingEvents: TrackingEvent[];
+   127→  trackingUrl?: string;
+   128→  
+   129→  // Documents
+   130→  waybillUrl?: string;
+   131→  customsDocsUrl?: string;
+   132→  insuranceUrl?: string;
+   133→  
+   134→  // Driver info (for out_for_delivery)
+   135→  driverInfo?: {
+   136→    name: string;
+   137→    phone: string;
+   138→    photoUrl?: string;
+   139→    vehicleInfo?: string;
+   140→    estimatedArrival?: Date;
+   141→  };
+   142→}
+   143→
+   144→interface RatingData {
+   145→  shipmentId: string;
+   146→  rating: number; // 1-5
+   147→  comment?: string;
+   148→  categories: {
+   149→    deliverySpeed: number;
+   150→    packageCondition: number;
+   151→    courierBehavior: number;
+   152→  };
+   153→}
+   154→
+   155→// ============================================
+   156→// Constants
+   157→// ============================================
+   158→
+   159→const SHIPMENT_STATUS_CONFIG: Record<ShipmentStatus, { 
+   160→  label: string; 
+   161→  icon: string; 
+   162→  color: string;
+   163→  description: string;
+   164→}> = {
+   165→  pending: { label: 'En attente', icon: 'time-outline', color: Colors.textTertiary, description: 'Commande en préparation' },
+   166→  ready_to_ship: { label: 'Prêt à expédier', icon: 'cube-outline', color: Colors.info, description: 'Colis prêt pour l\'expédition' },
+   167→  shipped: { label: 'Expédié', icon: 'airplane-outline', color: Colors.primary, description: 'Colis remis au transporteur' },
+   168→  in_transit: { label: 'En transit', icon: 'navigate-outline', color: Colors.info, description: 'Colis en cours de transport' },
+   169→  out_for_delivery: { label: 'En livraison', icon: 'bicycle-outline', color: Colors.warning, description: 'Le livreur est en route' },
+   170→  delivered: { label: 'Livré', icon: 'checkmark-circle', color: Colors.success, description: 'Colis livré avec succès' },
+   171→  failed_delivery: { label: 'Échec de livraison', icon: 'close-circle-outline', color: Colors.error, description: 'Impossible de livrer le colis' },
+   172→  returned: { label: 'Retourné', icon: 'return-down-back-outline', color: Colors.textTertiary, description: 'Colis retourné à l\'expéditeur' },
+   173→  lost: { label: 'Perdu', icon: 'help-circle-outline', color: Colors.error, description: 'Colis signalé comme perdu' },
+   174→  exception: { label: 'Exception', icon: 'alert-circle-outline', color: Colors.warning, description: 'Problème détecté' },
+   175→};
+   176→
+   177→const SHIPPING_METHOD_CONFIG: Record<ShippingMethod, { label: string; icon: string }> = {
+   178→  standard: { label: 'Livraison standard', icon: 'truck-outline' },
+   179→  express: { label: 'Livraison express', icon: 'flash-outline' },
+   180→  air_freight: { label: 'Fret aérien', icon: 'airplane-outline' },
+   181→  sea_freight: { label: 'Fret maritime', icon: 'boat-outline' },
+   182→  rail_freight: { label: 'Fert ferroviaire', icon: 'train-outline' },
+   183→  pickup: { label: 'Retrait en point relais', icon: 'storefront-outline' },
+   184→  white_glove: { label: 'Livraison premium', icon: 'hand-left-outline' },
+   185→};
+   186→
+   187→const STATUS_ORDER: ShipmentStatus[] = [
+   188→  'pending',
+   189→  'ready_to_ship',
+   190→  'shipped',
+   191→  'in_transit',
+   192→  'out_for_delivery',
+   193→  'delivered',
+   194→];
+   195→
+   196→// ============================================
+   197→// Main Component
+   198→// ============================================
+   199→
+   200→export default function ShipmentTrackerScreen() {
+   201→  const route = useRoute<ShipmentRouteProp>();
+   202→  const navigation = useNavigation();
+   203→  
+   204→  const { trackingNumber: initialTrackingNumber } = route.params || {};
+   205→  
+   206→  // State
+   207→  const [loading, setLoading] = useState(true);
+   208→  const [refreshing, setRefreshing] = useState(false);
+   209→  const [shipment, setShipment] = useState<ShipmentData | null>(null);
+   210→  const [trackingInput, setTrackingInput] = useState(initialTrackingNumber || '');
+   211→  const [showRatingModal, setShowRatingModal] = useState(false);
+   212→  const [rating, setRating] = useState(0);
+   213→  const [ratingComment, setRatingComment] = useState('');
+   214→  const [categoryRatings, setCategoryRatings] = useState({
+   215→    deliverySpeed: 5,
+   216→    packageCondition: 5,
+   217→    courierBehavior: 5,
+   218→  });
+   219→  const [submittingRating, setSubmittingRating] = useState(false);
+   220→
+   221→  // Load shipment data
+   222→  const loadShipment = useCallback(async (trackingNum?: string) => {
+   223→    const num = trackingNum || trackingInput;
+   224→    
+   225→    if (!num) return;
+   226→
+   227→    try {
+   228→      const data = await apiService.trackShipment(num);
+   229→      setShipment(data);
+   230→      
+   231→      // Subscribe to push notifications for this shipment
+   232→      pushNotificationService.subscribeToTopic(`shipment_${data.id}`);
+   233→    } catch (error) {
+   234→      console.error('[ShipmentTrackerScreen] Error loading:', error);
+   235→      Alert.alert('Erreur', 'Impossible de trouver cette expédition. Vérifiez le numéro de suivi.');
+   236→    } finally {
+   237→      setLoading(false);
+   238→      setRefreshing(false);
+   239→    }
+   240→  }, [trackingInput]);
+   241→
+   242→  useEffect(() => {
+   243→    if (initialTrackingNumber) {
+   244→      loadShipment(initialTrackingNumber);
+   245→    } else {
+   246→      setLoading(false);
+   247→    }
+   248→  }, []);
+   249→
+   250→  // Pull to refresh
+   251→  const onRefresh = async () => {
+   252→    setRefreshing(true);
+   253→    await loadShipment();
+   254→  };
+   255→
+   256→  // Search for shipment
+   257→  const handleSearch = () => {
+   258→    if (!trackingInput.trim()) {
+   259→      Alert.alert('Erreur', 'Veuillez entrer un numéro de suivi.');
+   260→      return;
+   261→    }
+   262→    
+   263→    setLoading(true);
+   264→    loadShipment(trackingInput.trim());
+   265→  };
+   266→
+   267→  // Contact driver
+   268→  const handleContactDriver = (type: 'call' | 'message') => {
+   269→    if (!shipment?.driverInfo) return;
+   270→
+   271→    if (type === 'call') {
+   272→      Alert.alert(
+   273→        'Appeler le livreur',
+   274→        `Voulez-vous appeler ${shipment.driverInfo.name} au ${shipment.driverInfo.phone} ?`,
+   275→        [
+   276→          { text: 'Annuler', style: 'cancel' },
+   277→          { 
+   278→            text: 'Appeler', 
+   279→            onPress: () => {
+   280→              // In real app, would use Linking.openURL(`tel:${phone}`)
+   281→              console.log('[ShipmentTracker] Calling driver');
+   282→            }
+   283→          }
+   284→        ]
+   285→      );
+   286→    } else {
+   287→      // Navigate to chat with driver
+   288→      navigation.navigate('Chat' as any, {
+   289→        conversationId: `delivery_${shipment.id}`,
+   290→        userName: `${shipment.driverInfo.name} (Livreur)`,
+   291→      });
+   292→    }
+   293→  };
+   294→
+   295→  // Submit rating
+   296→  const handleSubmitRating = async () => {
+   297→    if (rating === 0) {
+   298→      Alert.alert('Erreur', 'Veuillez sélectionner une note.');
+   299→      return;
+   300→    }
+   301→
+   302→    setSubmittingRating(true);
+   303→
+   304→    try {
+   305→      await apiService.rateDelivery(shipment!.id, {
+   306→        rating,
+   307→        comment: ratingComment || undefined,
+   308→        categories: categoryRatings,
+   309→      });
+   310→
+   311→      Alert.alert('Merci !', 'Votre avis a été enregistré.', [
+   312→        { text: 'OK', onPress: () => setShowRatingModal(false) }
+   313→      ]);
+   314→    } catch (error) {
+   315→      Alert.alert('Erreur', 'Impossible d\'enregistrer votre avis.');
+   316→    } finally {
+   317→      setSubmittingRating(false);
+   318→    }
+   319→  };
+   320→
+   321→  // Get current progress step
+   322→  const getCurrentStepIndex = (): number => {
+   323→    if (!shipment) return -1;
+   324→    return STATUS_ORDER.indexOf(shipment.status);
+   325→  };
+   326→
+   327→  // Render loading state
+   328→  if (loading) {
+   329→    return (
+   330→      <View style={styles.loadingContainer}>
+   331→        <ActivityIndicator size="large" color={Colors.primary} />
+   332→        <Text style={styles.loadingText}>Recherche de l'expédition...</Text>
+   333→      </View>
+   334→    );
+   335→  }
+   336→
+   337→  // Render search view (no shipment loaded)
+   338→  if (!shipment) {
+   339→    return (
+   340→      <View style={styles.container}>
+   341→        {/* Header */}
+   342→        <View style={styles.header}>
+   343→          <TouchableOpacity 
+   344→            style={styles.backButton}
+   345→            onPress={() => navigation.goBack()}
+   346→          >
+   347→            <Ionicons name="arrow-back" size={24} color={Colors.text} />
+   348→          </TouchableOpacity>
+   349→          <Text style={styles.headerTitle}>Suivi d'expédition</Text>
+   350→          <View style={{ width: 40 }} />
+   351→        </View>
+   352→
+   353→        <View style={styles.searchContainer}>
+   354→          {/* Illustration */}
+   355→          <View style={styles.searchIllustration}>
+   356→            <Ionicons name="locate-outline" size={80} color={Colors.primary} />
+   357→          </View>
+   358→
+   359→          <Text style={styles.searchTitle}>Suivez votre colis</Text>
+   360→          <Text style={styles.searchSubtitle}>
+   361→            Entrez votre numéro de suivi pour connaître l'état de votre livraison
+   362→          </Text>
+   363→
+   364→          {/* Search Input */}
+   365→          <View style={styles.searchInputContainer}>
+   366→            <Ionicons name="search-outline" size={20} color={Colors.textTertiary} />
+   367→            <TextInput
+   368→              style={styles.searchInput}
+   369→              value={trackingInput}
+   370→              onChangeText={setTrackingInput}
+   371→              placeholder="Numéro de suivi"
+   372→              placeholderTextColor={Colors.textTertiary}
+   373→              autoCapitalize="characters"
+   374→              autoCorrect={false}
+   375→              onSubmitEditing={handleSearch}
+   376→            />
+   377→            <TouchableOpacity style={styles.searchButton} onPress={handleSearch}>
+   378→              <Ionicons name="arrow-forward" size={20} color={Colors.white} />
+   379→            </TouchableOpacity>
+   380→          </View>
+   381→
+   382→          {/* Recent searches would go here */}
+   383→          <View style={styles.recentSection}>
+   384→            <Text style={styles.recentTitle}>Recherches récentes</Text>
+   385→            <Text style={styles.noRecentText}>Aucune recherche récente</Text>
+   386→          </View>
+   387→
+   388→          {/* Help */}
+   389→          <TouchableOpacity style={styles.helpCard}>
+   390→            <Ionicons name="help-circle-outline" size={24} color={Colors.primary} />
+   391→            <View style={styles.helpContent}>
+   392→              <Text style={styles.helpTitle}>Besoin d'aide ?</Text>
+   393→              <Text style={styles.helpDescription}>
+   394→                Consultez notre FAQ ou contactez le support client
+   395→              </Text>
+   396→            </View>
+   397→            <Ionicons name="chevron-forward" size={20} color={Colors.textTertiary} />
+   398→          </TouchableOpacity>
+   399→        </View>
+   400→      </View>
+   401→    );
+   402→  }
+   403→
+   404→  // Main tracker view
+   405→  const currentStep = getCurrentStepIndex();
+   406→  const statusConfig = SHIPMENT_STATUS_CONFIG[shipment.status];
+   407→  const methodConfig = SHIPPING_METHOD_CONFIG[shipment.shippingMethod];
+   408→
+   409→  return (
+   410→    <View style={styles.container}>
+   411→      {/* Header */}
+   412→      <View style={styles.header}>
+   413→        <TouchableOpacity 
+   414→          style={styles.backButton}
+   415→          onPress={() => navigation.goBack()}
+   416→        >
+   417→          <Ionicons name="arrow-back" size={24} color={Colors.text} />
+   418→        </TouchableOpacity>
+   419→        <Text style={styles.headerTitle}>Suivi d'expédition</Text>
+   420→        <TouchableOpacity style={styles.shareButton}>
+   421→          <Ionicons name="share-social-outline" size={20} color={Colors.text} />
+   422→        </TouchableOpacity>
+   423→      </View>
+   424→
+   425→      <ScrollView
+   426→        style={styles.scrollView}
+   427→        refreshControl={
+   428→          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+   429→        }
+   430→        showsVerticalScrollIndicator={false}
+   431→      >
+   432→        {/* Status Card */}
+   433→        <View style={[styles.statusCard, { borderLeftColor: statusConfig.color }]}>
+   434→          <View style={styles.statusHeader}>
+   435→            <View style={[styles.statusIconContainer, { backgroundColor: statusConfig.color + '15' }]}>
+   436→              <Ionicons name={statusConfig.icon as any} size={28} color={statusConfig.color} />
+   437→            </View>
+   438→            
+   439→            <View style={styles.statusInfo}>
+   440→              <Text style={[styles.statusText, { color: statusConfig.color }]}>
+   441→                {statusConfig.label}
+   442→              </Text>
+   443→              <Text style={styles.statusDescription}>{statusConfig.description}</Text>
+   444→            </View>
+   445→          </View>
+   446→
+   447→          {/* Tracking Number */}
+   448→          <View style={styles.trackingNumberContainer}>
+   449→            <Text style={styles.trackingNumberLabel}>N° de suivi</Text>
+   450→            <View style={styles.trackingNumberRow}>
+   451→              <Text style={styles.trackingNumberValue}>{shipment.trackingNumber}</Text>
+   452→              <TouchableOpacity onPress={() => {
+   453→                // Copy to clipboard
+   454→                Alert.alert('Copié', 'Le numéro de suivi a été copié.');
+   455→              }}>
+   456→                <Ionicons name="copy-outline" size={18} color={Colors.primary} />
+   457→              </TouchableOpacity>
+   458→            </View>
+   459→          </View>
+   460→
+   461→          {/* Delivery Estimate */}
+   462→          {(shipment.estimatedDeliveryStart || shipment.estimatedDeliveryEnd) && (
+   463→            <View style={styles.deliveryEstimate}>
+   464→              <Ionicons name="calendar-outline" size={16} color={Colors.textSecondary} />
+   465→              <Text style={styles.deliveryEstimateText}>
+   466→                Livraison estimée:{' '}
+   467→                {shipment.estimatedDeliveryStart?.toLocaleDateString('fr-FR', {
+   468→                  day: 'numeric',
+   469→                  month: 'short',
+   470→                })}
+   471→                {shipment.estimatedDeliveryEnd && shipment.estimatedDeliveryStart?.getTime() !== shipment.estimatedDeliveryEnd?.getTime()
+   472→                  ? ` - ${shipment.estimatedDeliveryEnd.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}`
+   473→                  : ''
+   474→                }
+   475→              </Text>
+   476→            </View>
+   477→          )}
+   478→        </View>
+   479→
+   480→        {/* Progress Steps */}
+   481→        <View style={styles.progressSection}>
+   482→          <Text style={styles.sectionTitle}>Progression</Text>
+   483→          
+   484→          <View style={styles.stepsContainer}>
+   485→            {STATUS_ORDER.map((status, index) => {
+   486→              const config = SHIPMENT_STATUS_CONFIG[status];
+   487→              const isCompleted = index <= currentStep;
+   488→              const isCurrent = index === currentStep;
+   489→              
+   490→              return (
+   491→                <React.Fragment key={status}>
+   492→                  {/* Step Circle */}
+   493→                  <View style={styles.stepItem}>
+   494→                    <View style={[
+   495→                      styles.stepCircle,
+   496→                      isCompleted && styles.stepCircleCompleted,
+   497→                      isCurrent && styles.stepCircleCurrent,
+   498→                    ]}>
+   499→                      {isCompleted ? (
+   500→                        <Ionicons name="checkmark" size={14} color={Colors.white} />
+   501→                      ) : (
+   502→                        <View style={styles.stepCircleInner} />
+   503→                      )}
+   504→                    </View>
+   505→                    
+   506→                    <Text style={[
+   507→                      styles.stepLabel,
+   508→                      isCompleted && styles.stepLabelCompleted,
+   509→                      isCurrent && styles.stepLabelCurrent,
+   510→                    ]}>
+   511→                      {config.label}
+   512→                    </Text>
+   513→                  </View>
+   514→
+   515→                  {/* Connector Line */}
+   516→                  {index < STATUS_ORDER.length - 1 && (
+   517→                    <View style={[
+   518→                      styles.stepConnector,
+   519→                      index < currentStep && styles.stepConnectorCompleted,
+   520→                    ]} />
+   521→                  )}
+   522→                </React.Fragment>
+   523→              );
+   524→            })}
+   525→          </View>
+   526→        </View>
+   527→
+   528→        {/* Map Placeholder (would be real map in production) */}
+   529→        <View style={styles.mapContainer}>
+   530→          <View style={styles.mapPlaceholder}>
+   531→            <Ionicons name="map-outline" size={48} color={Colors.textTertiary} />
+   532→            <Text style={styles.mapPlaceholderText}>Carte de suivi en temps réel</Text>
+   533→            
+   534→            {/* Simulated route visualization */}
+   535→            <View style={styles.routeVisualization}>
+   536→              <View style={styles.routeOrigin}>
+   537→                <View style={styles.routeDotOrigin} />
+   538→                <Text style={styles.routeOriginLabel}>Origine</Text>
+   539→              </View>
+   540→              
+   541→              <View style={styles.routeLine}>
+   542→                {[...Array(5)].map((_, i) => (
+   543→                  <View 
+   544→                    key={i} 
+   545→                    style={[
+   546→                      styles.routeCheckpoint,
+   547→                      i <= Math.floor(currentStep / 2) && styles.routeCheckpointActive
+   548→                    ]} 
+   549→                  />
+   550→                ))}
+   551→              </View>
+   552→              
+   553→              <View style={styles.routeDestination}>
+   554→                <View style={[
+   555→                  styles.routeDotDestination,
+   556→                  currentStep >= STATUS_ORDER.length - 2 && styles.routeDotDestinationActive
+   557→                ]} />
+   558→                <Text style={styles.routeDestinationLabel}>Destination</Text>
+   559→              </View>
+   560→            </View>
+   561→          </View>
+   562→
+   563→          {/* Address Cards */}
+   564→          <View style={styles.addressesContainer}>
+   565→            <View style={styles.addressCard}>
+   566→              <View style={styles.addressHeader}>
+   567→                <View style={[styles.addressIcon, { backgroundColor: Colors.primaryLight }]}>
+   568→                  <Ionicons name="arrow-up" size={16} color={Colors.primary} />
+   569→                </View>
+   570→                <Text style={styles.addressType}>Expéditeur</Text>
+   571→              </View>
+   572→              <Text style={styles.addressName}>{shipment.originAddress.name}</Text>
+   573→              <Text style={styles.addressDetail}>
+   574→                {shipment.originAddress.street}, {shipment.originAddress.city}
+   575→              </Text>
+   576→              <Text style={styles.addressDetail}>
+   577→                {shipment.originAddress.wilaya}, {shipment.originAddress.postalCode}
+   578→              </Text>
+   579→            </View>
+   580→
+   581→            <View style={styles.addressCard}>
+   582→              <View style={styles.addressHeader}>
+   583→                <View style={[styles.addressIcon, { backgroundColor: Colors.successLight }]}>
+   584→                  <Ionicons name="arrow-down" size={16} color={Colors.success} />
+   585→                </View>
+   586→                <Text style={styles.addressType}>Destinataire</Text>
+   587→              </View>
+   588→              <Text style={styles.addressName}>{shipment.destinationAddress.name}</Text>
+   589→              <Text style={styles.addressDetail}>
+   590→                {shipment.destinationAddress.street}, {shipment.destinationAddress.city}
+   591→              </Text>
+   592→              <Text style={styles.addressDetail}>
+   593→                {shipment.destinationAddress.wilaya}, {shipment.destinationAddress.postalCode}
+   594→              </Text>
+   595→              {shipment.destinationAddress.deliveryInstructions && (
+   596→                <>
+   597→                  <Text style={styles.instructionsLabel}>Instructions:</Text>
+   598→                  <Text style={styles.instructionsText}>
+   599→                    {shipment.destinationAddress.deliveryInstructions}
+   600→                  </Text>
+   601→                </>
+   602→              )}
+   603→            </View>
+   604→          </View>
+   605→        </View>
+   606→
+   607→        {/* Driver Info Card (when out for delivery) */}
+   608→        {shipment.driverInfo && shipment.status === 'out_for_delivery' && (
+   609→          <View style={styles.driverCard}>
+   610→            <Text style={styles.sectionTitle}>Votre livreur</Text>
+   611→            
+   612→            <View style={styles.driverInfoContainer}>
+   613→              {shipment.driverInfo.photoUrl ? (
+   614→                <Image source={{ uri: shipment.driverInfo.photoUrl }} style={styles.driverPhoto} />
+   615→              ) : (
+   616→                <View style={styles.driverPhotoPlaceholder}>
+   617→                  <Ionicons name="person" size={32} color={Colors.textTertiary} />
+   618→                </View>
+   619→              )}
+   620→              
+   621→              <View style={styles.driverDetails}>
+   622→                <Text style={styles.driverName}>{shipment.driverInfo.name}</Text>
+   623→                {shipment.driverInfo.vehicleInfo && (
+   624→                  <Text style={styles.driverVehicle}>{shipment.driverInfo.vehicleInfo}</Text>
+   625→                )}
+   626→                {shipment.driverInfo.estimatedArrival && (
+   627→                  <View style={styles.etaContainer}>
+   628→                    <Ionicons name="time-outline" size={14} color={Colors.warning} />
+   629→                    <Text style={styles.etaText}>
+   630→                      Arrivée estimée: {new Date(shipment.driverInfo.estimatedArrival).toLocaleTimeString('fr-FR', {
+   631→                        hour: '2-digit',
+   632→                        minute: '2-digit',
+   633→                      })}
+   634→                    </Text>
+   635→                  </View>
+   636→                )}
+   637→              </View>
+   638→            </View>
+   639→
+   640→            <View style={styles.driverActions}>
+   641→              <TouchableOpacity
+   642→                style={[styles.driverActionButton, styles.callButton]}
+   643→                onPress={() => handleContactDriver('call')}
+   644→              >
+   645→                <Ionicons name="call-outline" size={18} color={Colors.white} />
+   646→                <Text style={styles.driverActionText}>Appeler</Text>
+   647→              </TouchableOpacity>
+   648→              
+   649→              <TouchableOpacity
+   650→                style={[styles.driverActionButton, styles.messageButton]}
+   651→                onPress={() => handleContactDriver('message')}
+   652→              >
+   653→                <Ionicons name="chatbubbles-outline" size={18} color={Colors.primary} />
+   654→                <Text style={[styles.driverActionText, styles.messageButtonText]}>
+   655→                  Message
+   656→                </Text>
+   657→              </TouchableOpacity>
+   658→            </View>
+   659→          </View>
+   660→        )}
+   661→
+   662→        {/* Package Info */}
+   663→        <View style={styles.packageSection}>
+   664→          <Text style={styles.sectionTitle}>Détails du colis</Text>
+   665→          
+   666→          <View style={styles.infoGrid}>
+   667→            <View style={styles.infoItem}>
+   668→              <Text style={styles.infoLabel}>Méthode</Text>
+   669→              <View style={styles.methodBadge}>
+   670→                <Ionicons name={methodConfig.icon as any} size={14} color={Colors.primary} />
+   671→                <Text style={styles.methodText}>{methodConfig.label}</Text>
+   672→              </View>
+   673→            </View>
+   674→            
+   675→            <View style={styles.infoItem}>
+   676→              <Text style={styles.infoLabel}>Poids</Text>
+   677→              <Text style={styles.infoValue}>{shipment.weight} kg</Text>
+   678→            </View>
+   679→            
+   680→            <View style={styles.infoItem}>
+   681→              <Text style={styles.infoLabel}>Colis</Text>
+   682→              <Text style={styles.infoValue}>{shipment.packageCount}</Text>
+   683→            </View>
+   684→            
+   685→            <View style={styles.infoItem}>
+   686→              <Text style={styles.infoLabel}>Incoterm</Text>
+   687→              <Text style={styles.infoValue}>{shipment.incoterm}</Text>
+   688→            </View>
+   689→            
+   690→            <View style={styles.infoItem}>
+   691→              <Text style={styles.infoLabel}>Transporteur</Text>
+   692→              <Text style={styles.infoValue}>{shipment.carrierName}</Text>
+   693→            </View>
+   694→            
+   695→            <View style={styles.infoItem}>
+   696→              <Text style={styles.infoLabel}>Coût</Text>
+   697→              <Text style={styles.infoValue}>
+   698→                {shipment.shippingCost.toLocaleString('fr-FR')} {shipment.currency}
+   699→              </Text>
+   700→            </View>
+   701→          </View>
+   702→        </View>
+   703→
+   704→        {/* Tracking Events Timeline */}
+   705→        <View style={styles.timelineSection}>
+   706→          <Text style={styles.sectionTitle}>Historique du suivi</Text>
+   707→          
+   708→          {shipment.trackingEvents.map((event, index) => {
+   709→            const eventConfig = SHIPMENT_STATUS_CONFIG[event.status];
+   710→            const isLast = index === shipment.trackingEvents.length - 1;
+   711→            
+   712→            return (
+   713→              <View key={event.id} style={styles.timelineItem}>
+   714→                <View style={styles.timelineLeft}>
+   715→                  <View style={[
+   716→                    styles.timelineDot,
+   717→                    isLast ? styles.timelineDotLast : {},
+   718→                    { backgroundColor: eventConfig.color }
+   719→                  ]} />
+   720→                  {!isLast && <View style={styles.timelineLine} />}
+   721→                </View>
+   722→                
+   723→                <View style={[styles.timelineContent, isLast && styles.timelineContentLast]}>
+   724→                  <Text style={styles.timelineTitle}>{event.description}</Text>
+   725→                  
+   726→                  {event.location && (
+   727→                    <View style={styles.timelineLocation}>
+   728→                      <Ionicons name="location-outline" size={12} color={Colors.textTertiary} />
+   729→                      <Text style={styles.timelineLocationText}>{event.location}</Text>
+   730→                    </View>
+   731→                  )}
+   732→                  
+   733→                  <Text style={styles.timelineTime}>
+   734→                    {new Date(event.timestamp).toLocaleString('fr-FR', {
+   735→                      day: 'numeric',
+   736→                      month: 'short',
+   737→                      hour: '2-digit',
+   738→                      minute: '2-digit',
+   739→                    })}
+   740→                  </Text>
+   741→                  
+   742→                  {event.photoUrl && (
+   743→                    <Image source={{ uri: event.photoUrl }} style={styles.timelinePhoto} />
+   744→                  )}
+   745→                </View>
+   746→              </View>
+   747→            );
+   748→          })}
+   749→        </View>
+   750→
+   751→        {/* Documents */}
+   752→        <View style={styles.documentsSection}>
+   753→          <Text style={styles.sectionTitle}>Documents</Text>
+   754→          
+   755→          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+   756→            {shipment.waybillUrl && (
+   757→              <TouchableOpacity style={styles.documentChip}>
+   758→                <Ionicons name="document-text-outline" size={18} color={Colors.primary} />
+   759→                <View style={styles.documentInfo}>
+   760→                  <Text style={styles.documentTitle}>Letter de voiture</Text>
+   761→                  <Text style={styles.documentFormat}>PDF</Text>
+   762→                </View>
+   763→                <Ionicons name="download-outline" size={18} color={Colors.textTertiary} />
+   764→              </TouchableOpacity>
+   765→            )}
+   766→            
+   767→            {shipment.customsDocsUrl && (
+   768→              <TouchableOpacity style={styles.documentChip}>
+   769→                <Ionicons name="document-attach-outline" size={18} color={Colors.info} />
+   770→                <View style={styles.documentInfo}>
+   771→                  <Text style={styles.documentTitle}>Documents douaniers</Text>
+   772→                  <Text style={styles.documentFormat}>PDF</Text>
+   773→                </View>
+   774→                <Ionicons name="download-outline" size={18} color={Colors.textTertiary} />
+   775→              </TouchableOpacity>
+   776→            )}
+   777→            
+   778→            {shipment.insuranceUrl && (
+   779→              <TouchableOpacity style={styles.documentChip}>
+   780→                <Ionicons name="shield-checkmark-outline" size={18} color={Colors.success} />
+   781→                <View style={styles.documentInfo}>
+   782→                  <Text style={styles.documentTitle}>Assurance</Text>
+   783→                  <Text style={styles.documentFormat}>PDF</Text>
+   784→                </View>
+   785→                <Ionicons name="download-outline" size={18} color={Colors.textTertiary} />
+   786→              </TouchableOpacity>
+   787→            )}
+   788→          </ScrollView>
+   789→        </View>
+   790→
+   791→        {/* Rate Delivery Button (if delivered) */}
+   792→        {shipment.status === 'delivered' && (
+   793→          <TouchableOpacity
+   794→            style={styles.ratingButton}
+   795→            onPress={() => setShowRatingModal(true)}
+   796→          >
+   797→            <Ionicons name="star-outline" size={20} color={Colors.white} />
+   798→            <Text style={styles.ratingButtonText}>Évaluer la livraison</Text>
+   799→          </TouchableOpacity>
+   800→        )}
+   801→
+   802→        {/* Bottom spacing */}
+   803→        <View style={{ height: Spacing.xxl }} />
+   804→      </ScrollView>
+   805→
+   806→      {/* Rating Modal */}
+   807→      <Modal visible={showRatingModal} transparent animationType="slide">
+   808→        <View style={styles.modalOverlay}>
+   809→          <View style={styles.ratingModal}>
+   810→            <View style={styles.modalHeader}>
+   811→              <TouchableOpacity onPress={() => setShowRatingModal(false)}>
+   812→                <Ionicons name="close" size={24} color={Colors.text} />
+   813→              </TouchableOpacity>
+   814→              <Text style={styles.modalTitle}>Évaluer la livraison</Text>
+   815→              <View style={{ width: 24 }} />
+   816→            </View>
+   817→
+   818→            <Text style={styles.ratingQuestion}>
+   819→              Comment évaluez-vous votre expérience de livraison ?
+   820→            </Text>
+   821→
+   822→            {/* Star Rating */}
+   823→            <View style={styles.starsContainer}>
+   824→              {[1, 2, 3, 4, 5].map(star => (
+   825→                <TouchableOpacity
+   826→                  key={star}
+   827→                  onPress={() => setRating(star)}
+   828→                  activeOpacity={0.7}
+   829→                >
+   830→                  <Ionicons
+   831→                    name={star <= rating ? 'star' : 'star-outline'}
+   832→                    size={40}
+   833→                    color={star <= rating ? '#F59E0B' : Colors.border}
+   834→                  />
+   835→                </TouchableOpacity>
+   836→              ))}
+   837→            </View>
+   838→            {rating > 0 && (
+   839→              <Text style={styles.ratingValueText}>{rating}/5</Text>
+   840→            )}
+   841→
+   842→            {/* Category Ratings */}
+   843→            <Text style={styles.categoryTitle}>Notes détaillées</Text>
+   844→            
+   845→            {[
+   846→              { key: 'deliverySpeed', label: 'Vitesse de livraison' },
+   847→              { key: 'packageCondition', label: 'État du colis' },
+   848→              { key: 'courierBehavior', label: 'Comportement du livreur' },
+   849→            ].map(category => (
+   850→              <View key={category.key} style={styles.categoryRow}>
+   851→                <Text style={styles.categoryLabel}>{category.label}</Text>
+   852→                <View style={styles.categoryStars}>
+   853→                  {[1, 2, 3, 4, 5].map(star => (
+   854→                    <TouchableOpacity
+   855→                      key={star}
+   856→                      onPress={() => setCategoryRatings(prev => ({
+   857→                        ...prev,
+   858→                        [category.key]: star,
+   859→                      }))}
+   860→                    >
+   861→                      <Ionicons
+   862→                        name={star <= categoryRatings[category.key as keyof typeof categoryRatings] ? 'star' : 'star-outline'}
+   863→                        size={24}
+   864→                        color={star <= categoryRatings[category.key as keyof typeof categoryRatings] ? '#F59E0B' : Colors.border}
+   865→                      />
+   866→                    </TouchableOpacity>
+   867→                  ))}
+   868→                </View>
+   869→              </View>
+   870→            ))}
+   871→
+   872→            {/* Comment */}
+   873→            <TextInput
+   874→              style={styles.commentInput}
+   875→              value={ratingComment}
+   876→              onChangeText={setRatingComment}
+   877→              placeholder="Commentaire (optionnel)"
+   878→              placeholderTextColor={Colors.textTertiary}
+   879→              multiline
+   880→              numberOfLines={3}
+   881→            />
+   882→
+   883→            {/* Submit */}
+   884→            <TouchableOpacity
+   885→              style={[styles.submitRatingButton, submittingRating && styles.submitDisabled]}
+   886→              onPress={handleSubmitRating}
+   887→              disabled={submittingRating}
+   888→            >
+   889→              {submittingRating ? (
+   890→                <ActivityIndicator color={Colors.white} />
+   891→              ) : (
+   892→                <Text style={styles.submitRatingText}>Envoyer mon avis</Text>
+   893→              )}
+   894→            </TouchableOpacity>
+   895→          </View>
+   896→        </View>
+   897→      </Modal>
+   898→    </View>
+   899→  );
+   900→}
+   901→
+   902→// Import RefreshControl
+   903→import { RefreshControl } from 'react-native-gesture-handler';
+   904→
+   905→// ============================================
+   906→// Styles
+   907→// ============================================
+   908→
+   909→const styles = StyleSheet.create({
+   910→  container: {
+   911→    flex: 1,
+   912→    backgroundColor: Colors.background,
+   913→  },
+   914→  loadingContainer: {
+   915→    flex: 1,
+   916→    justifyContent: 'center',
+   917→    alignItems: 'center',
+   918→    backgroundColor: Colors.background,
+   919→  },
+   920→  loadingText: {
+   921→    marginTop: Spacing.md,
+   922→    fontSize: FontSize.base,
+   923→    color: Colors.textSecondary,
+   924→    fontFamily: FontFamily.medium,
+   925→  },
+   926→
+   927→  // Header
+   928→  header: {
+   929→    flexDirection: 'row',
+   930→    alignItems: 'center',
+   931→    justifyContent: 'space-between',
+   932→    paddingHorizontal: Spacing.md,
+   933→    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+   934→    paddingBottom: Spacing.md,
+   935→    backgroundColor: Colors.white,
+   936→  },
+   937→  backButton: {
+   938→    width: 40,
+   939→    height: 40,
+   940→    borderRadius: 20,
+   941→    backgroundColor: Colors.surface,
+   942→    justifyContent: 'center',
+   943→    alignItems: 'center',
+   944→  },
+   945→  headerTitle: {
+   946→    fontSize: FontSize.lg,
+   947→    fontWeight: '600',
+   948→    color: Colors.text,
+   949→    fontFamily: FontFamily.semiBold,
+   950→  },
+   951→  shareButton: {
+   952→    width: 40,
+   953→    height: 40,
+   954→    borderRadius: 20,
+   955→    backgroundColor: Colors.surface,
+   956→    justifyContent: 'center',
+   957→    alignItems: 'center',
+   958→  },
+   959→
+   960→  // Search View
+   961→  searchContainer: {
+   962→    flex: 1,
+   963→    padding: Spacing.lg,
+   964→  },
+   965→  searchIllustration: {
+   966→    alignItems: 'center',
+   967→    marginTop: Spacing.xxxl,
+   968→    marginBottom: Spacing.lg,
+   969→  },
+   970→  searchTitle: {
+   971→    fontSize: FontSize.xxl,
+   972→    fontWeight: 'bold',
+   973→    color: Colors.text,
+   974→    textAlign: 'center',
+   975→    fontFamily: FontFamily.bold,
+   976→    marginBottom: Spacing.sm,
+   977→  },
+   978→  searchSubtitle: {
+   979→    fontSize: FontSize.base,
+   980→    color: Colors.textSecondary,
+   981→    textAlign: 'center',
+   982→    fontFamily: FontFamily.regular,
+   983→    lineHeight: 22,
+   984→    marginBottom: Spacing.xl,
+   985→    paddingHorizontal: Spacing.xl,
+   986→  },
+   987→  searchInputContainer: {
+   988→    flexDirection: 'row',
+   989→    alignItems: 'center',
+   990→    backgroundColor: Colors.white,
+   991→    borderWidth: 2,
+   992→    borderColor: Colors.primary,
+   993→    borderRadius: BorderRadius.lg,
+   994→    paddingHorizontal: Spacing.md,
+   995→    ...Shadows.sm,
+   996→  },
+   997→  searchInput: {
+   998→    flex: 1,
+   999→    fontSize: FontSize.base,
+  1000→    color: Colors.text,
+  1001→    paddingVertical: Spacing.md,
+  1002→    fontFamily: FontFamily.regular,
+  1003→  },
+  1004→  searchButton: {
+  1005→    width: 44,
+  1006→    height: 44,
+  1007→    borderRadius: 22,
+  1008→    backgroundColor: Colors.primary,
+  1009→    justifyContent: 'center',
+  1010→    alignItems: 'center',
+  1011→  },
+  1012→  recentSection: {
+  1013→    marginTop: Spacing.xl,
+  1014→  },
+  1015→  recentTitle: {
+  1016→    fontSize: FontSize.base,
+  1017→    fontWeight: '600',
+  1018→    color: Colors.text,
+  1019→    fontFamily: FontFamily.semiBold,
+  1020→    marginBottom: Spacing.sm,
+  1021→  },
+  1022→  noRecentText: {
+  1023→    fontSize: FontSize.sm,
+  1024→    color: Colors.textTertiary,
+  1025→    fontFamily: FontFamily.regular,
+  1026→  },
+  1027→  helpCard: {
+  1028→    flexDirection: 'row',
+  1029→    alignItems: 'center',
+  1030→    backgroundColor: Colors.infoLight,
+  1031→    padding: Spacing.md,
+  1032→    borderRadius: BorderRadius.lg,
+  1033→    marginTop: Spacing.xl,
+  1034→  },
+  1035→  helpContent: {
+  1036→    flex: 1,
+  1037→    marginLeft: Spacing.sm,
+  1038→  },
+  1039→  helpTitle: {
+  1040→    fontSize: FontSize.base,
+  1041→    fontWeight: '500',
+  1042→    color: Colors.text,
+  1043→    fontFamily: FontFamily.medium,
+  1044→  },
+  1045→  helpDescription: {
+  1046→    fontSize: FontSize.sm,
+  1047→    color: Colors.textSecondary,
+  1048→    fontFamily: FontFamily.regular,
+  1049→  },
+  1050→
+  1051→  // ScrollView
+  1052→  scrollView: {
+  1053→    flex: 1,
+  1054→  },
+  1055→
+  1056→  // Status Card
+  1057→  statusCard: {
+  1058→    margin: Spacing.md,
+  1059→    padding: Spacing.lg,
+  1060→    backgroundColor: Colors.white,
+  1061→    borderRadius: BorderRadius.xl,
+  1062→    borderLeftWidth: 4,
+  1063→    ...Shadows.md,
+  1064→  },
+  1065→  statusHeader: {
+  1066→    flexDirection: 'row',
+  1067→    alignItems: 'center',
+  1068→    marginBottom: Spacing.md,
+  1069→  },
+  1070→  statusIconContainer: {
+  1071→    width: 56,
+  1072→    height: 56,
+  1073→    borderRadius: BorderRadius.md,
+  1074→    justifyContent: 'center',
+  1075→    alignItems: 'center',
+  1076→    marginRight: Spacing.md,
+  1077→  },
+  1078→  statusInfo: {
+  1079→    flex: 1,
+  1080→  },
+  1081→  statusText: {
+  1082→    fontSize: FontSize.xl,
+  1083→    fontWeight: 'bold',
+  1084→    fontFamily: FontFamily.bold,
+  1085→  },
+  1086→  statusDescription: {
+  1087→    fontSize: FontSize.sm,
+  1088→    color: Colors.textSecondary,
+  1089→    fontFamily: FontFamily.regular,
+  1090→    marginTop: 2,
+  1091→  },
+  1092→  trackingNumberContainer: {
+  1093→    backgroundColor: Colors.surface,
+  1094→    borderRadius: BorderRadius.md,
+  1095→    padding: Spacing.sm,
+  1096→    marginBottom: Spacing.sm,
+  1097→  },
+  1098→  trackingNumberLabel: {
+  1099→    fontSize: FontSize.xs,
+  1100→    color: Colors.textTertiary,
+  1101→    fontFamily: FontFamily.regular,
+  1102→    marginBottom: 2,
+  1103→  },
+  1104→  trackingNumberRow: {
+  1105→    flexDirection: 'row',
+  1106→    alignItems: 'center',
+  1107→    justifyContent: 'space-between',
+  1108→  },
+  1109→  trackingNumberValue: {
+  1110→    fontSize: FontSize.base,
+  1111→    fontWeight: '600',
+  1112→    color: Colors.text,
+  1113→    fontFamily: FontFamily.semiBold,
+  1114→    letterSpacing: 1,
+  1115→  },
+  1116→  deliveryEstimate: {
+  1117→    flexDirection: 'row',
+  1118→    alignItems: 'center',
+  1119→    gap: 6,
+  1120→  },
+  1121→  deliveryEstimateText: {
+  1122→    fontSize: FontSize.sm,
+  1123→    color: Colors.textSecondary,
+  1124→    fontFamily: FontFamily.regular,
+  1125→  },
+  1126→
+  1127→  // Progress Section
+  1128→  progressSection: {
+  1129→    marginHorizontal: Spacing.md,
+  1130→    marginBottom: Spacing.md,
+  1131→  },
+  1132→  sectionTitle: {
+  1133→    fontSize: FontSize.lg,
+  1134→    fontWeight: '600',
+  1135→    color: Colors.text,
+  1136→    fontFamily: FontFamily.semiBold,
+  1137→    marginBottom: Spacing.md,
+  1138→  },
+  1139→  stepsContainer: {
+  1140→    flexDirection: 'row',
+  1141→    backgroundColor: Colors.white,
+  1142→    borderRadius: BorderRadius.lg,
+  1143→    paddingVertical: Spacing.md,
+  1144→    ...Shadows.sm,
+  1145→  },
+  1146→  stepItem: {
+  1147→    flex: 1,
+  1148→    alignItems: 'center',
+  1149→  },
+  1150→  stepCircle: {
+  1151→    width: 28,
+  1152→    height: 28,
+  1153→    borderRadius: 14,
+  1154→    borderWidth: 2,
+  1155→    borderColor: Colors.border,
+  1156→    justifyContent: 'center',
+  1157→    alignItems: 'center',
+  1158→    marginBottom: Spacing.xs,
+  1159→  },
+  1160→  stepCircleCompleted: {
+  1161→    backgroundColor: Colors.primary,
+  1162→    borderColor: Colors.primary,
+  1163→  },
+  1164→  stepCircleCurrent: {
+  1165→    borderColor: Colors.primary,
+  1166→    borderWidth: 3,
+  1167→  },
+  1168→  stepCircleInner: {
+  1169→    width: 10,
+  1170→    height: 10,
+  1171→    borderRadius: 5,
+  1172→  },
+  1173→  stepLabel: {
+  1174→    fontSize: 9,
+  1175→    color: Colors.textTertiary,
+  1176→    textAlign: 'center',
+  1177→    fontFamily: FontFamily.regular,
+  1178→  },
+  1179→  stepLabelCompleted: {
+  1180→    color: Colors.primary,
+  1181→    fontWeight: '500',
+  1182→  },
+  1183→  stepLabelCurrent: {
+  1184→    color: Colors.primary,
+  1185→    fontWeight: '600',
+  1186→  },
+  1187→  stepConnector: {
+  1188→    width: 20,
+  1189→    height: 2,
+  1190→    backgroundColor: Colors.border,
+  1191→    marginTop: -12,
+  1192→    marginBottom: 4,
+  1193→  },
+  1194→  stepConnectorCompleted: {
+  1195→    backgroundColor: Colors.primary,
+  1196→  },
+  1197→
+  1198→  // Map Section
+  1199→  mapContainer: {
+  1200→    marginHorizontal: Spacing.md,
+  1201→    marginBottom: Spacing.md,
+  1202→  },
+  1203→  mapPlaceholder: {
+  1204→    height: 200,
+  1205→    backgroundColor: Colors.surfaceVariant,
+  1206→    borderRadius: BorderRadius.lg,
+  1207→    justifyContent: 'center',
+  1208→    alignItems: 'center',
+  1209→    overflow: 'hidden',
+  1210→  },
+  1211→  mapPlaceholderText: {
+  1212→    fontSize: FontSize.sm,
+  1213→    color: Colors.textTertiary,
+  1214→    marginTop: Spacing.sm,
+  1215→    fontFamily: FontFamily.regular,
+  1216→  },
+  1217→  routeVisualization: {
+  1218→    flexDirection: 'row',
+  1219→    alignItems: 'center',
+  1220→    justifyContent: 'center',
+  1221→    position: 'absolute',
+  1222→    bottom: 30,
+  1223→    left: 20,
+  1224→    right: 20,
+  1225→  },
+  1226→  routeOrigin: {
+  1227→    alignItems: 'center',
+  1228→  },
+  1229→  routeDotOrigin: {
+  1230→    width: 12,
+  1231→    height: 12,
+  1232→    borderRadius: 6,
+  1233→    backgroundColor: Colors.primary,
+  1234→  },
+  1235→  routeOriginLabel: {
+  1236→    fontSize: 9,
+  1237→    color: Colors.textSecondary,
+  1238→    marginTop: 2,
+  1239→    fontFamily: FontFamily.regular,
+  1240→  },
+  1241→  routeLine: {
+  1242→    flex: 1,
+  1243→    height: 4,
+  1244→    backgroundColor: Colors.borderLight,
+  1245→    justifyContent: 'space-evenly',
+  1246→    flexDirection: 'row',
+  1247→    alignItems: 'center',
+  1248→    marginHorizontal: Spacing.xs,
+  1249→  },
+  1250→  routeCheckpoint: {
+  1251→    width: 8,
+  1252→    height: 8,
+  1253→    borderRadius: 4,
+  1254→    backgroundColor: Colors.border,
+  1255→  },
+  1256→  routeCheckpointActive: {
+  1257→    backgroundColor: Colors.primary,
+  1258→  },
+  1259→  routeDestination: {
+  1260→    alignItems: 'center',
+  1261→  },
+  1262→  routeDotDestination: {
+  1263→    width: 12,
+  1264→    height: 12,
+  1265→    borderRadius: 6,
+  1266→    borderWidth: 2,
+  1267→    borderColor: Colors.border,
+  1268→  },
+  1269→  routeDotDestinationActive: {
+  1270→    backgroundColor: Colors.success,
+  1271→    borderColor: Colors.success,
+  1272→  },
+  1273→  routeDestinationLabel: {
+  1274→    fontSize: 9,
+  1275→    color: Colors.textSecondary,
+  1276→    marginTop: 2,
+  1277→    fontFamily: FontFamily.regular,
+  1278→  },
+  1279→  addressesContainer: {
+  1280→    gap: Spacing.sm,
+  1281→  },
+  1282→  addressCard: {
+  1283→    backgroundColor: Colors.white,
+  1284→    borderRadius: BorderRadius.md,
+  1285→    padding: Spacing.md,
+  1286→    ...Shadows.sm,
+  1287→  },
+  1288→  addressHeader: {
+  1289→    flexDirection: 'row',
+  1290→    alignItems: 'center',
+  1291→    marginBottom: Spacing.xs,
+  1292→  },
+  1293→  addressIcon: {
+  1294→    width: 28,
+  1295→    height: 28,
+  1296→    borderRadius: 14,
+  1297→    justifyContent: 'center',
+  1298→    alignItems: 'center',
+  1299→    marginRight: Spacing.xs,
+  1300→  },
+  1301→  addressType: {
+  1302→    fontSize: FontSize.xs,
+  1303→    fontWeight: '500',
+  1304→    color: Colors.textSecondary,
+  1305→    marginLeft: Spacing.xs,
+  1306→    fontFamily: FontFamily.medium,
+  1307→  },
+  1308→  addressName: {
+  1309→    fontSize: FontSize.base,
+  1310→    fontWeight: '600',
+  1311→    color: Colors.text,
+  1312→    fontFamily: FontFamily.semiBold,
+  1313→  },
+  1314→  addressDetail: {
+  1315→    fontSize: FontSize.sm,
+  1316→    color: Colors.textSecondary,
+  1317→    fontFamily: FontFamily.regular,
+  1318→  },
+  1319→  instructionsLabel: {
+  1320→    fontSize: FontSize.xs,
+  1321→    fontWeight: '500',
+  1322→    color: Colors.text,
+  1323→    marginTop: Spacing.xs,
+  1324→    fontFamily: FontFamily.medium,
+  1325→  },
+  1326→  instructionsText: {
+  1327→    fontSize: FontSize.sm,
+  1328→    color: Colors.textSecondary,
+  1329→    fontStyle: 'italic',
+  1330→    fontFamily: FontFamily.regular,
+  1331→  },
+  1332→
+  1333→  // Driver Card
+  1334→  driverCard: {
+  1335→    marginHorizontal: Spacing.md,
+  1336→    marginBottom: Spacing.md,
+  1337→    backgroundColor: Colors.white,
+  1338→    borderRadius: BorderRadius.lg,
+  1339→    padding: Spacing.md,
+  1340→    ...Shadows.sm,
+  1341→  },
+  1342→  driverInfoContainer: {
+  1343→    flexDirection: 'row',
+  1344→    alignItems: 'center',
+  1345→    marginBottom: Spacing.md,
+  1346→  },
+  1347→  driverPhoto: {
+  1348→    width: 60,
+  1349→    height: 60,
+  1350→    borderRadius: 30,
+  1351→    backgroundColor: Colors.surface,
+  1352→  },
+  1353→  driverPhotoPlaceholder: {
+  1354→    width: 60,
+  1355→    height: 60,
+  1356→    borderRadius: 30,
+  1357→    backgroundColor: Colors.surface,
+  1358→    justifyContent: 'center',
+  1359→    alignItems: 'center',
+  1360→  },
+  1361→  driverDetails: {
+  1362→    flex: 1,
+  1363→    marginLeft: Spacing.md,
+  1364→  },
+  1365→  driverName: {
+  1366→    fontSize: FontSize.lg,
+  1367→    fontWeight: '600',
+  1368→    color: Colors.text,
+  1369→    fontFamily: FontFamily.semiBold,
+  1370→  },
+  1371→  driverVehicle: {
+  1372→    fontSize: FontSize.sm,
+  1373→    color: Colors.textSecondary,
+  1374→    fontFamily: FontFamily.regular,
+  1375→    marginTop: 2,
+  1376→  },
+  1377→  etaContainer: {
+  1378→    flexDirection: 'row',
+  1379→    alignItems: 'center',
+  1380→    marginTop: Spacing.xs,
+  1381→  },
+  1382→  etaText: {
+  1383→    fontSize: FontSize.sm,
+  1384→    color: Colors.warning,
+  1385→    fontWeight: '500',
+  1386→    marginLeft: 4,
+  1387→    fontFamily: FontFamily.medium,
+  1388→  },
+  1389→  driverActions: {
+  1390→    flexDirection: 'row',
+  1391→    gap: Spacing.sm,
+  1392→  },
+  1393→  driverActionButton: {
+  1394→    flex: 1,
+  1395→    flexDirection: 'row',
+  1396→    justifyContent: 'center',
+  1397→    alignItems: 'center',
+  1398→    paddingVertical: Spacing.sm,
+  1399→    borderRadius: BorderRadius.md,
+  1400→    gap: Spacing.xs,
+  1401→  },
+  1402→  callButton: {
+  1403→    backgroundColor: Colors.success,
+  1404→  },
+  1405→  messageButton: {
+  1406→    backgroundColor: Colors.primaryLight,
+  1407→  },
+  1408→  driverActionText: {
+  1409→    fontSize: FontSize.sm,
+  1410→    fontWeight: '600',
+  1411→    color: Colors.white,
+  1412→    fontFamily: FontFamily.semiBold,
+  1413→  },
+  1414→  messageButtonText: {
+  1415→    color: Colors.primary,
+  1416→  },
+  1417→
+  1418→  // Package Info
+  1419→  packageSection: {
+  1420→    marginHorizontal: Spacing.md,
+  1421→    marginBottom: Spacing.md,
+  1422→  },
+  1423→  infoGrid: {
+  1424→    flexDirection: 'row',
+  1425→    flexWrap: 'wrap',
+  1426→    backgroundColor: Colors.white,
+  1427→    borderRadius: BorderRadius.lg,
+  1428→    padding: Spacing.md,
+  1429→    ...Shadows.sm,
+  1430→  },
+  1431→  infoItem: {
+  1432→    width: '50%',
+  1433→    marginBottom: Spacing.md,
+  1434→  },
+  1435→  infoLabel: {
+  1436→    fontSize: FontSize.xs,
+  1437→    color: Colors.textTertiary,
+  1438→    fontFamily: FontFamily.regular,
+  1439→    marginBottom: 4,
+  1440→  },
+  1441→  infoValue: {
+  1442→    fontSize: FontSize.sm,
+  1443→    fontWeight: '500',
+  1444→    color: Colors.text,
+  1445→    fontFamily: FontFamily.medium,
+  1446→  },
+  1447→  methodBadge: {
+  1448→    flexDirection: 'row',
+  1449→    alignItems: 'center',
+  1450→    gap: 4,
+  1451→  },
+  1452→  methodText: {
+  1453→    fontSize: FontSize.sm,
+  1454→    color: Colors.text,
+  1455→    fontFamily: FontFamily.regular,
+  1456→  },
+  1457→
+  1458→  // Timeline
+  1459→  timelineSection: {
+  1460→    marginHorizontal: Spacing.md,
+  1461→    marginBottom: Spacing.md,
+  1462→  },
+  1463→  timelineItem: {
+  1464→    flexDirection: 'row',
+  1465→    paddingBottom: Spacing.lg,
+  1466→  },
+  1467→  timelineLeft: {
+  1468→    alignItems: 'center',
+  1469→    marginRight: Spacing.md,
+  1470→  },
+  1471→  timelineDot: {
+  1472→    width: 12,
+  1473→    height: 12,
+  1474→    borderRadius: 6,
+  1475→  },
+  1476→  timelineDotLast: {
+  1477→    width: 16,
+  1478→    height: 16,
+  1479→    borderRadius: 8,
+  1480→    borderWidth: 3,
+  1481→  },
+  1482→  timelineLine: {
+  1483→    width: 2,
+  1484→    flex: 1,
+  1485→    minHeight: 20,
+  1486→    backgroundColor: Colors.borderLight,
+  1487→  },
+  1488→  timelineContent: {
+  1489→    flex: 1,
+  1490→    paddingBottom: 4,
+  1491→    borderBottomWidth: 1,
+  1492→    borderBottomColor: Colors.borderLight,
+  1493→  },
+  1494→  timelineContentLast: {
+  1495→    borderBottomWidth: 0,
+  1496→  },
+  1497→  timelineTitle: {
+  1498→    fontSize: FontSize.base,
+  1499→    fontWeight: '500',
+  1500→    color: Colors.text,
+  1501→    fontFamily: FontFamily.medium,
+  1502→    marginBottom: 4,
+  1503→  },
+  1504→  timelineLocation: {
+  1505→    flexDirection: 'row',
+  1506→    alignItems: 'center',
+  1507→    gap: 4,
+  1508→    marginBottom: 4,
+  1509→  },
+  1510→  timelineLocationText: {
+  1511→    fontSize: FontSize.sm,
+  1512→    color: Colors.textSecondary,
+  1513→    fontFamily: FontFamily.regular,
+  1514→  },
+  1515→  timelineTime: {
+  1516→    fontSize: FontSize.xs,
+  1517→    color: Colors.textTertiary,
+  1518→    fontFamily: FontFamily.regular,
+  1519→  },
+  1520→  timelinePhoto: {
+  1521→    width: SCREEN_WIDTH - 100,
+  1522→    height: 120,
+  1523→    borderRadius: BorderRadius.md,
+  1524→    marginTop: Spacing.sm,
+  1525→  },
+  1526→
+  1527→  // Documents
+  1528→  documentsSection: {
+  1529→    marginHorizontal: Spacing.md,
+  1530→    marginBottom: Spacing.md,
+  1531→  },
+  1532→  documentChip: {
+  1533→    flexDirection: 'row',
+  1534→    alignItems: 'center',
+  1535→    backgroundColor: Colors.white,
+  1536→    paddingHorizontal: Spacing.md,
+  1537→    paddingVertical: Spacing.sm,
+  1538→    borderRadius: BorderRadius.lg,
+  1539→    marginRight: Spacing.sm,
+  1540→    ...Shadows.sm,
+  1541→  },
+  1542→  documentInfo: {
+  1543→    flex: 1,
+  1544→    marginLeft: Spacing.sm,
+  1545→  },
+  1546→  documentTitle: {
+  1547→    fontSize: FontSize.sm,
+  1548→    fontWeight: '500',
+  1549→    color: Colors.text,
+  1550→    fontFamily: FontFamily.medium,
+  1551→  },
+  1552→  documentFormat: {
+  1553→    fontSize: FontSize.xs,
+  1554→    color: Colors.textTertiary,
+  1555→    fontFamily: FontFamily.regular,
+  1556→  },
+  1557→
+  1558→  // Rating Button
+  1559→  ratingButton: {
+  1560→    flexDirection: 'row',
+  1561→    justifyContent: 'center',
+  1562→    alignItems: 'center',
+  1563→    backgroundColor: Colors.warning,
+  1564→    marginHorizontal: Spacing.md,
+  1565→    paddingVertical: Spacing.md,
+  1566→    borderRadius: BorderRadius.lg,
+  1567→    gap: Spacing.sm,
+  1568→    ...Shadows.md,
+  1569→  },
+  1570→  ratingButtonText: {
+  1571→    fontSize: FontSize.base,
+  1572→    fontWeight: '600',
+  1573→    color: Colors.white,
+  1574→    fontFamily: FontFamily.semiBold,
+  1575→  },
+  1576→
+  1577→  // Rating Modal
+  1578→  modalOverlay: {
+  1579→    flex: 1,
+  1580→    backgroundColor: Colors.overlay,
+  1581→    justifyContent: 'flex-end',
+  1582→  },
+  1583→  ratingModal: {
+  1584→    backgroundColor: Colors.white,
+  1585→    borderTopLeftRadius: BorderRadius.xxl,
+  1586→    borderTopRightRadius: BorderRadius.xxl,
+  1587→    padding: Spacing.lg,
+  1588→    paddingBottom: Platform.OS === 'ios' ? 40 : Spacing.lg,
+  1589→  },
+  1590→  modalHeader: {
+  1591→    flexDirection: 'row',
+  1592→    alignItems: 'center',
+  1593→    justifyContent: 'space-between',
+  1594→    marginBottom: Spacing.lg,
+  1595→  },
+  1596→  modalTitle: {
+  1597→    fontSize: FontSize.lg,
+  1598→    fontWeight: '600',
+  1599→    color: Colors.text,
+  1600→    fontFamily: FontFamily.semiBold,
+  1601→  },
+  1602→  ratingQuestion: {
+  1603→    fontSize: FontSize.base,
+  1604→    color: Colors.text,
+  1605→    textAlign: 'center',
+  1606→    fontFamily: FontFamily.regular,
+  1607→    marginBottom: Spacing.lg,
+  1608→  },
+  1609→  starsContainer: {
+  1610→    flexDirection: 'row',
+  1611→    justifyContent: 'center',
+  1612→    gap: Spacing.sm,
+  1613→    marginBottom: Spacing.xs,
+  1614→  },
+  1615→  ratingValueText: {
+  1616→    textAlign: 'center',
+  1617→    fontSize: FontSize.sm,
+  1618→    color: Colors.textSecondary,
+  1619→    marginBottom: Spacing.lg,
+  1620→    fontFamily: FontFamily.regular,
+  1621→  },
+  1622→  categoryTitle: {
+  1623→    fontSize: FontSize.base,
+  1624→    fontWeight: '500',
+  1625→    color: Colors.text,
+  1626→    fontFamily: FontFamily.medium,
+  1627→    marginBottom: Spacing.md,
+  1628→  },
+  1629→  categoryRow: {
+  1630→    flexDirection: 'row',
+  1631→    alignItems: 'center',
+  1632→    justifyContent: 'space-between',
+  1633→    marginBottom: Spacing.md,
+  1634→  },
+  1635→  categoryLabel: {
+  1636→    fontSize: FontSize.sm,
+  1637→    color: Colors.text,
+  1638→    fontFamily: FontFamily.regular,
+  1639→  },
+  1640→  categoryStars: {
+  1641→    flexDirection: 'row',
+  1642→    gap: Spacing.xs,
+  1643→  },
+  1644→  commentInput: {
+  1645→    borderWidth: 1,
+  1646→    borderColor: Colors.border,
+  1647→    borderRadius: BorderRadius.md,
+  1648→    paddingHorizontal: Spacing.md,
+  1649→    paddingTop: Spacing.md,
+  1650→    fontSize: FontSize.base,
+  1651→    color: Colors.text,
+  1652→    fontFamily: FontFamily.regular,
+  1653→    marginBottom: Spacing.lg,
+  1654→    textAlignVertical: 'top',
+  1655→  },
+  1656→  submitRatingButton: {
+  1657→    backgroundColor: Colors.primary,
+  1658→    paddingVertical: Spacing.md,
+  1659→    borderRadius: BorderRadius.lg,
+  1660→    alignItems: 'center',
+  1661→  },
+  1662→  submitDisabled: {
+  1663→    opacity: 0.6,
+  1664→  },
+  1665→  submitRatingText: {
+  1666→    fontSize: FontSize.base,
+  1667→    fontWeight: '600',
+  1668→    color: Colors.white,
+  1669→    fontFamily: FontFamily.semiBold,
+  1670→  },
+  1671→});
+  1672→

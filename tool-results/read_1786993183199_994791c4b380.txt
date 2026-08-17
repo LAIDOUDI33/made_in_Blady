@@ -1,0 +1,845 @@
+     1→'use client';
+     2→
+     3→import React, { useState, useMemo } from 'react';
+     4→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+     5→import { Button } from '@/components/ui/button';
+     6→import { Badge } from '@/components/ui/badge';
+     7→import { Input } from '@/components/ui/input';
+     8→import { Label } from '@/components/ui/label';
+     9→import { Textarea } from '@/components/ui/textarea';
+    10→import {
+    11→  Table,
+    12→  TableBody,
+    13→  TableCell,
+    14→  TableHead,
+    15→  TableHeader,
+    16→  TableRow,
+    17→} from '@/components/ui/table';
+    18→import {
+    19→  Select,
+    20→  SelectContent,
+    21→  SelectItem,
+    22→  SelectTrigger,
+    23→  SelectValue,
+    24→} from '@/components/ui/select';
+    25→import {
+    26→  Dialog,
+    27→  DialogContent,
+    28→  DialogDescription,
+    29→  DialogFooter,
+    30→  DialogHeader,
+    31→  DialogTitle,
+    32→} from '@/components/ui/dialog';
+    33→import {
+    34→  DropdownMenu,
+    35→  DropdownMenuContent,
+    36→  DropdownMenuItem,
+    37→  DropdownMenuSeparator,
+    38→  DropdownMenuTrigger,
+    39→} from '@/components/ui/dropdown-menu';
+    40→import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+    41→import { StatsCard } from '@/components/admin/StatsCard';
+    42→import {
+    43→  Video,
+    44→  Clock,
+    45→  CheckCircle2,
+    46→  XCircle,
+    47→  AlertTriangle,
+    48→  Search,
+    49→  Filter,
+    50→  Download,
+    51→  Eye,
+    52→  MoreHorizontal,
+    53→  Play,
+    54→  Pause,
+    55→  Flag,
+    56→  Image as ImageIcon,
+    57→  Home,
+    58→  Film,
+    59→  MessageSquare,
+    60→  RefreshCw,
+    61→  ThumbsUp,
+    62→  ThumbsDown,
+    63→  User,
+    64→  Calendar
+    65→} from 'lucide-react';
+    66→
+    67→// Types
+    68→type ContentStatus = 'PENDING' | 'REVIEWING' | 'APPROVED' | 'REJECTED' | 'FLAGGED' | 'REMOVED';
+    69→type ContentType = 'PRODUCT_VIDEO' | 'COMPANY_TOUR' | 'PROMO_VIDEO' | 'VIRTUAL_TOUR' | 'DEMO_VIDEO';
+    70→type FlagReason = 'INAPPROPRIATE' | 'COPYRIGHT' | 'MISLEADING' | 'SPAM' | 'LOW_QUALITY' | 'OTHER';
+    71→
+    72→interface ContentItem {
+    73→  id: string;
+    74→  title: string;
+    75→  type: ContentType;
+    76→  status: ContentStatus;
+    77→  authorName: string;
+    78→  authorEmail: string;
+    79→  companyName?: string;
+    80→  duration: number; // in seconds
+    81→  thumbnailUrl?: string;
+    82→  videoUrl: string;
+    83→  submittedAt: string;
+    84→  reviewedAt?: string;
+    85→  reviewedBy?: string;
+    86→  views: number;
+    87→  likes: number;
+    88→  dislikes: number;
+    89→  flagReason?: FlagReason;
+    90→  flagNotes?: string;
+    91→  rejectionReason?: string;
+    92→}
+    93→
+    94→// Sample data
+    95→const sampleContent: ContentItem[] = [
+    96→  {
+    97→    id: 'VID001',
+    98→    title: 'Présentation des serveurs Dell PowerEdge',
+    99→    type: 'PRODUCT_VIDEO',
+   100→    status: 'PENDING',
+   101→    authorName: 'Karim Meziani',
+   102→    authorEmail: 'karim@example.com',
+   103→    companyName: 'SARL Technologie Algerienne',
+   104→    duration: 185,
+   105→    thumbnailUrl: '/placeholder-video.jpg',
+   106→    videoUrl: '#',
+   107→    submittedAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+   108→    views: 0,
+   109→    likes: 0,
+   110→    dislikes: 0,
+   111→  },
+   112→  {
+   113→    id: 'VID002',
+   114→    title: 'Visite virtuelle de nos locaux à Alger',
+   115→    type: 'COMPANY_TOUR',
+   116→    status: 'REVIEWING',
+   117→    authorName: 'Fatima Zahra',
+   118→    authorEmail: 'fatima@example.com',
+   119→    companyName: 'EURL Industrie Moderne',
+   120→    duration: 320,
+   121→    thumbnailUrl: '/placeholder-tour.jpg',
+   122→    videoUrl: '#',
+   123→    submittedAt: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
+   124→    views: 12,
+   125→    likes: 5,
+   126→    dislikes: 0,
+   127→  },
+   128→  {
+   129→    id: 'VID003',
+   130→    title: 'Demo machine CNC - Capacités complètes',
+   131→    type: 'DEMO_VIDEO',
+   132→    status: 'APPROVED',
+   133→    authorName: 'Ahmed Benali',
+   134→    authorEmail: 'ahmed@example.com',
+   135→    companyName: 'Sarl Agro Solutions',
+   136→    duration: 450,
+   137→    thumbnailUrl: '/placeholder-demo.jpg',
+   138→    videoUrl: '#',
+   139→    submittedAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+   140→    reviewedAt: new Date(Date.now() - 20 * 60 * 60 * 1000).toISOString(),
+   141→    reviewedBy: 'Admin Leila',
+   142→    views: 245,
+   143→    likes: 89,
+   144→    dislikes: 3,
+   145→  },
+   146→  {
+   147→    id: 'VID004',
+   148→    title: 'Promo soldes été 2024',
+   149→    type: 'PROMO_VIDEO',
+   150→    status: 'FLAGGED',
+   151→    authorName: 'Samira Khelifi',
+   152→    authorEmail: 'samira@example.com',
+   153→    companyName: 'SPA Distribution Plus',
+   154→    duration: 60,
+   155→    thumbnailUrl: '/placeholder-promo.jpg',
+   156→    videoUrl: '#',
+   157→    submittedAt: new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString(),
+   158→    reviewedAt: new Date(Date.now() - 40 * 60 * 60 * 1000).toISOString(),
+   159→    views: 567,
+   160→    likes: 23,
+   161→    dislikes: 45,
+   162→    flagReason: 'MISLEADING',
+   163→    flagNotes: 'Les prix affichés ne correspondent pas aux prix réels sur le site',
+   164→  },
+   165→  {
+   166→    id: 'VID005',
+   167→    title: 'Tour 360° de l\'entrepôt logistique',
+   168→    type: 'VIRTUAL_TOUR',
+   169→    status: 'REJECTED',
+   170→    authorName: 'Youssef Ammar',
+   171→    authorEmail: 'youssef@example.com',
+   172→    companyName: 'SARL Distribution Plus',
+   173→    duration: 580,
+   174→    thumbnailUrl: '/placeholder-360.jpg',
+   175→    videoUrl: '#',
+   176→    submittedAt: new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString(),
+   177→    reviewedAt: new Date(Date.now() - 68 * 60 * 60 * 1000).toISOString(),
+   178→    reviewedBy: 'Admin Omar',
+   179→    rejectionReason: 'Qualité vidéo insuffisante - images floues et navigation difficile',
+   180→    views: 0,
+   181→    likes: 0,
+   182→    dislikes: 0,
+   183→  },
+   184→  {
+   185→    id: 'VID006',
+   186→    title: 'Nouvelle gamme de produits agricoles',
+   187→    type: 'PRODUCT_VIDEO',
+   188→    status: 'PENDING',
+   189→    authorName: 'Nadia Bouazza',
+   190→    authorEmail: 'nadia@example.com',
+   191→    companyName: 'Sarl Agro Solutions',
+   192→    duration: 240,
+   193→    videoUrl: '#',
+   194→    submittedAt: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
+   195→    views: 0,
+   196→    likes: 0,
+   197→    dislikes: 0,
+   198→  },
+   199→];
+   200→
+   201→const statusConfig: Record<ContentStatus, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; color: string }> = {
+   202→  PENDING: { label: 'En attente', variant: 'outline', color: 'text-yellow-700 bg-yellow-50 border-yellow-200' },
+   203→  REVIEWING: { label: 'En cours', variant: 'secondary', color: 'text-blue-700 bg-blue-50 border-blue-200' },
+   204→  APPROVED: { label: 'Approuvé', variant: 'default', color: 'bg-green-100 text-green-800 border-green-200' },
+   205→  REJECTED: { label: 'Rejeté', variant: 'destructive', color: '' },
+   206→  FLAGGED: { label: 'Signalé', variant: 'destructive', color: 'bg-orange-100 text-orange-800 border-orange-200' },
+   207→  REMOVED: { label: 'Supprimé', variant: 'secondary', color: 'text-gray-700 bg-gray-100 border-gray-200' },
+   208→};
+   209→
+   210→const typeConfig: Record<ContentType, { label: string; icon: React.ReactNode }> = {
+   211→  PRODUCT_VIDEO: { label: 'Vidéo produit', icon: <Video className="h-4 w-4" /> },
+   212→  COMPANY_TOUR: { label: 'Visite entreprise', icon: <Home className="h-4 w-4" /> },
+   213→  PROMO_VIDEO: { label: 'Vidéo promo', icon: <Film className="h-4 w-4" /> },
+   214→  VIRTUAL_TOUR: { label: 'Tour virtuel', icon: <ImageIcon className="h-4 w-4" /> },
+   215→  DEMO_VIDEO: { label: 'Démo produit', icon: <Play className="h-4 w-4" /> },
+   216→};
+   217→
+   218→const flagReasonConfig: Record<FlagReason, { label: string; description: string }> = {
+   219→  INAPPROPRIATE: { label: 'Inapproprié', description: 'Contenu inapproprié' },
+   220→  COPYRIGHT: { label: 'Droit d\'auteur', description: 'Violation de copyright' },
+   221→  MISLEADING: { label: 'Trompeur', description: 'Informations mensongères' },
+   222→  SPAM: { label: 'Spam', description: 'Contenu spam' },
+   223→  LOW_QUALITY: { label: 'Basse qualité', description: 'Qualité insuffisante' },
+   224→  OTHER: { label: 'Autre', description: 'Autre raison' },
+   225→};
+   226→
+   227→export default function ContentModerationPage() {
+   228→  const [content, setContent] = useState<ContentItem[]>(sampleContent);
+   229→  const [activeTab, setActiveTab] = useState('pending');
+   230→  const [searchQuery, setSearchQuery] = useState('');
+   231→  const [typeFilter, setTypeFilter] = useState<string>('ALL');
+   232→  
+   233→  // Dialog states
+   234→  const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
+   235→  const [selectedContent, setSelectedContent] = useState<ContentItem | null>(null);
+   236→  
+   237→  // Action dialog states
+   238→  const [actionDialogOpen, setActionDialogOpen] = useState(false);
+   239→  const [actionType, setActionType] = useState<'approve' | 'reject'>('approve');
+   240→  const [actionReason, setActionReason] = useState('');
+   241→  const [isLoading, setIsLoading] = useState(false);
+   242→
+   243→  // Filter content
+   244→  const filteredContent = useMemo(() => {
+   245→    let result = [...content];
+   246→    
+   247→    if (activeTab !== 'all') {
+   248→      if (activeTab === 'flagged') {
+   249→        result = result.filter(c => c.status === 'FLAGGED');
+   250→      } else {
+   251→        result = result.filter(c => c.status === activeTab.toUpperCase());
+   252→      }
+   253→    }
+   254→    
+   255→    if (typeFilter !== 'ALL') {
+   256→      result = result.filter(c => c.type === typeFilter);
+   257→    }
+   258→    
+   259→    if (searchQuery.trim()) {
+   260→      const query = searchQuery.toLowerCase();
+   261→      result = result.filter(c => 
+   262→        c.title.toLowerCase().includes(query) ||
+   263→        c.authorName.toLowerCase().includes(query) ||
+   264→        c.companyName?.toLowerCase().includes(query)
+   265→      );
+   266→    }
+   267→    
+   268→    result.sort((a, b) => {
+   269→      if (a.status === 'FLAGGED') return -1;
+   270→      if (b.status === 'FLAGGED') return 1;
+   271→      if (a.status === 'PENDING' && b.status !== 'PENDING') return -1;
+   272→      if (a.status !== 'PENDING' && b.status === 'PENDING') return 1;
+   273→      return new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime();
+   274→    });
+   275→    
+   276→    return result;
+   277→  }, [content, activeTab, searchQuery, typeFilter]);
+   278→
+   279→  // Stats
+   280→  const pendingCount = content.filter(c => c.status === 'PENDING').length;
+   281→  const flaggedCount = content.filter(c => c.status === 'FLAGGED').length;
+   282→  const approvedToday = content.filter(c => 
+   283→    c.status === 'APPROVED' && 
+   284→    c.reviewedAt && 
+   285→    new Date(c.reviewedAt).toDateString() === new Date().toDateString()
+   286→  ).length;
+   287→  const totalViews = content.reduce((sum, c) => sum + c.views, 0);
+   288→
+   289→  // Handlers
+   290→  const formatDuration = (seconds: number) => {
+   291→    const mins = Math.floor(seconds / 60);
+   292→    const secs = seconds % 60;
+   293→    return `${mins}:${secs.toString().padStart(2, '0')}`;
+   294→  };
+   295→
+   296→  const formatDate = (dateString: string) => {
+   297→    return new Date(dateString).toLocaleDateString('fr-FR', {
+   298→      day: '2-digit',
+   299→      month: '2-digit',
+   300→      year: 'numeric'
+   301→    });
+   302→  };
+   303→
+   304→  const openPreviewDialog = (item: ContentItem) => {
+   305→    setSelectedContent(item);
+   306→    setPreviewDialogOpen(true);
+   307→  };
+   308→
+   309→  const openActionDialog = (item: ContentItem, action: 'approve' | 'reject') => {
+   310→    setSelectedContent(item);
+   311→    setActionType(action);
+   312→    setActionReason('');
+   313→    setActionDialogOpen(true);
+   314→  };
+   315→
+   316→  const handleAction = async () => {
+   317→    if (!selectedContent) return;
+   318→    
+   319→    setIsLoading(true);
+   320→    await new Promise(resolve => setTimeout(resolve, 800));
+   321→    
+   322→    setContent(prev => prev.map(c => 
+   323→      c.id === selectedContent.id 
+   324→        ? { 
+   325→            ...c, 
+   326→            status: actionType === 'approve' ? 'APPROVED' as const : 'REJECTED' as const,
+   327→            reviewedAt: new Date().toISOString(),
+   328→            reviewedBy: 'Admin Current',
+   329→            rejectionReason: actionType === 'reject' ? actionReason : undefined,
+   330→          }
+   331→        : c
+   332→    ));
+   333→    
+   334→    setIsLoading(false);
+   335→    setActionDialogOpen(false);
+   336→    setPreviewDialogOpen(false);
+   337→  };
+   338→
+   339→  const handleClearFlag = async (itemId: string) => {
+   340→    setContent(prev => prev.map(c => 
+   341→      c.id === itemId ? { ...c, status: 'APPROVED' as const, flagReason: undefined, flagNotes: undefined } : c
+   342→    ));
+   343→  };
+   344→
+   345→  const handleRemoveContent = async (itemId: string) => {
+   346→    setContent(prev => prev.map(c => 
+   347→      c.id === itemId ? { ...c, status: 'REMOVED' as const } : c
+   348→    ));
+   349→  };
+   350→
+   351→  const exportToCSV = () => {
+   352→    const headers = ['ID', 'Titre', 'Type', 'Auteur', 'Entreprise', 'Durée', 'Statut', 'Vues', 'Date soumission'];
+   353→    const csvRows = filteredContent.map(c => [
+   354→      c.id,
+   355→      c.title,
+   356→      typeConfig[c.type].label,
+   357→      c.authorName,
+   358→      c.companyName || '',
+   359→      formatDuration(c.duration),
+   360→      statusConfig[c.status].label,
+   361→      c.views.toString(),
+   362→      formatDate(c.submittedAt)
+   363→    ]);
+   364→    
+   365→    const csvContent = [headers, ...csvRows]
+   366→      .map(row => row.map(cell => `"${cell}"`).join(','))
+   367→      .join('\n');
+   368→    
+   369→    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+   370→    const link = document.createElement('a');
+   371→    link.href = URL.createObjectURL(blob);
+   372→    link.download = `contenu_${new Date().toISOString().split('T')[0]}.csv`;
+   373→    link.click();
+   374→  };
+   375→
+   376→  return (
+   377→    <div className="space-y-6">
+   378→      {/* Header */}
+   379→      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+   380→        <div>
+   381→          <h1 className="text-2xl font-bold text-gray-900">Modération de Contenu</h1>
+   382→          <p className="text-gray-500 mt-1">Gérez les vidéos, visites virtuelles et contenus multimédia</p>
+   383→        </div>
+   384→        <Button variant="outline" onClick={exportToCSV}>
+   385→          <Download className="mr-2 h-4 w-4" /> Exporter CSV
+   386→        </Button>
+   387→      </div>
+   388→
+   389→      {/* Stats Cards */}
+   390→      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+   391→        <StatsCard
+   392→          title="En attente"
+   393→          value={pendingCount}
+   394→          description="À modérer"
+   395→          icon={Clock}
+   396→          iconClassName={pendingCount > 0 ? "bg-yellow-100 text-yellow-600 animate-pulse" : "bg-gray-100 text-gray-600"}
+   397→        />
+   398→        <StatsCard
+   399→          title="Signalés"
+   400→          value={flaggedCount}
+   401→          description="Nécessitent attention"
+   402→          icon={Flag}
+   403→          iconClassName={flaggedCount > 0 ? "bg-red-100 text-red-600 animate-pulse" : "bg-gray-100 text-gray-600"}
+   404→        />
+   405→        <StatsCard
+   406→          title="Approuvés aujourd'hui"
+   407→          value={approvedToday}
+   408→          description="Contenu validé"
+   409→          icon={CheckCircle2}
+   410→          iconClassName="bg-green-100 text-green-600"
+   411→        />
+   412→        <StatsCard
+   413→          title="Total vues"
+   414→          value={totalViews.toLocaleString()}
+   415→          description="Toutes vidéos"
+   416→          icon={Play}
+   417→          iconClassName="bg-purple-100 text-purple-600"
+   418→        />
+   419→      </div>
+   420→
+   421→      {/* Filters */}
+   422→      <Card>
+   423→        <CardContent className="pt-6">
+   424→          <div className="flex flex-col sm:flex-row gap-4">
+   425→            <div className="relative flex-1">
+   426→              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+   427→              <Input
+   428→                placeholder="Rechercher par titre ou auteur..."
+   429→                value={searchQuery}
+   430→                onChange={(e) => setSearchQuery(e.target.value)}
+   431→                className="pl-10"
+   432→              />
+   433→            </div>
+   434→            <Select value={typeFilter} onValueChange={setTypeFilter}>
+   435→              <SelectTrigger className="w-[180px]">
+   436→                <Filter className="mr-2 h-4 w-4" />
+   437→                <SelectValue placeholder="Type" />
+   438→              </SelectTrigger>
+   439→              <SelectContent>
+   440→                <SelectItem value="ALL">Tous les types</SelectItem>
+   441→                <SelectItem value="PRODUCT_VIDEO">Vidéo produit</SelectItem>
+   442→                <SelectItem value="COMPANY_TOUR">Visite entreprise</SelectItem>
+   443→                <SelectItem value="PROMO_VIDEO">Vidéo promo</SelectItem>
+   444→                <SelectItem value="VIRTUAL_TOUR">Tour virtuel</SelectItem>
+   445→                <SelectItem value="DEMO_VIDEO">Démo produit</SelectItem>
+   446→              </SelectContent>
+   447→            </Select>
+   448→          </div>
+   449→        </CardContent>
+   450→      </Card>
+   451→
+   452→      {/* Tabs and Table */}
+   453→      <Tabs value={activeTab} onValueChange={setActiveTab}>
+   454→        <TabsList>
+   455→          <TabsTrigger value="pending" className="gap-1">
+   456→            <Clock className="h-3.5 w-3.5 hidden sm:inline" /> En attente ({pendingCount})
+   457→          </TabsTrigger>
+   458→          <TabsTrigger value="flagged" className="gap-1">
+   459→            <Flag className="h-3.5 w-3.5 hidden sm:inline" /> Signalés ({flaggedCount})
+   460→          </TabsTrigger>
+   461→          <TabsTrigger value="approved" className="gap-1">
+   462→            <CheckCircle2 className="h-3.5 w-3.5 hidden sm:inline" /> Approuvés
+   463→          </TabsTrigger>
+   464→          <TabsTrigger value="rejected" className="gap-1">
+   465→            <XCircle className="h-3.5 w-3.5 hidden sm:inline" /> Rejetés
+   466→          </TabsTrigger>
+   467→          <TabsTrigger value="all">Tout</TabsTrigger>
+   468→        </TabsList>
+   469→
+   470→        <TabsContent value={activeTab} className="mt-4">
+   471→          <Card>
+   472→            <CardContent className="p-0">
+   473→              {filteredContent.length > 0 ? (
+   474→                <div className="overflow-x-auto">
+   475→                  <Table>
+   476→                    <TableHeader>
+   477→                      <TableRow className="bg-gray-50 hover:bg-gray-50">
+   478→                        <TableHead>Aperçu</TableHead>
+   479→                        <TableHead>Contenu</TableHead>
+   480→                        <TableHead className="hidden md:table-cell">Auteur</TableHead>
+   481→                        <TableHead>Type</TableHead>
+   482→                        <TableHead>Durée</TableHead>
+   483→                        <TableHead>Statut</TableHead>
+   484→                        <TableHead className="hidden lg:table-cell">Stats</TableHead>
+   485→                        <TableHead className="hidden md:table-cell">Date</TableHead>
+   486→                        <TableHead className="w-12">Actions</TableHead>
+   487→                      </TableRow>
+   488→                    </TableHeader>
+   489→                    <TableBody>
+   490→                      {filteredContent.map((item) => {
+   491→                        const status = statusConfig[item.status];
+   492→                        const type = typeConfig[item.type];
+   493→                        
+   494→                        return (
+   495→                          <TableRow 
+   496→                            key={item.id}
+   497→                            className={
+   498→                              item.status === 'FLAGGED' 
+   499→                                ? 'bg-orange-50/30 hover:bg-orange-50/50' 
+   500→                                : item.status === 'PENDING'
+   501→                                  ? 'bg-yellow-50/30 hover:bg-yellow-50/50'
+   502→                                  : ''
+   503→                            }
+   504→                          >
+   505→                            <TableCell>
+   506→                              <div className="w-16 h-10 rounded-lg bg-gray-200 flex items-center justify-center overflow-hidden">
+   507→                                {item.thumbnailUrl ? (
+   508→                                  <img src={item.thumbnailUrl} alt="" className="w-full h-full object-cover" />
+   509→                                ) : (
+   510→                                  <Video className="h-5 w-5 text-gray-400" />
+   511→                                )}
+   512→                              </div>
+   513→                            </TableCell>
+   514→                            <TableCell>
+   515→                              <div className="max-w-[200px]">
+   516→                                <p className="font-medium truncate">{item.title}</p>
+   517→                                {item.companyName && (
+   518→                                  <p className="text-xs text-gray-500 truncate">{item.companyName}</p>
+   519→                                )}
+   520→                              </div>
+   521→                            </TableCell>
+   522→                            <TableCell className="hidden md:table-cell">
+   523→                              <div>
+   524→                                <p className="text-sm">{item.authorName}</p>
+   525→                                <p className="text-xs text-gray-500">{item.authorEmail}</p>
+   526→                              </div>
+   527→                            </TableCell>
+   528→                            <TableCell>
+   529→                              <div className="flex items-center gap-1.5 text-sm">
+   530→                                {type.icon}
+   531→                                <span className="hidden sm:inline">{type.label}</span>
+   532→                              </div>
+   533→                            </TableCell>
+   534→                            <TableCell>
+   535→                              <span className="text-sm font-mono">{formatDuration(item.duration)}</span>
+   536→                            </TableCell>
+   537→                            <TableCell>
+   538→                              <Badge variant={status.variant} className={status.color}>
+   539→                                {status.label}
+   540→                              </Badge>
+   541→                              {item.flagReason && (
+   542→                                <Badge variant="outline" className="ml-1 text-xs text-orange-600 border-orange-300">
+   543→                                  {flagReasonConfig[item.flagReason].label}
+   544→                                </Badge>
+   545→                              )}
+   546→                            </TableCell>
+   547→                            <TableCell className="hidden lg:table-cell">
+   548→                              <div className="flex items-center gap-3 text-sm text-gray-600">
+   549→                                <span className="flex items-center gap-1">
+   550→                                  <Eye className="h-3.5 w-3.5" />{item.views}
+   551→                                </span>
+   552→                                <span className="flex items-center gap-1 text-green-600">
+   553→                                  <ThumbsUp className="h-3.5 w-3.5" />{item.likes}
+   554→                                </span>
+   555→                                {item.dislikes > 0 && (
+   556→                                  <span className="flex items-center gap-1 text-red-500">
+   557→                                    <ThumbsDown className="h-3.5 w-3.5" />{item.dislikes}
+   558→                                  </span>
+   559→                                )}
+   560→                              </div>
+   561→                            </TableCell>
+   562→                            <TableCell className="hidden md:table-cell">
+   563→                              <span className="text-sm text-gray-600">
+   564→                                {formatDate(item.submittedAt)}
+   565→                              </span>
+   566→                            </TableCell>
+   567→                            <TableCell>
+   568→                              <DropdownMenu>
+   569→                                <DropdownMenuTrigger asChild>
+   570→                                  <Button variant="ghost" size="icon" className="h-8 w-8">
+   571→                                    <MoreHorizontal className="h-4 w-4" />
+   572→                                    <span className="sr-only">Actions</span>
+   573→                                  </Button>
+   574→                                </DropdownMenuTrigger>
+   575→                                <DropdownMenuContent align="end" className="w-48">
+   576→                                  <DropdownMenuItem onClick={() => openPreviewDialog(item)}>
+   577→                                    <Play className="mr-2 h-4 w-4" /> Prévisualiser
+   578→                                  </DropdownMenuItem>
+   579→                                  
+   580→                                  {(item.status === 'PENDING' || item.status === 'REVIEWING') && (
+   581→                                    <>
+   582→                                      <DropdownMenuSeparator />
+   583→                                      <DropdownMenuItem 
+   584→                                        onClick={() => openActionDialog(item, 'approve')}
+   585→                                        className="text-green-600 focus:text-green-600"
+   586→                                      >
+   587→                                        <CheckCircle2 className="mr-2 h-4 w-4" /> Approuver
+   588→                                      </DropdownMenuItem>
+   589→                                      <DropdownMenuItem 
+   590→                                        onClick={() => openActionDialog(item, 'reject')}
+   591→                                        className="text-red-600 focus:text-red-600"
+   592→                                      >
+   593→                                        <XCircle className="mr-2 h-4 w-4" /> Rejeter
+   594→                                      </DropdownMenuItem>
+   595→                                    </>
+   596→                                  )}
+   597→
+   598→                                  {item.status === 'FLAGGED' && (
+   599→                                    <>
+   600→                                      <DropdownMenuSeparator />
+   601→                                      <DropdownMenuItem 
+   602→                                        onClick={() => handleClearFlag(item.id)}
+   603→                                        className="text-blue-600 focus:text-blue-600"
+   604→                                      >
+   605→                                        <CheckCircle2 className="mr-2 h-4 w-4" /> Lever le signalement
+   606→                                      </DropdownMenuItem>
+   607→                                      <DropdownMenuItem 
+   608→                                        onClick={() => handleRemoveContent(item.id)}
+   609→                                        className="text-red-600 focus:text-red-600"
+   610→                                      >
+   611→                                        <XCircle className="mr-2 h-4 w-4" /> Supprimer
+   612→                                      </DropdownMenuItem>
+   613→                                    </>
+   614→                                  )}
+   615→                                </DropdownMenuContent>
+   616→                              </DropdownMenu>
+   617→                            </TableCell>
+   618→                          </TableRow>
+   619→                        );
+   620→                      })}
+   621→                    </TableBody>
+   622→                  </Table>
+   623→                </div>
+   624→              ) : (
+   625→                <div className="py-12 text-center">
+   626→                  <Video className="h-12 w-12 mx-auto text-gray-300 mb-4" />
+   627→                  <h3 className="font-medium text-gray-900 mb-1">Aucun contenu trouvé</h3>
+   628→                  <p className="text-sm text-gray-500">Essayez de modifier vos filtres</p>
+   629→                </div>
+   630→              )}
+   631→            </CardContent>
+   632→          </Card>
+   633→        </TabsContent>
+   634→      </Tabs>
+   635→
+   636→      {/* Preview Dialog */}
+   637→      <Dialog open={previewDialogOpen} onOpenChange={setPreviewDialogOpen}>
+   638→        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+   639→          <DialogHeader>
+   640→            <DialogTitle className="flex items-center gap-2">
+   641→              <Video className="h-5 w-5" />
+   642→              {selectedContent?.title}
+   643→            </DialogTitle>
+   644→            <DialogDescription>
+   645→              Prévisualisation du contenu et informations détaillées
+   646→            </DialogDescription>
+   647→          </DialogHeader>
+   648→
+   649→          {selectedContent && (
+   650→            <div className="space-y-6 py-4">
+   651→              {/* Video Player Placeholder */}
+   652→              <div className="aspect-video bg-black rounded-lg flex items-center justify-center">
+   653→                <div className="text-center">
+   654→                  <Play className="h-16 w-16 text-white/50 mx-auto mb-2" />
+   655→                  <p className="text-white/70">Lecteur vidéo</p>
+   656→                  <p className="text-white/50 text-sm">Durée: {formatDuration(selectedContent.duration)}</p>
+   657→                </div>
+   658→              </div>
+   659→
+   660→              {/* Content Info */}
+   661→              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+   662→                <Card>
+   663→                  <CardContent className="pt-4 space-y-3">
+   664→                    <h4 className="font-medium text-gray-900">Informations</h4>
+   665→                    <div className="space-y-2 text-sm">
+   666→                      <div className="flex justify-between">
+   667→                        <span className="text-gray-500">Type:</span>
+   668→                        <div className="flex items-center gap-1">
+   669→                          {typeConfig[selectedContent.type].icon}
+   670→                          {typeConfig[selectedContent.type].label}
+   671→                        </div>
+   672→                      </div>
+   673→                      <div className="flex justify-between">
+   674→                        <span className="text-gray-500">Durée:</span>
+   675→                        <span>{formatDuration(selectedContent.duration)}</span>
+   676→                      </div>
+   677→                      <div className="flex justify-between">
+   678→                        <span className="text-gray-500">Statut:</span>
+   679→                        <Badge variant={statusConfig[selectedContent.status].variant} 
+   680→                               className={statusConfig[selectedContent.status].color}>
+   681→                          {statusConfig[selectedContent.status].label}
+   682→                        </Badge>
+   683→                      </div>
+   684→                      <div className="flex justify-between">
+   685→                        <span className="text-gray-500">Soumis le:</span>
+   686→                        <span>{formatDate(selectedContent.submittedAt)}</span>
+   687→                      </div>
+   688→                    </div>
+   689→                  </CardContent>
+   690→                </Card>
+   691→
+   692→                <Card>
+   693→                  <CardContent className="pt-4 space-y-3">
+   694→                    <h4 className="font-medium text-gray-900">Auteur & Statistiques</h4>
+   695→                    <div className="space-y-2 text-sm">
+   696→                      <div className="flex items-center gap-2">
+   697→                        <User className="h-4 w-4 text-gray-400" />
+   698→                        <span>{selectedContent.authorName}</span>
+   699→                      </div>
+   700→                      {selectedContent.companyName && (
+   701→                        <div className="text-gray-600 ml-6">{selectedContent.companyName}</div>
+   702→                      )}
+   703→                      <div className="border-t pt-2 mt-2 grid grid-cols-3 gap-2 text-center">
+   704→                        <div>
+   705→                          <p className="font-semibold">{selectedContent.views}</p>
+   706→                          <p className="text-xs text-gray-500">Vues</p>
+   707→                        </div>
+   708→                        <div>
+   709→                          <p className="font-semibold text-green-600">{selectedContent.likes}</p>
+   710→                          <p className="text-xs text-gray-500">J'aime</p>
+   711→                        </div>
+   712→                        <div>
+   713→                          <p className="font-semibold text-red-500">{selectedContent.dislikes}</p>
+   714→                          <p className="text-xs text-gray-500">N'aime pas</p>
+   715→                        </div>
+   716→                      </div>
+   717→                    </div>
+   718→                  </CardContent>
+   719→                </Card>
+   720→              </div>
+   721→
+   722→              {/* Flag Info */}
+   723→              {selectedContent.flagReason && (
+   724→                <Card className="border-orange-200 bg-orange-50/30">
+   725→                  <CardContent className="pt-4">
+   726→                    <h4 className="font-medium text-orange-800 flex items-center gap-2 mb-2">
+   727→                      <Flag className="h-4 w-4" />
+   728→                      Raison du signalement
+   729→                    </h4>
+   730→                    <Badge variant="outline" className="mb-2 border-orange-300 text-orange-700">
+   731→                      {flagReasonConfig[selectedContent.flagReason].label}
+   732→                    </Badge>
+   733→                    {selectedContent.flagNotes && (
+   734→                      <p className="text-sm text-orange-700 mt-2">{selectedContent.flagNotes}</p>
+   735→                    )}
+   736→                  </CardContent>
+   737→                </Card>
+   738→              )}
+   739→
+   740→              {/* Rejection Info */}
+   741→              {selectedContent.rejectionReason && (
+   742→                <Card className="border-red-200 bg-red-50/30">
+   743→                  <CardContent className="pt-4">
+   744→                    <h4 className="font-medium text-red-800 flex items-center gap-2 mb-2">
+   745→                      <XCircle className="h-4 w-4" />
+   746→                      Motif du rejet
+   747→                    </h4>
+   748→                    <p className="text-sm text-red-700">{selectedContent.rejectionReason}</p>
+   749→                  </CardContent>
+   750→                </Card>
+   751→              )}
+   752→
+   753→              {/* Actions */}
+   754→              {(selectedContent.status === 'PENDING' || selectedContent.status === 'REVIEWING') && (
+   755→                <div className="flex flex-col sm:flex-row gap-3 justify-end pt-4 border-t">
+   756→                  <Button
+   757→                    variant="destructive"
+   758→                    onClick={() => {
+   759→                      setPreviewDialogOpen(false);
+   760→                      openActionDialog(selectedContent, 'reject');
+   761→                    }}
+   762→                  >
+   763→                    <XCircle className="mr-2 h-4 w-4" /> Rejeter
+   764→                  </Button>
+   765→                  <Button
+   766→                    className="bg-green-600 hover:bg-green-700"
+   767→                    onClick={() => {
+   768→                      setPreviewDialogOpen(false);
+   769→                      openActionDialog(selectedContent, 'approve');
+   770→                    }}
+   771→                  >
+   772→                    <CheckCircle2 className="mr-2 h-4 w-4" /> Approuver
+   773→                  </Button>
+   774→                </div>
+   775→              )}
+   776→            </div>
+   777→          )}
+   778→        </DialogContent>
+   779→      </Dialog>
+   780→
+   781→      {/* Action Dialog */}
+   782→      <Dialog open={actionDialogOpen} onOpenChange={setActionDialogOpen}>
+   783→        <DialogContent className="max-w-md">
+   784→          <DialogHeader>
+   785→            <DialogTitle className="flex items-center gap-2">
+   786→              {actionType === 'approve' ? (
+   787→                <CheckCircle2 className="h-5 w-5 text-green-600" />
+   788→              ) : (
+   789→                <XCircle className="h-5 w-5 text-red-600" />
+   790→              )}
+   791→              {actionType === 'approve' ? 'Approuver le contenu' : 'Rejeter le contenu'}
+   792→            </DialogTitle>
+   793→            <DialogDescription>
+   794→              {actionType === 'approve' 
+   795→                ? 'Ce contenu sera visible publiquement après approbation'
+   796→                : 'Le contenu sera masqué et l\'auteur sera notifié'
+   797→              }
+   798→            </DialogDescription>
+   799→          </DialogHeader>
+   800→
+   801→          <div className="space-y-4 py-4">
+   802→            {actionType === 'reject' ? (
+   803→              <div className="space-y-3">
+   804→                <Label htmlFor="reason">Motif du rejet *</Label>
+   805→                <Textarea
+   806→                  id="reason"
+   807→                  placeholder="Expliquez pourquoi ce contenu est rejeté..."
+   808→                  value={actionReason}
+   809→                  onChange={(e) => setActionReason(e.target.value)}
+   810→                  rows={4}
+   811→                  required
+   812→                />
+   813→              </div>
+   814→            ) : (
+   815→              <div className="p-4 bg-green-50 rounded-lg">
+   816→                <p className="text-sm text-green-800">
+   817→                  Ce contenu sera immédiatement disponible pour tous les utilisateurs.
+   818→                </p>
+   819→              </div>
+   820→            )}
+   821→          </div>
+   822→
+   823→          <DialogFooter className="flex gap-2">
+   824→            <Button
+   825→              variant="outline"
+   826→              onClick={() => setActionDialogOpen(false)}
+   827→              disabled={isLoading}
+   828→            >
+   829→              Annuler
+   830→            </Button>
+   831→            <Button
+   832→              variant={actionType === 'reject' ? 'destructive' : 'default'}
+   833→              className={actionType === 'approve' ? 'bg-green-600 hover:bg-green-700' : ''}
+   834→              onClick={handleAction}
+   835→              disabled={isLoading || (actionType === 'reject' && !actionReason.trim())}
+   836→            >
+   837→              {isLoading ? 'Traitement...' : actionType === 'approve' ? 'Confirmer' : 'Confirmer le rejet'}
+   838→            </Button>
+   839→          </DialogFooter>
+   840→        </DialogContent>
+   841→      </Dialog>
+   842→    </div>
+   843→  );
+   844→}
+   845→

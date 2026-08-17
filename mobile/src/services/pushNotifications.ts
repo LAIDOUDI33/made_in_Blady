@@ -237,4 +237,346 @@ export const NOTIFICATION_TYPES = {
     titleFr: 'Offre spéciale !',
     titleAr: 'عرض خاص!',
   },
+  
+  // ============================================
+  // PHASE 6: NOTIFICATION TYPES
+  // ============================================
+  
+  // Verification Notifications
+  VERIFICATION_STATUS_CHANGED: {
+    type: 'verification.status_changed',
+    channel: 'orders',
+    title: 'Verification Status Updated',
+    titleFr: 'Statut de vérification mis à jour',
+    titleAr: 'تم تحديث حالة التحقق',
+  },
+  
+  // Escrow/Trade Assurance Notifications
+  ESCROW_FUNDED: {
+    type: 'escrow.funded',
+    channel: 'orders',
+    title: 'Escrow Funded',
+    titleFr: 'Compte séquestre alimenté',
+    titleAr: 'تم تمويل الحساب الضمان',
+  },
+  ESCROW_RELEASED: {
+    type: 'escrow.released',
+    channel: 'orders',
+    title: 'Funds Released',
+    titleFr: 'Fonds libérés',
+    titleAr: 'تم إطلاق الأموال',
+  },
+  ESCROW_REFUNDED: {
+    type: 'escrow.refunded',
+    channel: 'orders',
+    title: 'Refund Processed',
+    titleFr: 'Remboursement effectué',
+    titleAr: 'تم معالجة الاسترداد',
+  },
+  
+  // Dispute Notifications
+  DISPUTE_OPENED: {
+    type: 'dispute.opened',
+    channel: 'orders',
+    title: 'Dispute Opened',
+    titleFr: 'Litige ouvert',
+    titleAr: 'تم فتح نزاع',
+  },
+  DISPUTE_RESOLVED: {
+    type: 'dispute.resolved',
+    channel: 'orders',
+    title: 'Dispute Resolved',
+    titleFr: 'Litige résolu',
+    titleAr: 'تم حل النزاع',
+  },
+  
+  // Inspection Notifications
+  INSPECTION_SCHEDULED: {
+    type: 'inspection.scheduled',
+    channel: 'orders',
+    title: 'Inspection Scheduled',
+    titleFr: 'Inspection programmée',
+    titleAr: 'تم جدولة الفحص',
+  },
+  INSPECTION_COMPLETED: {
+    type: 'inspection.completed',
+    channel: 'orders',
+    title: 'Inspection Completed',
+    titleFr: 'Inspection terminée',
+    titleAr: 'اكتمل الفحص',
+  },
+  
+  // Exhibition Notifications
+  EXHIBITION_STARTING_SOON: {
+    type: 'exhibition.starting_soon',
+    channel: 'promotions',
+    title: 'Exhibition Starting Soon!',
+    titleFr: "Exposition bientôt !",
+    titleAr: 'المعرض قريب البدء!',
+  },
+  BOOTH_CONFIRMED: {
+    type: 'booth.confirmed',
+    channel: 'promotions',
+    title: 'Booth Confirmed',
+    titleFr: 'Stand confirmé',
+    titleAr: 'تم تأكيد الكشك',
+  },
+  
+  // Shipment Notifications
+  SHIPMENT_STATUS_UPDATE: {
+    type: 'shipment.status_update',
+    channel: 'orders',
+    title: 'Shipment Update',
+    titleFr: "Mise à jour d'expédition",
+    titleAr: 'تحديث الشحنة',
+  },
+  SHIPMENT_DELIVERED: {
+    type: 'shipment.delivered',
+    channel: 'orders',
+    title: 'Delivered!',
+    titleFr: 'Livré !',
+    titleAr: 'تم التسليم!',
+  },
 } as const;
+
+/**
+ * Phase 6 Notification Handler
+ * Gestionnaire de notifications Phase 6
+ */
+export class Phase6NotificationHandler {
+  private static instance: Phase6NotificationHandler;
+  private navigation: any = null;
+
+  static getInstance(): Phase6NotificationHandler {
+    if (!Phase6NotificationHandler.instance) {
+      Phase6NotificationHandler.instance = new Phase6NotificationHandler();
+    }
+    return Phase6NotificationHandler.instance;
+  }
+
+  /**
+   * Set navigation reference for deep linking
+   * Définir la référence de navigation pour le lien profond
+   */
+  setNavigation(navigationRef: any): void {
+    this.navigation = navigationRef;
+  }
+
+  /**
+   * Handle Phase 6 notification tap
+   * Gérer le tap sur une notification Phase 6
+   */
+  async handleNotification(notificationType: string, data: any): Promise<void> {
+    console.log('[Phase6Notification] Handling:', notificationType, data);
+
+    switch (notificationType) {
+      // Verification
+      case NOTIFICATION_TYPES.VERIFICATION_STATUS_CHANGED.type:
+        await this.handleVerificationStatusChange(data);
+        break;
+      
+      // Escrow
+      case NOTIFICATION_TYPES.ESCROW_FUNDED.type:
+        await this.handleEscrowFunded(data);
+        break;
+      case NOTIFICATION_TYPES.ESCROW_RELEASED.type:
+        await this.handleEscrowReleased(data);
+        break;
+      case NOTIFICATION_TYPES.ESCROW_REFUNDED.type:
+        await this.handleEscrowRefunded(data);
+        break;
+      
+      // Disputes
+      case NOTIFICATION_TYPES.DISPUTE_OPENED.type:
+        await this.handleDisputeOpened(data);
+        break;
+      case NOTIFICATION_TYPES.DISPUTE_RESOLVED.type:
+        await this.handleDisputeResolved(data);
+        break;
+      
+      // Inspections
+      case NOTIFICATION_TYPES.INSPECTION_SCHEDULED.type:
+        await this.handleInspectionScheduled(data);
+        break;
+      case NOTIFICATION_TYPES.INSPECTION_COMPLETED.type:
+        await this.handleInspectionCompleted(data);
+        break;
+      
+      // Exhibitions
+      case NOTIFICATION_TYPES.EXHIBITION_STARTING_SOON.type:
+        await this.handleExhibitionStartingSoon(data);
+        break;
+      case NOTIFICATION_TYPES.BOOTH_CONFIRMED.type:
+        await this.handleBoothConfirmed(data);
+        break;
+      
+      // Shipments
+      case NOTIFICATION_TYPES.SHIPMENT_STATUS_UPDATE.type:
+        await this.handleShipmentStatusUpdate(data);
+        break;
+      case NOTIFICATION_TYPES.SHIPMENT_DELIVERED.type:
+        await this.handleShipmentDelivered(data);
+        break;
+      
+      default:
+        console.log('[Phase6Notification] Unknown type:', notificationType);
+    }
+  }
+
+  // ============================================
+  // VERIFICATION HANDLERS
+  // ============================================
+
+  private async handleVerificationStatusChange(data: any): Promise<void> {
+    const { verificationId, newStatus } = data;
+    
+    // Navigate to verification screen
+    if (this.navigation) {
+      this.navigation.navigate('Verification', { verificationId });
+    }
+    
+    // Show appropriate message based on status
+    const messages: Record<string, string> = {
+      approved: 'Félicitations ! Votre compte a été vérifié.',
+      rejected: 'Votre demande de vérification a été rejetée.',
+      pending: 'Votre demande de vérification est en cours de traitement.',
+      needs_info: 'Des informations supplémentaires sont requises.',
+    };
+    
+    console.log('[Verification] Status:', newStatus, messages[newStatus] || 'Statut mis à jour');
+  }
+
+  // ============================================
+  // ESCROW HANDLERS
+  // ============================================
+
+  private async handleEscrowFunded(data: any): Promise<void> {
+    const { escrowId, orderId, amount } = data;
+    
+    if (this.navigation) {
+      this.navigation.navigate('EscrowDetail', { orderId, escrowId });
+    }
+    
+    console.log('[Escrow] Funded:', amount, 'DZD');
+  }
+
+  private async handleEscrowReleased(data: any): Promise<void> {
+    const { escrowId, orderId } = data;
+    
+    if (this.navigation) {
+      this.navigation.navigate('EscrowDetail', { orderId, escrowId });
+    }
+    
+    console.log('[Escrow] Funds released successfully');
+  }
+
+  private async handleEscrowRefunded(data: any): Promise<void> {
+    const { escrowId, orderId, refundAmount } = data;
+    
+    if (this.navigation) {
+      this.navigation.navigate('EscrowDetail', { orderId, escrowId });
+    }
+    
+    console.log('[Escrow] Refunded:', refundAmount, 'DZD');
+  }
+
+  // ============================================
+  // DISPUTE HANDLERS
+  // ============================================
+
+  private async handleDisputeOpened(data: any): Promise<void> {
+    const { escrowId, orderId, disputeId } = data;
+    
+    if (this.navigation) {
+      this.navigation.navigate('EscrowDetail', { orderId, escrowId });
+    }
+    
+    console.log('[Dispute] New dispute opened:', disputeId);
+  }
+
+  private async handleDisputeResolved(data: any): Promise<void> {
+    const { escrowId, orderId, resolution } = data;
+    
+    if (this.navigation) {
+      this.navigation.navigate('EscrowDetail', { orderId, escrowId });
+    }
+    
+    console.log('[Dispute] Resolved with:', resolution);
+  }
+
+  // ============================================
+  // INSPECTION HANDLERS
+  // ============================================
+
+  private async handleInspectionScheduled(data: any): Promise<void> {
+    const { bookingId, scheduledDate, inspectionType } = data;
+    
+    console.log('[Inspection] Scheduled:', inspectionType, 'on', scheduledDate);
+    
+    // Could navigate to inspection detail screen
+    // this.navigation.navigate('InspectionDetail', { bookingId });
+  }
+
+  private async handleInspectionCompleted(data: any): Promise<void> {
+    const { bookingId, result, passed } = data;
+    
+    console.log('[Inspection] Completed - Passed:', passed);
+    
+    // Could navigate to inspection results
+    // this.navigation.navigate('InspectionResult', { bookingId });
+  }
+
+  // ============================================
+  // EXHIBITION HANDLERS
+  // ============================================
+
+  private async handleExhibitionStartingSoon(data: any): Promise<void> {
+    const { exhibitionId, startDate, name } = data;
+    
+    if (this.navigation) {
+      this.navigation.navigate('Exhibition', { exhibitionId });
+    }
+    
+    console.log('[Exhibition] Starting soon:', name);
+  }
+
+  private async handleBoothConfirmed(data: any): Promise<void> {
+    const { exhibitionId, boothNumber, boothLocation } = data;
+    
+    if (this.navigation) {
+      this.navigation.navigate('Exhibition', { exhibitionId });
+    }
+    
+    console.log('[Exhibition] Booth confirmed:', boothNumber, 'at', boothLocation);
+  }
+
+  // ============================================
+  // SHIPMENT HANDLERS
+  // ============================================
+
+  private async handleShipmentStatusUpdate(data: any): Promise<void> {
+    const { shipmentId, trackingNumber, newStatus, location } = data;
+    
+    if (this.navigation) {
+      this.navigation.navigate('ShipmentTracker', { shipmentId, trackingNumber });
+    }
+    
+    console.log('[Shipment] Status update:', newStatus, 'at', location);
+  }
+
+  private async handleShipmentDelivered(data: any): Promise<void> {
+    const { shipmentId, trackingNumber, deliveryTime } = data;
+    
+    if (this.navigation) {
+      this.navigation.navigate('ShipmentTracker', { shipmentId, trackingNumber });
+    }
+    
+    console.log('[Shipment] Delivered at:', deliveryTime);
+    
+    // Prompt user to rate delivery
+    // Could show rating modal
+  }
+}
+
+// Export singleton instance
+export const phase6NotificationHandler = Phase6NotificationHandler.getInstance();

@@ -1,0 +1,997 @@
+     1→'use client';
+     2→
+     3→import React, { useState, useMemo } from 'react';
+     4→import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+     5→import { Button } from '@/components/ui/button';
+     6→import { Badge } from '@/components/ui/badge';
+     7→import { Input } from '@/components/ui/input';
+     8→import { Label } from '@/components/ui/label';
+     9→import { Textarea } from '@/components/ui/textarea';
+    10→import {
+    11→  Table,
+    12→  TableBody,
+    13→  TableCell,
+    14→  TableHead,
+    15→  TableHeader,
+    16→  TableRow,
+    17→} from '@/components/ui/table';
+    18→import {
+    19→  Select,
+    20→  SelectContent,
+    21→  SelectItem,
+    22→  SelectTrigger,
+    23→  SelectValue,
+    24→} from '@/components/ui/select';
+    25→import {
+    26→  Dialog,
+    27→  DialogContent,
+    28→  DialogDescription,
+    29→  DialogFooter,
+    30→  DialogHeader,
+    31→  DialogTitle,
+    32→} from '@/components/ui/dialog';
+    33→import {
+    34→  DropdownMenu,
+    35→  DropdownMenuContent,
+    36→  DropdownMenuItem,
+    37→  DropdownMenuSeparator,
+    38→  DropdownMenuTrigger,
+    39→} from '@/components/ui/dropdown-menu';
+    40→import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+    41→import { StatsCard } from '@/components/admin/StatsCard';
+    42→import {
+    43→  ShieldCheck,
+    44→  Clock,
+    45→  AlertTriangle,
+    46→  CheckCircle2,
+    47→  XCircle,
+    48→  Search,
+    49→  Filter,
+    50→  Download,
+    51→  Eye,
+    52→  MoreHorizontal,
+    53→  DollarSign,
+    54→  TrendingUp,
+    55→  ArrowUpCircle,
+    56→  ArrowDownCircle,
+    57→  MessageSquare,
+    58→  Calendar,
+    59→  User,
+    60→  Building2,
+    61→  Gavel,
+    62→  Lock,
+    63→  Unlock,
+    64→  RefreshCw
+    65→} from 'lucide-react';
+    66→
+    67→// Types
+    68→type EscrowStatus = 'ACTIVE' | 'PENDING_RELEASE' | 'DISPUTED' | 'RELEASED' | 'REFUNDED' | 'EXPIRED';
+    69→type DisputePriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+    70→type DisputeStatus = 'OPEN' | 'INVESTIGATING' | 'RESOLVED' | 'ESCALATED' | 'CLOSED';
+    71→
+    72→interface EscrowAccount {
+    73→  id: string;
+    74→  orderId: string;
+    75→  buyerName: string;
+    76→  buyerEmail: string;
+    77→  sellerName: string;
+    78→  sellerEmail: string;
+    79→  amount: number;
+    80→  currency: string;
+    81→  status: EscrowStatus;
+    82→  createdAt: string;
+    83→  releaseDate?: string;
+    84→  disputeId?: string;
+    85→  description: string;
+    86→}
+    87→
+    88→interface DisputeEvent {
+    89→  id: string;
+    90→  type: 'MESSAGE' | 'EVIDENCE' | 'DECISION' | 'ESCALATION' | 'NOTE';
+    91→  author: string;
+    92→  authorRole: 'BUYER' | 'SELLER' | 'ADMIN' | 'SYSTEM';
+    93→  content: string;
+    94→  timestamp: string;
+    95→  attachments?: string[];
+    96→}
+    97→
+    98→interface Dispute {
+    99→  id: string;
+   100→  escrowId: string;
+   101→  escrowAmount: number;
+   102→  priority: DisputePriority;
+   103→  status: DisputeStatus;
+   104→  reason: string;
+   105→  openedBy: string;
+   106→  openedAt: string;
+   107→  assignedTo?: string;
+   108→  timeline: DisputeEvent[];
+   109→}
+   110→
+   111→// Sample data
+   112→const sampleEscrows: EscrowAccount[] = [
+   113→  {
+   114→    id: 'ESC001',
+   115→    orderId: 'ORD-2024-001',
+   116→    buyerName: 'Karim Meziani',
+   117→    buyerEmail: 'karim@example.com',
+   118→    sellerName: 'SARL Technologie Algerienne',
+   119→    sellerEmail: 'contact@technologie-dz.dz',
+   120→    amount: 150000,
+   121→    currency: 'DZD',
+   122→    status: 'ACTIVE',
+   123→    createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+   124→    description: 'Commande de matériel informatique'
+   125→  },
+   126→  {
+   127→    id: 'ESC002',
+   128→    orderId: 'ORD-2024-002',
+   129→    buyerName: 'Fatima Zahra',
+   130→    buyerEmail: 'fatima@example.com',
+   131→    sellerName: 'EURL Industrie Moderne',
+   132→    sellerEmail: 'info@industrie-dz.dz',
+   133→    amount: 275000,
+   134→    currency: 'DZD',
+   135→    status: 'DISPUTED',
+   136→    createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+   137→    disputeId: 'DIS001',
+   138→    description: 'Machine industrielle CNC'
+   139→  },
+   140→  {
+   141→    id: 'ESC003',
+   142→    orderId: 'ORD-2024-003',
+   143→    buyerName: 'Ahmed Benali',
+   144→    buyerEmail: 'ahmed@example.com',
+   145→    sellerName: 'Sarl Agro Solutions',
+   146→    sellerEmail: 'agro@solutions-dz.dz',
+   147→    amount: 89000,
+   148→    currency: 'DZD',
+   149→    status: 'PENDING_RELEASE',
+   150→    createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+   151→    description: 'Équipement agricole'
+   152→  },
+   153→  {
+   154→    id: 'ESC004',
+   155→    orderId: 'ORD-2024-004',
+   156→    buyerName: 'Samira Khelifi',
+   157→    buyerEmail: 'samira@example.com',
+   158→    sellerName: 'SPA Distribution Plus',
+   159→    sellerEmail: 'contact@distribution-dz.dz',
+   160→    amount: 45000,
+   161→    currency: 'DZD',
+   162→    status: 'RELEASED',
+   163→    createdAt: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
+   164→    releaseDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+   165→    description: 'Fournitures de bureau'
+   166→  },
+   167→  {
+   168→    id: 'ESC005',
+   169→    orderId: 'ORD-2024-005',
+   170→    buyerName: 'Youssef Ammar',
+   171→    buyerEmail: 'youssef@example.com',
+   172→    sellerName: 'SARL Technologie Algerienne',
+   173→    sellerEmail: 'contact@technologie-dz.dz',
+   174→    amount: 320000,
+   175→    currency: 'DZD',
+   176→    status: 'ACTIVE',
+   177→    createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+   178→    description: 'Serveurs et équipement réseau'
+   179→  },
+   180→];
+   181→
+   182→const sampleDisputes: Dispute[] = [
+   183→  {
+   184→    id: 'DIS001',
+   185→    escrowId: 'ESC002',
+   186→    escrowAmount: 275000,
+   187→    priority: 'HIGH',
+   188→    status: 'INVESTIGATING',
+   189→    reason: 'Produit non conforme à la description',
+   190→    openedBy: 'Fatima Zahra (Acheteuse)',
+   191→    openedAt: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(),
+   192→    assignedTo: 'Admin Leila',
+   193→    timeline: [
+   194→      {
+   195→        id: 'E1',
+   196→        type: 'NOTE',
+   197→        author: 'Systeme',
+   198→        authorRole: 'SYSTEM',
+   199→        content: 'Litige ouvert par l\'acheteuse',
+   200→        timestamp: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString()
+   201→      },
+   202→      {
+   203→        id: 'E2',
+   204→        type: 'MESSAGE',
+   205→        author: 'Fatima Zahra',
+   206→        authorRole: 'BUYER',
+   207→        content: 'La machine reçue ne correspond pas aux spécifications commandées. Les dimensions sont incorrectes.',
+   208→        timestamp: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(),
+   209→        attachments: ['photo1.jpg', 'photo2.jpg']
+   210→      },
+   211→      {
+   212→        id: 'E3',
+   213→        type: 'MESSAGE',
+   214→        author: 'SARL Technologie',
+   215→        authorRole: 'SELLER',
+   216→        content: 'Nous confirmons que la machine envoyée correspond bien au bon de commande. Nous pouvons fournir les preuves d\'expédition.',
+   217→        timestamp: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString()
+   218→      },
+   219→      {
+   220→        id: 'E4',
+   221→        type: 'EVIDENCE',
+   222→        author: 'Fatima Zahra',
+   223→        authorRole: 'BUYER',
+   224→        content: 'Photos du produit reçu vs photos du catalogue',
+   225→        timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+   226→        attachments: ['comparaison.pdf']
+   227→      },
+   228→      {
+   229→        id: 'E5',
+   230→        type: 'DECISION',
+   231→        author: 'Admin Leila',
+   232→        authorRole: 'ADMIN',
+   233→        content: 'Litige pris en charge. En attente des preuves complémentaires du vendeur.',
+   234→        timestamp: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString()
+   235→      }
+   236→    ]
+   237→  }
+   238→];
+   239→
+   240→const statusConfig: Record<EscrowStatus, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; color: string }> = {
+   241→  ACTIVE: { label: 'Actif', variant: 'outline', color: 'text-blue-700 bg-blue-50 border-blue-200' },
+   242→  PENDING_RELEASE: { label: 'En attente de libération', variant: 'secondary', color: 'text-yellow-700 bg-yellow-50 border-yellow-200' },
+   243→  DISPUTED: { label: 'Litigieux', variant: 'destructive', color: '' },
+   244→  RELEASED: { label: 'Libéré', variant: 'default', color: 'bg-green-100 text-green-800 border-green-200' },
+   245→  REFUNDED: { label: 'Remboursé', variant: 'secondary', color: 'text-gray-700 bg-gray-100 border-gray-200' },
+   246→  EXPIRED: { label: 'Expiré', variant: 'secondary', color: 'text-orange-700 bg-orange-50 border-orange-200' },
+   247→};
+   248→
+   249→const priorityConfig: Record<DisputePriority, { label: string; variant: 'default' | 'destructive' | 'outline' | 'secondary'; color: string; icon: React.ReactNode }> = {
+   250→  LOW: { label: 'Basse', variant: 'outline', color: 'text-gray-600 bg-gray-100', icon: null },
+   251→  MEDIUM: { label: 'Moyenne', variant: 'secondary', color: 'text-blue-600 bg-blue-100', icon: null },
+   252→  HIGH: { label: 'Haute', variant: 'default', color: 'text-white bg-orange-500', icon: <AlertTriangle className="h-3 w-3" /> },
+   253→  CRITICAL: { label: 'Critique', variant: 'destructive', color: '', icon: <AlertTriangle className="h-3 w-3" /> },
+   254→};
+   255→
+   256→export default function EscrowManagementPage() {
+   257→  const [escrows, setEscrows] = useState<EscrowAccount[]>(sampleEscrows);
+   258→  const [disputes] = useState<Dispute[]>(sampleDisputes);
+   259→  const [activeTab, setActiveTab] = useState('escrows');
+   260→  const [searchQuery, setSearchQuery] = useState('');
+   261→  const [statusFilter, setStatusFilter] = useState<string>('ALL');
+   262→  
+   263→  // Detail dialog states
+   264→  const [detailDialogOpen, setDetailDialogOpen] = useState(false);
+   265→  const [selectedEscrow, setSelectedEscrow] = useState<EscrowAccount | null>(null);
+   266→  
+   267→  // Action dialog states
+   268→  const [actionDialogOpen, setActionDialogOpen] = useState(false);
+   269→  const [actionType, setActionType] = useState<'release' | 'refund'>('release');
+   270→  const [actionReason, setActionReason] = useState('');
+   271→  const [isLoading, setIsLoading] = useState(false);
+   272→
+   273→  // Dispute detail dialog
+   274→  const [disputeDialogOpen, setDisputeDialogOpen] = useState(false);
+   275→  const [selectedDispute, setSelectedDispute] = useState<Dispute | null>(null);
+   276→
+   277→  // Filter escrows
+   278→  const filteredEscrows = useMemo(() => {
+   279→    let result = [...escrows];
+   280→    
+   281→    if (statusFilter !== 'ALL') {
+   282→      result = result.filter(e => e.status === statusFilter);
+   283→    }
+   284→    
+   285→    if (searchQuery.trim()) {
+   286→      const query = searchQuery.toLowerCase();
+   287→      result = result.filter(e => 
+   288→        e.id.toLowerCase().includes(query) ||
+   289→        e.orderId.toLowerCase().includes(query) ||
+   290→        e.buyerName.toLowerCase().includes(query) ||
+   291→        e.sellerName.toLowerCase().includes(query)
+   292→      );
+   293→    }
+   294→    
+   295→    result.sort((a, b) => {
+   296→      if (a.status === 'DISPUTED') return -1;
+   297→      if (b.status === 'DISPUTED') return 1;
+   298→      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+   299→    });
+   300→    
+   301→    return result;
+   302→  }, [escrows, searchQuery, statusFilter]);
+   303→
+   304→  // Stats
+   305→  const totalInEscrow = escrows
+   306→    .filter(e => e.status === 'ACTIVE' || e.status === 'PENDING_RELEASE' || e.status === 'DISPUTED')
+   307→    .reduce((sum, e) => sum + e.amount, 0);
+   308→  
+   309→  const pendingReleases = escrows.filter(e => e.status === 'PENDING_RELEASE').length;
+   310→  const activeDisputes = disputes.filter(d => d.status === 'OPEN' || d.status === 'INVESTIGATING').length;
+   311→  const totalReleasedThisMonth = escrows
+   312→    .filter(e => e.status === 'RELEASED' && e.releaseDate && 
+   313→      new Date(e.releaseDate).getMonth() === new Date().getMonth())
+   314→    .reduce((sum, e) => sum + e.amount, 0);
+   315→
+   316→  // Handlers
+   317→  const formatCurrency = (amount: number) => {
+   318→    return new Intl.NumberFormat('fr-DZ', { style: 'currency', currency: 'DZD' }).format(amount);
+   319→  };
+   320→
+   321→  const formatDate = (dateString: string) => {
+   322→    return new Date(dateString).toLocaleDateString('fr-FR', {
+   323→      day: '2-digit',
+   324→      month: '2-digit',
+   325→      year: 'numeric'
+   326→    });
+   327→  };
+   328→
+   329→  const openDetailDialog = (escrow: EscrowAccount) => {
+   330→    setSelectedEscrow(escrow);
+   331→    setDetailDialogOpen(true);
+   332→  };
+   333→
+   334→  const openActionDialog = (escrow: EscrowAccount, action: 'release' | 'refund') => {
+   335→    setSelectedEscrow(escrow);
+   336→    setActionType(action);
+   337→    setActionReason('');
+   338→    setActionDialogOpen(true);
+   339→  };
+   340→
+   341→  const handleAction = async () => {
+   342→    if (!selectedEscrow) return;
+   343→    
+   344→    setIsLoading(true);
+   345→    await new Promise(resolve => setTimeout(resolve, 800));
+   346→    
+   347→    setEscrows(prev => prev.map(e => 
+   348→      e.id === selectedEscrow.id 
+   349→        ? { 
+   350→            ...e, 
+   351→            status: actionType === 'release' ? 'RELEASED' as const : 'REFUNDED' as const,
+   352→            releaseDate: new Date().toISOString(),
+   353→          }
+   354→        : e
+   355→    ));
+   356→    
+   357→    setIsLoading(false);
+   358→    setActionDialogOpen(false);
+   359→    setDetailDialogOpen(false);
+   360→  };
+   361→
+   362→  const openDisputeDialog = (dispute: Dispute) => {
+   363→    setSelectedDispute(dispute);
+   364→    setDisputeDialogOpen(true);
+   365→  };
+   366→
+   367→  const exportToCSV = () => {
+   368→    const headers = ['ID', 'Commande', 'Acheteur', 'Vendeur', 'Montant', 'Statut', 'Date création'];
+   369→    const csvRows = filteredEscrows.map(e => [
+   370→      e.id,
+   371→      e.orderId,
+   372→      e.buyerName,
+   373→      e.sellerName,
+   374→      formatCurrency(e.amount),
+   375→      statusConfig[e.status].label,
+   376→      formatDate(e.createdAt)
+   377→    ]);
+   378→    
+   379→    const csvContent = [headers, ...csvRows]
+   380→      .map(row => row.map(cell => `"${cell}"`).join(','))
+   381→      .join('\n');
+   382→    
+   383→    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+   384→    const link = document.createElement('a');
+   385→    link.href = URL.createObjectURL(blob);
+   386→    link.download = `escrows_${new Date().toISOString().split('T')[0]}.csv`;
+   387→    link.click();
+   388→  };
+   389→
+   390→  return (
+   391→    <div className="space-y-6">
+   392→      {/* Header */}
+   393→      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+   394→        <div>
+   395→          <h1 className="text-2xl font-bold text-gray-900">Gestion des Comptes Escrow</h1>
+   396→          <p className="text-gray-500 mt-1">Surveillez les transactions sécurisées et gérez les litiges</p>
+   397→        </div>
+   398→        <Button variant="outline" onClick={exportToCSV}>
+   399→          <Download className="mr-2 h-4 w-4" /> Exporter CSV
+   400→        </Button>
+   401→      </div>
+   402→
+   403→      {/* Stats Cards */}
+   404→      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+   405→        <StatsCard
+   406→          title="Total en escrow"
+   407→          value={formatCurrency(totalInEscrow)}
+   408→          description={`${escrows.filter(e => e.status === 'ACTIVE' || e.status === 'PENDING_RELEASE' || e.status === 'DISPUTED').length} comptes actifs`}
+   409→          icon={Lock}
+   410→          iconClassName="bg-blue-100 text-blue-600"
+   411→        />
+   412→        <StatsCard
+   413→          title="Libérations en attente"
+   414→          value={pendingReleases}
+   415→          description="À traiter"
+   416→          icon={Clock}
+   417→          iconClassName={pendingReleases > 0 ? "bg-yellow-100 text-yellow-600 animate-pulse" : "bg-gray-100 text-gray-600"}
+   418→        />
+   419→        <StatsCard
+   420→          title="Litiges actifs"
+   421→          value={activeDisputes}
+   422→          description={`${disputes.length} total ce mois`}
+   423→          icon={Gavel}
+   424→          iconClassName={activeDisputes > 0 ? "bg-red-100 text-red-600" : "bg-gray-100 text-gray-600"}
+   425→        />
+   426→        <StatsCard
+   427→          title="Libéré ce mois"
+   428→          value={formatCurrency(totalReleasedThisMonth)}
+   429→          description="Volume total"
+   430→          icon={TrendingUp}
+   431→          iconClassName="bg-green-100 text-green-600"
+   432→        />
+   433→      </div>
+   434→
+   435→      {/* Main Tabs */}
+   436→      <Tabs value={activeTab} onValueChange={setActiveTab}>
+   437→        <TabsList>
+   438→          <TabsTrigger value="escrows" className="gap-1">
+   439→            <ShieldCheck className="h-4 w-4" /> Comptes Escrow ({escrows.length})
+   440→          </TabsTrigger>
+   441→          <TabsTrigger value="disputes" className="gap-1">
+   442→            <Gavel className="h-4 w-4" /> Litiges ({disputes.length})
+   443→            {activeDisputes > 0 && (
+   444→              <Badge variant="destructive" className="ml-1 h-5 min-w-5 px-1.5 text-xs">
+   445→                {activeDisputes}
+   446→              </Badge>
+   447→            )}
+   448→          </TabsTrigger>
+   449→        </TabsList>
+   450→
+   451→        {/* Escrows Tab */}
+   452→        <TabsContent value="escrows" className="mt-4 space-y-4">
+   453→          {/* Filters */}
+   454→          <Card>
+   455→            <CardContent className="pt-6">
+   456→              <div className="flex flex-col sm:flex-row gap-4">
+   457→                <div className="relative flex-1">
+   458→                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+   459→                  <Input
+   460→                    placeholder="Rechercher par ID, commande ou nom..."
+   461→                    value={searchQuery}
+   462→                    onChange={(e) => setSearchQuery(e.target.value)}
+   463→                    className="pl-10"
+   464→                  />
+   465→                </div>
+   466→                <Select value={statusFilter} onValueChange={setStatusFilter}>
+   467→                  <SelectTrigger className="w-[180px]">
+   468→                    <Filter className="mr-2 h-4 w-4" />
+   469→                    <SelectValue placeholder="Statut" />
+   470→                  </SelectTrigger>
+   471→                  <SelectContent>
+   472→                    <SelectItem value="ALL">Tous les statuts</SelectItem>
+   473→                    <SelectItem value="ACTIVE">Actif</SelectItem>
+   474→                    <SelectItem value="PENDING_RELEASE">En attente libération</SelectItem>
+   475→                    <SelectItem value="DISPUTED">Litigieux</SelectItem>
+   476→                    <SelectItem value="RELEASED">Libéré</SelectItem>
+   477→                    <SelectItem value="REFUNDED">Remboursé</SelectItem>
+   478→                  </SelectContent>
+   479→                </Select>
+   480→              </div>
+   481→            </CardContent>
+   482→          </Card>
+   483→
+   484→          {/* Escrows Table */}
+   485→          <Card>
+   486→            <CardContent className="p-0">
+   487→              {filteredEscrows.length > 0 ? (
+   488→                <div className="overflow-x-auto">
+   489→                  <Table>
+   490→                    <TableHeader>
+   491→                      <TableRow className="bg-gray-50 hover:bg-gray-50">
+   492→                        <TableHead>ID</TableHead>
+   493→                        <TableHead>Commande</TableHead>
+   494→                        <TableHead>Acheteur</TableHead>
+   495→                        <TableHead className="hidden lg:table-cell">Vendeur</TableHead>
+   496→                        <TableHead>Montant</TableHead>
+   497→                        <TableHead>Statut</TableHead>
+   498→                        <TableHead className="hidden md:table-cell">Créé le</TableHead>
+   499→                        <TableHead className="w-12">Actions</TableHead>
+   500→                      </TableRow>
+   501→                    </TableHeader>
+   502→                    <TableBody>
+   503→                      {filteredEscrows.map((escrow) => {
+   504→                        const status = statusConfig[escrow.status];
+   505→                        
+   506→                        return (
+   507→                          <TableRow 
+   508→                            key={escrow.id}
+   509→                            className={
+   510→                              escrow.status === 'DISPUTED' 
+   511→                                ? 'bg-red-50/30 hover:bg-red-50/50' 
+   512→                                : escrow.status === 'PENDING_RELEASE'
+   513→                                  ? 'bg-yellow-50/30 hover:bg-yellow-50/50'
+   514→                                  : ''
+   515→                            }
+   516→                          >
+   517→                            <TableCell>
+   518→                              <code className="text-xs bg-gray-100 px-1.5 py-0.5 rounded">{escrow.id}</code>
+   519→                            </TableCell>
+   520→                            <TableCell>
+   521→                              <span className="font-medium">{escrow.orderId}</span>
+   522→                            </TableCell>
+   523→                            <TableCell>
+   524→                              <div>
+   525→                                <div className="font-medium text-sm">{escrow.buyerName}</div>
+   526→                                <div className="text-xs text-gray-500 truncate max-w-[120px]">{escrow.buyerEmail}</div>
+   527→                              </div>
+   528→                            </TableCell>
+   529→                            <TableCell className="hidden lg:table-cell">
+   530→                              <div>
+   531→                                <div className="text-sm">{escrow.sellerName}</div>
+   532→                                <div className="text-xs text-gray-500 truncate max-w-[120px]">{escrow.sellerEmail}</div>
+   533→                              </div>
+   534→                            </TableCell>
+   535→                            <TableCell>
+   536→                              <span className="font-semibold text-green-700">
+   537→                                {formatCurrency(escrow.amount)}
+   538→                              </span>
+   539→                            </TableCell>
+   540→                            <TableCell>
+   541→                              <Badge variant={status.variant} className={status.color}>
+   542→                                {status.label}
+   543→                              </Badge>
+   544→                              {escrow.disputeId && (
+   545→                                <Badge variant="destructive" className="ml-1 text-xs">
+   546→                                  Litige
+   547→                                </Badge>
+   548→                              )}
+   549→                            </TableCell>
+   550→                            <TableCell className="hidden md:table-cell">
+   551→                              <span className="text-sm text-gray-600">
+   552→                                {formatDate(escrow.createdAt)}
+   553→                              </span>
+   554→                            </TableCell>
+   555→                            <TableCell>
+   556→                              <DropdownMenu>
+   557→                                <DropdownMenuTrigger asChild>
+   558→                                  <Button variant="ghost" size="icon" className="h-8 w-8">
+   559→                                    <MoreHorizontal className="h-4 w-4" />
+   560→                                    <span className="sr-only">Actions</span>
+   561→                                  </Button>
+   562→                                </DropdownMenuTrigger>
+   563→                                <DropdownMenuContent align="end" className="w-48">
+   564→                                  <DropdownMenuItem onClick={() => openDetailDialog(escrow)}>
+   565→                                    <Eye className="mr-2 h-4 w-4" /> Voir détails
+   566→                                  </DropdownMenuItem>
+   567→                                  
+   568→                                  {(escrow.status === 'PENDING_RELEASE' || escrow.status === 'ACTIVE') && !escrow.disputeId && (
+   569→                                    <>
+   570→                                      <DropdownMenuSeparator />
+   571→                                      <DropdownMenuItem 
+   572→                                        onClick={() => openActionDialog(escrow, 'release')}
+   573→                                        className="text-green-600 focus:text-green-600"
+   574→                                      >
+   575→                                        <ArrowDownCircle className="mr-2 h-4 w-4" /> Libérer les fonds
+   576→                                      </DropdownMenuItem>
+   577→                                      <DropdownMenuItem 
+   578→                                        onClick={() => openActionDialog(escrow, 'refund')}
+   579→                                        className="text-orange-600 focus:text-orange-600"
+   580→                                      >
+   581→                                        <ArrowUpCircle className="mr-2 h-4 w-4" /> Rembourser
+   582→                                      </DropdownMenuItem>
+   583→                                    </>
+   584→                                  )}
+   585→
+   586→                                  {escrow.disputeId && (
+   587→                                    <>
+   588→                                      <DropdownMenuSeparator />
+   589→                                      <DropdownMenuItem 
+   590→                                        onClick={() => {
+   591→                                          const dispute = disputes.find(d => d.id === escrow.disputeId);
+   592→                                          if (dispute) openDisputeDialog(dispute);
+   593→                                        }}
+   594→                                        className="text-red-600 focus:text-red-600"
+   595→                                      >
+   596→                                        <Gavel className="mr-2 h-4 w-4" /> Voir le litige
+   597→                                      </DropdownMenuItem>
+   598→                                    </>
+   599→                                  )}
+   600→                                </DropdownMenuContent>
+   601→                              </DropdownMenu>
+   602→                            </TableCell>
+   603→                          </TableRow>
+   604→                        );
+   605→                      })}
+   606→                    </TableBody>
+   607→                  </Table>
+   608→                </div>
+   609→              ) : (
+   610→                <div className="py-12 text-center">
+   611→                  <ShieldCheck className="h-12 w-12 mx-auto text-gray-300 mb-4" />
+   612→                  <h3 className="font-medium text-gray-900 mb-1">Aucun compte trouvé</h3>
+   613→                  <p className="text-sm text-gray-500">Essayez de modifier vos filtres</p>
+   614→                </div>
+   615→              )}
+   616→            </CardContent>
+   617→          </Card>
+   618→        </TabsContent>
+   619→
+   620→        {/* Disputes Tab */}
+   621→        <TabsContent value="disputes" className="mt-4">
+   622→          <div className="space-y-4">
+   623→            {disputes.length > 0 ? (
+   624→              disputes.map((dispute) => {
+   625→                const priority = priorityConfig[dispute.priority];
+   626→                
+   627→                return (
+   628→                  <Card key={dispute.id} className={dispute.status === 'OPEN' ? 'border-red-200' : ''}>
+   629→                    <CardHeader className="pb-3">
+   630→                      <div className="flex items-start justify-between">
+   631→                        <div className="space-y-1">
+   632→                          <div className="flex items-center gap-2">
+   633→                            <CardTitle className="text-base">Litige #{dispute.id}</CardTitle>
+   634→                            <Badge variant={priority.variant} className={priority.color}>
+   635→                              {priority.icon}
+   636→                              Priorité {priority.label}
+   637→                            </Badge>
+   638→                            <Badge 
+   639→                              variant={dispute.status === 'OPEN' ? 'destructive' : 'secondary'}
+   640→                            >
+   641→                              {dispute.status === 'OPEN' ? 'Ouvert' :
+   642→                               dispute.status === 'INVESTIGATING' ? 'En cours' :
+   643→                               dispute.status === 'RESOLVED' ? 'Résolu' :
+   644→                               dispute.status === 'ESCALATED' ? 'Escaladé' : 'Fermé'}
+   645→                            </Badge>
+   646→                          </div>
+   647→                          <CardDescription>{dispute.reason}</CardDescription>
+   648→                        </div>
+   649→                        <div className="text-right space-y-1">
+   650→                          <p className="font-semibold text-lg text-red-600">
+   651→                            {formatCurrency(dispute.escrowAmount)}
+   652→                          </p>
+   653→                          <p className="text-xs text-gray-500">
+   654→                            Ouvert le {formatDate(dispute.openedAt)}
+   655→                          </p>
+   656→                        </div>
+   657→                      </div>
+   658→                    </CardHeader>
+   659→                    <CardContent>
+   660→                      <div className="flex items-center justify-between">
+   661→                        <div className="flex items-center gap-4 text-sm text-gray-600">
+   662→                          <span>Ouvert par: <strong>{dispute.openedBy}</strong></span>
+   663→                          {dispute.assignedTo && (
+   664→                            <span>Assigné à: <strong>{dispute.assignedTo}</strong></span>
+   665→                          )}
+   666→                          <span>{dispute.timeline.length} événements</span>
+   667→                        </div>
+   668→                        <Button 
+   669→                          variant="outline" 
+   670→                          size="sm"
+   671→                          onClick={() => openDisputeDialog(dispute)}
+   672→                        >
+   673→                          <Eye className="mr-2 h-4 w-4" /> Voir le litige
+   674→                        </Button>
+   675→                      </div>
+   676→
+   677→                      {/* Timeline Preview */}
+   678→                      <div className="mt-4 pt-4 border-t">
+   679→                        <div className="space-y-2 max-h-32 overflow-y-auto">
+   680→                          {dispute.timeline.slice(-3).map((event) => (
+   681→                            <div key={event.id} className="flex gap-3 text-sm">
+   682→                              <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${
+   683→                                event.type === 'MESSAGE' ? 'bg-blue-400' :
+   684→                                event.type === 'EVIDENCE' ? 'bg-purple-400' :
+   685→                                event.type === 'DECISION' ? 'bg-green-400' :
+   686→                                event.type === 'ESCALATION' ? 'bg-red-400' :
+   687→                                'bg-gray-400'
+   688→                              }`} />
+   689→                              <div className="flex-1 min-w-0">
+   690→                                <span className="font-medium">{event.author}</span>
+   691→                                <span className="text-gray-500 ml-2">
+   692→                                  {new Date(event.timestamp).toLocaleDateString('fr-FR')}
+   693→                                </span>
+   694→                                <p className="text-gray-600 truncate">{event.content}</p>
+   695→                              </div>
+   696→                            </div>
+   697→                          ))}
+   698→                        </div>
+   699→                      </div>
+   700→                    </CardContent>
+   701→                  </Card>
+   702→                );
+   703→              })
+   704→            ) : (
+   705→              <Card>
+   706→                <CardContent className="py-12 text-center">
+   707→                  <Gavel className="h-12 w-12 mx-auto text-gray-300 mb-4" />
+   708→                  <h3 className="font-medium text-gray-900 mb-1">Aucun litige actif</h3>
+   709→                  <p className="text-sm text-gray-500">Tous les litiges ont été résolus</p>
+   710→                </CardContent>
+   711→              </Card>
+   712→            )}
+   713→          </div>
+   714→        </TabsContent>
+   715→      </Tabs>
+   716→
+   717→      {/* Escrow Detail Dialog */}
+   718→      <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
+   719→        <DialogContent className="max-w-2xl">
+   720→          <DialogHeader>
+   721→            <DialogTitle className="flex items-center gap-2">
+   722→              <ShieldCheck className="h-5 w-5" />
+   723→              Détails du compte {selectedEscrow?.id}
+   724→            </DialogTitle>
+   725→            <DialogDescription>
+   726→              Informations complètes sur cette transaction escrow
+   727→            </DialogDescription>
+   728→          </DialogHeader>
+   729→
+   730→          {selectedEscrow && (
+   731→            <div className="space-y-6 py-4">
+   732→              {/* Amount Highlight */}
+   733→              <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg text-center">
+   734→                <p className="text-sm text-gray-600 mb-1">Montant en séquestre</p>
+   735→                <p className="text-3xl font-bold text-blue-700">{formatCurrency(selectedEscrow.amount)}</p>
+   736→                <Badge variant="outline" className="mt-2 bg-white">
+   737→                  {statusConfig[selectedEscrow.status].label}
+   738→                </Badge>
+   739→              </div>
+   740→
+   741→              {/* Parties Info */}
+   742→              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+   743→                <Card>
+   744→                  <CardContent className="pt-4">
+   745→                    <h4 className="text-sm font-medium text-gray-500 mb-3 flex items-center gap-2">
+   746→                      <User className="h-4 w-4" /> Acheteur
+   747→                    </h4>
+   748→                    <p className="font-medium">{selectedEscrow.buyerName}</p>
+   749→                    <p className="text-sm text-gray-500">{selectedEscrow.buyerEmail}</p>
+   750→                  </CardContent>
+   751→                </Card>
+   752→                <Card>
+   753→                  <CardContent className="pt-4">
+   754→                    <h4 className="text-sm font-medium text-gray-500 mb-3 flex items-center gap-2">
+   755→                      <Building2 className="h-4 w-4" /> Vendeur
+   756→                    </h4>
+   757→                    <p className="font-medium">{selectedEscrow.sellerName}</p>
+   758→                    <p className="text-sm text-gray-500">{selectedEscrow.sellerEmail}</p>
+   759→                  </CardContent>
+   760→                </Card>
+   761→              </div>
+   762→
+   763→              {/* Details */}
+   764→              <div className="space-y-2 text-sm">
+   765→                <div className="flex justify-between py-2 border-b">
+   766→                  <span className="text-gray-500">ID Commande:</span>
+   767→                  <code className="bg-gray-100 px-2 py-0.5 rounded">{selectedEscrow.orderId}</code>
+   768→                </div>
+   769→                <div className="flex justify-between py-2 border-b">
+   770→                  <span className="text-gray-500">Description:</span>
+   771→                  <span>{selectedEscrow.description}</span>
+   772→                </div>
+   773→                <div className="flex justify-between py-2 border-b">
+   774→                  <span className="text-gray-500">Date de création:</span>
+   775→                  <span>{formatDate(selectedEscrow.createdAt)}</span>
+   776→                </div>
+   777→                {selectedEscrow.releaseDate && (
+   778→                  <div className="flex justify-between py-2 border-b">
+   779→                    <span className="text-gray-500">Date de libération:</span>
+   780→                    <span>{formatDate(selectedEscrow.releaseDate)}</span>
+   781→                  </div>
+   782→                )}
+   783→              </div>
+   784→
+   785→              {/* Actions */}
+   786→              {(selectedEscrow.status === 'PENDING_RELEASE' || selectedEscrow.status === 'ACTIVE') && !selectedEscrow.disputeId && (
+   787→                <div className="flex flex-col sm:flex-row gap-3 justify-end pt-4 border-t">
+   788→                  <Button
+   789→                    variant="outline"
+   790→                    className="border-orange-300 text-orange-600 hover:bg-orange-50"
+   791→                    onClick={() => {
+   792→                      setDetailDialogOpen(false);
+   793→                      openActionDialog(selectedEscrow, 'refund');
+   794→                    }}
+   795→                  >
+   796→                    <ArrowUpCircle className="mr-2 h-4 w-4" /> Rembourser
+   797→                  </Button>
+   798→                  <Button
+   799→                    className="bg-green-600 hover:bg-green-700"
+   800→                    onClick={() => {
+   801→                      setDetailDialogOpen(false);
+   802→                      openActionDialog(selectedEscrow, 'release');
+   803→                    }}
+   804→                  >
+   805→                    <ArrowDownCircle className="mr-2 h-4 w-4" /> Libérer les fonds
+   806→                  </Button>
+   807→                </div>
+   808→              )}
+   809→            </div>
+   810→          )}
+   811→        </DialogContent>
+   812→      </Dialog>
+   813→
+   814→      {/* Action Dialog */}
+   815→      <Dialog open={actionDialogOpen} onOpenChange={setActionDialogOpen}>
+   816→        <DialogContent className="max-w-md">
+   817→          <DialogHeader>
+   818→            <DialogTitle className="flex items-center gap-2">
+   819→              {actionType === 'release' ? (
+   820→                <Unlock className="h-5 w-5 text-green-600" />
+   821→              ) : (
+   822→                <ArrowUpCircle className="h-5 w-5 text-orange-600" />
+   823→              )}
+   824→              {actionType === 'release' ? 'Confirmer la libération' : 'Confirmer le remboursement'}
+   825→            </DialogTitle>
+   826→            <DialogDescription>
+   827→              {actionType === 'release' 
+   828→                ? `Les fonds de ${formatCurrency(selectedEscrow?.amount || 0)} seront transférés au vendeur`
+   829→                : `Les fonds de ${formatCurrency(selectedEscrow?.amount || 0)} seront remboursés à l'acheteur`
+   830→              }
+   831→            </DialogDescription>
+   832→          </DialogHeader>
+   833→
+   834→          <div className="space-y-4 py-4">
+   835→            <div className="space-y-3">
+   836→              <Label htmlFor="reason">Raison / Notes *</Label>
+   837→              <Textarea
+   838→                id="reason"
+   839→                placeholder={`Raison de ${actionType === 'release' ? 'la libération' : 'du remboursement'}...`}
+   840→                value={actionReason}
+   841→                onChange={(e) => setActionReason(e.target.value)}
+   842→                rows={3}
+   843→                required
+   844→              />
+   845→            </div>
+   846→          </div>
+   847→
+   848→          <DialogFooter className="flex gap-2">
+   849→            <Button
+   850→              variant="outline"
+   851→              onClick={() => setActionDialogOpen(false)}
+   852→              disabled={isLoading}
+   853→            >
+   854→              Annuler
+   855→            </Button>
+   856→            <Button
+   857→              variant={actionType === 'refund' ? 'outline' : 'default'}
+   858→              className={actionType === 'release' ? 'bg-green-600 hover:bg-green-700' : 'border-orange-500 text-orange-600 hover:bg-orange-50'}
+   859→              onClick={handleAction}
+   860→              disabled={isLoading || !actionReason.trim()}
+   861→            >
+   862→              {isLoading ? 'Traitement...' : actionType === 'release' ? 'Confirmer la libération' : 'Confirmer le remboursement'}
+   863→            </Button>
+   864→          </DialogFooter>
+   865→        </DialogContent>
+   866→      </Dialog>
+   867→
+   868→      {/* Dispute Detail Dialog */}
+   869→      <Dialog open={disputeDialogOpen} onOpenChange={setDisputeDialogOpen}>
+   870→        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+   871→          <DialogHeader>
+   872→            <DialogTitle className="flex items-center gap-2">
+   873→              <Gavel className="h-5 w-5 text-red-600" />
+   874→              Détail du litige #{selectedDispute?.id}
+   875→            </DialogTitle>
+   876→            <DialogDescription>
+   877→              Historique complet et gestion du litige
+   878→            </DialogDescription>
+   879→          </DialogHeader>
+   880→
+   881→          {selectedDispute && (
+   882→            <div className="space-y-6 py-4">
+   883→              {/* Dispute Summary */}
+   884→              <Card>
+   885→                <CardContent className="pt-4">
+   886→                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+   887→                    <div>
+   888→                      <p className="text-xs text-gray-500">Montant concerné</p>
+   889→                      <p className="font-bold text-lg text-red-600">{formatCurrency(selectedDispute.escrowAmount)}</p>
+   890→                    </div>
+   891→                    <div>
+   892→                      <p className="text-xs text-gray-500">Priorité</p>
+   893→                      <Badge variant={priorityConfig[selectedDispute.priority].variant} 
+   894→                             className={priorityConfig[selectedDispute.priority].color}>
+   895→                        {priorityConfig[selectedDispute.priority].label}
+   896→                      </Badge>
+   897→                    </div>
+   898→                    <div>
+   899→                      <p className="text-xs text-gray-500">Statut</p>
+   900→                      <Badge variant={selectedDispute.status === 'OPEN' ? 'destructive' : 'secondary'}>
+   901→                        {selectedDispute.status === 'OPEN' ? 'Ouvert' : selectedDispute.status}
+   902→                      </Badge>
+   903→                    </div>
+   904→                    <div>
+   905→                      <p className="text-xs text-gray-500">Assigné à</p>
+   906→                      <p className="text-sm font-medium">{selectedDispute.assignedTo || 'Non assigné'}</p>
+   907→                    </div>
+   908→                  </div>
+   909→                </CardContent>
+   910→              </Card>
+   911→
+   912→              {/* Timeline */}
+   913→              <Card>
+   914→                <CardHeader className="pb-3">
+   915→                  <CardTitle className="text-base flex items-center gap-2">
+   916→                    <MessageSquare className="h-4 w-4" />
+   917→                    Chronologie du litige
+   918→                  </CardTitle>
+   919→                </CardHeader>
+   920→                <CardContent>
+   921→                  <div className="space-y-4">
+   922→                    {selectedDispute.timeline.map((event, index) => (
+   923→                      <div key={event.id} className="flex gap-4">
+   924→                        <div className="flex flex-col items-center">
+   925→                          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+   926→                            event.authorRole === 'ADMIN' ? 'bg-purple-100 text-purple-600' :
+   927→                            event.authorRole === 'BUYER' ? 'bg-blue-100 text-blue-600' :
+   928→                            event.authorRole === 'SELLER' ? 'bg-green-100 text-green-600' :
+   929→                            'bg-gray-100 text-gray-600'
+   930→                          }`}>
+   931→                            {event.authorRole === 'ADMIN' ? <Gavel className="h-5 w-5" /> :
+   932→                             event.authorRole === 'BUYER' ? <User className="h-5 w-5" /> :
+   933→                             event.authorRole === 'SELLER' ? <Building2 className="h-5 w-5" /> :
+   934→                             <Clock className="h-5 w-5" />}
+   935→                          </div>
+   936→                          {index < selectedDispute.timeline.length - 1 && (
+   937→                            <div className="w-0.5 h-full bg-gray-200 mt-2" />
+   938→                          )}
+   939→                        </div>
+   940→                        <div className="flex-1 pb-6">
+   941→                          <div className="flex items-center gap-2 mb-1">
+   942→                            <span className="font-medium">{event.author}</span>
+   943→                            <Badge variant="outline" className="text-xs">
+   944→                              {event.type === 'MESSAGE' ? 'Message' :
+   945→                               event.type === 'EVIDENCE' ? 'Preuve' :
+   946→                               event.type === 'DECISION' ? 'Décision' :
+   947→                               event.type === 'ESCALATION' ? 'Escalade' : 'Note'}
+   948→                            </Badge>
+   949→                            <span className="text-xs text-gray-500 ml-auto">
+   950→                              {new Date(event.timestamp).toLocaleDateString('fr-FR', {
+   951→                                day: '2-digit',
+   952→                                month: '2-digit',
+   953→                                year: 'numeric',
+   954→                                hour: '2-digit',
+   955→                                minute: '2-digit'
+   956→                              })}
+   957→                            </span>
+   958→                          </div>
+   959→                          <p className="text-sm text-gray-700">{event.content}</p>
+   960→                          {event.attachments && event.attachments.length > 0 && (
+   961→                            <div className="flex gap-2 mt-2">
+   962→                              {event.attachments.map((file, i) => (
+   963→                                <Badge key={i} variant="secondary" className="text-xs cursor-pointer">
+   964→                                  📎 {file}
+   965→                                </Badge>
+   966→                              ))}
+   967→                            </div>
+   968→                          )}
+   969→                        </div>
+   970→                      </div>
+   971→                    ))}
+   972→                  </div>
+   973→                </CardContent>
+   974→              </Card>
+   975→
+   976→              {/* Actions for admin */}
+   977→              {(selectedDispute.status === 'OPEN' || selectedDispute.status === 'INVESTIGATING') && (
+   978→                <div className="flex flex-col sm:flex-row gap-3 justify-end pt-4 border-t">
+   979→                  <Button variant="outline">
+   980→                    Demander plus d'infos
+   981→                  </Button>
+   982→                  <Button variant="destructive">
+   983→                    Remboursement total
+   984→                  </Button>
+   985→                  <Button className="bg-green-600 hover:bg-green-700">
+   986→                    Libérer au vendeur
+   987→                  </Button>
+   988→                </div>
+   989→              )}
+   990→            </div>
+   991→          )}
+   992→        </DialogContent>
+   993→      </Dialog>
+   994→    </div>
+   995→  );
+   996→}
+   997→

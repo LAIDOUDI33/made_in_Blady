@@ -1,0 +1,893 @@
+     1→'use client';
+     2→
+     3→import React, { useState, useMemo } from 'react';
+     4→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+     5→import { Button } from '@/components/ui/button';
+     6→import { Badge } from '@/components/ui/badge';
+     7→import { Input } from '@/components/ui/input';
+     8→import { Label } from '@/components/ui/label';
+     9→import { Textarea } from '@/components/ui/textarea';
+    10→import {
+    11→  Table,
+    12→  TableBody,
+    13→  TableCell,
+    14→  TableHead,
+    15→  TableHeader,
+    16→  TableRow,
+    17→} from '@/components/ui/table';
+    18→import {
+    19→  Select,
+    20→  SelectContent,
+    21→  SelectItem,
+    22→  SelectTrigger,
+    23→  SelectValue,
+    24→} from '@/components/ui/select';
+    25→import {
+    26→  Dialog,
+    27→  DialogContent,
+    28→  DialogDescription,
+    29→  DialogFooter,
+    30→  DialogHeader,
+    31→  DialogTitle,
+    32→} from '@/components/ui/dialog';
+    33→import {
+    34→  DropdownMenu,
+    35→  DropdownMenuContent,
+    36→  DropdownMenuItem,
+    37→  DropdownMenuSeparator,
+    38→  DropdownMenuTrigger,
+    39→} from '@/components/ui/dropdown-menu';
+    40→import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+    41→import { StatsCard } from '@/components/admin/StatsCard';
+    42→import {
+    43→  ShieldCheck,
+    44→  Clock,
+    45→  XCircle,
+    46→  CheckCircle2,
+    47→  Search,
+    48→  Filter,
+    49→  Download,
+    50→  Eye,
+    51→  MoreHorizontal,
+    52→  FileText,
+    53→  User,
+    54→  Building2,
+    55→  Award,
+    56→  AlertTriangle,
+    57→  RefreshCw,
+    58→  Star,
+    59→  Image as ImageIcon
+    60→} from 'lucide-react';
+    61→
+    62→// Types
+    63→type VerificationStatus = 'PENDING' | 'UNDER_REVIEW' | 'APPROVED' | 'REJECTED' | 'EXPIRED';
+    64→type VerificationType = 'IDENTITY' | 'COMPANY' | 'PROFESSIONAL' | 'PREMIUM';
+    65→type VerificationLevel = 'BASIC' | 'STANDARD' | 'ADVANCED';
+    66→
+    67→interface VerificationDocument {
+    68→  id: string;
+    69→  name: string;
+    70→  type: string;
+    71→  url: string;
+    72→  status: 'PENDING' | 'VERIFIED' | 'REJECTED';
+    73→}
+    74→
+    75→interface VerificationRequest {
+    76→  id: string;
+    77→  userId: string;
+    78→  userName: string;
+    79→  userEmail: string;
+    80→  userAvatar?: string;
+    81→  companyName?: string;
+    82→  type: VerificationType;
+    83→  level: VerificationLevel;
+    84→  status: VerificationStatus;
+    85→  submittedAt: string;
+    86→  reviewedAt?: string;
+    87→  reviewedBy?: string;
+    88→  documents: VerificationDocument[];
+    89→  notes?: string;
+    90→  rejectionReason?: string;
+    91→  badgeEarned?: string;
+    92→}
+    93→
+    94→// Sample data
+    95→const sampleVerifications: VerificationRequest[] = [
+    96→  {
+    97→    id: 'V001',
+    98→    userId: 'U1',
+    99→    userName: 'Karim Meziani',
+   100→    userEmail: 'karim.meziani@example.com',
+   101→    companyName: 'SARL Technologie Algerienne',
+   102→    type: 'COMPANY',
+   103→    level: 'ADVANCED',
+   104→    status: 'PENDING',
+   105→    submittedAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+   106→    documents: [
+   107→      { id: 'D1', name: 'RC Extrait', type: 'PDF', url: '#', status: 'PENDING' },
+   108→      { id: 'D2', name: 'NIF Attestation', type: 'PDF', url: '#', status: 'PENDING' },
+   109→      { id: 'D3', name: 'Statuts Signés', type: 'PDF', url: '#', status: 'PENDING' },
+   110→    ],
+   111→  },
+   112→  {
+   113→    id: 'V002',
+   114→    userId: 'U2',
+   115→    userName: 'Fatima Zahra',
+   116→    userEmail: 'fatima.zahra@example.com',
+   117→    type: 'IDENTITY',
+   118→    level: 'BASIC',
+   119→    status: 'UNDER_REVIEW',
+   120→    submittedAt: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
+   121→    reviewedBy: 'Admin Ahmed',
+   122→    documents: [
+   123→      { id: 'D4', name: 'CIN Recto', type: 'IMAGE', url: '#', status: 'VERIFIED' },
+   124→      { id: 'D5', name: 'CIN Verso', type: 'IMAGE', url: '#', status: 'PENDING' },
+   125→      { id: 'D6', name: 'Selfie avec CIN', type: 'IMAGE', url: '#', status: 'PENDING' },
+   126→    ],
+   127→  },
+   128→  {
+   129→    id: 'V003',
+   130→    userId: 'U3',
+   131→    userName: 'Ahmed Benali',
+   132→    userEmail: 'ahmed.benali@example.com',
+   133→    companyName: 'EURL Industrie Moderne',
+   134→    type: 'PROFESSIONAL',
+   135→    level: 'STANDARD',
+   136→    status: 'APPROVED',
+   137→    submittedAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+   138→    reviewedAt: new Date(Date.now() - 20 * 60 * 60 * 1000).toISOString(),
+   139→    reviewedBy: 'Admin Leila',
+   140→    badgeEarned: 'Fournisseur Certifié',
+   141→    documents: [
+   142→      { id: 'D7', name: 'RC Extrait', type: 'PDF', url: '#', status: 'VERIFIED' },
+   143→      { id: 'D8', name: 'Patente Commerciale', type: 'PDF', url: '#', status: 'VERIFIED' },
+   144→      { id: 'D9', name: 'Justificatif Activité', type: 'PDF', url: '#', status: 'VERIFIED' },
+   145→    ],
+   146→  },
+   147→  {
+   148→    id: 'V004',
+   149→    userId: 'U4',
+   150→    userName: 'Samira Khelifi',
+   151→    userEmail: 'samira.khelifi@example.com',
+   152→    type: 'PREMIUM',
+   153→    level: 'ADVANCED',
+   154→    status: 'REJECTED',
+   155→    submittedAt: new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString(),
+   156→    reviewedAt: new Date(Date.now() - 40 * 60 * 60 * 1000).toISOString(),
+   157→    reviewedBy: 'Admin Omar',
+   158→    rejectionReason: 'Documents illisibles - Veuillez soumettre des scans de meilleure qualité',
+   159→    documents: [
+   160→      { id: 'D10', name: 'Bilan Financier', type: 'PDF', url: '#', status: 'REJECTED' },
+   161→      { id: 'D11', name: 'Références Clients', type: 'PDF', url: '#', status: 'REJECTED' },
+   162→    ],
+   163→  },
+   164→  {
+   165→    id: 'V005',
+   166→    userId: 'U5',
+   167→    userName: 'Youssef Ammar',
+   168→    userEmail: 'youssef.ammar@example.com',
+   169→    companyName: 'Sarl Distribution Plus',
+   170→    type: 'COMPANY',
+   171→    level: 'STANDARD',
+   172→    status: 'PENDING',
+   173→    submittedAt: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
+   174→    documents: [
+   175→      { id: 'D12', name: 'RC Extrait', type: 'PDF', url: '#', status: 'PENDING' },
+   176→      { id: 'D13', name: 'NIS Attestation', type: 'PDF', url: '#', status: 'PENDING' },
+   177→    ],
+   178→  },
+   179→  {
+   180→    id: 'V006',
+   181→    userId: 'U6',
+   182→    userName: 'Nadia Bouazza',
+   183→    userEmail: 'nadia.bouazza@example.com',
+   184→    type: 'IDENTITY',
+   185→    level: 'BASIC',
+   186→    status: 'EXPIRED',
+   187→    submittedAt: new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString(),
+   188→    documents: [
+   189→      { id: 'D14', name: 'CIN (Expiré)', type: 'IMAGE', url: '#', status: 'PENDING' },
+   190→    ],
+   191→  },
+   192→];
+   193→
+   194→const statusConfig: Record<VerificationStatus, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; color: string; icon: React.ReactNode }> = {
+   195→  PENDING: { 
+   196→    label: 'En attente', 
+   197→    variant: 'outline', 
+   198→    color: 'text-yellow-700 bg-yellow-50 border-yellow-200',
+   199→    icon: <Clock className="h-3 w-3" />
+   200→  },
+   201→  UNDER_REVIEW: { 
+   202→    label: 'En cours', 
+   203→    variant: 'secondary', 
+   204→    color: 'text-blue-700 bg-blue-50 border-blue-200',
+   205→    icon: <Eye className="h-3 w-3" />
+   206→  },
+   207→  APPROVED: { 
+   208→    label: 'Approuvé', 
+   209→    variant: 'default', 
+   210→    color: 'bg-green-100 text-green-800 border-green-200',
+   211→    icon: <CheckCircle2 className="h-3 w-3" />
+   212→  },
+   213→  REJECTED: { 
+   214→    label: 'Rejeté', 
+   215→    variant: 'destructive', 
+   216→    color: '',
+   217→    icon: <XCircle className="h-3 w-3" />
+   218→  },
+   219→  EXPIRED: { 
+   220→    label: 'Expiré', 
+   221→    variant: 'secondary', 
+   222→    color: 'text-gray-700 bg-gray-100 border-gray-200',
+   223→    icon: <AlertTriangle className="h-3 w-3" />
+   224→  },
+   225→};
+   226→
+   227→const typeConfig: Record<VerificationType, { label: string; icon: React.ReactNode }> = {
+   228→  IDENTITY: { label: 'Identité', icon: <User className="h-4 w-4" /> },
+   229→  COMPANY: { label: 'Entreprise', icon: <Building2 className="h-4 w-4" /> },
+   230→  PROFESSIONAL: { label: 'Professionnel', icon: <Award className="h-4 w-4" /> },
+   231→  PREMIUM: { label: 'Premium', icon: <Star className="h-4 w-4" /> },
+   232→};
+   233→
+   234→export default function VerificationsManagementPage() {
+   235→  const [verifications, setVerifications] = useState<VerificationRequest[]>(sampleVerifications);
+   236→  const [activeTab, setActiveTab] = useState('all');
+   237→  const [searchQuery, setSearchQuery] = useState('');
+   238→  const [statusFilter, setStatusFilter] = useState<string>('ALL');
+   239→  const [typeFilter, setTypeFilter] = useState<string>('ALL');
+   240→  const [levelFilter, setLevelFilter] = useState<string>('ALL');
+   241→  
+   242→  // Detail dialog states
+   243→  const [detailDialogOpen, setDetailDialogOpen] = useState(false);
+   244→  const [selectedVerification, setSelectedVerification] = useState<VerificationRequest | null>(null);
+   245→  
+   246→  // Action dialog states
+   247→  const [actionDialogOpen, setActionDialogOpen] = useState(false);
+   248→  const [actionType, setActionType] = useState<'approve' | 'reject'>('approve');
+   249→  const [actionReason, setActionReason] = useState('');
+   250→  const [actionNotes, setActionNotes] = useState('');
+   251→  const [isLoading, setIsLoading] = useState(false);
+   252→
+   253→  // Filter verifications
+   254→  const filteredVerifications = useMemo(() => {
+   255→    let result = [...verifications];
+   256→    
+   257→    if (activeTab !== 'all') {
+   258→      result = result.filter(v => v.status === activeTab.toUpperCase());
+   259→    }
+   260→    
+   261→    if (statusFilter !== 'ALL') {
+   262→      result = result.filter(v => v.status === statusFilter);
+   263→    }
+   264→    
+   265→    if (typeFilter !== 'ALL') {
+   266→      result = result.filter(v => v.type === typeFilter);
+   267→    }
+   268→    
+   269→    if (levelFilter !== 'ALL') {
+   270→      result = result.filter(v => v.level === levelFilter);
+   271→    }
+   272→    
+   273→    if (searchQuery.trim()) {
+   274→      const query = searchQuery.toLowerCase();
+   275→      result = result.filter(v => 
+   276→        v.userName.toLowerCase().includes(query) ||
+   277→        v.userEmail.toLowerCase().includes(query) ||
+   278→        v.companyName?.toLowerCase().includes(query) ||
+   279→        v.id.toLowerCase().includes(query)
+   280→      );
+   281→    }
+   282→    
+   283→    // Sort: pending first, then by date
+   284→    result.sort((a, b) => {
+   285→      if (a.status === 'PENDING' && b.status !== 'PENDING') return -1;
+   286→      if (a.status !== 'PENDING' && b.status === 'PENDING') return 1;
+   287→      return new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime();
+   288→    });
+   289→    
+   290→    return result;
+   291→  }, [verifications, activeTab, searchQuery, statusFilter, typeFilter, levelFilter]);
+   292→
+   293→  // Stats
+   294→  const pendingCount = verifications.filter(v => v.status === 'PENDING').length;
+   295→  const approvedToday = verifications.filter(v => 
+   296→    v.status === 'APPROVED' && 
+   297→    v.reviewedAt && 
+   298→    new Date(v.reviewedAt).toDateString() === new Date().toDateString()
+   299→  ).length;
+   300→  const totalApproved = verifications.filter(v => v.status === 'APPROVED').length;
+   301→  const rejectionRate = verifications.length > 0 
+   302→    ? Math.round((verifications.filter(v => v.status === 'REJECTED').length / verifications.length) * 100) 
+   303→    : 0;
+   304→
+   305→  // Handlers
+   306→  const openDetailDialog = (verification: VerificationRequest) => {
+   307→    setSelectedVerification(verification);
+   308→    setDetailDialogOpen(true);
+   309→  };
+   310→
+   311→  const openActionDialog = (verification: VerificationRequest, action: 'approve' | 'reject') => {
+   312→    setSelectedVerification(verification);
+   313→    setActionType(action);
+   314→    setActionDialogOpen(true);
+   315→    setActionReason('');
+   316→    setActionNotes('');
+   317→  };
+   318→
+   319→  const handleAction = async () => {
+   320→    if (!selectedVerification) return;
+   321→    
+   322→    setIsLoading(true);
+   323→    await new Promise(resolve => setTimeout(resolve, 800));
+   324→    
+   325→    setVerifications(prev => prev.map(v => 
+   326→      v.id === selectedVerification.id 
+   327→        ? { 
+   328→            ...v, 
+   329→            status: actionType === 'approve' ? 'APPROVED' as const : 'REJECTED' as const,
+   330→            reviewedAt: new Date().toISOString(),
+   331→            reviewedBy: 'Admin Current',
+   332→            rejectionReason: actionType === 'reject' ? actionReason : undefined,
+   333→            notes: actionType === 'approve' ? actionNotes : undefined,
+   334→            badgeEarned: actionType === 'approve' ? getBadgeForType(v.type, v.level) : undefined,
+   335→          }
+   336→        : v
+   337→    ));
+   338→    
+   339→    setIsLoading(false);
+   340→    setActionDialogOpen(false);
+   341→    setDetailDialogOpen(false);
+   342→  };
+   343→
+   344→  const getBadgeForType = (type: VerificationType, level: VerificationLevel): string => {
+   345→    if (type === 'IDENTITY') return 'Identité Vérifiée';
+   346→    if (type === 'COMPANY' && level === 'ADVANCED') return 'Entreprise Certifiée Gold';
+   347→    if (type === 'COMPANY') return 'Entreprise Vérifiée';
+   348→    if (type === 'PROFESSIONNEL') return 'Pro Certifié';
+   349→    return 'Membre Premium';
+   350→  };
+   351→
+   352→  const formatDate = (dateString: string) => {
+   353→    return new Date(dateString).toLocaleDateString('fr-FR', {
+   354→      day: '2-digit',
+   355→      month: '2-digit',
+   356→      year: 'numeric',
+   357→      hour: '2-digit',
+   358→      minute: '2-digit'
+   359→    });
+   360→  };
+   361→
+   362→  const exportToCSV = () => {
+   363→    const headers = ['ID', 'Utilisateur', 'Email', 'Entreprise', 'Type', 'Niveau', 'Statut', 'Date soumission', 'Date revue'];
+   364→    const csvRows = filteredVerifications.map(v => [
+   365→      v.id,
+   366→      v.userName,
+   367→      v.userEmail,
+   368→      v.companyName || '',
+   369→      typeConfig[v.type].label,
+   370→      v.level,
+   371→      statusConfig[v.status].label,
+   372→      formatDate(v.submittedAt),
+   373→      v.reviewedAt ? formatDate(v.reviewedAt) : ''
+   374→    ]);
+   375→    
+   376→    const csvContent = [headers, ...csvRows]
+   377→      .map(row => row.map(cell => `"${cell}"`).join(','))
+   378→      .join('\n');
+   379→    
+   380→    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+   381→    const link = document.createElement('a');
+   382→    link.href = URL.createObjectURL(blob);
+   383→    link.download = `verifications_${new Date().toISOString().split('T')[0]}.csv`;
+   384→    link.click();
+   385→  };
+   386→
+   387→  return (
+   388→    <div className="space-y-6">
+   389→      {/* Header */}
+   390→      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+   391→        <div>
+   392→          <h1 className="text-2xl font-bold text-gray-900">Gestion des Vérifications</h1>
+   393→          <p className="text-gray-500 mt-1">Traitez les demandes de vérification et gérez les badges</p>
+   394→        </div>
+   395→        <div className="flex items-center gap-2">
+   396→          <Button variant="outline" size="sm" onClick={exportToCSV}>
+   397→            <Download className="mr-2 h-4 w-4" /> Exporter CSV
+   398→          </Button>
+   399→        </div>
+   400→      </div>
+   401→
+   402→      {/* Stats Cards */}
+   403→      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+   404→        <StatsCard
+   405→          title="En attente"
+   406→          value={pendingCount}
+   407→          description="Demandes à traiter"
+   408→          icon={Clock}
+   409→          iconClassName={pendingCount > 0 ? "bg-yellow-100 text-yellow-600 animate-pulse" : "bg-gray-100 text-gray-600"}
+   410→          trend={{ value: 12, isPositive: false }}
+   411→        />
+   412→        <StatsCard
+   413→          title="Approuvés aujourd'hui"
+   414→          value={approvedToday}
+   415→          description={`${totalApproved} total approuvés`}
+   416→          icon={CheckCircle2}
+   417→          iconClassName="bg-green-100 text-green-600"
+   418→        />
+   419→        <StatsCard
+   420→          title="Taux de rejet"
+   421→          value={`${rejectionRate}%`}
+   422→          description="Sur le dernier mois"
+   423→          icon={XCircle}
+   424→          iconClassName="bg-red-100 text-red-600"
+   425→          trend={{ value: rejectionRate > 15 ? 5 : -3, isPositive: rejectionRate <= 15 }}
+   426→        />
+   427→        <StatsCard
+   428→          title="Badges attribués"
+   429→          value={totalApproved}
+   430→          description="Ce mois-ci"
+   431→          icon={Award}
+   432→          iconClassName="bg-purple-100 text-purple-600"
+   433→        />
+   434→      </div>
+   435→
+   436→      {/* Filters */}
+   437→      <Card>
+   438→        <CardHeader className="pb-4">
+   439→          <CardTitle className="text-base flex items-center gap-2">
+   440→            <Filter className="h-4 w-4" />
+   441→            Filtres
+   442→          </CardTitle>
+   443→        </CardHeader>
+   444→        <CardContent>
+   445→          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+   446→            <div className="lg:col-span-2 relative">
+   447→              <Label htmlFor="search" className="sr-only">Rechercher</Label>
+   448→              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+   449→              <Input
+   450→                id="search"
+   451→                placeholder="Rechercher par nom, email ou ID..."
+   452→                value={searchQuery}
+   453→                onChange={(e) => setSearchQuery(e.target.value)}
+   454→                className="pl-10"
+   455→              />
+   456→            </div>
+   457→
+   458→            <div>
+   459→              <Label>Statut</Label>
+   460→              <Select value={statusFilter} onValueChange={setStatusFilter}>
+   461→                <SelectTrigger>
+   462→                  <SelectValue placeholder="Tous les statuts" />
+   463→                </SelectTrigger>
+   464→                <SelectContent>
+   465→                  <SelectItem value="ALL">Tous</SelectItem>
+   466→                  <SelectItem value="PENDING">En attente</SelectItem>
+   467→                  <SelectItem value="UNDER_REVIEW">En cours</SelectItem>
+   468→                  <SelectItem value="APPROVED">Approuvé</SelectItem>
+   469→                  <SelectItem value="REJECTED">Rejeté</SelectItem>
+   470→                  <SelectItem value="EXPIRED">Expiré</SelectItem>
+   471→                </SelectContent>
+   472→              </Select>
+   473→            </div>
+   474→
+   475→            <div>
+   476→              <Label>Type</Label>
+   477→              <Select value={typeFilter} onValueChange={setTypeFilter}>
+   478→                <SelectTrigger>
+   479→                  <SelectValue placeholder="Tous les types" />
+   480→                </SelectTrigger>
+   481→                <SelectContent>
+   482→                  <SelectItem value="ALL">Tous</SelectItem>
+   483→                  <SelectItem value="IDENTITY">Identité</SelectItem>
+   484→                  <SelectItem value="COMPANY">Entreprise</SelectItem>
+   485→                  <SelectItem value="PROFESSIONAL">Professionnel</SelectItem>
+   486→                  <SelectItem value="PREMIUM">Premium</SelectItem>
+   487→                </SelectContent>
+   488→              </Select>
+   489→            </div>
+   490→
+   491→            <div>
+   492→              <Label>Niveau</Label>
+   493→              <Select value={levelFilter} onValueChange={setLevelFilter}>
+   494→                <SelectTrigger>
+   495→                  <SelectValue placeholder="Tous les niveaux" />
+   496→                </SelectTrigger>
+   497→                <SelectContent>
+   498→                  <SelectItem value="ALL">Tous</SelectItem>
+   499→                  <SelectItem value="BASIC">Basic</SelectItem>
+   500→                  <SelectItem value="STANDARD">Standard</SelectItem>
+   501→                  <SelectItem value="ADVANCED">Avancé</SelectItem>
+   502→                </SelectContent>
+   503→              </Select>
+   504→            </div>
+   505→          </div>
+   506→        </CardContent>
+   507→      </Card>
+   508→
+   509→      {/* Tabs and Table */}
+   510→      <Tabs value={activeTab} onValueChange={setActiveTab}>
+   511→        <TabsList>
+   512→          <TabsTrigger value="all">Toutes ({verifications.length})</TabsTrigger>
+   513→          <TabsTrigger value="PENDING" className="gap-1">
+   514→            <Clock className="h-3.5 w-3.5 hidden sm:inline" /> En attente ({pendingCount})
+   515→          </TabsTrigger>
+   516→          <TabsTrigger value="APPROVED" className="gap-1">
+   517→            <CheckCircle2 className="h-3.5 w-3.5 hidden sm:inline" /> Approuvés
+   518→          </TabsTrigger>
+   519→          <TabsTrigger value="REJECTED" className="gap-1">
+   520→            <XCircle className="h-3.5 w-3.5 hidden sm:inline" /> Rejetés
+   521→          </TabsTrigger>
+   522→        </TabsList>
+   523→
+   524→        <TabsContent value={activeTab} className="mt-4">
+   525→          <Card>
+   526→            <CardContent className="p-0">
+   527→              {filteredVerifications.length > 0 ? (
+   528→                <div className="overflow-x-auto">
+   529→                  <Table>
+   530→                    <TableHeader>
+   531→                      <TableRow className="bg-gray-50 hover:bg-gray-50">
+   532→                        <TableHead>Demande</TableHead>
+   533→                        <TableHead className="hidden md:table-cell">Utilisateur</TableHead>
+   534→                        <TableHead>Type</TableHead>
+   535→                        <TableHead className="hidden lg:table-cell">Niveau</TableHead>
+   536→                        <TableHead>Statut</TableHead>
+   537→                        <TableHead className="hidden xl:table-cell">Documents</TableHead>
+   538→                        <TableHead>Date</TableHead>
+   539→                        <TableHead className="w-12">Actions</TableHead>
+   540→                      </TableRow>
+   541→                    </TableHeader>
+   542→                    <TableBody>
+   543→                      {filteredVerifications.map((verification) => {
+   544→                        const status = statusConfig[verification.status];
+   545→                        const type = typeConfig[verification.type];
+   546→                        
+   547→                        return (
+   548→                          <TableRow 
+   549→                            key={verification.id}
+   550→                            className={
+   551→                              verification.status === 'PENDING' 
+   552→                                ? 'bg-yellow-50/30 hover:bg-yellow-50/50' 
+   553→                                : ''
+   554→                            }
+   555→                          >
+   556→                            <TableCell>
+   557→                              <div className="font-medium">{verification.id}</div>
+   558→                              {verification.companyName && (
+   559→                                <div className="text-xs text-gray-500 truncate max-w-[150px]">
+   560→                                  {verification.companyName}
+   561→                                </div>
+   562→                              )}
+   563→                            </TableCell>
+   564→                            <TableCell className="hidden md:table-cell">
+   565→                              <div>
+   566→                                <div className="font-medium text-sm">{verification.userName}</div>
+   567→                                <div className="text-xs text-gray-500">{verification.userEmail}</div>
+   568→                              </div>
+   569→                            </TableCell>
+   570→                            <TableCell>
+   571→                              <div className="flex items-center gap-2">
+   572→                                {type.icon}
+   573→                                <span className="text-sm">{type.label}</span>
+   574→                              </div>
+   575→                            </TableCell>
+   576→                            <TableCell className="hidden lg:table-cell">
+   577→                              <Badge variant="outline" className="text-xs">
+   578→                                {verification.level}
+   579→                              </Badge>
+   580→                            </TableCell>
+   581→                            <TableCell>
+   582→                              <Badge 
+   583→                                variant={status.variant}
+   584→                                className={`gap-1 ${status.color}`}
+   585→                              >
+   586→                                {status.icon}
+   587→                                {status.label}
+   588→                              </Badge>
+   589→                            </TableCell>
+   590→                            <TableCell className="hidden xl:table-cell">
+   591→                              <div className="flex items-center gap-1 text-sm">
+   592→                                <FileText className="h-3.5 w-3.5 text-gray-400" />
+   593→                                {verification.documents.length} doc(s)
+   594→                                <span className="text-gray-400">
+   595→                                  ({verification.documents.filter(d => d.status === 'PENDING').length} en attente)
+   596→                                </span>
+   597→                              </div>
+   598→                            </TableCell>
+   599→                            <TableCell>
+   600→                              <span className="text-sm text-gray-600">
+   601→                                {formatDate(verification.submittedAt)}
+   602→                              </span>
+   603→                            </TableCell>
+   604→                            <TableCell>
+   605→                              <DropdownMenu>
+   606→                                <DropdownMenuTrigger asChild>
+   607→                                  <Button variant="ghost" size="icon" className="h-8 w-8">
+   608→                                    <MoreHorizontal className="h-4 w-4" />
+   609→                                    <span className="sr-only">Actions</span>
+   610→                                  </Button>
+   611→                                </DropdownMenuTrigger>
+   612→                                <DropdownMenuContent align="end" className="w-48">
+   613→                                  <DropdownMenuItem onClick={() => openDetailDialog(verification)}>
+   614→                                    <Eye className="mr-2 h-4 w-4" /> Voir détails
+   615→                                  </DropdownMenuItem>
+   616→                                  
+   617→                                  {(verification.status === 'PENDING' || verification.status === 'UNDER_REVIEW') && (
+   618→                                    <>
+   619→                                      <DropdownMenuSeparator />
+   620→                                      <DropdownMenuItem 
+   621→                                        onClick={() => openActionDialog(verification, 'approve')}
+   622→                                        className="text-green-600 focus:text-green-600"
+   623→                                      >
+   624→                                        <CheckCircle2 className="mr-2 h-4 w-4" /> Approuver
+   625→                                      </DropdownMenuItem>
+   626→                                      <DropdownMenuItem 
+   627→                                        onClick={() => openActionDialog(verification, 'reject')}
+   628→                                        className="text-red-600 focus:text-red-600"
+   629→                                      >
+   630→                                        <XCircle className="mr-2 h-4 w-4" /> Rejeter
+   631→                                      </DropdownMenuItem>
+   632→                                    </>
+   633→                                  )}
+   634→
+   635→                                  {verification.status === 'APPROVED' && verification.badgeEarned && (
+   636→                                    <>
+   637→                                      <DropdownMenuSeparator />
+   638→                                      <DropdownMenuItem>
+   639→                                        <Award className="mr-2 h-4 w-4" /> Gérer badge
+   640→                                      </DropdownMenuItem>
+   641→                                    </>
+   642→                                  )}
+   643→                                </DropdownMenuContent>
+   644→                              </DropdownMenu>
+   645→                            </TableCell>
+   646→                          </TableRow>
+   647→                        );
+   648→                      })}
+   649→                    </TableBody>
+   650→                  </Table>
+   651→                </div>
+   652→              ) : (
+   653→                <div className="py-12 text-center">
+   654→                  <ShieldCheck className="h-12 w-12 mx-auto text-gray-300 mb-4" />
+   655→                  <h3 className="font-medium text-gray-900 mb-1">Aucune demande trouvée</h3>
+   656→                  <p className="text-sm text-gray-500">Essayez de modifier vos filtres</p>
+   657→                </div>
+   658→              )}
+   659→            </CardContent>
+   660→          </Card>
+   661→        </TabsContent>
+   662→      </Tabs>
+   663→
+   664→      {/* Detail Dialog */}
+   665→      <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
+   666→        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+   667→          <DialogHeader>
+   668→            <DialogTitle className="flex items-center gap-2">
+   669→              <FileText className="h-5 w-5" />
+   670→              Détail de la demande {selectedVerification?.id}
+   671→            </DialogTitle>
+   672→            <DialogDescription>
+   673→              Consultez les documents soumis et prenez une décision
+   674→            </DialogDescription>
+   675→          </DialogHeader>
+   676→
+   677→          {selectedVerification && (
+   678→            <div className="space-y-6 py-4">
+   679→              {/* User Info */}
+   680→              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+   681→                <Card>
+   682→                  <CardContent className="pt-4">
+   683→                    <h4 className="text-sm font-medium text-gray-500 mb-3">Informations utilisateur</h4>
+   684→                    <div className="space-y-2">
+   685→                      <div className="flex items-center gap-3">
+   686→                        <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center">
+   687→                          <User className="h-5 w-5 text-orange-600" />
+   688→                        </div>
+   689→                        <div>
+   690→                          <p className="font-medium">{selectedVerification.userName}</p>
+   691→                          <p className="text-sm text-gray-500">{selectedVerification.userEmail}</p>
+   692→                        </div>
+   693→                      </div>
+   694→                      {selectedVerification.companyName && (
+   695→                        <div className="flex items-center gap-2 text-sm text-gray-600 mt-2">
+   696→                          <Building2 className="h-4 w-4" />
+   697→                          {selectedVerification.companyName}
+   698→                        </div>
+   699→                      )}
+   700→                    </div>
+   701→                  </CardContent>
+   702→                </Card>
+   703→
+   704→                <Card>
+   705→                  <CardContent className="pt-4">
+   706→                    <h4 className="text-sm font-medium text-gray-500 mb-3">Détails de la demande</h4>
+   707→                    <div className="space-y-2">
+   708→                      <div className="flex justify-between text-sm">
+   709→                        <span className="text-gray-500">Type:</span>
+   710→                        <div className="flex items-center gap-1">
+   711→                          {typeConfig[selectedVerification.type].icon}
+   712→                          {typeConfig[selectedVerification.type].label}
+   713→                        </div>
+   714→                      </div>
+   715→                      <div className="flex justify-between text-sm">
+   716→                        <span className="text-gray-500">Niveau:</span>
+   717→                        <Badge variant="outline">{selectedVerification.level}</Badge>
+   718→                      </div>
+   719→                      <div className="flex justify-between text-sm">
+   720→                        <span className="text-gray-500">Statut:</span>
+   721→                        <Badge 
+   722→                          variant={statusConfig[selectedVerification.status].variant}
+   723→                          className={statusConfig[selectedVerification.status].color}
+   724→                        >
+   725→                          {statusConfig[selectedVerification.status].label}
+   726→                        </Badge>
+   727→                      </div>
+   728→                      <div className="flex justify-between text-sm">
+   729→                        <span className="text-gray-500">Soumise le:</span>
+   730→                        <span>{formatDate(selectedVerification.submittedAt)}</span>
+   731→                      </div>
+   732→                      {selectedVerification.badgeEarned && (
+   733→                        <div className="flex justify-between text-sm">
+   734→                          <span className="text-gray-500">Badge:</span>
+   735→                          <Badge className="bg-purple-100 text-purple-800 border-purple-200">
+   736→                            <Award className="h-3 w-3 mr-1" />
+   737→                            {selectedVerification.badgeEarned}
+   738→                          </Badge>
+   739→                        </div>
+   740→                      )}
+   741→                    </div>
+   742→                  </CardContent>
+   743→                </Card>
+   744→              </div>
+   745→
+   746→              {/* Documents */}
+   747→              <Card>
+   748→                <CardHeader className="pb-3">
+   749→                  <CardTitle className="text-base flex items-center gap-2">
+   750→                    <ImageIcon className="h-4 w-4" />
+   751→                    Documents soumis ({selectedVerification.documents.length})
+   752→                  </CardTitle>
+   753→                </CardHeader>
+   754→                <CardContent>
+   755→                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+   756→                    {selectedVerification.documents.map((doc) => (
+   757→                      <div 
+   758→                        key={doc.id}
+   759→                        className="flex items-center gap-3 p-3 rounded-lg border bg-gray-50"
+   760→                      >
+   761→                        <div className={`p-2 rounded ${
+   762→                          doc.status === 'VERIFIED' ? 'bg-green-100 text-green-600' :
+   763→                          doc.status === 'REJECTED' ? 'bg-red-100 text-red-600' :
+   764→                          'bg-yellow-100 text-yellow-600'
+   765→                        }`}>
+   766→                          <FileText className="h-4 w-4" />
+   767→                        </div>
+   768→                        <div className="flex-1 min-w-0">
+   769→                          <p className="text-sm font-medium truncate">{doc.name}</p>
+   770→                          <p className="text-xs text-gray-500">{doc.type}</p>
+   771→                        </div>
+   772→                        <Badge 
+   773→                          variant={
+   774→                            doc.status === 'VERIFIED' ? 'default' :
+   775→                            doc.status === 'REJECTED' ? 'destructive' : 'outline'
+   776→                          }
+   777→                          className="text-xs"
+   778→                        >
+   779→                          {doc.status === 'VERIFIED' ? 'Vérifié' : 
+   780→                           doc.status === 'REJECTED' ? 'Rejeté' : 'En attente'}
+   781→                        </Badge>
+   782→                      </div>
+   783→                    ))}
+   784→                  </div>
+   785→                </CardContent>
+   786→              </Card>
+   787→
+   788→              {/* Actions */}
+   789→              {(selectedVerification.status === 'PENDING' || selectedVerification.status === 'UNDER_REVIEW') && (
+   790→                <div className="flex flex-col sm:flex-row gap-3 justify-end pt-4 border-t">
+   791→                  <Button
+   792→                    variant="destructive"
+   793→                    onClick={() => {
+   794→                      setDetailDialogOpen(false);
+   795→                      openActionDialog(selectedVerification, 'reject');
+   796→                    }}
+   797→                  >
+   798→                    <XCircle className="mr-2 h-4 w-4" /> Rejeter
+   799→                  </Button>
+   800→                  <Button
+   801→                    className="bg-green-600 hover:bg-green-700"
+   802→                    onClick={() => {
+   803→                      setDetailDialogOpen(false);
+   804→                      openActionDialog(selectedVerification, 'approve');
+   805→                    }}
+   806→                  >
+   807→                    <CheckCircle2 className="mr-2 h-4 w-4" /> Approuver
+   808→                  </Button>
+   809→                </div>
+   810→              )}
+   811→            </div>
+   812→          )}
+   813→        </DialogContent>
+   814→      </Dialog>
+   815→
+   816→      {/* Action Dialog */}
+   817→      <Dialog open={actionDialogOpen} onOpenChange={setActionDialogOpen}>
+   818→        <DialogContent className="max-w-lg">
+   819→          <DialogHeader>
+   820→            <DialogTitle className="flex items-center gap-2">
+   821→              {actionType === 'approve' ? (
+   822→                <CheckCircle2 className="h-5 w-5 text-green-600" />
+   823→              ) : (
+   824→                <XCircle className="h-5 w-5 text-red-600" />
+   825→              )}
+   826→              {actionType === 'approve' ? 'Approuver la vérification' : 'Rejeter la vérification'}
+   827→            </DialogTitle>
+   828→            <DialogDescription>
+   829→              {actionType === 'approve' 
+   830→                ? `Confirmez l'approbation pour ${selectedVerification?.userName}`
+   831→                : `Indiquez le motif du rejet pour ${selectedVerification?.userName}`
+   832→              }
+   833→            </DialogDescription>
+   834→          </DialogHeader>
+   835→
+   836→          <div className="space-y-4 py-4">
+   837→            {actionType === 'approve' ? (
+   838→              <div className="space-y-3">
+   839→                <Label htmlFor="notes">Notes d'approbation (optionnel)</Label>
+   840→                <Textarea
+   841→                  id="notes"
+   842→                  placeholder="Ajoutez des notes sur cette approbation..."
+   843→                  value={actionNotes}
+   844→                  onChange={(e) => setActionNotes(e.target.value)}
+   845→                  rows={3}
+   846→                />
+   847→                <div className="p-3 bg-green-50 rounded-lg">
+   848→                  <p className="text-sm text-green-800">
+   849→                    <strong>Badge qui sera attribué:</strong> {getBadgeForType(
+   850→                      selectedVerification?.type || 'IDENTITY', 
+   851→                      selectedVerification?.level || 'BASIC'
+   852→                    )}
+   853→                  </p>
+   854→                </div>
+   855→              </div>
+   856→            ) : (
+   857→              <div className="space-y-3">
+   858→                <Label htmlFor="reason">Motif du rejet *</Label>
+   859→                <Textarea
+   860→                  id="reason"
+   861→                  placeholder="Expliquez pourquoi cette demande est rejetée..."
+   862→                  value={actionReason}
+   863→                  onChange={(e) => setActionReason(e.target.value)}
+   864→                  rows={3}
+   865→                  required
+   866→                />
+   867→              </div>
+   868→            )}
+   869→          </div>
+   870→
+   871→          <DialogFooter className="flex gap-2">
+   872→            <Button
+   873→              variant="outline"
+   874→              onClick={() => setActionDialogOpen(false)}
+   875→              disabled={isLoading}
+   876→            >
+   877→              Annuler
+   878→            </Button>
+   879→            <Button
+   880→              variant={actionType === 'reject' ? 'destructive' : 'default'}
+   881→              className={actionType === 'approve' ? 'bg-green-600 hover:bg-green-700' : ''}
+   882→              onClick={handleAction}
+   883→              disabled={isLoading || (actionType === 'reject' && !actionReason.trim())}
+   884→            >
+   885→              {isLoading ? 'Traitement...' : actionType === 'approve' ? 'Confirmer' : 'Confirmer le rejet'}
+   886→            </Button>
+   887→          </DialogFooter>
+   888→        </DialogContent>
+   889→      </Dialog>
+   890→    </div>
+   891→  );
+   892→}
+   893→

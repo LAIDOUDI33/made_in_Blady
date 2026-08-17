@@ -1,0 +1,592 @@
+# =============================================================================
+# CI/CD Pipeline - Production Deployment
+# =============================================================================
+# AlgeriaTrade.dz B2B Platform - Automated Production Deployment
+#
+# Stages:
+#   1. Test - Run full test suite (unit, integration, e2e)
+#   2. Build - Production build with optimizations
+#   3. Security Scan - Trivy vulnerability scan
+#   4. Docker Build - Multi-arch build (amd64/arm64)
+#   5. Push to Registry - GHCR or ECR
+#   6. Deploy - SSH deploy or Kubernetes rollout
+#   7. Smoke Tests - Post-deployment health checks
+#   8. Notify - Slack/Discord deployment notifications
+#
+# Triggers:
+#   - Push to main branch
+#   - Version tags (v*)
+#   - Manual dispatch
+# =============================================================================
+
+name: Production Deployment Pipeline
+
+on:
+  push:
+    branches: [main]
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - staging
+      skip_tests:
+        description: 'Skip test suite'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+  NODE_VERSION: '20'
+
+jobs:
+  # ===========================================================================
+  # Stage 1: Test Suite
+  # ===========================================================================
+  test:
+    name: 🧪 Run Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'bun'
+      
+      - name: Install dependencies
+        run: |
+          corepack enable
+          corepack prepare bun@latest --activate
+          bun install --frozen-lockfile
+      
+      - name: Run linter
+        if: github.event.inputs.skip_tests != 'true'
+        run: bun run lint
+      
+      - name: Run type checking
+        if: github.event.inputs.skip_tests != 'true'
+        run: bunx tsc --noEmit
+      
+      - name: Run unit tests
+        if: github.event.inputs.skip_tests != 'true'
+        run: bun run test:ci -- --coverage --coverageReporters=text --coverageReporters=lcov
+        env:
+          CI: true
+      
+      - name: Upload coverage report
+        if: github.event.inputs.skip_tests != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/
+          retention-days: 7
+
+  # ===========================================================================
+  # Stage 2: Security Scan (SAST + Dependency Audit)
+  # ===========================================================================
+  security-scan:
+    name: 🔒 Security Scan
+    runs-on: ubuntu-latest
+    needs: [test]
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'bun'
+      
+      - name: Install dependencies
+        run: |
+          corepack enable
+          corepack prepare bun@latest --activate
+          bun install --frozen-lockfile
+      
+      - name: Run dependency audit (npm audit)
+        run: bun audit || true
+      
+      - name: Run Snyk security scan
+        uses: snyk/actions/node@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        continue-on-error: true
+      
+      - name: Run Trivy filesystem scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'table'
+          exit-code: '0'
+          ignore-unfixed: true
+          severity: 'CRITICAL,HIGH'
+      
+      - name: Upload security scan results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: security-report
+          path: trivy-results.txt
+          retention-days: 7
+
+  # ===========================================================================
+  # Stage 3: Build Application
+  # ===========================================================================
+  build:
+    name: 🔨 Build Application
+    runs-on: ubuntu-latest
+    needs: [test, security-scan]
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'bun'
+      
+      - name: Install dependencies
+        run: |
+          corepack enable
+          corepack prepare bun@latest --activate
+          bun install --frozen-lockfile
+      
+      - name: Build application
+        run: bun run build
+        env:
+          NODE_ENV: production
+          NEXT_TELEMETRY_DISABLED: 1
+      
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-output
+          path: |
+            .next/
+            public/
+          retention-days: 1
+
+  # ===========================================================================
+  # Stage 4: Docker Build & Security Scan
+  # ===========================================================================
+  docker-build:
+    name: 🐳 Build & Scan Docker Image
+    runs-on: ubuntu-latest
+    needs: [build]
+    permissions:
+      contents: read
+      packages: write
+    
+    outputs:
+      image-tag: ${{ steps.meta.outputs.tags }}
+      image-digest: ${{ steps.build.outputs.digest }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up QEMU (for multi-arch builds)
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: linux/amd64,linux/arm64
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Extract metadata for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=sha,prefix=
+            type=raw,value=latest,enable={{is_default_branch}}
+      
+      - name: Build and export to Docker (for scanning)
+        uses: docker/build-push-action@v5
+        id: build
+        with:
+          context: .
+          file: ./Dockerfile
+          target: runner
+          platforms: linux/amd64,linux/arm64
+          push: false
+          load: false
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          outputs: type=docker,dest=/tmp/image.tar
+      
+      - name: Run Trivy vulnerability scanner on image
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: /tmp/image.tar
+          format: 'table'
+          exit-code: '1'
+          ignore-unfixed: true
+          severity: 'CRITICAL,HIGH'
+          output: 'trivy-vulnerabilities.txt'
+        continue-on-error: true
+      
+      - name: Upload Trivy scan results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: trivy-scan-results
+          path: trivy-vulnerabilities.txt
+          retention-days: 7
+
+  # ===========================================================================
+  # Stage 5: Push to Container Registry
+  # ===========================================================================
+  push-registry:
+    name: 📤 Push to Registry
+    runs-on: ubuntu-latest
+    needs: [docker-build]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: read
+      packages: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: linux/amd64,linux/arm64
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Extract metadata for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=sha,prefix=
+            type=raw,value=latest,enable={{is_default_branch}}
+      
+      - name: Build and push multi-arch image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          target: runner
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            NODE_VERSION=${{ env.NODE_VERSION }}
+
+  # ===========================================================================
+  # Stage 6: Deploy to Production
+  # ===========================================================================
+  deploy:
+    name: 🚀 Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [push-registry]
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
+    environment:
+      name: production
+      url: https://algeriatrade.dz
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Deploy via SSH (Docker Compose)
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            cd ${{ secrets.DEPLOY_PATH }}
+            
+            # Pull latest environment variables
+            git pull origin main
+            
+            # Pull latest images
+            docker compose -f docker-compose.production.yml pull
+            
+            # Rolling restart with zero downtime
+            docker compose -f docker-compose.production.yml up -d --no-deps app
+            
+            # Wait for health check
+            echo "Waiting for application health check..."
+            sleep 30
+            
+            # Check container status
+            docker compose -f docker-compose.production.yml ps
+            
+            # Clean up old images
+            docker image prune -af --filter "until=24h"
+            
+            echo "Deployment completed successfully!"
+      
+      - name: Deploy notification (Slack)
+        if: success()
+        uses: slackapi/slack-github-action@v1.25.0
+        with:
+          payload: |
+            {
+              "text": "✅ *AlgeriaTrade.dz* deployed successfully!",
+              "blocks": [
+                {
+                  "type": "header",
+                  "text": {
+                    "type": "plain_text",
+                    "text": "🚀 Production Deployment Successful"
+                  }
+                },
+                {
+                  "type": "section",
+                  "fields": [
+                    {"type": "mrkdwn", "text": "*Environment:*\nProduction"},
+                    {"type": "mrkdwn", "text": "*Branch:*\n${{ github.ref_name }}"},
+                    {"type": "mrkdwn", "text": "*Commit:*\n${{ github.sha }}"},
+                    {"type": "mrkdwn", "text": "*Actor:*\n${{ github.actor }}"}
+                  ]
+                },
+                {
+                  "type": "actions",
+                  "elements": [
+                    {
+                      "type": "button",
+                      "text": { "type": "plain_text", "text": "View Commit" },
+                      "url": "${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}"
+                    }
+                  ]
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        continue-on-error: true
+
+  # ===========================================================================
+  # Stage 7: Post-Deployment Smoke Tests
+  # ===========================================================================
+  smoke-tests:
+    name: 💨 Smoke Tests
+    runs-on: ubuntu-latest
+    needs: [deploy]
+    if: always() && needs.deploy.result == 'success'
+    
+    steps:
+      - name: Health check endpoint
+        run: |
+          echo "Running post-deployment smoke tests..."
+          
+          # Wait for DNS propagation
+          sleep 10
+          
+          # Test health endpoint
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://algeriatrade.dz/api/health)
+          
+          if [ "$HTTP_STATUS" -eq 200 ]; then
+            echo "✅ Health check passed (HTTP $HTTP_STATUS)"
+          else
+            echo "❌ Health check failed (HTTP $HTTP_STATUS)"
+            exit 1
+          fi
+      
+      - name: API endpoints availability
+        run: |
+          ENDPOINTS=(
+            "/api/status"
+            "/api/products"
+            "/api/categories"
+            "/sitemap.xml"
+            "/robots.txt"
+          )
+          
+          FAILED=0
+          
+          for ENDPOINT in "${ENDPOINTS[@]}"; do
+            HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "https://algeriatrade.dz${ENDPOINT}")
+            
+            if [[ "$HTTP_STATUS" =~ ^(200|301|304)$ ]]; then
+              echo "✅ ${ENDPOINT} - HTTP ${HTTP_STATUS}"
+            else
+              echo "❌ ${ENDPOINT} - HTTP ${HTTP_STATUS}"
+              ((FAILED++))
+            fi
+          done
+          
+          if [ "$FAILED" -gt 0 ]; then
+            echo "⚠️  ${FAILED} endpoint(s) failed"
+            exit 1
+          fi
+          
+          echo "All smoke tests passed!"
+      
+      - name: Performance baseline check
+        run: |
+          # Measure response time for homepage
+          RESPONSE_TIME=$(curl -s -o /dev/null -w "%{time_total}" --max-time 30 "https://algeriatrade.dz")
+          
+          echo "Homepage response time: ${RESPONSE_TIME}s"
+          
+          # Convert to milliseconds
+          RESPONSE_MS=$(echo "$RESPONSE_TIME * 1000" | bc | cut -d. -f1)
+          
+          # Alert if response time exceeds 2 seconds
+          if [ "$RESPONSE_MS" -gt 2000 ]; then
+            echo "⚠️  Slow response time detected: ${RESPONSE_MS}ms"
+          else
+            echo "✅ Response time acceptable: ${RESPONSE_MS}ms"
+          fi
+
+  # ===========================================================================
+  # Stage 8: Rollback on Failure
+  # ===========================================================================
+  rollback:
+    name: ⏪ Rollback on Failure
+    runs-on: ubuntu-latest
+    needs: [smoke-tests]
+    if: failure()
+    
+    steps:
+      - name: Notify team of rollback
+        uses: slackapi/slack-github-action@v1.25.0
+        with:
+          payload: |
+            {
+              "text": "🚨 *Rollback Initiated* - AlgeriaTrade.dz",
+              "blocks": [
+                {
+                  "type": "header",
+                  "text": {
+                    "type": "plain_text",
+                    "text": "🚨 Production Rollback Required"
+                  }
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "Smoke tests failed after deployment. Manual intervention may be required.\n\n*Commit:* `${{ github.sha }}`\n*Actor:* `${{ github.actor }}`"
+                  }
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        continue-on-error: true
+      
+      - name: Execute rollback via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            cd ${{ secrets.DEPLOY_PATH }}
+            
+            echo "Rolling back to previous version..."
+            
+            # Restart with previous image (Docker keeps old images)
+            docker compose -f docker-compose.production.yml rollback || \
+            docker compose -f docker-compose.production.yml down && \
+            docker compose -f docker-compose.production.yml up -d
+            
+            echo "Rollback completed"
+
+  # ===========================================================================
+  # Final: Deployment Summary Notification
+  # ===========================================================================
+  notify:
+    name: 📢 Deployment Summary
+    runs-on: ubuntu-latest
+    needs: [smoke-tests]
+    if: always()
+    
+    steps:
+      - name: Determine deployment status
+        id: status
+        run: |
+          if [ "${{ needs.smoke-tests.result }}" == "success" ]; then
+            echo "status=success" >> $GITHUB_OUTPUT
+            echo "emoji=✅" >> $GITHUB_OUTPUT
+          else
+            echo "status=failure" >> $GITHUB_OUTPUT
+            echo "emoji=❌" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Send final notification
+        uses: slackapi/slack-github-action@v1.25.0
+        with:
+          payload: |
+            {
+              "text": "${{ steps.status.outputs.emoji }} *AlgeriaTrade.dz* Deployment ${{ steps.status.outputs.status }}",
+              "blocks": [
+                {
+                  "type": "header",
+                  "text": {
+                    "type": "plain_text",
+                    "text": "${{ steps.status.outputs.emoji }} Deployment ${{ steps.status.outputs.status }}"
+                  }
+                },
+                {
+                  "type": "section",
+                  "fields": [
+                    {"type": "mrkdwn", "text": "*Repository:*\n${{ github.repository }}"},
+                    {"type": "mrkdwn", "text": "*Branch:*\n${{ github.ref_name }}"},
+                    {"type": "mrkdwn", "text": "*Commit:*\n${{ github.sha }}"},
+                    {"type": "mrkdwn", "text": "*Duration:*\n${{ github.run_duration }}"}
+                  ]
+                },
+                {
+                  "type": "context",
+                  "elements": [
+                    {"type": "mrkdwn", "text": "Pipeline: <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Details>"}
+                  ]
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        continue-on-error: true

@@ -1,6 +1,7 @@
 // Offline Storage Service - AlgeriaTrade Mobile
 // Service de stockage hors ligne pour l'application mobile
 
+import React from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NetInfo } from '@react-native-community/netinfo';
 
@@ -15,10 +16,18 @@ const STORAGE_KEYS = {
   RECENT_SEARCHES: '@algeriatrade_recent_searches',
   CART_ITEMS: '@algeriatrade_cart_items',
   OFFLINE_PRODUCTS: '@algeriatrade_offline_products',
-  UNsyncED_ACTIONS: '@algeriatrade_unsynced_actions',
+  UNSYNCED_ACTIONS: '@algeriatrade_unsynced_actions',
   SETTINGS: '@algeriatrade_settings',
   NOTIFICATION_PREFS: '@algeriatrade_notification_prefs',
   LAST_SYNC: '@algeriatrade_last_sync',
+  
+  // Phase 6 Cache Keys
+  EXHIBITION_CACHE: '@algeriatrade_exhibition_cache',
+  SHIPPING_RATES_CACHE: '@algeriatrade_shipping_rates_cache',
+  VERIFICATION_DOCS: '@algeriatrade_verification_docs',
+  VIDEO_THUMBNAILS: '@algeriatrade_video_thumbnails',
+  INSPECTION_RESULTS: '@algeriatrade_inspection_results',
+  ESCROW_DATA: '@algeriatrade_escrow_data',
 };
 
 /**
@@ -350,6 +359,173 @@ export class OfflineStorageService {
   }
 
   // ============================================
+  // PHASE 6: CACHE STRATEGIES
+  // ============================================
+
+  /**
+   * Generic cache entry with TTL support
+   * Entrée de cache générique avec support TTL
+   */
+  private async setCacheEntry<T>(
+    key: string, 
+    data: T, 
+    ttlMs: number = 24 * 60 * 60 * 1000 // Default 24 hours
+  ): Promise<void> {
+    const entry = {
+      data,
+      cachedAt: Date.now(),
+      expiresAt: Date.now() + ttlMs,
+    };
+    await AsyncStorage.setItem(key, JSON.stringify(entry));
+  }
+
+  private async getCacheEntry<T>(key: string): Promise<{ data: T; isStale: boolean } | null> {
+    const raw = await AsyncStorage.getItem(key);
+    if (!raw) return null;
+    
+    try {
+      const entry = JSON.parse(raw);
+      const isStale = Date.now() > entry.expiresAt;
+      return { data: entry.data as T, isStale };
+    } catch {
+      return null;
+    }
+  }
+
+  // ============================================
+  // EXHIBITION CACHE (Stale-While-Revalidate)
+  // ============================================
+
+  /**
+   * Cache exhibition data with stale-while-revalidate strategy
+   * Cache les données d'exposition avec stratégie stale-while-revalidate
+   */
+  async cacheExhibitions(exhibitions: any[]): Promise<void> {
+    await this.setCacheEntry(STORAGE_KEYS.EXHIBITION_CACHE, exhibitions, 30 * 60 * 1000); // 30 min TTL
+  }
+
+  async getCachedExhibitions(): Promise<{ data: any[]; isStale: boolean } | null> {
+    return this.getCacheEntry<any[]>(STORAGE_KEYS.EXHIBITION_CACHE);
+  }
+
+  // ============================================
+  // SHIPPING RATES CACHE (Cache-First, 24h TTL)
+  // ============================================
+
+  /**
+   * Cache shipping rates with 24-hour TTL
+   * Cache les tarifs d'expédition avec TTL de 24 heures
+   */
+  async cacheShippingRates(params: string, rates: any[]): Promise<void> {
+    const cacheKey = `${SHIPPING_RATES_CACHE_KEY_PREFIX}${params}`;
+    await this.setCacheEntry(cacheKey, rates, 24 * 60 * 60 * 1000); // 24 hour TTL
+  }
+
+  async getCachedShippingRates(params: string): Promise<any[] | null> {
+    const cacheKey = `${SHIPPING_RATES_CACHE_KEY_PREFIX}${params}`;
+    const result = await this.getCacheEntry<any[]>(cacheKey);
+    return result?.data ?? null;
+  }
+
+  async clearShippingRatesCache(): Promise<void> {
+    const keys = await AsyncStorage.getAllKeys();
+    const shippingKeys = keys.filter(k => k.startsWith(SHIPPING_RATES_CACHE_KEY_PREFIX));
+    if (shippingKeys.length > 0) {
+      await AsyncStorage.multiRemove(shippingKeys);
+    }
+  }
+
+  // ============================================
+  // VERIFICATION DOCUMENTS (Cache-Only After Upload)
+  // ============================================
+
+  /**
+   * Store verification documents locally after upload
+   * Stocker les documents de vérification localement après téléchargement
+   */
+  async saveVerificationDocuments(docs: VerificationDocument[]): Promise<void> {
+    await AsyncStorage.setItem(STORAGE_KEYS.VERIFICATION_DOCS, JSON.stringify({
+      documents: docs,
+      savedAt: new Date().toISOString(),
+    }));
+  }
+
+  async getVerificationDocuments(): Promise<VerificationDocument[]> {
+    const raw = await AsyncStorage.getItem(STORAGE_KEYS.VERIFICATION_DOCS);
+    if (!raw) return [];
+    
+    try {
+      const parsed = JSON.parse(raw);
+      return parsed.documents || [];
+    } catch {
+      return [];
+    }
+  }
+
+  async addVerificationDocument(doc: VerificationDocument): Promise<void> {
+    const existing = await this.getVerificationDocuments();
+    existing.push(doc);
+    await this.saveVerificationDocuments(existing);
+  }
+
+  // ============================================
+  // VIDEO THUMBNAILS CACHE (Cache-First)
+  // ============================================
+
+  /**
+   * Cache video thumbnails for offline viewing
+   * Cache les miniatures vidéo pour visualisation hors ligne
+   */
+  async cacheVideoThumbnail(videoId: string, thumbnailUri: string): Promise<void> {
+    const cacheKey = `${VIDEO_THUMBNAIL_CACHE_KEY_PREFIX}${videoId}`;
+    await this.setCacheEntry(cacheKey, { uri: thumbnailUri }, 7 * 24 * 60 * 60 * 1000); // 7 days
+  }
+
+  async getCachedVideoThumbnail(videoId: string): Promise<string | null> {
+    const cacheKey = `${VIDEO_THUMBNAIL_CACHE_KEY_PREFIX}${videoId}`;
+    const result = await this.getCacheEntry<{ uri: string }>(cacheKey);
+    return result?.data?.uri ?? null;
+  }
+
+  async clearVideoThumbnailCache(): Promise<void> {
+    const keys = await AsyncStorage.getAllKeys();
+    const videoKeys = keys.filter(k => k.startsWith(VIDEO_THUMBNAIL_CACHE_KEY_PREFIX));
+    if (videoKeys.length > 0) {
+      await AsyncStorage.multiRemove(videoKeys);
+    }
+  }
+
+  // ============================================
+  // INSPECTION RESULTS CACHE
+  // ============================================
+
+  async cacheInspectionResults(bookingId: string, results: any): Promise<void> {
+    const cacheKey = `${INSPECTION_RESULTS_CACHE_KEY_PREFIX}${bookingId}`;
+    await this.setCacheEntry(cacheKey, results); // Default 24h TTL
+  }
+
+  async getCachedInspectionResults(bookingId: string): Promise<any | null> {
+    const cacheKey = `${INSPECTION_RESULTS_CACHE_KEY_PREFIX}${bookingId}`;
+    const result = await this.getCacheEntry<any>(cacheKey);
+    return result?.data ?? null;
+  }
+
+  // ============================================
+  // ESCROW DATA CACHE
+  // ============================================
+
+  async cacheEscrowData(escrowId: string, data: any): Promise<void> {
+    const cacheKey = `${ESCROW_DATA_CACHE_KEY_PREFIX}${escrowId}`;
+    await this.setCacheEntry(cacheKey, data, 60 * 60 * 1000); // 1 hour TTL for real-time data
+  }
+
+  async getCachedEscrowData(escrowId: string): Promise<any | null> {
+    const cacheKey = `${ESCROW_DATA_CACHE_KEY_PREFIX}${escrowId}`;
+    const result = await this.getCacheEntry<any>(cacheKey);
+    return result?.data ?? null;
+  }
+
+  // ============================================
   // UTILITIES
   // ============================================
 
@@ -413,8 +589,51 @@ interface NotificationPrefs {
   promotions: boolean;
 }
 
+// Phase 6 Types
+interface VerificationDocument {
+  id: string;
+  type: string;
+  name: string;
+  uri: string;
+  uploadedAt: string;
+  verificationId?: string;
+}
+
+// Cache Key Prefixes (Phase 6)
+const SHIPPING_RATES_CACHE_KEY_PREFIX = '@algeriatrade_shipping_rates_';
+const VIDEO_THUMBNAIL_CACHE_KEY_PREFIX = '@algeriatrade_video_thumb_';
+const INSPECTION_RESULTS_CACHE_KEY_PREFIX = '@algeriatrade_inspection_';
+const ESCROW_DATA_CACHE_KEY_PREFIX = '@algeriatrade_escrow_';
+
 // Export singleton instance
 export const offlineStorage = OfflineStorageService.getInstance();
+
+// Export service with hook for React components
+export const offlineService = offlineStorage;
+
+/**
+ * Hook for using offline status in React components
+ * Hook pour utiliser l'état hors ligne dans les composants React
+ */
+export function useOfflineStatus() {
+  const [isOnline, setIsOnline] = React.useState(true);
+
+  React.useEffect(() => {
+    // Set up network listener
+    const unsubscribe = NetInfo.addEventListener(state => {
+      setIsOnline(state.isConnected ?? false);
+    });
+
+    // Get initial state
+    NetInfo.fetch().then(state => {
+      setIsOnline(state.isConnected ?? false);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  return { isOnline, isOffline: !isOnline };
+}
 
 // Helper functions for internal use
 async function getFavorites() {

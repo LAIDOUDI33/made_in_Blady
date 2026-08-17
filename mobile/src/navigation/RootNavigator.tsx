@@ -18,6 +18,13 @@ import BuyerDashboard from '../screens/dashboard/BuyerDashboard';
 import SellerDashboard from '../screens/dashboard/SellerDashboard';
 import ProfileScreen from '../screens/profile/ProfileScreen';
 
+// Phase 6 Screens
+import VerificationScreen from '../screens/profile/VerificationScreen';
+import EscrowDetailScreen from '../screens/orders/EscrowDetailScreen';
+import InspectionBookingScreen from '../screens/products/InspectionBookingScreen';
+import ExhibitionScreen from '../screens/events/ExhibitionScreen';
+import ShipmentTrackerScreen from '../screens/orders/ShipmentTrackerScreen';
+
 // Components
 import SearchBar from '../components/SearchBar';
 
@@ -53,6 +60,21 @@ export type RootStackParamList = {
   // Profile
   Profile: undefined;
   Settings: undefined;
+  
+  // Phase 6: Verification
+  Verification: undefined;
+  
+  // Phase 6: Escrow & Orders
+  EscrowDetail: { orderId: string; escrowId?: string };
+  
+  // Phase 6: Inspection
+  InspectionBooking: { productId: string };
+  
+  // Phase 6: Events & Exhibitions
+  Exhibition: { exhibitionId: string };
+  
+  // Phase 6: Shipping
+  ShipmentTracker: { shipmentId: string; trackingNumber?: string };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -278,6 +300,39 @@ export default function RootNavigator({
           name="Profile"
           component={ProfileScreen}
           options={{ title: 'Mon profil' }}
+        />
+        <Stack.Screen
+          name="Verification"
+          component={VerificationScreen}
+          options={{ title: 'Vérification du compte' }}
+        />
+
+        {/* Phase 6: Escrow Screen */}
+        <Stack.Screen
+          name="EscrowDetail"
+          component={EscrowDetailScreen}
+          options={{ title: 'Trade Assurance (Escrow)' }}
+        />
+
+        {/* Phase 6: Inspection Booking */}
+        <Stack.Screen
+          name="InspectionBooking"
+          component={InspectionBookingScreen}
+          options={{ title: 'Réserver une inspection' }}
+        />
+
+        {/* Phase 6: Exhibition */}
+        <Stack.Screen
+          name="Exhibition"
+          component={ExhibitionScreen}
+          options={{ title: 'Exposition B2B' }}
+        />
+
+        {/* Phase 6: Shipment Tracker */}
+        <Stack.Screen
+          name="ShipmentTracker"
+          component={ShipmentTrackerScreen}
+          options={{ title: 'Suivi de livraison' }}
         />
       </Stack.Navigator>
     </NavigationContainer>
