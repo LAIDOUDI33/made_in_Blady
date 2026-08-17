@@ -1,0 +1,1421 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -0.29722,
+          27.88056
+        ]
+      },
+      "properties": {
+        "code": 1,
+        "name_arabic": "أدرار",
+        "name_french": "Adrar",
+        "capital": "Adrar",
+        "area_km2": 42739,
+        "population": 197000,
+        "districts": 6,
+        "communes": 16,
+        "region": "Sahara",
+        "region_group": "Sahara Region",
+        "established": "1974",
+        "density_per_km2": 4.61
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          1.3333,
+          36.1667
+        ]
+      },
+      "properties": {
+        "code": 2,
+        "name_arabic": "الشلف",
+        "name_french": "Chlef",
+        "capital": "Chlef",
+        "area_km2": 4791,
+        "population": 1356151,
+        "districts": 13,
+        "communes": 35,
+        "region": "North (Coastal)",
+        "region_group": "Northern Region",
+        "established": "1968",
+        "density_per_km2": 283.06
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          2.87,
+          33.45
+        ]
+      },
+      "properties": {
+        "code": 3,
+        "name_arabic": "الأغواط",
+        "name_french": "Laghouat",
+        "capital": "Laghouat",
+        "area_km2": 25057,
+        "population": 479200,
+        "districts": 10,
+        "communes": 24,
+        "region": "Highlands (Steppe)",
+        "region_group": "Highlands Region",
+        "established": "1957",
+        "density_per_km2": 19.12
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          7.12,
+          35.68
+        ]
+      },
+      "properties": {
+        "code": 4,
+        "name_arabic": "أم البواقي",
+        "name_french": "Oum El Bouaghi",
+        "capital": "Oum El Bouaghi",
+        "area_km2": 6094,
+        "population": 558500,
+        "districts": 12,
+        "communes": 29,
+        "region": "Highlands (Aurès)",
+        "region_group": "Highlands Region",
+        "established": "1974",
+        "density_per_km2": 91.65
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          6.17,
+          35.55
+        ]
+      },
+      "properties": {
+        "code": 5,
+        "name_arabic": "باتنة",
+        "name_french": "Batna",
+        "capital": "Batna",
+        "area_km2": 12192,
+        "population": 1128030,
+        "districts": 21,
+        "communes": 61,
+        "region": "Highlands (Aurès)",
+        "region_group": "Highlands Region",
+        "established": "1968",
+        "density_per_km2": 92.52
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          5.067,
+          36.75
+        ]
+      },
+      "properties": {
+        "code": 6,
+        "name_arabic": "بجاية",
+        "name_french": "Béjaïa",
+        "capital": "Béjaïa",
+        "area_km2": 3268,
+        "population": 984050,
+        "districts": 19,
+        "communes": 52,
+        "region": "North (Kabylie)",
+        "region_group": "Northern Region",
+        "established": "1974",
+        "density_per_km2": 301.12
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          5.75,
+          34.867
+        ]
+      },
+      "properties": {
+        "code": 7,
+        "name_arabic": "بسكرة",
+        "name_french": "Biskra",
+        "capital": "Biskra",
+        "area_km2": 9576,
+        "population": 869215,
+        "districts": 11,
+        "communes": 27,
+        "region": "Sahara Edge (Ziban)",
+        "region_group": "Sahara Region",
+        "established": "1957",
+        "density_per_km2": 90.77
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -2.23,
+          31.63
+        ]
+      },
+      "properties": {
+        "code": 8,
+        "name_arabic": "بشار",
+        "name_french": "Béchar",
+        "capital": "Béchar",
+        "area_km2": 50400,
+        "population": 315600,
+        "districts": 13,
+        "communes": 31,
+        "region": "Southwest (Saoura/Sahara)",
+        "region_group": "Sahara Region",
+        "established": "1974",
+        "density_per_km2": 6.26
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          2.83,
+          36.48
+        ]
+      },
+      "properties": {
+        "code": 9,
+        "name_arabic": "البليدة",
+        "name_french": "Blida",
+        "capital": "Blida",
+        "area_km2": 1696,
+        "population": 1009000,
+        "districts": 10,
+        "communes": 25,
+        "region": "North (Mitidja)",
+        "region_group": "Northern Region",
+        "established": "1968",
+        "density_per_km2": 594.93
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          3.9,
+          36.38
+        ]
+      },
+      "properties": {
+        "code": 10,
+        "name_arabic": "البويرة",
+        "name_french": "Bouira",
+        "capital": "Bouira",
+        "area_km2": 4435,
+        "population": 704462,
+        "districts": 12,
+        "communes": 45,
+        "region": "Highlands (Kabylie border)",
+        "region_group": "Northern Region",
+        "established": "1974",
+        "density_per_km2": 158.84
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          5.52,
+          22.78
+        ]
+      },
+      "properties": {
+        "code": 11,
+        "name_arabic": "تمنراست",
+        "name_french": "Tamanrasset",
+        "capital": "Tamanrasset",
+        "area_km2": 228419,
+        "population": 191800,
+        "districts": 6,
+        "communes": 23,
+        "region": "Deep Sahara (Hoggar)",
+        "region_group": "Sahara Region",
+        "established": "1957",
+        "density_per_km2": 0.84
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          8.08,
+          35.41
+        ]
+      },
+      "properties": {
+        "code": 12,
+        "name_arabic": "تبسة",
+        "name_french": "Tébessa",
+        "capital": "Tébessa",
+        "area_km2": 13878,
+        "population": 697100,
+        "districts": 12,
+        "communes": 28,
+        "region": "Southeast (Highlands/Tunisian border)",
+        "region_group": "Highlands Region",
+        "established": "1968",
+        "density_per_km2": 50.23
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -1.32,
+          34.88
+        ]
+      },
+      "properties": {
+        "code": 13,
+        "name_arabic": "تلمسان",
+        "name_french": "Tlemcen",
+        "capital": "Tlemcen",
+        "area_km2": 9061,
+        "population": 945525,
+        "districts": 20,
+        "communes": 54,
+        "region": "North (Coastal)",
+        "region_group": "Northern Region",
+        "established": "1968",
+        "density_per_km2": 104.35
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          1.32,
+          35.37
+        ]
+      },
+      "properties": {
+        "code": 14,
+        "name_arabic": "تيارت",
+        "name_french": "Tiaret",
+        "capital": "Tiaret",
+        "area_km2": 20673,
+        "population": 842063,
+        "districts": 14,
+        "communes": 42,
+        "region": "Highlands",
+        "region_group": "Highlands Region",
+        "established": "1968",
+        "density_per_km2": 40.73
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          4.06,
+          36.72
+        ]
+      },
+      "properties": {
+        "code": 15,
+        "name_arabic": "تيزي وزو",
+        "name_french": "Tizi Ouzou",
+        "capital": "Tizi Ouzou",
+        "area_km2": 2993,
+        "population": 1119646,
+        "districts": 21,
+        "communes": 67,
+        "region": "North (Kabylie)",
+        "region_group": "Northern Region",
+        "established": "1968",
+        "density_per_km2": 374.09
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          3.05,
+          36.75
+        ]
+      },
+      "properties": {
+        "code": 16,
+        "name_arabic": "الجزائر",
+        "name_french": "Algiers",
+        "capital": "Algiers",
+        "area_km2": 1190,
+        "population": 7796923,
+        "districts": 13,
+        "communes": 57,
+        "region": "North (Coastal/Capital)",
+        "region_group": "Northern Region",
+        "established": "1968",
+        "density_per_km2": 6552.04
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          3.38,
+          34.67
+        ]
+      },
+      "properties": {
+        "code": 17,
+        "name_arabic": "الجلفة",
+        "name_french": "Djelfa",
+        "capital": "Djelfa",
+        "area_km2": 66415,
+        "population": 1223223,
+        "districts": 12,
+        "communes": 36,
+        "region": "Highlands (Steppe)",
+        "region_group": "Highlands Region",
+        "established": "1974",
+        "density_per_km2": 18.42
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          5.76,
+          36.8
+        ]
+      },
+      "properties": {
+        "code": 18,
+        "name_arabic": "جيجل",
+        "name_french": "Jijel",
+        "capital": "Jijel",
+        "area_km2": 2577,
+        "population": 634412,
+        "districts": 11,
+        "communes": 28,
+        "region": "North (Coastal)",
+        "region_group": "Northern Region",
+        "established": "1974",
+        "density_per_km2": 246.18
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          5.41,
+          36.19
+        ]
+      },
+      "properties": {
+        "code": 19,
+        "name_arabic": "سطيف",
+        "name_french": "Sétif",
+        "capital": "Sétif",
+        "area_km2": 6504,
+        "population": 1496150,
+        "districts": 20,
+        "communes": 60,
+        "region": "Highlands (East)",
+        "region_group": "Highlands Region",
+        "established": "1968",
+        "density_per_km2": 230.04
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.15,
+          34.83
+        ]
+      },
+      "properties": {
+        "code": 20,
+        "name_arabic": "سعيدة",
+        "name_french": "Saïda",
+        "capital": "Saïda",
+        "area_km2": 6764,
+        "population": 328685,
+        "districts": 6,
+        "communes": 16,
+        "region": "Highlands",
+        "region_group": "Highlands Region",
+        "established": "1968",
+        "density_per_km2": 48.59
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          6.91,
+          36.87
+        ]
+      },
+      "properties": {
+        "code": 21,
+        "name_arabic": "سكيكدة",
+        "name_french": "Skikda",
+        "capital": "Skikda",
+        "area_km2": 4026,
+        "population": 1109355,
+        "districts": 13,
+        "communes": 38,
+        "region": "North (Coastal)",
+        "region_group": "Northern Region",
+        "established": "1974",
+        "density_per_km2": 275.55
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -0.6,
+          34.85
+        ]
+      },
+      "properties": {
+        "code": 22,
+        "name_arabic": "سيدي بلعباس",
+        "name_french": "Sidi Bel Abbès",
+        "capital": "Sidi Bel Abbès",
+        "area_km2": 9151,
+        "population": 603369,
+        "districts": 15,
+        "communes": 52,
+        "region": "North (Inland)",
+        "region_group": "Northern Region",
+        "established": "1968",
+        "density_per_km2": 65.93
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          7.77,
+          36.93
+        ]
+      },
+      "properties": {
+        "code": 23,
+        "name_arabic": "عنابة",
+        "name_french": "Annaba",
+        "capital": "Annaba",
+        "area_km2": 1439,
+        "population": 640050,
+        "districts": 6,
+        "communes": 12,
+        "region": "North (Coastal)",
+        "region_group": "Northern Region",
+        "established": "1968",
+        "density_per_km2": 444.79
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          7.43,
+          36.46
+        ]
+      },
+      "properties": {
+        "code": 24,
+        "name_arabic": "قالمة",
+        "name_french": "Guelma",
+        "capital": "Guelma",
+        "area_km2": 4101,
+        "population": 482261,
+        "districts": 10,
+        "communes": 34,
+        "region": "North East",
+        "region_group": "Northern Region",
+        "established": "1974",
+        "density_per_km2": 117.6
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          6.62,
+          36.37
+        ]
+      },
+      "properties": {
+        "code": 25,
+        "name_arabic": "قسنطينة",
+        "name_french": "Constantine",
+        "capital": "Constantine",
+        "area_km2": 2187,
+        "population": 1012643,
+        "districts": 6,
+        "communes": 12,
+        "region": "Highlands (East)",
+        "region_group": "Highlands Region",
+        "established": "1968",
+        "density_per_km2": 463.03
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          2.75,
+          36.27
+        ]
+      },
+      "properties": {
+        "code": 26,
+        "name_arabic": "المدية",
+        "name_french": "Médéa",
+        "capital": "Médéa",
+        "area_km2": 8866,
+        "population": 830943,
+        "districts": 19,
+        "communes": 64,
+        "region": "Highlands (Tell Atlas)",
+        "region_group": "Highlands Region",
+        "established": "1968",
+        "density_per_km2": 93.72
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.083,
+          35.933
+        ]
+      },
+      "properties": {
+        "code": 27,
+        "name_arabic": "مستغانم",
+        "name_french": "Mostaganem",
+        "capital": "Mostaganem",
+        "area_km2": 2269,
+        "population": 746947,
+        "districts": 10,
+        "communes": 32,
+        "region": "North (Coastal)",
+        "region_group": "Northern Region",
+        "established": "1984",
+        "density_per_km2": 329.2
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          4.53,
+          35.71
+        ]
+      },
+      "properties": {
+        "code": 28,
+        "name_arabic": "المسيلة",
+        "name_french": "M'Sila",
+        "capital": "M'Sila",
+        "area_km2": 18718,
+        "population": 991846,
+        "districts": 15,
+        "communes": 47,
+        "region": "Highlands",
+        "region_group": "Highlands Region",
+        "established": "1984",
+        "density_per_km2": 52.99
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.15,
+          35.4
+        ]
+      },
+      "properties": {
+        "code": 29,
+        "name_arabic": "معسكر",
+        "name_french": "Mascara",
+        "capital": "Mascara",
+        "area_km2": 5941,
+        "population": 784073,
+        "districts": 16,
+        "communes": 43,
+        "region": "North Inland",
+        "region_group": "Northern Region",
+        "established": "1984",
+        "density_per_km2": 131.98
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          5.32,
+          33.81
+        ]
+      },
+      "properties": {
+        "code": 30,
+        "name_arabic": "ورقلة",
+        "name_french": "Ouargla",
+        "capital": "Ouargla",
+        "area_km2": 211980,
+        "population": 558558,
+        "districts": 10,
+        "communes": 21,
+        "region": "Sahara",
+        "region_group": "Sahara Region",
+        "established": "1974",
+        "density_per_km2": 2.63
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -0.63,
+          35.69
+        ]
+      },
+      "properties": {
+        "code": 31,
+        "name_arabic": "وهران",
+        "name_french": "Oran",
+        "capital": "Oran",
+        "area_km2": 2121,
+        "population": 1584607,
+        "districts": 9,
+        "communes": 26,
+        "region": "North (Coastal)",
+        "region_group": "Northern Region",
+        "established": "1968",
+        "density_per_km2": 747.1
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.97,
+          33.68
+        ]
+      },
+      "properties": {
+        "code": 32,
+        "name_arabic": "البيض",
+        "name_french": "El Bayadh",
+        "capital": "El Bayadh",
+        "area_km2": 78870,
+        "population": 262187,
+        "districts": 8,
+        "communes": 22,
+        "region": "Highlands/Sahara fringe",
+        "region_group": "Highlands Region",
+        "established": "1984",
+        "density_per_km2": 3.32
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          8.28,
+          32.54
+        ]
+      },
+      "properties": {
+        "code": 33,
+        "name_arabic": "إيليزي",
+        "name_french": "Illizi",
+        "capital": "Illizi",
+        "area_km2": 284618,
+        "population": 54490,
+        "districts": 3,
+        "communes": 6,
+        "region": "Sahara (Southeast)",
+        "region_group": "Sahara Region",
+        "established": "1984",
+        "density_per_km2": 0.19
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          4.75,
+          36.07
+        ]
+      },
+      "properties": {
+        "code": 34,
+        "name_arabic": "برج بوعريريج",
+        "name_french": "Bordj Bou Arréridj",
+        "capital": "Bordj Bou Arréridj",
+        "area_km2": 4115,
+        "population": 634396,
+        "districts": 10,
+        "communes": 34,
+        "region": "North Inland",
+        "region_group": "Northern Region",
+        "established": "1984",
+        "density_per_km2": 154.17
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          3.47,
+          36.77
+        ]
+      },
+      "properties": {
+        "code": 35,
+        "name_arabic": "بومرداس",
+        "name_french": "Boumerdès",
+        "capital": "Boumerdès",
+        "area_km2": 1591,
+        "population": 802083,
+        "districts": 9,
+        "communes": 32,
+        "region": "North (Coastal)",
+        "region_group": "Northern Region",
+        "established": "1984",
+        "density_per_km2": 504.14
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          8.13,
+          36.75
+        ]
+      },
+      "properties": {
+        "code": 36,
+        "name_arabic": "الطارف",
+        "name_french": "El Tarf",
+        "capital": "El Tarf",
+        "area_km2": 3339,
+        "population": 411783,
+        "districts": 7,
+        "communes": 24,
+        "region": "North East (Coastal)",
+        "region_group": "Northern Region",
+        "established": "1984",
+        "density_per_km2": 123.33
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -8.13,
+          27.67
+        ]
+      },
+      "properties": {
+        "code": 37,
+        "name_arabic": "تندوف",
+        "name_french": "Tindouf",
+        "capital": "Tindouf",
+        "area_km2": 159000,
+        "population": 49149,
+        "districts": 1,
+        "communes": 2,
+        "region": "Sahara (Southwest)",
+        "region_group": "Sahara Region",
+        "established": "1974",
+        "density_per_km2": 0.31
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          1.82,
+          35.61
+        ]
+      },
+      "properties": {
+        "code": 38,
+        "name_arabic": "تيسمسيلت",
+        "name_french": "Tissemsilt",
+        "capital": "Tissemsilt",
+        "area_km2": 3152,
+        "population": 296366,
+        "districts": 8,
+        "communes": 22,
+        "region": "North Inland",
+        "region_group": "Northern Region",
+        "established": "1984",
+        "density_per_km2": 94.02
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          6.87,
+          33.51
+        ]
+      },
+      "properties": {
+        "code": 39,
+        "name_arabic": "الوادي",
+        "name_french": "El Oued",
+        "capital": "El Oued",
+        "area_km2": 54573,
+        "population": 673934,
+        "districts": 12,
+        "communes": 30,
+        "region": "Sahara (Northeast)",
+        "region_group": "Northern Region",
+        "established": "1984",
+        "density_per_km2": 12.35
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          7.15,
+          35.43
+        ]
+      },
+      "properties": {
+        "code": 40,
+        "name_arabic": "خنشلة",
+        "name_french": "Khenchela",
+        "capital": "Khenchela",
+        "area_km2": 9811,
+        "population": 386683,
+        "districts": 8,
+        "communes": 21,
+        "region": "Aurès Mountains",
+        "region_group": "Highlands Region",
+        "established": "1984",
+        "density_per_km2": 39.41
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          7.96,
+          36.29
+        ]
+      },
+      "properties": {
+        "code": 41,
+        "name_arabic": "سوق أهراس",
+        "name_french": "Souk Ahras",
+        "capital": "Souk Ahras",
+        "area_km2": 4541,
+        "population": 440299,
+        "districts": 10,
+        "communes": 26,
+        "region": "North East (Aurès)",
+        "region_group": "Northern Region",
+        "established": "1984",
+        "density_per_km2": 96.96
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          2.53,
+          36.59
+        ]
+      },
+      "properties": {
+        "code": 42,
+        "name_arabic": "تيبازة",
+        "name_french": "Tipaza",
+        "capital": "Tipaza",
+        "area_km2": 2166,
+        "population": 617661,
+        "districts": 10,
+        "communes": 28,
+        "region": "North (Coastal)",
+        "region_group": "Northern Region",
+        "established": "1984",
+        "density_per_km2": 285.16
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          6.27,
+          36.45
+        ]
+      },
+      "properties": {
+        "code": 43,
+        "name_arabic": "ميلة",
+        "name_french": "Mila",
+        "capital": "Mila",
+        "area_km2": 9375,
+        "population": 768419,
+        "districts": 13,
+        "communes": 34,
+        "region": "North East",
+        "region_group": "Northern Region",
+        "established": "1984",
+        "density_per_km2": 81.96
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          2.23,
+          36.26
+        ]
+      },
+      "properties": {
+        "code": 44,
+        "name_arabic": "عين الدفلى",
+        "name_french": "Aïn Defla",
+        "capital": "Khemis Miliana",
+        "area_km2": 4897,
+        "population": 771890,
+        "districts": 8,
+        "communes": 36,
+        "region": "North",
+        "region_group": "Northern Region",
+        "established": "1984",
+        "density_per_km2": 157.63
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -0.31,
+          33.27
+        ]
+      },
+      "properties": {
+        "code": 45,
+        "name_arabic": "النعامة",
+        "name_french": "Naâma",
+        "capital": "Naâma",
+        "area_km2": 29950,
+        "population": 209470,
+        "districts": 7,
+        "communes": 12,
+        "region": "Highlands (Western)",
+        "region_group": "Highlands Region",
+        "established": "1984",
+        "density_per_km2": 6.99
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -1.13,
+          35.31
+        ]
+      },
+      "properties": {
+        "code": 46,
+        "name_arabic": "عين تموشنت",
+        "name_french": "Aïn Témouchent",
+        "capital": "Aïn Témouchent",
+        "area_km2": 2377,
+        "population": 432353,
+        "districts": 8,
+        "communes": 28,
+        "region": "North West",
+        "region_group": "Northern Region",
+        "established": "1984",
+        "density_per_km2": 181.89
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          3.67,
+          32.49
+        ]
+      },
+      "properties": {
+        "code": 47,
+        "name_arabic": "غرداية",
+        "name_french": "Ghardaïa",
+        "capital": "Ghardaïa",
+        "area_km2": 21224,
+        "population": 391671,
+        "districts": 9,
+        "communes": 13,
+        "region": "Sahara (M'Zab Valley)",
+        "region_group": "Sahara Region",
+        "established": "1984",
+        "density_per_km2": 18.45
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.33,
+          35.94
+        ]
+      },
+      "properties": {
+        "code": 48,
+        "name_arabic": "ريزان",
+        "name_french": "Relizane",
+        "capital": "Relizane",
+        "area_km2": 4870,
+        "population": 733060,
+        "districts": 7,
+        "communes": 38,
+        "region": "North West",
+        "region_group": "Northern Region",
+        "established": "1984",
+        "density_per_km2": 150.53
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          6.66,
+          33.41
+        ]
+      },
+      "properties": {
+        "code": 49,
+        "name_arabic": "المغير",
+        "name_french": "El M'Ghair",
+        "capital": "El M'Ghair",
+        "area_km2": 8835,
+        "population": 162267,
+        "districts": 6,
+        "communes": 12,
+        "region": "Sahara",
+        "region_group": "Sahara Region",
+        "established": "2019",
+        "density_per_km2": 18.37
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          2.87,
+          30.57
+        ]
+      },
+      "properties": {
+        "code": 50,
+        "name_arabic": "المنيعة",
+        "name_french": "El Meniaa",
+        "capital": "El Meniaa",
+        "area_km2": 62215,
+        "population": 57276,
+        "districts": 4,
+        "communes": 8,
+        "region": "Sahara",
+        "region_group": "Sahara Region",
+        "established": "2019",
+        "density_per_km2": 0.92
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          5.91,
+          35.81
+        ]
+      },
+      "properties": {
+        "code": 51,
+        "name_arabic": "أولاد جلال",
+        "name_french": "Ouled Djellal",
+        "capital": "Ouled Djellal",
+        "area_km2": 11410,
+        "population": 174219,
+        "districts": 6,
+        "communes": 12,
+        "region": "Sahara (Highlands fringe)",
+        "region_group": "Highlands Region",
+        "established": "2019",
+        "density_per_km2": 15.27
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -0.95,
+          21.94
+        ]
+      },
+      "properties": {
+        "code": 52,
+        "name_arabic": "برج باجي مختار",
+        "name_french": "Bordj Badji Mokhtar",
+        "capital": "Bordj Badji Mokhtar",
+        "area_km2": 120026,
+        "population": 16437,
+        "districts": 2,
+        "communes": 4,
+        "region": "Sahara (Deep South)",
+        "region_group": "Sahara Region",
+        "established": "2019",
+        "density_per_km2": 0.14
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -2.17,
+          30.13
+        ]
+      },
+      "properties": {
+        "code": 53,
+        "name_arabic": "بني عباس",
+        "name_french": "Béni Abbès",
+        "capital": "Béni Abbès",
+        "area_km2": 101350,
+        "population": 50163,
+        "districts": 6,
+        "communes": 10,
+        "region": "Sahara (Saoura)",
+        "region_group": "Sahara Region",
+        "established": "2019",
+        "density_per_km2": 0.49
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.23,
+          29.29
+        ]
+      },
+      "properties": {
+        "code": 54,
+        "name_arabic": "تيميمون",
+        "name_french": "Timimoun",
+        "capital": "Timimoun",
+        "area_km2": 65203,
+        "population": 122019,
+        "districts": 4,
+        "communes": 10,
+        "region": "Sahara (Gourara)",
+        "region_group": "Sahara Region",
+        "established": "2019",
+        "density_per_km2": 1.87
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          6.07,
+          33.11
+        ]
+      },
+      "properties": {
+        "code": 55,
+        "name_arabic": "تقرت",
+        "name_french": "Touggourt",
+        "capital": "Touggourt",
+        "area_km2": 17428,
+        "population": 247221,
+        "districts": 4,
+        "communes": 11,
+        "region": "Sahara (Oued Righ)",
+        "region_group": "Sahara Region",
+        "established": "2019",
+        "density_per_km2": 14.19
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.48,
+          24.55
+        ]
+      },
+      "properties": {
+        "code": 56,
+        "name_arabic": "جانت",
+        "name_french": "Djanet",
+        "capital": "Djanet",
+        "area_km2": 86185,
+        "population": 17618,
+        "districts": 2,
+        "communes": 3,
+        "region": "Sahara (Tassili)",
+        "region_group": "Sahara Region",
+        "established": "2019",
+        "density_per_km2": 0.2
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          2.47,
+          27.25
+        ]
+      },
+      "properties": {
+        "code": 57,
+        "name_arabic": "عين صالح",
+        "name_french": "In Salah",
+        "capital": "In Salah",
+        "area_km2": 131220,
+        "population": 50392,
+        "districts": 2,
+        "communes": 3,
+        "region": "Sahara (Tidikelt)",
+        "region_group": "Sahara Region",
+        "established": "2019",
+        "density_per_km2": 0.38
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          5.74,
+          23.51
+        ]
+      },
+      "properties": {
+        "code": 58,
+        "name_arabic": "عين قزّام",
+        "name_french": "In Guezzam",
+        "capital": "In Guezzam",
+        "area_km2": 88126,
+        "population": 11202,
+        "districts": 2,
+        "communes": 2,
+        "region": "Sahara (Far South)",
+        "region_group": "Sahara Region",
+        "established": "2019",
+        "density_per_km2": 0.13
+      }
+    }
+  ],
+  "metadata": {
+    "title": "Algeria's 58 Wilayas - Capital Cities",
+    "description": "GeoJSON point dataset of Algerian provincial capitals with administrative data",
+    "generated_at": "2026-08-17T18:24:51.411313",
+    "crs": {
+      "type": "name",
+      "properties": {
+        "name": "urn:ogc:def:crs:OGC:1.3:CRS84"
+      }
+    },
+    "total_features": 58,
+    "bounds": {
+      "min_lng": -8.13,
+      "min_lat": 21.94,
+      "max_lng": 9.48,
+      "max_lat": 36.93
+    },
+    "usage_notes": [
+      "Each point represents a wilaya capital city",
+      "Coordinates are in WGS84 (EPSG:4326)",
+      "Suitable for Leaflet, Mapbox, QGIS, ArcGIS",
+      "Population figures from latest available census"
+    ]
+  }
+}
