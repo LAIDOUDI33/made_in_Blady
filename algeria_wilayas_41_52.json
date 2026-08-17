@@ -1,0 +1,384 @@
+[
+  {
+    "code": 41,
+    "name_arabic": "ولاية سوق أهراس",
+    "name_french": "Souk Ahras",
+    "capital": "Souk Ahras",
+    "area_km2": 4541,
+    "population": 440299,
+    "population_year": 2008,
+    "districts": 10,
+    "communes": 26,
+    "coordinates": {
+      "lat": 36.383,
+      "lng": 8.0
+    },
+    "region": "North East (Aures)",
+    "economy": [
+      "Agriculture",
+      "Livestock breeding",
+      "Cereal cultivation",
+      "Textile industry",
+      "Paper production",
+      "Dairy production",
+      "Trade and commerce"
+    ],
+    "landmarks": [
+      "Ancient ruins of Thagaste (birthplace of Saint Augustine)",
+      "National Park of Souk Ahras",
+      "Cork oak forests (12,000 hectares)",
+      "Zeen oak forests (4,600 hectares)",
+      "Border with Tunisia"
+    ],
+    "established": "1984",
+    "notes": "Created from Guelma Province in 1984. Stands on the border between Algeria and Tunisia."
+  },
+  {
+    "code": 42,
+    "name_arabic": "ولاية تيبازة",
+    "name_french": "Tipaza",
+    "capital": "Tipaza",
+    "area_km2": 2166,
+    "population": 617661,
+    "population_year": 2008,
+    "districts": 10,
+    "communes": 28,
+    "coordinates": {
+      "lat": 36.583,
+      "lng": 2.433
+    },
+    "region": "North (Algérois coast)",
+    "economy": [
+      "Tourism",
+      "Fishing",
+      "Agriculture",
+      "Coastal trade",
+      "Services sector"
+    ],
+    "landmarks": [
+      "Tipaza Roman Ruins (UNESCO World Heritage Site)",
+      "Royal Mausoleum of Mauretania",
+      "Cherchell (ancient Roman capital)",
+      "Gouraya National Park",
+      "Mediterranean coastline (70 km west of Algiers)"
+    ],
+    "established": "1984",
+    "notes": "Created from Blida Province in 1984. Located on Algeria's Mediterranean coast, 50 km west of Algiers. Population estimated at 706,054 in 2019."
+  },
+  {
+    "code": 43,
+    "name_arabic": "ولاية ميلة",
+    "name_french": "Mila",
+    "capital": "Mila",
+    "area_km2": 9375,
+    "population": 768419,
+    "population_year": 2008,
+    "districts": 13,
+    "communes": 32,
+    "coordinates": {
+      "lat": 36.45,
+      "lng": 6.267
+    },
+    "region": "North East",
+    "economy": [
+      "Agriculture",
+      "Cereal production",
+      "Livestock",
+      "Food processing",
+      "Light manufacturing"
+    ],
+    "landmarks": [
+      "Ancient Roman ruins of Milevum",
+      "Telerghma town",
+      "Grarem Gouga",
+      "Hamala region"
+    ],
+    "established": "1984",
+    "notes": "Created from parts of Constantine, Jijel, Oum el Bouaghi, and Sétif provinces in 1984."
+  },
+  {
+    "code": 44,
+    "name_arabic": "ولاية عين الدفلى",
+    "name_french": "Aïn Defla",
+    "capital": "Aïn Defla",
+    "area_km2": 4897,
+    "population": 771890,
+    "population_year": 2008,
+    "districts": 14,
+    "communes": 36,
+    "coordinates": {
+      "lat": 36.317,
+      "lng": 2.167
+    },
+    "region": "North",
+    "economy": [
+      "Agriculture",
+      "Cereal crops",
+      "Orchards (citrus, olives)",
+      "Livestock",
+      "Food industry"
+    ],
+    "landmarks": [
+      "Miliana town (historic Ottoman architecture)",
+      "El Attaf region",
+      "Djendel area",
+      "Oued Chelif river valley"
+    ],
+    "established": "1984",
+    "notes": "Created from Chlef Province in 1984. Located southwest of Algiers."
+  },
+  {
+    "code": 45,
+    "name_arabic": "ولاية النعامة",
+    "name_french": "Naâma",
+    "capital": "Naâma",
+    "area_km2": 29950,
+    "population": 209470,
+    "population_year": 2008,
+    "districts": 7,
+    "communes": 12,
+    "coordinates": {
+      "lat": 33.267,
+      "lng": -0.317
+    },
+    "region": "Highlands (Western)",
+    "economy": [
+      "Agriculture (oasis farming)",
+      "Livestock (sheep, goats)",
+      "Trade",
+      "Transportation hub",
+      "Salt production"
+    ],
+    "landmarks": [
+      "Aïn Séfra (the 'Pearl of the South')",
+      "Mécheria airport",
+      "Sabkha (salt flat) regions",
+      "Asla oasis",
+      "Border with Morocco"
+    ],
+    "established": "1984",
+    "notes": "Created from Saïda Province in 1984. Dominated by large sabkha (salt flat). Has an airport at Mécheria."
+  },
+  {
+    "code": 46,
+    "name_arabic": "ولاية عين تموشنت",
+    "name_french": "Aïn Témouchent",
+    "capital": "Aïn Témouchent",
+    "area_km2": 2376.89,
+    "population": 432353,
+    "population_year": 2019,
+    "districts": 8,
+    "communes": 28,
+    "coordinates": {
+      "lat": 35.3,
+      "lng": -1.133
+    },
+    "region": "North West",
+    "economy": [
+      "Agriculture",
+      "Fishing",
+      "Tourism (coastal resorts)",
+      "Food processing",
+      "Services"
+    ],
+    "landmarks": [
+      "Mediterranean coastline",
+      "Béni Saf port",
+      "Hammam Bou Hadjar (spa town)",
+      "Terga beach",
+      "Sidi Ben Adda coastal area"
+    ],
+    "established": "1984",
+    "notes": "Created from Sidi Bel Abbès Province in 1984. Located 520 km west of Algiers with maritime coastline. Population density approximately 182/km²."
+  },
+  {
+    "code": 47,
+    "name_arabic": "ولاية غرداية",
+    "name_french": "Ghardaïa",
+    "capital": "Ghardaïa",
+    "area_km2": 21224.03,
+    "population": 391671,
+    "population_year": 2020,
+    "districts": 7,
+    "communes": 9,
+    "coordinates": {
+      "lat": 32.483,
+      "lng": 3.667
+    },
+    "region": "Sahara (Northern Sahara)",
+    "economy": [
+      "Date palm cultivation (Mzab Valley)",
+      "Traditional handicrafts",
+      "Trade and commerce",
+      "Tourism (UNESCO site)",
+      "Pastoralism"
+    ],
+    "landmarks": [
+      "M'Zab Valley (UNESCO World Heritage Site)",
+      "Pentapolis of Mzab (5 traditional cities)",
+      "Ghardaïa Airport (Moufdi Zakaria)",
+      "Berrianne oasis",
+      "Metlili palm groves"
+    ],
+    "established": "1984",
+    "notes": "Carved out of Laghouat Province in 1984. Capital located 600 km south of Algiers. Home to the Mozabite Berber people (Ibadi Muslims). The Mzab Valley is a UNESCO World Heritage Site founded c. 1100 AD."
+  },
+  {
+    "code": 48,
+    "name_arabic": "ولاية غليزان",
+    "name_french": "Relizane",
+    "capital": "Relizane",
+    "area_km2": 4870,
+    "population": 733060,
+    "population_year": 2008,
+    "districts": 13,
+    "communes": 38,
+    "coordinates": {
+      "lat": 35.733,
+      "lng": 0.55
+    },
+    "region": "North West",
+    "economy": [
+      "Agriculture",
+      "Cereals and vegetables",
+      "Livestock",
+      "Food processing",
+      "Light industry"
+    ],
+    "landmarks": [
+      "Relizane city center (French colonial architecture)",
+      "Mazouna historic town",
+      "Oued Rhiou valley",
+      "Zemmoura region",
+      "Autoroute Est-Ouest (East-West Highway)"
+    ],
+    "established": "1984",
+    "notes": "Created from Mostaganem Province in 1984. Site of tragic events during the Algerian Civil War (1997-1998)."
+  },
+  {
+    "code": 49,
+    "name_arabic": "ولاية المغير",
+    "name_french": "El M'Ghair",
+    "capital": "El M'Ghair",
+    "area_km2": 8835,
+    "population": 162267,
+    "population_year": 2008,
+    "districts": 2,
+    "communes": 8,
+    "coordinates": {
+      "lat": 33.94722,
+      "lng": 5.92222
+    },
+    "region": "Sahara",
+    "economy": [
+      "Date palm cultivation",
+      "Agriculture (oasis farming)",
+      "Livestock",
+      "Traditional crafts"
+    ],
+    "landmarks": [
+      "Oued Righ valley palm groves",
+      "Oasis of Springs (abundant water springs)",
+      "Djamaa town",
+      "Still oasis",
+      "Historical name: Riyad Enakhil (1848)"
+    ],
+    "established": "2019",
+    "notes": "Created November 26, 2019. Previously a delegated wilaya created in 2015, attached to El Oued Province. Also known historically as 'Petit Ziban' and 'Jewel of Oued Righ'. Population estimate ~200,000 according to recent sources. Data may be provisional as this is a newly established wilaya."
+  },
+  {
+    "code": 50,
+    "name_arabic": "ولاية المنيعة",
+    "name_french": "El Meniaa",
+    "capital": "El Meniaa (El Goléa)",
+    "area_km2": 62215,
+    "population": 57276,
+    "population_year": 2008,
+    "districts": 2,
+    "communes": 4,
+    "coordinates": {
+      "lat": 30.57917,
+      "lng": 2.87917
+    },
+    "region": "Sahara",
+    "economy": [
+      "Date palm cultivation",
+      "Oasis agriculture",
+      "Tourism",
+      "Pastoralism",
+      "Handicrafts"
+    ],
+    "landmarks": [
+      "El Meniaa ('City of One Hundred Thousand Palms')",
+      "Hassi Gara oasis",
+      "Hassi Fehal",
+      "Central Sahara location",
+      "Historic caravan routes"
+    ],
+    "established": "2019",
+    "notes": "Created November 26, 2019. Previously a delegated wilaya created in 2015, part of Ghardaïa Province. Area reported as 55,870 km² by official tourism source. Capital also known as El Goléa. Very low population density (~0.92/km²). Data may be provisional."
+  },
+  {
+    "code": 51,
+    "name_arabic": "ولاية أولاد جلال",
+    "name_french": "Ouled Djellal",
+    "capital": "Ouled Djellal",
+    "area_km2": 11410,
+    "population": 174219,
+    "population_year": 2008,
+    "districts": 2,
+    "communes": 6,
+    "coordinates": {
+      "lat": 34.43333,
+      "lng": 5.06667
+    },
+    "region": "Sahara (Highlands transition)",
+    "economy": [
+      "Agriculture (cereal, date palms)",
+      "Livestock (sheep breeding famous)",
+      "Trade",
+      "Trans-Saharan routes"
+    ],
+    "landmarks": [
+      "Ouled Djellal city (historic Saharan town)",
+      "Sidi Khaled",
+      "Doucen oasis",
+      "Hodna mountains foothills",
+      "Route between Bou Saada and Biskra"
+    ],
+    "established": "2019",
+    "notes": "Created November 26, 2019. Previously a delegated wilaya created in 2015, attached to Biskra Province. Estimated population ~223,343 per official tourism source. Famous for Ouled Djellal sheep breed. Data may be provisional."
+  },
+  {
+    "code": 52,
+    "name_arabic": "ولاية برج باجي مختار",
+    "name_french": "Bordj Badji Mokhtar",
+    "capital": "Bordj Badji Mokhtar",
+    "area_km2": 120026,
+    "population": 16437,
+    "population_year": 2008,
+    "districts": 1,
+    "communes": 2,
+    "coordinates": {
+      "lat": 21.32778,
+      "lng": 0.95556
+    },
+    "region": "Sahara (Deep South)",
+    "economy": [
+      "Trans-Saharan trade",
+      "Pastoralism (nomadic herding)",
+      "Border trade with Mali/Mauritania",
+      "Mining potential",
+      "Services"
+    ],
+    "landmarks": [
+      "Algeria-Mali border crossing",
+      "Timiaouine commune",
+      "Adrar des Ifhogas proximity",
+      "Strategic trans-Saharan route",
+      "Extreme desert environment"
+    ],
+    "established": "2019",
+    "notes": "Created November 26, 2019 (decree December 18, 2019). Carved from Adrar Province. Algeria's second most sparsely populated province (0.137/km²). Borders Mali and Mauritania. Vital link between Algeria and sub-Saharan Africa. Current population estimate ~40,000+. Data is provisional for this remote newly-established wilaya."
+  }
+]
