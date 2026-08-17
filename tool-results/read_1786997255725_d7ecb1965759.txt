@@ -1,0 +1,873 @@
+     1→// ERP Integration Framework
+     2→// Supports: SAP, Odoo, Microsoft Dynamics, custom ERPs
+     3→// AlgeriaTrade.dz B2B Platform - Phase 8J
+     4→
+     5→import { db } from '@/lib/db'
+     6→import { v4 as uuidv4 } from 'uuid'
+     7→
+     8→// ============================================
+     9→// TYPES
+    10→// ============================================
+    11→
+    12→export type ERPType = 'SAP' | 'ODOO' | 'DYNAMICS' | 'CUSTOM'
+    13→export type SyncDirection = 'PUSH' | 'PULL' | 'BIDIRECTIONAL'
+    14→export type SyncFrequency = 'REALTIME' | 'EVERY_5_MIN' | 'HOURLY' | 'DAILY' | 'MANUAL'
+    15→export type SyncStatus = 'SUCCESS' | 'FAILED' | 'PARTIAL' | 'PENDING' | 'SKIPPED'
+    16→
+    17→export type EntityType = 
+    18→  | 'PRODUCTS' 
+    19→  | 'INVENTORY' 
+    20→  | 'ORDERS' 
+    21→  | 'CUSTOMERS' 
+    22→  | 'PRICES' 
+    23→  | 'CATEGORIES'
+    24→  | 'SUPPLIERS'
+    25→  | 'INVOICES'
+    26→  | 'SHIPMENTS'
+    27→
+    28→export interface ERPConfig {
+    29→  id: string
+    30→  name: string
+    31→  type: ERPType
+    32→  enabled: boolean
+    33→  
+    34→  // Connection
+    35→  endpoint: string
+    36→  apiKey?: string
+    37→  username?: string
+    38→  password?: string
+    39→  clientId?: string
+    40→  clientSecret?: string
+    41→  
+    42→  // Authentication type
+    43→  authType: 'API_KEY' | 'BASIC' | 'OAUTH2' | 'CERTIFICATE'
+    44→  
+    45→  // Sync settings
+    46→  defaultSyncFrequency: SyncFrequency
+    47→  syncDirections: Record<EntityType, SyncDirection>
+    48→  
+    49→  // Mappings
+    50→  fieldMappings: FieldMapping[]
+    51→  
+    52→  // Webhook (for push from ERP)
+    53→  webhookSecret?: string
+    54→  webhookEndpoint?: string
+    55→  
+    56→  // Status
+    57→  lastSyncAt?: Date
+    58→  connectionStatus: 'UNKNOWN' | 'CONNECTED' | 'ERROR'
+    59→  
+    60→  createdAt: Date
+    61→  updatedAt: Date
+    62→}
+    63→
+    64→export interface FieldMapping {
+    65→  localField: string
+    66→  erpField: string
+    67→  transform?: string
+    68→  defaultValue?: any
+    69→}
+    70→
+    71→export interface SyncLog {
+    72→  id: string
+    73→  erpConfigId: string
+    74→  entityType: EntityType
+    75→  direction: 'PUSH' | 'PULL'
+    76→  status: SyncStatus
+    77→  
+    78→  recordsProcessed: number
+    79→  recordsSuccess: number
+    80→  recordsFailed: number
+    81→  errors: SyncError[]
+    82→  
+    83→  startedAt: Date
+    84→  completedAt?: Date
+    85→  durationMs?: number
+    86→}
+    87→
+    88→export interface SyncError {
+    89→  recordId?: string
+    90→  recordType?: string
+    91→  message: string
+    92→  code?: string
+    93→  details?: any
+    94→}
+    95→
+    96→export interface SyncOptions {
+    97→  batchSize?: number
+    98→  dryRun?: boolean
+    99→  forceSync?: boolean
+   100→  entityIds?: string[]
+   101→  fromDate?: Date
+   102→  toDate?: Date
+   103→}
+   104→
+   105→export interface ERPClient {
+   106→  config: ERPConfig
+   107→  testConnection(): Promise<boolean>
+   108→  pullEntities(entityType: EntityType, options?: SyncOptions): Promise<SyncResult>
+   109→  pushEntities(entityType: EntityType, data: any[], options?: SyncOptions): Promise<SyncResult>
+   110→  getEntity(entityType: EntityType, externalId: string): Promise<any>
+   111→  createEntity(entityType: EntityType, data: any): Promise<string>
+   112→  updateEntity(entityType: EntityType, externalId: string, data: any): Promise<boolean>
+   113→  deleteEntity(entityType: EntityType, externalId: string): Promise<boolean>
+   114→}
+   115→
+   116→export interface SyncResult {
+   117→  success: boolean
+   118→  processed: number
+   119→  created: number
+   120→  updated: number
+   121→  failed: number
+   122→  skipped: number
+   123→  errors: SyncError[]
+   124→  details?: Record<string, any>
+   125→}
+   126→
+   127→// ============================================
+   128→// BASE ERP CLIENT CLASS
+   129→// ============================================
+   130→
+   131→export abstract class BaseERPClient implements ERPClient {
+   132→  abstract config: ERPConfig
+   133→
+   134→  abstract testConnection(): Promise<boolean>
+   135→  abstract pullEntities(entityType: EntityType, options?: SyncOptions): Promise<SyncResult>
+   136→  abstract pushEntities(entityType: EntityType, data: any[], options?: SyncOptions): Promise<SyncResult>
+   137→  abstract getEntity(entityType: EntityType, externalId: string): Promise<any>
+   138→  abstract createEntity(entityType: EntityType, data: any): Promise<string>
+   139→  abstract updateEntity(entityType: EntityType, externalId: string, data: any): Promise<boolean>
+   140→  abstract deleteEntity(entityType: EntityType, externalId: string): Promise<boolean>
+   141→
+   142→  // Common utility methods
+   143→  protected transformData(data: any, mappings: FieldMapping[], direction: 'toERP' | 'fromERP'): any {
+   144→    const result: any = {}
+   145→    
+   146→    for (const mapping of mappings) {
+   147→      const sourceField = direction === 'toERP' ? mapping.localField : mapping.erpField
+   148→      const targetField = direction === 'toERP' ? mapping.erpField : mapping.localField
+   149→      
+   150→      let value = this.getNestedValue(data, sourceField)
+   151→      
+   152→      if (value === undefined || value === null) {
+   153→        if (mapping.defaultValue !== undefined) {
+   154→          value = mapping.defaultValue
+   155→        } else {
+   156→          continue
+   157→        }
+   158→      }
+   159→      
+   160→      // Apply transformation if specified
+   161→      if (mapping.transform) {
+   162→        value = this.applyTransform(value, mapping.transform)
+   163→      }
+   164→      
+   165→      this.setNestedValue(result, targetField, value)
+   166→    }
+   167→    
+   168→    return result
+   169→  }
+   170→
+   171→  protected getNestedValue(obj: any, path: string): any {
+   172→    return path.split('.').reduce((acc, key) => acc?.[key], obj)
+   173→  }
+   174→
+   175→  protected setNestedValue(obj: any, path: string, value: any): void {
+   176→    const keys = path.split('.')
+   177→    let current = obj
+   178→    
+   179→    for (let i = 0; i < keys.length - 1; i++) {
+   180→      if (!(keys[i] in current) || typeof current[keys[i]] !== 'object') {
+   181→        current[keys[i]] = {}
+   182→      }
+   183→      current = current[keys[i]]
+   184→    }
+   185→    
+   186→    current[keys[keys.length - 1]] = value
+   187→  }
+   188→
+   189→  protected applyTransform(value: any, transformName: string): any {
+   190→    const transforms: Record<string, (v: any) => any> = {
+   191→      'uppercase': (v) => String(v).toUpperCase(),
+   192→      'lowercase': (v) => String(v).toLowerCase(),
+   193→      'trim': (v) => String(v).trim(),
+   194→      'toString': (v) => String(v),
+   195→      'toNumber': (v) => Number(v),
+   196→      'toFloat': (v) => parseFloat(v),
+   197→      'toInt': (v) => parseInt(v, 10),
+   198→      'toBoolean': (v) => Boolean(v),
+   199→      'toDate': (v) => new Date(v),
+   200→      'toISODate': (v) => new Date(v).toISOString(),
+   201→      'encodeBase64': (v) => Buffer.from(String(v)).toString('base64'),
+   202→      'decodeBase64': (v) => Buffer.from(String(v), 'base64').toString(),
+   203→      'extractNumbers': (v) => String(v).replace(/[^0-9.-]/g, ''),
+   204→      'formatPrice': (v) => parseFloat(v).toFixed(2),
+   205→      'formatDate': (v) => new Date(v).toISOString().split('T')[0],
+   206→      'mapCurrency': (v) => {
+   207→        const currencyMap: Record<string, string> = { 'DZD': 'DZ', 'EUR': 'EUR', 'USD': 'USD' }
+   208→        return currencyMap[String(v)] || v
+   209→      },
+   210→      'mapLanguage': (v) => {
+   211→        const langMap: Record<string, string> = { 'FR': 'fr_FR', 'AR': 'ar_DZ', 'EN': 'en_US' }
+   212→        return langMap[String(v).toUpperCase()] || v
+   213→      },
+   214→    }
+   215→    
+   216→    const transform = transforms[transformName]
+   217→    if (!transform) {
+   218→      console.warn(`Unknown transform: ${transformName}`)
+   219→      return value
+   220→    }
+   221→    
+   222→    try {
+   223→      return transform(value)
+   224→    } catch (error) {
+   225→      console.error(`Error applying transform ${transformName}:`, error)
+   226→      return value
+   227→    }
+   228→  }
+   229→
+   230→  protected async createSyncLog(
+   231→    erpConfigId: string,
+   232→    entityType: EntityType,
+   233→    direction: 'PUSH' | 'PULL',
+   234→    status: SyncStatus,
+   235→    stats: Partial<SyncLog>
+   236→  ): Promise<SyncLog> {
+   237→    const log = await db.eRPSyncLog.create({
+   238→      data: {
+   239→        id: uuidv4(),
+   240→        erpConfigId,
+   241→        entityType,
+   242→        direction,
+   243→        status,
+   244→        recordsProcessed: stats.processed || 0,
+   245→        recordsSuccess: stats.success ? stats.created + stats.updated : 0,
+   246→        recordsFailed: stats.failed || 0,
+   247→        errors: JSON.stringify(stats.errors || []),
+   248→        startedAt: stats.startedAt || new Date(),
+   249→        completedAt: status !== 'PENDING' ? new Date() : undefined,
+   250→        durationMs: stats.durationMs,
+   251→      },
+   252→    })
+   253→    
+   254→    return mapSyncLogFromDB(log)
+   255→  }
+   256→
+   257→  protected buildAuthHeaders(): Record<string, string> {
+   258→    const headers: Record<string, string> = {
+   259→      'Content-Type': 'application/json',
+   260→    }
+   261→    
+   262→    switch (this.config.authType) {
+   263→      case 'API_KEY':
+   264→        if (this.config.apiKey) {
+   265→          headers['Authorization'] = `Bearer ${this.config.apiKey}`
+   266→          headers['X-API-Key'] = this.config.apiKey
+   267→        }
+   268→        break
+   269→        
+   270→      case 'BASIC':
+   271→        if (this.config.username && this.config.password) {
+   272→          const credentials = Buffer.from(`${this.config.username}:${this.config.password}`).toString('base64')
+   273→          headers['Authorization'] = `Basic ${credentials}`
+   274→        }
+   275→        break
+   276→        
+   277→      case 'OAUTH2':
+   278→        // OAuth2 token should be obtained and cached separately
+   279→        headers['Authorization'] = `Bearer ${this.config.apiKey || ''}`
+   280→        break
+   281→        
+   282→      case 'CERTIFICATE':
+   283→        // Certificate auth is handled at transport layer
+   284→        break
+   285→    }
+   286→    
+   287→    return headers
+   288→  }
+   289→}
+   290→
+   291→// ============================================
+   292→// ERP FACTORY & MANAGEMENT FUNCTIONS
+   293→// ============================================
+   294→
+   295→const clientCache = new Map<string, ERPClient>()
+   296→
+   297→export function getERPClient(config: ERPConfig): ERPClient {
+   298→  const cacheKey = `${config.type}-${config.id}`
+   299→  
+   300→  if (clientCache.has(cacheKey)) {
+   301→    return clientCache.get(cacheKey)!
+   302→  }
+   303→  
+   304→  let client: ERPClient
+   305→  
+   306→  switch (config.type) {
+   307→    case 'SAP':
+   308→      // Import dynamically to avoid circular dependencies
+   309→      const { SAPConnector } = require('./sap-connector')
+   310→      client = new SAPConnector(config)
+   311→      break
+   312→      
+   313→    case 'ODOO':
+   314→      const { OdooConnector } = require('./odoo-connector')
+   315→      client = new OdooConnector(config)
+   316→      break
+   317→      
+   318→    case 'DYNAMICS':
+   319→      // Dynamics connector would be implemented similarly
+   320→      throw new Error('Microsoft Dynamics connector not yet implemented')
+   321→      
+   322→    case 'CUSTOM':
+   323→      // Custom connector would use user-provided configuration
+   324→      throw new Error('Custom ERP connectors must be implemented per integration')
+   325→      
+   326→    default:
+   327→      throw new Error(`Unsupported ERP type: ${config.type}`)
+   328→  }
+   329→  
+   330→  clientCache.set(cacheKey, client)
+   331→  return client
+   332→}
+   333→
+   334→export async function initializeERP(config: Omit<ERPConfig, 'id' | 'createdAt' | 'updatedAt' | 'connectionStatus'>): Promise<ERPConfig> {
+   335→  const created = await db.eRPConfig.create({
+   336→    data: {
+   337→      id: uuidv4(),
+   338→      name: config.name,
+   339→      type: config.type,
+   340→      enabled: config.enabled ?? false,
+   341→      endpoint: config.endpoint,
+   342→      apiKey: config.apiKey,
+   343→      username: config.username,
+   344→      password: config.password,
+   345→      clientId: config.clientId,
+   346→      clientSecret: config.clientSecret,
+   347→      authType: config.authType,
+   348→      defaultSyncFreq: config.defaultSyncFrequency,
+   349→      syncDirections: JSON.stringify(config.syncDirections || {}),
+   350→      fieldMappings: JSON.stringify(config.fieldMappings || []),
+   351→      webhookSecret: config.webhookSecret,
+   352→      webhookEndpoint: config.webhookEndpoint,
+   353→      connectionStatus: 'UNKNOWN',
+   354→    },
+   355→  })
+   356→  
+   357→  return mapERPConfigFromDB(created)
+   358→}
+   359→
+   360→export async function testConnection(erpConfigId: string): Promise<{success: boolean; message: string; latencyMs?: number}> {
+   361→  const config = await db.eRPConfig.findUnique({ where: { id: erpConfigId } })
+   362→  
+   363→  if (!config) {
+   364→    throw new Error('ERP configuration not found')
+   365→  }
+   366→  
+   367→  const mappedConfig = mapERPConfigFromDB(config)
+   368→  const client = getERPClient(mappedConfig)
+   369→  
+   370→  const startTime = Date.now()
+   371→  
+   372→  try {
+   373→    const success = await client.testConnection()
+   374→    const latencyMs = Date.now() - startTime
+   375→    
+   376→    // Update connection status
+   377→    await db.eRPConfig.update({
+   378→      where: { id: erpConfigId },
+   379→      data: {
+   380→        connectionStatus: success ? 'CONNECTED' : 'ERROR',
+   381→        lastSyncAt: success ? new Date() : undefined,
+   382→      },
+   383→    })
+   384→    
+   385→    return {
+   386→      success,
+   387→      message: success 
+   388→        ? 'Connexion établie avec succès' 
+   389→        : 'Échec de la connexion - vérifiez vos paramètres',
+   390→      latencyMs,
+   391→    }
+   392→  } catch (error: any) {
+   393→    await db.eRPConfig.update({
+   394→      where: { id: erpConfigId },
+   395→      data: { connectionStatus: 'ERROR' },
+   396→    })
+   397→    
+   398→    return {
+   399→      success: false,
+   400→      message: error.message || 'Erreur de connexion inattendue',
+   401→      latencyMs: Date.now() - startTime,
+   402→    }
+   403→  }
+   404→}
+   405→
+   406→export async function syncEntity(
+   407→  erpConfigId: string,
+   408→  entityType: EntityType,
+   409→  options?: SyncOptions
+   410→): Promise<SyncLog> {
+   411→  const config = await db.eRPConfig.findUnique({ where: { id: erpConfigId } })
+   412→  
+   413→  if (!config) {
+   414→    throw new Error('ERP configuration not found')
+   415→  }
+   416→  
+   417→  if (!config.enabled) {
+   418→    throw new Error('ERP configuration is disabled')
+   419→  }
+   420→  
+   421→  const mappedConfig = mapERPConfigFromDB(config)
+   422→  const client = getERPClient(mappedConfig)
+   423→  
+   424→  const directions = JSON.parse(config.syncDirections || '{}')
+   425→  const direction = (directions[entityType] || 'PULL') as 'PUSH' | 'PULL'
+   426→  
+   427→  // Create pending sync log
+   428→  const syncLog = await client.createSyncLog(erpConfigId, entityType, direction, 'PENDING', {
+   429→    startedAt: new Date(),
+   430→  })
+   431→  
+   432→  const startTime = Date.now()
+   433→  
+   434→  try {
+   435→    let result: SyncResult
+   436→    
+   437→    if (direction === 'PULL') {
+   438→      result = await client.pullEntities(entityType, options)
+   439→    } else {
+   440→      // For PUSH, we need to get local data first
+   441→      const localData = await getLocalEntitiesForSync(entityType, options?.entityIds)
+   442→      result = await client.pushEntities(entityType, localData, options)
+   443→    }
+   444→    
+   445→    const durationMs = Date.now() - startTime
+   446→    
+   447→    // Update sync log with results
+   448→    const finalStatus = result.failed > 0 && result.success === 0 
+   449→      ? 'FAILED' 
+   450→      : result.failed > 0 
+   451→        ? 'PARTIAL' 
+   452→        : 'SUCCESS'
+   453→    
+   454→    await db.eRPSyncLog.update({
+   455→      where: { id: syncLog.id },
+   456→      data: {
+   457→        status: finalStatus,
+   458→        recordsProcessed: result.processed,
+   459→        recordsSuccess: result.created + result.updated,
+   460→        recordsFailed: result.failed,
+   461→        errors: JSON.stringify(result.errors || []),
+   462→        completedAt: new Date(),
+   463→        durationMs,
+   464→      },
+   465→    })
+   466→    
+   467→    // Update last sync timestamp on config
+   468→    await db.eRPConfig.update({
+   469→      where: { id: erpConfigId },
+   470→      data: { lastSyncAt: new Date() },
+   471→    })
+   472→    
+   473→    return {
+   474→      ...syncLog,
+   475→      status: finalStatus,
+   476→      recordsProcessed: result.processed,
+   477→      recordsSuccess: result.created + result.updated,
+   478→      recordsFailed: result.failed,
+   479→      errors: result.errors || [],
+   480→      completedAt: new Date(),
+   481→      durationMs,
+   482→    }
+   483→  } catch (error: any) {
+   484→    const durationMs = Date.now() - startTime
+   485→    
+   486→    await db.eRPSyncLog.update({
+   487→      where: { id: syncLog.id },
+   488→      data: {
+   489→        status: 'FAILED',
+   490→        errors: JSON.stringify([{
+   491→          message: error.message || 'Sync failed unexpectedly',
+   492→          code: 'SYNC_ERROR',
+   493→          details: error.stack,
+   494→        }]),
+   495→        completedAt: new Date(),
+   496→        durationMs,
+   497→      },
+   498→    })
+   499→    
+   500→    return {
+   501→      ...syncLog,
+   502→      status: 'FAILED',
+   503→      errors: [{
+   504→        message: error.message || 'Sync failed unexpectedly',
+   505→        code: 'SYNC_ERROR',
+   506→      }],
+   507→      completedAt: new Date(),
+   508→      durationMs,
+   509→    }
+   510→  }
+   511→}
+   512→
+   513→export async function syncAll(erpConfigId: string): Promise<SyncLog[]> {
+   514→  const config = await db.eRPConfig.findUnique({ where: { id: erpConfigId } })
+   515→  
+   516→  if (!config) {
+   517→    throw new Error('ERP configuration not found')
+   518→  }
+   519→  
+   520→  const directions = JSON.parse(config.syncDirections || '{}')
+   521→  const entitiesToSync = Object.entries(directions)
+   522→    .filter(([, dir]) => dir !== 'NONE')
+   523→    .map(([entity]) => entity as EntityType)
+   524→  
+   525→  const logs: SyncLog[] = []
+   526→  
+   527→  for (const entityType of entitiesToSync) {
+   528→    try {
+   529→      const log = await syncEntity(erpConfigId, entityType)
+   530→      logs.push(log)
+   531→    } catch (error) {
+   532→      console.error(`Failed to sync ${entityType}:`, error)
+   533→    }
+   534→  }
+   535→  
+   536→  return logs
+   537→}
+   538→
+   539→export async function getFieldMappingSuggestions(
+   540→  erpType: ERPType,
+   541→  entityType: EntityType
+   542→): Promise<FieldMapping[]> {
+   543→  // Return common field mappings based on ERP type and entity
+   544→  const suggestions: Record<ERPType, Record<EntityType, FieldMapping[]>> = {
+   545→    SAP: {
+   546→      PRODUCTS: [
+   547→        { localField: 'name', erpField: 'MATNR', transform: 'toUpperCase' },
+   548→        { localField: 'description', erpField: 'MAKTX' },
+   549→        { localField: 'sku', erpField: 'MATNR' },
+   550→        { localField: 'price', erpField: 'NETPR' },
+   551→        { localField: 'currency', erpField: 'WAERK' },
+   552→        { localField: 'unit', erpField: 'MEINS' },
+   553→        { localField: 'category.id', erpField: 'MATKL' },
+   554→      ],
+   555→      INVENTORY: [
+   556→        { localField: 'productId', erpField: 'MATNR' },
+   557→        { localField: 'quantity', erpField: 'LABST' },
+   558→        { localField: 'warehouse', erpField: 'WERKS' },
+   559→        { localField: 'location', erpField: 'LGORT' },
+   560→      ],
+   561→      ORDERS: [
+   562→        { localField: 'orderNumber', erpField: 'VBELN' },
+   563→        { localField: 'customer.externalId', erpField: 'KUNNR' },
+   564→        { localField: 'totalAmount', erpField: 'NETWR' },
+   565→        { localField: 'currency', erpField: 'WAERK' },
+   566→        { localField: 'status', erpField: 'AUART' },
+   567→      ],
+   568→      CUSTOMERS: [
+   569→        { localField: 'externalId', erpField: 'KUNNR' },
+   570→        { localField: 'companyName', erpField: 'NAME1' },
+   571→        { localField: 'email', erpField: 'SMTP_ADDR' },
+   572→        { localField: 'phone', erpField: 'TELF1' },
+   573→        { localField: 'address.city', erpField: 'ORT01' },
+   574→        { localField: 'address.country', erpField: 'LAND1' },
+   575→      ],
+   576→      PRICES: [
+   577→        { localField: 'productId', erpField: 'MATNR' },
+   578→        { localField: 'amount', erpField: 'KBETR' },
+   579→        { localField: 'currency', erpField: 'WAERK' },
+   580→      ],
+   581→      CATEGORIES: [
+   582→        { localField: 'id', erpField: 'MATKL' },
+   583→        { localField: 'name', erpField: 'WGBEZ' },
+   584→      ],
+   585→      SUPPLIERS: [
+   586→        { localField: 'externalId', erpField: 'LIFNR' },
+   587→        { localField: 'companyName', erpField: 'NAME1' },
+   588→      ],
+   589→      INVOICES: [
+   590→        { localField: 'invoiceNumber', erpField: 'RBELN' },
+   591→        { localField: 'orderNumber', erpField: 'VBELN' },
+   592→        { localField: 'totalAmount', erpField: 'WRBTR' },
+   593→      ],
+   594→      SHIPMENTS: [
+   595→        { localField: 'trackingNumber', erpField: 'VBELN_VL' },
+   596→        { localField: 'status', erpField: 'TRSTA' },
+   597→      ],
+   598→    },
+   599→    ODOO: {
+   600→      PRODUCTS: [
+   601→        { localField: 'name', erpField: 'name' },
+   602→        { localField: 'description', erpField: 'description_sale' },
+   603→        { localField: 'sku', erpField: 'default_code' },
+   604→        { localField: 'price', erpField: 'list_price' },
+   605→        { localField: 'category.externalId', erpField: 'categ_id' },
+   606→        { localField: 'isActive', erpField: 'sale_ok' },
+   607→      ],
+   608→      INVENTORY: [
+   609→        { localField: 'productId', erpField: 'product_id' },
+   610→        { localField: 'quantity', erpField: 'qty_available' },
+   611→        { localField: 'warehouse', erpField: 'warehouse_id' },
+   612→      ],
+   613→      ORDERS: [
+   614→        { localField: 'externalId', erpField: 'id' },
+   615→        { localField: 'orderNumber', erpField: 'name' },
+   616→        { localField: 'customer.externalId', erpField: 'partner_id' },
+   617→        { localField: 'status', erpField: 'state' },
+   618→        { localField: 'totalAmount', erpField: 'amount_total' },
+   619→      ],
+   620→      CUSTOMERS: [
+   621→        { localField: 'externalId', erpField: 'id' },
+   622→        { localField: 'companyName', erpField: 'name' },
+   623→        { localField: 'email', erpField: 'email' },
+   624→        { localField: 'phone', erpField: 'phone' },
+   625→        { localField: 'address.city', erpField: 'city' },
+   626→      ],
+   627→      PRICES: [
+   628→        { localField: 'productId', erpField: 'product_id' },
+   629→        { localField: 'pricelistId', erpField: 'pricelist_id' },
+   630→        { localField: 'amount', erpField: 'fixed_price' },
+   631→      ],
+   632→      CATEGORIES: [
+   633→        { localField: 'externalId', erpField: 'id' },
+   634→        { localField: 'name', erpField: 'name' },
+   635→        { localField: 'parentCategory', erpField: 'parent_id' },
+   636→      ],
+   637→      SUPPLIERS: [
+   638→        { localField: 'externalId', erpField: 'id' },
+   639→        { localField: 'companyName', erpField: 'name' },
+   640→        { localField: 'isSupplier', erpField: 'supplier' },
+   641→      ],
+   642→      INVOICES: [
+   643→        { localField: 'invoiceNumber', erpField: 'number' },
+   644→        { localField: 'orderExternalId', erpField: 'origin' },
+   645→        { localField: 'totalAmount', erpField: 'amount_total' },
+   646→      ],
+   647→      SHIPMENTS: [
+   648→        { localField: 'externalId', erpField: 'id' },
+   649→        { localField: 'status', erpField: 'state' },
+   650→      ],
+   651→    },
+   652→    DYNAMICS: {},
+   653→    CUSTOM: {},
+   654→  }
+   655→  
+   656→  return suggestions[erpType]?.[entityType] || []
+   657→}
+   658→
+   659→export async function handleERPWebhook(
+   660→  erpConfigId: string,
+   661→  payload: unknown,
+   662→  signature: string
+   663→): Promise<void> {
+   664→  const config = await db.eRPConfig.findUnique({ where: { id: erpConfigId } })
+   665→  
+   666→  if (!config) {
+   667→    throw new Error('ERP configuration not found')
+   668→  }
+   669→  
+   670→  if (!config.webhookSecret) {
+   671→    throw new Error('Webhook secret not configured')
+   672→  }
+   673→  
+   674→  // Verify signature (simplified - implement proper HMAC verification in production)
+   675→  const expectedSignature = generateWebhookSignature(payload, config.webhookSecret)
+   676→  if (signature !== expectedSignature) {
+   677→    throw new Error('Invalid webhook signature')
+   678→  }
+   679→  
+   680→  // Process webhook payload
+   681→  const data = payload as Record<string, any>
+   682→  const entityType = (data.entity_type || data.entityType)?.toUpperCase() as EntityType
+   683→  const action = data.action || data.event // create, update, delete
+   684→  
+   685→  if (!entityType || !action) {
+   686→    throw new Error('Invalid webhook payload: missing entity_type or action')
+   687→  }
+   688→  
+   689→  // Handle based on action
+   690→  switch (action.toLowerCase()) {
+   691→    case 'create':
+   692→    case 'created':
+   693→      await handleWebhookCreate(erpConfigId, entityType, data)
+   694→      break
+   695→      
+   696→    case 'update':
+   697→    case 'updated':
+   698→      await handleWebhookUpdate(erpConfigId, entityType, data)
+   699→      break
+   700→      
+   701→    case 'delete':
+   702→    case 'deleted':
+   703→      await handleWebhookDelete(erpConfigId, entityType, data)
+   704→      break
+   705→      
+   706→    default:
+   707→      console.log(`Unhandled webhook action: ${action}`)
+   708→  }
+   709→}
+   710→
+   711→async function handleWebhookCreate(
+   712→  erpConfigId: string,
+   713→  entityType: EntityType,
+   714→  data: Record<string, any>
+   715→): Promise<void> {
+   716→  // Map ERP data to local format and create/update local record
+   717→  console.log(`Creating local ${entityType} from ERP webhook:`, data)
+   718→  // Implementation depends on entity type
+   719→}
+   720→
+   721→async function handleWebhookUpdate(
+   722→  erpConfigId: string,
+   723→  entityType: EntityType,
+   724→  data: Record<string, any>
+   725→): Promise<void> {
+   726→  console.log(`Updating local ${entityType} from ERP webhook:`, data)
+   727→  // Implementation depends on entity type
+   728→}
+   729→
+   730→async function handleWebhookDelete(
+   731→  erpConfigId: string,
+   732→  entityType: EntityType,
+   733→  data: Record<string, any>
+   734→): Promise<void> {
+   735→  console.log(`Deleting local ${entityType} from ERP webhook:`, data)
+   736→  // Implementation depends on entity type
+   737→}
+   738→
+   739→function generateWebhookSignature(payload: unknown, secret: string): string {
+   740→  // Simplified signature generation - use proper HMAC in production
+   741→  const crypto = require('crypto')
+   742→  return crypto
+   743→    .createHmac('sha256', secret)
+   744→    .update(JSON.stringify(payload))
+   745→    .digest('hex')
+   746→}
+   747→
+   748→export async function getSyncHistory(
+   749→  erpConfigId: string,
+   750→  filters?: {
+   751→    entityType?: EntityType
+   752→    status?: SyncStatus
+   753→    dateFrom?: Date
+   754→    dateTo?: Date
+   755→    limit?: number
+   756→    offset?: number
+   757→  }
+   758→): Promise<{data: SyncLog[], total: number}> {
+   759→  const where: any = { erpConfigId }
+   760→  
+   761→  if (filters?.entityType) where.entityType = filters.entityType
+   762→  if (filters?.status) where.status = filters.status
+   763→  if (filters?.dateFrom || filters?.dateTo) {
+   764→    where.startedAt = {}
+   765→    if (filters.dateFrom) where.startedAt.gte = filters.dateFrom
+   766→    if (filters.dateTo) where.startedAt.lte = filters.dateTo
+   767→  }
+   768→  
+   769→  const [logs, total] = await Promise.all([
+   770→    db.eRPSyncLog.findMany({
+   771→      where,
+   772→      orderBy: { startedAt: 'desc' },
+   773→      take: filters?.limit || 50,
+   774→      skip: filters?.offset || 0,
+   775→    }),
+   776→    db.eRPSyncLog.count({ where }),
+   777→  ])
+   778→  
+   779→  return {
+   780→    data: logs.map(mapSyncLogFromDB),
+   781→    total,
+   782→  }
+   783→}
+   784→
+   785→export async function retryFailedSync(syncLogId: string): Promise<SyncLog> {
+   786→  const existingLog = await db.eRPSyncLog.findUnique({ where: { id: syncLogId } })
+   787→  
+   788→  if (!existingLog) {
+   789→    throw new Error('Sync log not found')
+   790→  }
+   791→  
+   792→  if (existingLog.status !== 'FAILED') {
+   793→    throw new Error('Can only retry failed sync operations')
+   794→  }
+   795→  
+   796→  return syncEntity(existingLog.erpConfigId, existingLog.entityType as EntityType)
+   797→}
+   798→
+   799→async function getLocalEntitiesForSync(
+   800→  entityType: EntityType,
+   801→  entityIds?: string[]
+   802→): Promise<any[]> {
+   803→  // Get local entities that need to be synced to ERP
+   804→  switch (entityType) {
+   805→    case 'PRODUCTS':
+   806→      const productWhere: any = { status: 'published' }
+   807→      if (entityIds?.length) productWhere.id = { in: entityIds }
+   808→      return await db.product.findMany({ where: productWhere })
+   809→      
+   810→    case 'INVENTORY':
+   811→      // Would query inventory/stock table
+   812→      return []
+   813→      
+   814→    case 'ORDERS':
+   815→      const orderWhere: any = {}
+   816→      if (entityIds?.length) orderWhere.id = { in: entityIds }
+   817→      return await db.order.findMany({ where: orderWhere })
+   818→      
+   819→    case 'CUSTOMERS':
+   820→      // Would query companies/customers table
+   821→      return []
+   822→      
+   823→    default:
+   824→      return []
+   825→  }
+   826→}
+   827→
+   828→// ============================================
+   829→// MAPPING HELPERS
+   830→// ============================================
+   831→
+   832→function mapERPConfigFromDB(dbConfig: any): ERPConfig {
+   833→  return {
+   834→    id: dbConfig.id,
+   835→    name: dbConfig.name,
+   836→    type: dbConfig.type as ERPType,
+   837→    enabled: dbConfig.enabled,
+   838→    endpoint: dbConfig.endpoint,
+   839→    apiKey: dbConfig.apiKey || undefined,
+   840→    username: dbConfig.username || undefined,
+   841→    password: dbConfig.password || undefined,
+   842→    clientId: dbConfig.clientId || undefined,
+   843→    clientSecret: dbConfig.clientSecret || undefined,
+   844→    authType: dbConfig.authType,
+   845→    defaultSyncFrequency: dbConfig.defaultSyncFreq as SyncFrequency,
+   846→    syncDirections: JSON.parse(dbConfig.syncDirections || '{}'),
+   847→    fieldMappings: JSON.parse(dbConfig.fieldMappings || '[]'),
+   848→    webhookSecret: dbConfig.webhookSecret || undefined,
+   849→    webhookEndpoint: dbConfig.webhookEndpoint || undefined,
+   850→    lastSyncAt: dbConfig.lastSyncAt || undefined,
+   851→    connectionStatus: dbConfig.connectionStatus,
+   852→    createdAt: dbConfig.createdAt,
+   853→    updatedAt: dbConfig.updatedAt,
+   854→  }
+   855→}
+   856→
+   857→function mapSyncLogFromDB(dbLog: any): SyncLog {
+   858→  return {
+   859→    id: dbLog.id,
+   860→    erpConfigId: dbLog.erpConfigId,
+   861→    entityType: dbLog.entityType as EntityType,
+   862→    direction: dbLog.direction as 'PUSH' | 'PULL',
+   863→    status: dbLog.status as SyncStatus,
+   864→    recordsProcessed: dbLog.recordsProcessed,
+   865→    recordsSuccess: dbLog.recordsSuccess,
+   866→    recordsFailed: dbLog.recordsFailed,
+   867→    errors: JSON.parse(dbLog.errors || '[]'),
+   868→    startedAt: dbLog.startedAt,
+   869→    completedAt: dbLog.completedAt || undefined,
+   870→    durationMs: dbLog.durationMs || undefined,
+   871→  }
+   872→}
+   873→

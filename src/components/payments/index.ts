@@ -8,3 +8,7 @@ export { BaridiMobForm, type PaymentResult as BaridiMobPaymentResult } from './B
 export { BankTransferForm, type BankInitiateResult, type PaymentResult as BankTransferPaymentResult } from './BankTransferForm'
 export { PaymentStatusTracker, type PaymentStatus } from './PaymentStatusTracker'
 export { ReceiptGenerator, type ReceiptData, type ReceiptGeneratorHandle } from './ReceiptGenerator'
+
+// Phase 8A/8B: Advanced Payment Gateway Integrations
+export { SATIMForm, type SATIMPaymentResult } from './SATIMForm'
+export { StripeForm, type StripePaymentResult } from './StripeForm'

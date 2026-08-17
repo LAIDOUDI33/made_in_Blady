@@ -1,0 +1,1468 @@
+  1700→  
+  1701→  // Video Details
+  1702→  title             String
+  1703→  description       String?
+  1704→  videoUrl          String
+  1705→  thumbnailUrl      String?
+  1706→  duration          Int?
+  1707→  
+  1708→  // Video Type
+  1709→  type              String   @default("company_intro") // company_intro, factory_tour, production_line, ceo_message, exhibition
+  1710→  language          String?
+  1711→  
+  1712→  // Status
+  1713→  isFeatured        Boolean  @default(false)
+  1714→  status            String   @default("processing")
+  1715→  
+  1716→  // Stats
+  1717→  viewCount         Int      @default(0)
+  1718→  
+  1719→  company           Company?  @relation("CompanyVideos", fields: [companyId], references: [id], onDelete: Cascade)
+  1720→  
+  1721→  createdAt         DateTime @default(now())
+  1722→  
+  1723→  @@index([companyId])
+  1724→  @@map("company_videos")
+  1725→}
+  1726→
+  1727→model VirtualTour {
+  1728→  id                String   @id @default(cuid())
+  1729→  companyId         String
+  1730→  
+  1731→  // Tour Details
+  1732→  title             String
+  1733→  description       String?
+  1734→  tourUrl           String   // 360° tour URL or viewer config
+  1735→  coverImage        String?
+  1736→  
+  1737→  // Tour Type
+  1738→  type              String   @default("factory") // factory, office, showroom, warehouse
+  1739→  
+  1740→  // Hotspots (interactive points)
+  1741→  hotspots          String?  // JSON array {position, title, content, mediaUrl}
+  1742→  
+  1743→  // Stats
+  1744→  viewCount         Int      @default(0)
+  1745→  
+  1746→  company           Company?  @relation("VirtualTours", fields: [companyId], references: [id], onDelete: Cascade)
+  1747→  
+  1748→  createdAt         DateTime @default(now())
+  1749→  
+  1750→  @@index([companyId])
+  1751→  @@map("virtual_tours")
+  1752→}
+  1753→
+  1754→// ============================================
+  1755→// PHASE 6D: ADVANCED PRODUCT FEATURES
+  1756→// ============================================
+  1757→
+  1758→model ProductCertification {
+  1759→  id                String   @id @default(cuid())
+  1760→  productId         String
+  1761→  
+  1762→  // Certification Details
+  1763→  name              String   // CE, ISO 9001, SGS, TUV, etc.
+  1764→  issuingBody       String   // Certification body
+  1765→  certificateNumber String?
+  1766→  issueDate         DateTime?
+  1767→  expiryDate        DateTime?
+  1768→  
+  1769→  // Documents
+  1770→  certificateUrl    String?
+  1771→  
+  1772→  // Status
+  1773→  isValid           Boolean  @default(true)
+  1774→  verifiedBy        String?  // Admin who verified
+  1775→  verifiedAt        DateTime?
+  1776→  
+  1777→  product           Product?  @relation("ProductCertifications", fields: [productId], references: [id], onDelete: Cascade)
+  1778→  
+  1779→  createdAt         DateTime @default(now())
+  1780→  
+  1781→  @@index([productId])
+  1782→  @@map("product_certifications")
+  1783→}
+  1784→
+  1785→model BulkPricingTier {
+  1786→  id                String   @id @default(cuid())
+  1787→  productId         String
+  1788→  
+  1789→  // Tier Details
+  1790→  minQuantity       Int      // Minimum quantity for this tier
+  1791→  maxQuantity       Int?     // Null means unlimited
+  1792→  unitPrice         Float    // Price per unit at this tier
+  1793→  discountPercent   Float?   // Discount percentage
+  1794→  
+  1795→  // Currency
+  1796→  currency          String   @default("DZD")
+  1797→  
+  1798→  // Validity
+  1799→  validFrom         DateTime?
+  1800→  validUntil        DateTime?
+  1801→  
+  1802→  product           Product?  @relation("BulkPricingTiers", fields: [productId], references: [id], onDelete: Cascade)
+  1803→  
+  1804→  createdAt         DateTime @default(now())
+  1805→  
+  1806→  @@index([productId])
+  1807→  @@map("bulk_pricing_tiers")
+  1808→}
+  1809→
+  1810→model CustomizationOption {
+  1811→  id                String   @id @default(cuid())
+  1812→  productId         String
+  1813→  
+  1814→  // Option Details
+  1815→  name              String   // Color, Size, Material, etc.
+  1816→  type              String   @default("select") // select, radio, checkbox, text, number, file
+  1817→  isRequired         Boolean  @default(false)
+  1818→  
+  1819→  // Options (for select/radio/checkbox types)
+  1820→  options           String?  // JSON array [{value, label, priceModifier, stock}]
+  1821→  
+  1822→  // Display
+  1823→  sortOrder         Int      @default(0)
+  1824→  
+  1825→  product           Product?  @relation("CustomizationOptions", fields: [productId], references: [id], onDelete: Cascade)
+  1826→  
+  1827→  values            CustomizationValue[]
+  1828→  
+  1829→  createdAt         DateTime @default(now())
+  1830→  
+  1831→  @@index([productId])
+  1832→  @@map("customization_options")
+  1833→}
+  1834→
+  1835→model CustomizationValue {
+  1836→  id                String   @id @default(cuid())
+  1837→  optionId          String
+  1838→  
+  1839→  value             String   // Selected/entered value
+  1840→  priceModifier     Float     @default(0) // Additional cost
+  1841→  
+  1842→  option            CustomizationOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  1843→  
+  1844→  @@map("customization_values")
+  1845→}
+  1846→
+  1847→model ProductPackage {
+  1848→  id                String   @id @default(cuid())
+  1849→  
+  1850→  // Package Details
+  1851→  name              String   // "Starter Pack", "Business Bundle", etc.
+  1852→  description       String?
+  1853→  discountPercent   Float     @default(0) // Package discount
+  1854→  
+  1855→  // Pricing
+  1856→  totalPrice        Float?
+  1857→  currency          String    @default("DZD")
+  1858→  
+  1859→  // Status
+  1860→  isActive          Boolean   @default(true)
+  1861→  
+  1862→  products          PackageItem[]
+  1863→  
+  1864→  createdAt         DateTime  @default(now())
+  1865→  updatedAt         DateTime  @updatedAt
+  1866→  
+  1867→  @@map("product_packages")
+  1868→}
+  1869→
+  1870→model PackageItem {
+  1871→  id                String   @id @default(cuid())
+  1872→  packageId         String
+  1873→  productId         String
+  1874→  quantity          Int      @default(1)
+  1875→  includedPrice     Float?   // If null, use current product price
+  1876→  
+  1877→  packageProduct    ProductPackage @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  1878→  product           Product?  @relation("PackageItems", fields: [productId], references: [id], onDelete: Cascade)
+  1879→  
+  1880→  @@index([packageId])
+  1881→  @@index([productId])
+  1882→  @@map("package_items")
+  1883→}
+  1884→
+  1885→// Related Products (Up-sells/Cross-sells)
+  1886→model RelatedProduct {
+  1887→  id                String   @id @default(cuid())
+  1888→  productId         String   // Main product
+  1889→  relatedProductId   String   // Related product
+  1890→  type              String   @default("related") // related, up_sell, cross_sell, complementary, alternative
+  1891→  sortOrder         Int      @default(0)
+  1892→  
+  1893→  product           Product?  @relation("RelatedProductsFrom", fields: [productId], references: [id], onDelete: Cascade)
+  1894→  relatedProduct    Product?  @relation("RelatedProductsTo", fields: [relatedProductId], references: [id], onDelete: Cascade)
+  1895→  
+  1896→  @@unique([productId, relatedProductId])
+  1897→  @@index([productId])
+  1898→  @@map("related_products")
+  1899→}
+  1900→
+  1901→// ============================================
+  1902→// PHASE 6E: INSPECTION & QUALITY CONTROL
+  1903→// ============================================
+  1904→
+  1905→enum InspectionStatus {
+  1906→  REQUESTED
+  1907→  SCHEDULED
+  1908→  IN_PROGRESS
+  1909→  COMPLETED
+  1910→  CANCELLED
+  1911→  FAILED
+  1912→}
+  1913→
+  1914→enum InspectionType {
+  1915→  PRE_PRODUCTION
+  1916→  DURING_PRODUCTION
+  1917→  PRE_SHIPMENT
+  1918→  CONTAINER_LOADING
+  1919→  SAMPLE_INSPECTION
+  1920→  FACTORY_AUDIT
+  1921→}
+  1922→
+  1923→model InspectionService {
+  1924→  id                String           @id @default(cuid())
+  1925→  
+  1926→  // Service Definition
+  1927→  name              String
+  1928→  description       String?
+  1929→  type              InspectionType
+  1930→  basePrice         Float
+  1931→  currency          String           @default("DZD")
+  1932→  
+  1933→  // Timeframe
+  1934→  typicalLeadTime   Int               @default(3) // Days
+  1935→  
+  1936→  // Status
+  1937→  isActive          Boolean           @default(true)
+  1938→  
+  1939→  bookings          InspectionBooking[]
+  1940→  
+  1941→  createdAt         DateTime          @default(now())
+  1942→  
+  1943→  @@map("inspection_services")
+  1944→}
+  1945→
+  1946→model InspectionBooking {
+  1947→  id                String           @id @default(cuid())
+  1948→  bookingNumber     String           @unique
+  1949→  
+  1950→  // Service Reference
+  1951→  serviceId         String
+  1952→  
+  1953→  // Buyer Info
+  1954→  buyerId           String
+  1955→  
+  1956→  // Supplier Info
+  1957→  supplierCompanyId String
+  1958→  
+  1959→  // Product Reference
+  1960→  productId         String?
+  1961→  orderId           String?
+  1962→  
+  1963→  // Inspection Details
+  1964→  preferredDate     DateTime?
+  1965→  address           String?
+  1966→  contactPerson     String?
+  1967→  contactPhone      String?
+  1968→  specialInstructions String?
+  1969→  
+  1970→  // Status
+  1971→  status            InspectionStatus  @default(REQUESTED)
+  1972→  
+  1973→  // Assignment
+  1974→  inspectorId       String?
+  1975→  inspectorName     String?
+  1976→  scheduledAt       DateTime?
+  1977→  completedAt       DateTime?
+  1978→  
+  1979→  // Results
+  1980→  result            String?           // JSON object with detailed results
+  1981→  overallScore      Int?              // 0-100
+  1982→  passFail          String?           // "pass", "fail", "conditional"
+  1983→  reportUrl         String?
+  1984→  
+  1985→  // Photos/Videos
+  1986→  photos            String?           // JSON array of photo URLs
+  1987→  videos            String?           // JSON array of video URLs
+  1988→  
+  1989→  // Payment
+  1990→  amount            Float?
+  1991→  currency          String            @default("DZD")
+  1992→  paidAt            DateTime?
+  1993→  
+  1994→  // Timeline
+  1995→  requestedAt       DateTime          @default(now())
+  1996→  confirmedAt       DateTime?
+  1997→  cancelledAt       DateTime?
+  1998→  cancellationReason String?
+  1999→  
+  2000→  service           InspectionService @relation(fields: [serviceId], references: [id])
+  2001→  
+  2002→  @@index([buyerId])
+  2003→  @@index([supplierCompanyId])
+  2004→  @@index([status])
+  2005→  @@map("inspection_bookings")
+  2006→}
+  2007→
+  2008→// ============================================
+  2009→// PHASE 6F: ONLINE EXHIBITIONS & EVENTS
+  2010→// ============================================
+  2011→
+  2012→enum ExhibitionStatus {
+  2013→  DRAFT
+  2014→  PUBLISHED
+  2015→  LIVE
+  2016→  ENDED
+  2017→  CANCELLED
+  2018→}
+  2019→
+  2020→enum ExhibitionType {
+  2021→  VIRTUAL_TRADE_SHOW
+  2022→  INDUSTRY_EVENT
+  2023→  PRODUCT_LAUNCH
+  2024→  PROCUREMENT_EVENT
+  2025→  NETWORKING_EVENT
+  2026→}
+  2027→
+  2028→model Exhibition {
+  2029→  id                String           @id @default(cuid())
+  2030→  
+  2031→  // Basic Info
+  2032→  title             String
+  2033→  description       String?
+  2034→  slug              String           @unique
+  2035→  
+  2036→  // Event Details
+  2037→  type              ExhibitionType
+  2038→  status            ExhibitionStatus  @default(DRAFT)
+  2039→  
+  2040→  // Date & Duration
+  2041→  startDate         DateTime
+  2042→  endDate           DateTime
+  2043→  
+  2044→  // Location (virtual or physical)
+  2045→  isVirtual          Boolean           @default(true)
+  2046→  physicalAddress   String?
+  2047→  virtualUrl        String?
+  2048→  
+  2049→  // Branding
+  2050→  coverImage        String?
+  2051→  logo              String?
+  2052→  themeColor        String            @default("#006233")
+  2053→  
+  2054→  // Organization
+  2055→  organizerId       String?           // Admin user ID
+  2056→  
+  2057→  // Registration
+  2058→  maxExhibitors     Int?
+  2059→  maxVisitors       Int?
+  2060→  registrationFee   Float?            @default(0)
+  2061→  currency          String            @default("DZD")
+  2062→  
+  2063→  // Stats
+  2064→  exhibitorCount    Int               @default(0)
+  2065→  visitorCount      Int               @default(0)
+  2066→  
+  2067→  // Featured
+  2068→  isFeatured        Boolean           @default(false)
+  2069→  
+  2070→  booths            ExhibitionBooth[]
+  2071→  events            ExhibitionEvent[]
+  2072→  registrations     ExhibitionRegistration[]
+  2073→  
+  2074→  createdAt         DateTime          @default(now())
+  2075→  updatedAt         DateTime          @updatedAt
+  2076→  
+  2077→  @@index([status])
+  2078→  @@index([type])
+  2079→  @@index([startDate])
+  2080→  @@map("exhibitions")
+  2081→}
+  2082→
+  2083→model ExhibitionBooth {
+  2084→  id                String   @id @default(cuid())
+  2085→  exhibitionId      String
+  2086→  companyId         String
+  2087→  
+  2088→  // Booth Details
+  2089→  boothNumber       String?
+  2090→  name              String   // Booth display name
+  2091→  description       String?
+  2092→  
+  2093→  // Branding
+  2094→  bannerImage       String?
+  2095→  logo              String?
+  2096→  themeColor        String?
+  2097→  
+  2098→  // Virtual Booth Content
+  2099→  welcomeMessage    String?
+  2100→  products          String?   // JSON array of featured product IDs
+  2101→  videos            String?   // JSON array of video URLs
+  2102→  documents         String?   // JSON array of document URLs (catalogs, brochures)
+  2103→  contactInfo       String?   // JSON {email, phone, website}
+  2104→  
+  2105→  // Staff
+  2106→  staffIds          String?   // JSON array of user IDs manning the booth
+  2107→  
+  2108→  // Stats
+  2109→  visitorCount      Int      @default(0)
+  2110→  leadCount         Int      @default(0)
+  2111→  
+  2112→  // Status
+  2113→  status            String   @default("active") // active, inactive, suspended
+  2114→  
+  2115→  exhibition         Exhibition @relation(fields: [exhibitionId], references: [id], onDelete: Cascade)
+  2116→  company           Company?   @relation("ExhibitionBooths", fields: [companyId], references: [id], onDelete: Cascade)
+  2117→  
+  2118→  createdAt         DateTime @default(now())
+  2119→  updatedAt         DateTime @updatedAt
+  2120→  
+  2121→  @@index([exhibitionId])
+  2122→  @@index([companyId])
+  2123→  @@map("exhibition_booths")
+  2124→}
+  2125→
+  2126→model ExhibitionEvent {
+  2127→  id                String   @id @default(cuid())
+  2128→  exhibitionId      String
+  2129→  
+  2130→  // Event Details
+  2131→  title             String
+  2132→  description       String?
+  2133→  type              String   @default("seminar") // seminar, workshop, networking, keynote, demo
+  2134→  
+  2135→  // Schedule
+  2136→  startTime         DateTime
+  2137→  endTime           DateTime
+  2138→  
+  2139→  // Location (within exhibition)
+  2140→  roomId            String?  // Virtual room ID or physical location
+  2141→  
+  2142→  // Speakers
+  2143→  speakers          String?  // JSON array [{name, title, company, bio, photo}]
+  2144→  
+  2145→  // Capacity
+  2146→  maxAttendees      Int?
+  2147→  currentAttendees  Int      @default(0)
+  2148→  
+  2149→  // Resources
+  2150→  recordingUrl      String?
+  2151→  presentationUrl   String?
+  2152→  materialsUrl      String?   // JSON array of resource URLs
+  2153→  
+  2154→  // Status
+  2155→  status            String   @default("scheduled") // scheduled, live, completed, cancelled
+  2156→  
+  2157→  exhibition         Exhibition @relation(fields: [exhibitionId], references: [id], onDelete: Cascade)
+  2158→  registrations     EventRegistration[]
+  2159→  
+  2160→  createdAt         DateTime @default(now())
+  2161→  
+  2162→  @@index([exhibitionId])
+  2163→  @@index([startTime])
+  2164→  @@map("exhibition_events")
+  2165→}
+  2166→
+  2167→model ExhibitionRegistration {
+  2168→  id                String   @id @default(cuid())
+  2169→  exhibitionId      String
+  2170→  userId            String
+  2171→  
+  2172→  // Registration Type
+  2173→  registrationType  String   @default("visitor") // visitor, exhibitor, speaker, press
+  2174→  
+  2175→  // Registration Details
+  2176→  companyName       String?
+  2177→  jobTitle          String?
+  2178→  interests         String?   // JSON array of category IDs or topics
+  2179→  
+  2180→  // Payment (if applicable)
+  2181→  paidAt            DateTime?
+  2182→  amount            Float?
+  2183→  
+  2184→  // Attendance
+  2185→  checkedInAt       DateTime?
+  2186→  lastVisitedAt     DateTime?
+  2187→  
+  2188→  // Status
+  2189→  status            String   @default("registered") // registered, checked_in, attended, no_show, cancelled
+  2190→  
+  2191→  exhibition         Exhibition @relation(fields: [exhibitionId], references: [id], onDelete: Cascade)
+  2192→  
+  2193→  createdAt         DateTime @default(now())
+  2194→  
+  2195→  @@unique([exhibitionId, userId])
+  2196→  @@index([userId])
+  2197→  @@map("exhibition_registrations")
+  2198→}
+  2199→
+  2200→model EventRegistration {
+  2201→  id                String   @id @default(cuid())
+  2202→  eventId            String
+  2203→  userId            String
+  2204→  
+  2205→  registeredAt      DateTime @default(now())
+  2206→  attendedAt        DateTime?
+  2207→  
+  2208→  event             ExhibitionEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  2209→  
+  2210→  @@unique([eventId, userId])
+  2211→  @@map("event_registrations")
+  2212→}
+  2213→
+  2214→// ============================================
+  2215→// PHASE 6G: ADVANCED SEARCH & DISCOVERY
+  2216→// ============================================
+  2217→
+  2218→model TrendingProduct {
+  2219→  id                String   @id @default(cuid())
+  2220→  productId         String
+  2221→  
+  2222→  // Trending Metrics
+  2223→  score             Float    // Calculated trending score
+  2224→  viewCount         Int      @default(0)
+  2225→  inquiryCount     Int      @default(0)
+  2226→  orderCount        Int      @default(0)
+  2227→  favoriteCount     Int      @default(0)
+  2228→  
+  2229→  // Period
+  2230→  periodType        String   @default("weekly") // daily, weekly, monthly
+  2231→  periodStart       DateTime
+  2232→  periodEnd         DateTime
+  2233→  
+  2234→  // Rank
+  2235→  rank              Int
+  2236→  previousRank      Int?     // For showing movement
+  2237→  
+  2238→  product           Product?  @relation("TrendingProducts", fields: [productId], references: [id], onDelete: Cascade)
+  2239→  
+  2240→  createdAt         DateTime @default(now())
+  2241→  
+  2242→  @@unique([productId, periodType, periodStart])
+  2243→  @@index([periodType, rank])
+  2244→  @@map("trending_products")
+  2245→}
+  2246→
+  2247→model MarketInsight {
+  2248→  id                String   @id @default(cuid())
+  2249→  
+  2250→  // Content
+  2251→  title             String
+  2252→  content           String   // Markdown or HTML content
+  2253→  summary           String?
+  2254→  
+  2255→  // Category
+  2256→  categoryId        String?
+  2257→  
+  2258→  // Type
+  2259→  type              String   @default("market_report") // market_report, industry_analysis, buying_guide, trend_forecast, price_analysis
+  2260→  
+  2261→  // Target Audience
+  2262→  targetRole         String?   // buyer, supplier, both
+  2263→  
+  2264→  // Media
+  2265→  coverImage        String?
+  2266→  attachments       String?   // JSON array of document URLs
+  2267→  
+  2268→  // Author
+  2269→  authorId          String?   // Admin ID
+  2270→  
+  2271→  // Stats
+  2272→  viewCount         Int       @default(0)
+  2273→  likeCount         Int       @default(0)
+  2274→  
+  2275→  // Status
+  2276→  isPublished       Boolean   @default(false)
+  2277→  publishedAt       DateTime?
+  2278→  
+  2279→  featuredUntil     DateTime?
+  2280→  
+  2281→  category          Category? @relation("MarketInsights", fields: [categoryId], references: [id])
+  2282→  
+  2283→  createdAt         DateTime  @default(now())
+  2284→  updatedAt         DateTime  @updatedAt
+  2285→  
+  2286→  @@index([categoryId])
+  2287→  @@index([type])
+  2288→  @@index([isPublished])
+  2289→  @@map("market_insights")
+  2290→}
+  2291→
+  2292→model BuyingGuide {
+  2293→  id                String   @id @default(cuid())
+  2294→  
+  2295→  // Content
+  2296→  title             String
+  2297→  slug              String   @unique
+  2298→  content           String   // Markdown
+  2299→  summary           String?
+  2300→  
+  2301→  // Category
+  2302→  categoryId        String
+  2303→  
+  2304→  // Structure
+  2305→  sections          String?   // JSON array [{title, content, order}]
+  2306→  
+  2307→  // Tips
+  2308→  tips              String?   // JSON array of quick tips
+  2309→  commonMistakes    String?   // JSON array of common mistakes
+  2310→  checklist         String?   // JSON array of checklist items
+  2311→  
+  2312→  // Media
+  2313→  coverImage        String?
+  2314→  videoUrl          String?
+  2315→  
+  2316→  // Related
+  2317→  productIds        String?   // JSON array of recommended product IDs
+  2318→  
+  2319→  // Author
+  2320→  authorId          String?
+  2321→  
+  2322→  // Stats
+  2323→  viewCount         Int       @default(0)
+  2324→  helpfulCount      Int       @default(0)
+  2325→  notHelpfulCount   Int       @default(0)
+  2326→  
+  2327→  // Status
+  2328→  isPublished       Boolean   @default(false)
+  2329→  publishedAt       DateTime?
+  2330→  
+  2331→  category          Category  @relation("BuyingGuides", fields: [categoryId], references: [id])
+  2332→  
+  2333→  createdAt         DateTime  @default(now())
+  2334→  updatedAt         DateTime  @updatedAt
+  2335→  
+  2336→  @@index([categoryId])
+  2337→  @@index([slug])
+  2338→  @@index([isPublished])
+  2339→  @@map("buying_guides")
+  2340→}
+  2341→
+  2342→// ============================================
+  2343→// PHASE 6H: LOGISTICS & SHIPPING
+  2344→// ============================================
+  2345→
+  2346→enum ShippingMethod {
+  2347→  STANDARD
+  2348→  EXPRESS
+  2349→  AIR_FREIGHT
+  2350→  SEA_FREIGHT
+  2351→  RAIL_FREIGHT
+  2352→  PICKUP
+  2353→  WHITE_GLOVE
+  2354→}
+  2355→
+  2356→enum Incoterm {
+  2357→  EXW        // Ex Works
+  2358→  FCA        // Free Carrier
+  2359→  CPT        // Carriage Paid To
+  2360→  CIP        // Carriage and Insurance Paid To
+  2361→  DAP        // Delivered at Place
+  2362→  DDP        // Delivered Duty Paid
+  2363→  FAS        // Free Alongside Ship
+  2364→  FOB        // Free on Board
+  2365→  CFR        // Cost and Freight
+  2366→  CIF        // Cost Insurance and Freight
+  2367→}
+  2368→
+  2369→enum ShipmentStatus {
+  2370→  PENDING
+  2371→  READY_TO_SHIP
+  2372→  SHIPPED
+  2373→  IN_TRANSIT
+  2374→  OUT_FOR_DELIVERY
+  2375→  DELIVERED
+  2376→  EXCEPTION
+  2377→  RETURNED
+  2378→  LOST
+  2379→}
+  2380→
+  2381→model ShippingRate {
+  2382→  id                String           @id @default(cuid())
+  2383→  
+  2384→  // Route
+  2385→  originWilaya      String
+  2386→  destinationWilaya String
+  2387→  
+  2388→  // Method & Pricing
+  2389→  method            ShippingMethod
+  2390→  basePrice         Float
+  2391→  weightPrice       Float?            // Price per kg
+  2392→  volumePrice       Float?            // Price per m³
+  2393→  
+  2394→  // Constraints
+  2395→  minWeight         Float?            // kg
+  2396→  maxWeight         Float?            // kg
+  2397→  minDimensions     String?           // JSON {length, width, height}
+  2398→  maxDimensions     String?           // JSON {length, width, height}
+  2399→  
+  2400→  // Timeframe
+  2401→  estimatedDaysMin  Int
+  2402→  estimatedDaysMax  Int
+  2403→  
+  2404→  // Carrier
+  2405→  carrierName       String?
+  2406→  trackingSupported Boolean          @default(false)
+  2407→  
+  2408→  // Validity
+  2409→  effectiveFrom     DateTime
+  2410→  effectiveUntil    DateTime?
+  2411→  
+  2412→  isActive          Boolean           @default(true)
+  2413→  
+  2414→  shipments         Shipment[]
+  2415→  
+  2416→  createdAt         DateTime          @default(now())
+  2417→  
+  2418→  @@index([originWilaya, destinationWilaya])
+  2419→  @@index([method])
+  2420→  @@map("shipping_rates")
+  2421→}
+  2422→
+  2423→model Shipment {
+  2424→  id                String         @id @default(cuid())
+  2425→  trackingNumber    String         @unique
+  2426→  orderId           String
+  2427→  
+  2428→  // Shipping Method
+  2429→  shippingMethod    ShippingMethod
+  2430→  shippingRateId    String?
+  2431→  
+  2432→  // Addresses
+  2433→  originAddress     String           // JSON {name, phone, address, wilaya, commune}
+  2434→  destinationAddress String         // JSON {name, phone, address, wilaya, commune}
+  2435→  
+  2436→  // Incoterms
+  2437→  incoterm          Incoterm         @default(DAP)
+  2438→  
+  2439→  // Dimensions & Weight
+  2440→  weight            Float?           // Total weight in kg
+  2441→  dimensions        String?          // JSON {length, width, height, unit}
+  2442→  packageCount      Int              @default(1)
+  2443→  
+  2444→  // Cost
+  2445→  shippingCost      Float
+  2446→  currency          String           @default("DZD")
+  2447→  
+  2448→  // Status
+  2449→  status            ShipmentStatus    @default(PENDING)
+  2450→  
+  2451→  // Tracking
+  2452→  trackingEventsData String?          // JSON array of tracking events
+  2453→  estimatedDelivery DateTime?
+  2454→  actualDelivery    DateTime?
+  2455→  
+  2456→  // Carrier Info
+  2457→  carrierName       String?
+  2458→  carrierTrackingUrl String?
+  2459→  
+  2460→  // Documents
+  2461→  waybillUrl        String?
+  2462→  customsDocsUrl    String?
+  2463→  insuranceUrl      String?
+  2464→  
+  2465→  order             Order            @relation("OrderShipments", fields: [orderId], references: [id])
+  2466→  rate              ShippingRate?    @relation(fields: [shippingRateId], references: [id])
+  2467→  trackingEvents    TrackingEvent[]  @relation("ShipmentTrackingEvents")
+  2468→  
+  2469→  createdAt         DateTime         @default(now())
+  2470→  updatedAt         DateTime         @updatedAt
+  2471→  
+  2472→  @@index([orderId])
+  2473→  @@index([trackingNumber])
+  2474→  @@index([status])
+  2475→  @@map("shipments")
+  2476→}
+  2477→
+  2478→model TrackingEvent {
+  2479→  id                String   @id @default(cuid())
+  2480→  shipmentId        String
+  2481→  
+  2482→  // Event Details
+  2483→  status            String   // Description of event
+  2484→  location          String?
+  2485→  timestamp         DateTime
+  2486→  
+  2487→  // Additional Info
+  2488→  description       String?
+  2489→  imageUrl          String?   // Photo proof of delivery
+  2490→  
+  2491→  shipment          Shipment  @relation("ShipmentTrackingEvents", fields: [shipmentId], references: [id], onDelete: Cascade)
+  2492→  
+  2493→  createdAt         DateTime @default(now())
+  2494→  
+  2495→  @@index([shipmentId])
+  2496→  @@map("tracking_events")
+  2497→}
+  2498→
+  2499→// ============================================
+  2500→// CRM MODULE (Phase 8I)
+  2501→// ============================================
+  2502→
+  2503→model CRMContact {
+  2504→  id                      String    @id @default(cuid())
+  2505→  companyId               String
+  2506→  userId                  String?
+  2507→  
+  2508→  // Personal Info
+  2509→  firstName               String
+  2510→  lastName                String
+  2511→  email                   String
+  2512→  phone                   String
+  2513→  mobile                  String?
+  2514→  jobTitle                String
+  2515→  department              String?
+  2516→  role                    String    @default("DECISION_MAKER")
+  2517→  
+  2518→  // Social/Professional
+  2519→  linkedinUrl             String?
+  2520→  avatarUrl               String?
+  2521→  
+  2522→  // Preferences
+  2523→  preferredLanguage       String    @default("FR")
+  2524→  preferredContactMethod String    @default("EMAIL")
+  2525→  timezone                String    @default("Africa/Algiers")
+  2526→  
+  2527→  // Tags & Notes
+  2528→  tags                    String    @default("[]") // JSON array
+  2529→  notes                   String?
+  2530→  
+  2531→  lastInteractionAt       DateTime?
+  2532→  createdAt               DateTime  @default(now())
+  2533→  updatedAt               DateTime  @updatedAt
+  2534→  
+  2535→  interactions            CRMInteraction[]
+  2536→  
+  2537→  @@index([companyId])
+  2538→  @@index([email])
+  2539→  @@index([lastName])
+  2540→  @@map("crm_contacts")
+  2541→}
+  2542→
+  2543→model CRMLead {
+  2544→  id                      String    @id @default(cuid())
+  2545→  leadNumber              String    @unique
+  2546→  
+  2547→  // Source Info
+  2548→  source                  String
+  2549→  sourceDetails           String?
+  2550→  campaignId              String?
+  2551→  
+  2552→  // Company Info
+  2553→  companyName             String
+  2554→  industry                String?
+  2555→  companySize             String?
+  2556→  website                 String?
+  2557→  wilaya                  String?
+  2558→  city                    String?
+  2559→  
+  2560→  // Contact Person
+  2561→  primaryContactId        String
+  2562→  
+  2563→  // Pipeline
+  2564→  status                  String    @default("NEW")
+  2565→  pipelineStage           String
+  2566→  estimatedValue          Float
+  2567→  currency                String    @default("DZD")
+  2568→  probability             Int       @default(0)
+  2569→  expectedCloseDate       DateTime
+  2570→  
+  2571→  // Assignment
+  2572→  assignedTo              String
+  2573→  teamId                  String?
+  2574→  
+  2575→  // Products/Services Interest
+  2576→  interestedCategories    String    @default("[]") // JSON array
+  2577→  interestedProducts      String    @default("[]") // JSON array
+  2578→  specificRequirements    String?
+  2579→  
+  2580→  // Scoring
+  2581→  leadScore               Int       @default(0)
+  2582→  engagementScore         Int       @default(0)
+  2583→  
+  2584→  // Conversion
+  2585→  convertedToCompanyId    String?
+  2586→  convertedToOrderId      String?
+  2587→  convertedAt             DateTime?
+  2588→  
+  2589→  // Loss Analysis
+  2590→  lostReason              String?
+  2591→  lostToCompetitor        String?
+  2592→  
+  2593→  createdAt               DateTime  @default(now())
+  2594→  updatedAt               DateTime  @updatedAt
+  2595→  
+  2596→  tasks                   CRMTask[]
+  2597→  interactions            CRMInteraction[]
+  2598→  
+  2599→  @@index([assignedTo])
+  2600→  @@index([status])
+  2601→  @@index([source])
+  2602→  @@index([expectedCloseDate])
+  2603→  @@map("crm_leads")
+  2604→}
+  2605→
+  2606→model CRMTask {
+  2607→  id                      String    @id @default(cuid())
+  2608→  leadId                  String?
+  2609→  contactId               String?
+  2610→  companyId               String
+  2611→  
+  2612→  title                   String
+  2613→  description             String
+  2614→  type                    String    @default("OTHER") // CALL, EMAIL, MEETING, FOLLOW_UP, PROPOSAL, DEMO, REMINDER, OTHER
+  2615→  priority                String    @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
+  2616→  status                  String    @default("TODO") // TODO, IN_PROGRESS, COMPLETED, CANCELLED, DEFERRED
+  2617→  
+  2618→  dueDate                 DateTime
+  2619→  dueTime                 String?
+  2620→  completedAt             DateTime?
+  2621→  
+  2622→  assignedTo              String
+  2623→  createdBy               String
+  2624→  
+  2625→  // Reminders
+  2626→  remindBefore            Int       @default(60) // Minutes before
+  2627→  reminderSent            Boolean   @default(false)
+  2628→  
+  2629→  // Result
+  2630→  resultNotes             String?
+  2631→  outcome                 String?
+  2632→  
+  2633→  createdAt               DateTime  @default(now())
+  2634→  updatedAt               DateTime  @updatedAt
+  2635→  
+  2636→  lead                    CRMLead?   @relation(fields: [leadId], references: [id])
+  2637→  
+  2638→  @@index([assignedTo])
+  2639→  @@index([status])
+  2640→  @@index([dueDate])
+  2641→  @@map("crm_tasks")
+  2642→}
+  2643→
+  2644→model CRMInteraction {
+  2645→  id                      String    @id @default(cuid())
+  2646→  contactId               String
+  2647→  leadId                  String?
+  2648→  companyId               String
+  2649→  
+  2650→  type                    String    // CALL, EMAIL, MEETING, NOTE, SYSTEM, CHAT, QUOTE_SENT, ORDER_PLACED
+  2651→  direction               String    // INBOUND, OUTBOUND
+  2652→  
+  2653→  subject                 String
+  2654→  content                 String
+  2655→  
+  2656→  // Metadata
+  2657→  duration                Int?      // Minutes for calls/meetings
+  2658→  channel                 String?   // Email, Phone, WhatsApp, etc.
+  2659→  
+  2660→  // Outcomes
+  2661→  sentiment               String?   // POSITIVE, NEUTRAL, NEGATIVE
+  2662→  nextSteps               String?
+  2663→  
+  2664→  // Attachments
+  2665→  attachmentUrls          String    @default("[]") // JSON array
+  2666→  
+  2667→  // Automation
+  2668→  automated               Boolean   @default(false)
+  2669→  triggeredBy             String?
+  2670→  
+  2671→  createdBy               String
+  2672→  createdAt               DateTime  @default(now())
+  2673→  
+  2674→  contact                 CRMContact @relation(fields: [contactId], references: [id])
+  2675→  lead                    CRMLead?   @relation(fields: [leadId], references: [id])
+  2676→  
+  2677→  @@index([contactId])
+  2678→  @@index([leadId])
+  2679→  @@index([createdAt])
+  2680→  @@map("crm_interactions")
+  2681→}
+  2682→
+  2683→model CRMPipeline {
+  2684→  id                      String    @id @default(cuid())
+  2685→  name                    String
+  2686→  description             String?
+  2687→  stages                  Json // PipelineStage[]
+  2688→  defaultLeadStatus       String    @default("NEW")
+  2689→  
+  2690→  isPublic                Boolean   @default(true)
+  2691→  allowedRoles            String    @default("[]") // JSON array
+  2692→  
+  2693→  autoAdvanceRules        Json // AutoAdvanceRule[]
+  2694→  
+  2695→  createdAt               DateTime  @default(now())
+  2696→  updatedAt               DateTime  @updatedAt
+  2697→  
+  2698→  @@map("crm_pipelines")
+  2699→}
+  2700→
+  2701→model CRMSegment {
+  2702→  id                      String    @id @default(cuid())
+  2703→  name                    String
+  2704→  description             String?
+  2705→  filters                 Json // SegmentFilter[]
+  2706→  contactCount            Int       @default(0)
+  2707→  lastCalculated          DateTime?
+  2708→  createdAt               DateTime  @default(now())
+  2709→  
+  2710→  @@map("crm_segments")
+  2711→}
+  2712→
+  2713→model CRMAutomationRule {
+  2714→  id                      String    @id @default(cuid())
+  2715→  name                    String
+  2716→  eventType               String    // LEAD_CREATED, LEAD_STAGE_CHANGED, TASK_COMPLETED, INTERACTION_LOGGED, etc.
+  2717→  conditions              Json // Condition[]
+  2718→  actions                 Json // Action[]
+  2719→  enabled                 Boolean   @default(true)
+  2720→  lastTriggeredAt         DateTime?
+  2721→  executionCount          Int       @default(0)
+  2722→  createdAt               DateTime  @default(now())
+  2723→  updatedAt               DateTime  @updatedAt
+  2724→  
+  2725→  @@map("crm_automation_rules")
+  2726→}
+  2727→
+  2728→// ============================================
+  2729→// ERP INTEGRATION MODULE (Phase 8J)
+  2730→// ============================================
+  2731→
+  2732→model ERPConfig {
+  2733→  id                      String    @id @default(cuid())
+  2734→  name                    String
+  2735→  type                    String    // SAP, ODOO, DYNAMICS, CUSTOM
+  2736→  enabled                 Boolean   @default(false)
+  2737→  
+  2738→  // Connection
+  2739→  endpoint                String
+  2740→  apiKey                  String?
+  2741→  username                String?
+  2742→  password                String?
+  2743→  clientId                String?
+  2744→  clientSecret            String?
+  2745→  authType                String    @default("API_KEY") // API_KEY, BASIC, OAUTH2, CERTIFICATE
+  2746→  
+  2747→  // Sync Settings
+  2748→  defaultSyncFreq         String    @default("DAILY") // REALTIME, EVERY_5_MIN, HOURLY, DAILY, MANUAL
+  2749→  syncDirections          Json
+  2750→  fieldMappings           Json
+  2751→  
+  2752→  // Webhook
+  2753→  webhookSecret           String?
+  2754→  webhookEndpoint         String?
+  2755→  
+  2756→  // Status
+  2757→  lastSyncAt              DateTime?
+  2758→  connectionStatus        String    @default("UNKNOWN") // UNKNOWN, CONNECTED, ERROR
+  2759→  
+  2760→  createdAt               DateTime  @default(now())
+  2761→  updatedAt               DateTime  @updatedAt
+  2762→  
+  2763→  syncLogs                ERPSyncLog[]
+  2764→  inventorySyncRules      InventorySyncRule[]
+  2765→  
+  2766→  @@unique([name, type])
+  2767→  @@map("erp_configs")
+  2768→}
+  2769→
+  2770→model ERPSyncLog {
+  2771→  id                      String    @id @default(cuid())
+  2772→  erpConfigId             String
+  2773→  entityType              String    // PRODUCTS, INVENTORY, ORDERS, CUSTOMERS, PRICES, CATEGORIES, SUPPLIERS, INVOICES, SHIPMENTS
+  2774→  direction               String    // PUSH, PULL
+  2775→  status                  String    @default("PENDING") // SUCCESS, FAILED, PARTIAL, PENDING, SKIPPED
+  2776→  
+  2777→  recordsProcessed        Int       @default(0)
+  2778→  recordsSuccess          Int       @default(0)
+  2779→  recordsFailed           Int       @default(0)
+  2780→  errors                  String    @default("[]") // JSON array of errors
+  2781→  
+  2782→  startedAt               DateTime  @default(now())
+  2783→  completedAt             DateTime?
+  2784→  durationMs              Int?
+  2785→  
+  2786→  erpConfig               ERPConfig  @relation(fields: [erpConfigId], references: [id], onDelete: Cascade)
+  2787→  
+  2788→  @@index([erpConfigId])
+  2789→  @@index([status])
+  2790→  @@index([startedAt])
+  2791→  @@map("erp_sync_logs")
+  2792→}
+  2793→
+  2794→model InventorySyncRule {
+  2795→  id                      String    @id @default(cuid())
+  2796→  erpConfigId             String
+  2797→  productCategory         String?   // Apply to category
+  2798→  syncFrequency           String    @default("DAILY")
+  2799→  conflictResolution      String    @default("ERP_WINS") // PLATFORM_WINS, ERP_WINS, MANUAL, LATEST_WINS
+  2800→  lowStockThreshold       Int       @default(10) // Alert when below this
+  2801→  enableBackorders        Boolean   @default(false)
+  2802→  reserveStockOnOrder     Boolean   @default(true) // Reserve ERP stock when order placed
+  2803→  
+  2804→  erpConfig               ERPConfig  @relation(fields: [erpConfigId], references: [id], onDelete: Cascade)
+  2805→  createdAt               DateTime  @default(now())
+  2806→  updatedAt               DateTime  @updatedAt
+  2807→  
+  2808→  @@index([erpConfigId])
+  2809→  @@map("inventory_sync_rules")
+  2810→}
+  2811→
+  2812→// ============================================
+  2813→// NEGOTIATION SYSTEM - Advanced Offer/Counter-Offer
+  2814→// ============================================
+  2815→
+  2816→model Negotiation {
+  2817→  id                String            @id @default(cuid())
+  2818→  negotiationNumber String            @unique // NEG-YYYYMMDD-XXXX
+  2819→  
+  2820→  // Related entities
+  2821→  productId         String?
+  2822→  orderId           String?
+  2823→  rfqId             String?
+  2824→  
+  2825→  // Parties
+  2826→  buyerId           String
+  2827→  sellerId          String
+  2828→  initiatorId       String // Who started it
+  2829→  currentRole       String             @default("BUYER") // BUYER or SELLER - Whose turn
+  2830→  
+  2831→  // Status tracking
+  2832→  status            String             @default("DRAFT") // DRAFT, SENT, UNDER_REVIEW, COUNTERED, ACCEPTED, REJECTED, EXPIRED, WITHDRAWN, ARCHIVED
+  2833→  type              String             @default("PRICE") // PRICE, QUANTITY, DELIVERY_TERMS, PAYMENT_TERMS, SPECIFICATIONS, BUNDLE, COMPREHENSIVE
+  2834→  
+  2835→  // Progress
+  2836→  totalOffers       Int                @default(0)
+  2837→  counterOffers     Int                @default(0)
+  2838→  lastOfferAt       DateTime
+  2839→  concludedOutcome  String?            // Accepted price, terms summary
+  2840→  
+  2841→  // Settings
+  2842→  maxDuration       Int                @default(30) // Days before auto-expire
+  2843→  autoAcceptThreshold Float?           // If offer within X% of asking, auto-accept
+  2844→  isPrivate         Boolean            @default(false) // Hidden from other suppliers
+  2845→  allowCounterOffer Boolean            @default(true)
+  2846→  
+  2847→  startedAt         DateTime           @default(now())
+  2848→  concludedAt       DateTime?
+  2849→  
+  2850→  offers            NegotiationOffer[]
+  2851→  
+  2852→  product           Product?          @relation("ProductNegotiations", fields: [productId], references: [id])
+  2853→  order             Order?            @relation("OrderNegotiations", fields: [orderId], references: [id])
+  2854→  
+  2855→  @@index([buyerId])
+  2856→  @@index([sellerId])
+  2857→  @@index([status])
+  2858→  @@index([productId])
+  2859→  @@map("negotiations")
+  2860→}
+  2861→
+  2862→model NegotiationOffer {
+  2863→  id                String            @id @default(cuid())
+  2864→  negotiationId     String
+  2865→  offerNumber       Int               // Sequential per negotiation
+  2866→  fromRole           String            // BUYER or SELLER
+  2867→  fromUserId        String
+  2868→  toUserId          String
+  2869→  
+  2870→  // Content
+  2871→  type              String             @default("PRICE")
+  2872→  originalPrice     Float?
+  2873→  offeredPrice      Float?
+  2874→  quantity          Float?
+  2875→  deliveryDays      Int?
+  2876→  paymentTerms      String?
+  2877→  specifications    Json?              // Record<string, any>
+  2878→  notes             String?
+  2879→  
+  2880→  // AI Analysis (optional)
+  2881→  aiScore           Int?               // 0-100, how fair is this offer?
+  2882→  aiSuggestion      String?
+  2883→  marketComparison  Json?              // { averagePrice, percentile }
+  2884→  
+  2885→  // Timestamps
+  2886→  validUntil        DateTime           // Offer expiry (default 72h)
+  2887→  respondedAt       DateTime?
+  2888→  status            String             @default("PENDING") // PENDING, ACCEPTED, REJECTED, COUNTERED, EXPIRED
+  2889→  
+  2890→  createdAt         DateTime           @default(now())
+  2891→  
+  2892→  negotiation       Negotiation        @relation(fields: [negotiationId], references: [id], onDelete: Cascade)
+  2893→  
+  2894→  @@index([negotiationId])
+  2895→  @@index([status])
+  2896→  @@map("negotiation_offers")
+  2897→}
+  2898→
+  2899→// ============================================
+  2900→// CONTRACT SYSTEM - Legal Document Generation
+  2901→// ============================================
+  2902→
+  2903→model Contract {
+  2904→  id                  String            @id @default(cuid())
+  2905→  contractNumber      String            @unique // CTR-YYYYMMDD-XXXX
+  2906→  contractType        String            // SALES_AGREEMENT, SUPPLY_CONTRACT, SERVICE_AGREEMENT, DISTRIBUTION_AGREEMENT, NON_DISCLOSURE, EXCLUSIVITY, FRAMEWORK_AGREEMENT
+  2907→  status              String            @default("DRAFT") // DRAFT, REVIEW, PENDING_SIGNATURE, SIGNED, ACTIVE, EXPIRED, TERMINATED, VOID
+  2908→  language            String            @default("BILINGUAL") // AR, FR, BILINGUAL
+  2909→  
+  2910→  // Parties (JSON serialized ContractParty)
+  2911→  partyAInfo          Json              // Supplier info
+  2912→  partyBInfo          Json              // Buyer info
+  2913→  
+  2914→  // Subject matter
+  2915→  subject             String
+  2916→  subjectAr           String
+  2917→  subjectFr           String
+  2918→  effectiveDate       DateTime
+  2919→  endDate             DateTime?         // Null for indefinite
+  2920→  
+  2921→  // Financial terms
+  2922→  totalValue          Float             @default(0)
+  2923→  currency            String            @default("DZD")
+  2924→  paymentTerms        String
+  2925→  penaltyClause       String?           // Late payment penalties
+  2926→  warrantyTerms       String?
+  2927→  
+  2928→  // Clauses (JSON arrays)
+  2929→  clauses             Json              // ContractClause[]
+  2930→  customClauses       Json              // Custom ContractClause[]
+  2931→  
+  2932→  // Signatures
+  2933→  partyASignedAt      DateTime?
+  2934→  partyBSignedAt      DateTime?
+  2935→  partyASignatureUrl  String?
+  2936→  partyBSignatureUrl  String?
+  2937→  
+  2938→  // Versioning
+  2939→  version             Int               @default(1)
+  2940→  parentContractId    String?           // For amendments
+  2941→  
+  2942→  // Metadata
+  2943→  createdBy           String
+  2944→  createdAt           DateTime         @default(now())
+  2945→  updatedAt           DateTime         @updatedAt
+  2946→  
+  2947→  relatedNegotiationId String?
+  2948→  relatedOrderId      String?
+  2949→  
+  2950→  attachments        ContractAttachment[]
+  2951→  
+  2952→  @@index([contractType])
+  2953→  @@index([status])
+  2954→  @@index([createdBy])
+  2955→  @@map("contracts")
+  2956→}
+  2957→
+  2958→model ContractAttachment {
+  2959→  id              String    @id @default(cuid())
+  2960→  contractId      String
+  2961→  fileName        String
+  2962→  fileType        String   // PDF, DOCX, IMAGE, OTHER
+  2963→  fileSize        Int      // bytes
+  2964→  fileUrl         String
+  2965→  uploadedBy      String
+  2966→  description     String?
+  2967→  
+  2968→  createdAt       DateTime @default(now())
+  2969→  
+  2970→  contract        Contract  @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  2971→  
+  2972→  @@index([contractId])
+  2973→  @@map("contract_attachments")
+  2974→}
+  2975→
+  2976→// ============================================
+  2977→// PHASE 8D: INSTALLMENT PLANS (DPA)
+  2978→// ============================================
+  2979→
+  2980→enum InstallmentPlanType {
+  2981→  DPA_30_DAYS      // 30-day deferred (common in Algeria)
+  2982→  DPA_60_DAYS      // 60-day deferred
+  2983→  DPA_90_DAYS      // 90-day deferred (with bank guarantee)
+  2984→  INSTALLMENT_3X   // 3 equal monthly installments
+  2985→  INSTALLMENT_6X   // 6 equal monthly installments
+  2986→  INSTALLMENT_12X  // 12 monthly installments (large orders)
+  2987→  CUSTOM           // Custom plan negotiated
+  2988→}
+  2989→
+  2990→enum InstallmentStatus {
+  2991→  PENDING_APPROVAL // Awaiting seller/bank approval
+  2992→  APPROVED         // Plan approved, payments scheduled
+  2993→  ACTIVE           // Payments in progress
+  2994→  DELINQUENT       // Payment overdue
+  2995→  DEFAULTED        // Failed to pay
+  2996→  COMPLETED        // All installments paid
+  2997→  CANCELLED        // Plan cancelled
+  2998→}
+  2999→
+  3000→model InstallmentPlan {
+  3001→  id                    String            @id @default(cuid())
+  3002→  orderId               String           @unique
+  3003→  buyerId               String
+  3004→  sellerId              String
+  3005→  type                  InstallmentPlanType
+  3006→  status                InstallmentStatus @default(PENDING_APPROVAL)
+  3007→  
+  3008→  totalAmount           Float
+  3009→  downPayment           Float             // Initial payment (usually 30%)
+  3010→  remainingBalance      Float
+  3011→  installmentCount      Int
+  3012→  installmentAmount     Float
+  3013→  interestRate          Float             @default(0) // APR
+  3014→  totalInterest         Float             @default(0)
+  3015→  
+  3016→  firstPaymentDate      DateTime
+  3017→  frequency             String            @default("MONTHLY") // MONTHLY, BI_MONTHLY, QUARTERLY
+  3018→  
+  3019→  bankGuaranteeRequired Boolean           @default(false)
+  3020→  bankGuarrantyDocument String?
+  3021→  
+  3022→  approvedAt            DateTime?
+  3023→  approvedBy            String?           // Admin/Seller ID
+  3024→  
+  3025→  nextInstallmentDue    DateTime?
+  3026→  installmentsPaid      Int               @default(0)
+  3027→  
+  3028→  notes                 String?
+  3029→  
+  3030→  createdAt             DateTime          @default(now())
+  3031→  updatedAt             DateTime          @updatedAt
+  3032→  
+  3033→  installments          Installment[]
+  3034→  
+  3035→  @@index([buyerId])
+  3036→  @@index([sellerId])
+  3037→  @@index([orderId])
+  3038→  @@index([status])
+  3039→  @@map("installment_plans")
+  3040→}
+  3041→
+  3042→model Installment {
+  3043→  id                String    @id @default(cuid())
+  3044→  planId            String
+  3045→  installmentNumber Int
+  3046→  dueDate           DateTime
+  3047→  amount            Float
+  3048→  principalPortion  Float
+  3049→  interestPortion   Float
+  3050→  paidAt            DateTime?
+  3051→  paymentMethod     String?
+  3052→  transactionId     String?
+  3053→  status            String    @default("PENDING") // PENDING, PAID, OVERDUE, PARTIAL, WAIVED
+  3054→  lateFeeApplied    Float     @default(0)
+  3055→  notes             String?
+  3056→  
+  3057→  plan              InstallmentPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  3058→  
+  3059→  @@index([planId])
+  3060→  @@index([status])
+  3061→  @@index([dueDate])
+  3062→  @@map("installments")
+  3063→}
+  3064→
+  3065→// ============================================
+  3066→// PHASE 8E: INVOICE SYSTEM
+  3067→// ============================================
+  3068→
+  3069→enum InvoiceStatus {
+  3070→  DRAFT
+  3071→  ISSUED
+  3072→  PAID
+  3073→  PARTIAL
+  3074→  OVERDUE
+  3075→  CANCELLED
+  3076→  REFUNDED
+  3077→}
+  3078→
+  3079→enum InvoiceType {
+  3080→  COMMERCIAL
+  3081→  PROFORMA
+  3082→  CREDIT_NOTE
+  3083→  DEBIT_NOTE
+  3084→  DOWN_PAYMENT
+  3085→  INSTALLMENT
+  3086→}
+  3087→
+  3088→model Invoice {
+  3089→  id              String        @id @default(cuid())
+  3090→  invoiceNumber   String        @unique
+  3091→  invoiceType     InvoiceType
+  3092→  status          InvoiceStatus @default(DRAFT)
+  3093→  
+  3094→  sellerId        String
+  3095→  buyerId         String
+  3096→  orderId         String
+  3097→  
+  3098→  issueDate       DateTime
+  3099→  dueDate         DateTime
+  3100→  paidDate        DateTime?
+  3101→  
+  3102→  subtotal        Float
+  3103→  discountTotal   Float         @default(0)
+  3104→  tvaAmount       Float         @default(0)
+  3105→  tssAmount       Float         @default(0)
+  3106→  totalAmount     Float
+  3107→  amountPaid      Float         @default(0)
+  3108→  balanceDue      Float
+  3109→  
+  3110→  currency        String         @default("DZD")
+  3111→  paymentTerms    String         @default("Net 30") // e.g., "Net 30", "Net 60"
+  3112→  notes           String?
+  3113→  termsConditions String?
+  3114→  pdfPath         String?
+  3115→  
+  3116→  quotationId      String?
+  3117→  relatedInvoiceId String?       // For credit/debit notes
+  3118→  
+  3119→  createdAt        DateTime      @default(now())
+  3120→  updatedAt        DateTime      @updatedAt
+  3121→  
+  3122→  items            InvoiceItem[]
+  3123→  payments         InvoicePayment[]
+  3124→  
+  3125→  @@index([sellerId])
+  3126→  @@index([buyerId])
+  3127→  @@index([orderId])
+  3128→  @@index([status])
+  3129→  @@index([invoiceNumber])
+  3130→  @@map("invoices")
+  3131→}
+  3132→
+  3133→model InvoiceItem {
+  3134→  id          String  @id @default(cuid())
+  3135→  invoiceId   String
+  3136→  description String
+  3137→  quantity    Float
+  3138→  unitPrice   Float
+  3139→  discount    Int     @default(0) // Percentage
+  3140→  taxRate     Int     @default(19) // TVA percentage (9%, 19%, or 0%)
+  3141→  taxAmount   Float
+  3142→  lineTotal   Float
+  3143→  
+  3144→  sortOrder   Int     @default(0)
+  3145→  
+  3146→  invoice     Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  3147→  
+  3148→  @@index([invoiceId])
+  3149→  @@map("invoice_items")
+  3150→}
+  3151→
+  3152→model InvoicePayment {
+  3153→  id              String    @id @default(cuid())
+  3154→  invoiceId       String
+  3155→  amount          Float
+  3156→  paymentMethod   String    // CIB, CCP, BARIDIMOB, BANK_TRANSFER, etc.
+  3157→  transactionId   String?
+  3158→  referenceNumber String?
+  3159→  notes           String?
+  3160→  paidAt          DateTime  @default(now())
+  3161→  
+  3162→  invoice         Invoice   @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  3163→  
+  3164→  @@index([invoiceId])
+  3165→  @@map("invoice_payments")
+  3166→}
+  3167→

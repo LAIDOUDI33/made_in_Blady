@@ -1,0 +1,2002 @@
+     1→// AlgeriaTrade B2B Marketplace - Database Schema
+     2→// Multi-Tenant White-Label System
+     3→// Designed for Algerian market with multilingual support
+     4→
+     5→generator client {
+     6→  provider = "prisma-client-js"
+     7→}
+     8→
+     9→datasource db {
+    10→  provider = "sqlite"
+    11→  url      = env("DATABASE_URL")
+    12→}
+    13→
+    14→// ============================================
+    15→// MULTI-TENANT SYSTEM
+    16→// ============================================
+    17→
+    18→model Tenant {
+    19→  id                String   @id @default(cuid())
+    20→  slug              String   @unique  // algeriatrade, tunisiatrade, moroccotrade
+    21→  name              String   // Display name
+    22→  domain            String?  // Custom domain (optional)
+    23→  
+    24→  // Branding
+    25→  primaryColor      String   @default("#006233")
+    26→  secondaryColor    String   @default("#D52B1E")
+    27→  logoUrl           String?
+    28→  faviconUrl        String?
+    29→  backgroundImage   String?
+    30→  
+    31→  // Localization
+    32→  defaultLanguage   String   @default("fr")
+    33→  currency          String   @default("DZD")
+    34→  currencySymbol    String   @default("د.ج")
+    35→  locale            String   @default("fr-DZ")
+    36→  timezone          String   @default("Africa/Algiers")
+    37→  
+    38→  // Country config
+    39→  countryName       String   @default("Algérie")
+    40→  countryCode       String   @default("DZ")
+    41→  phonePrefix       String   @default("+213")
+    42→  
+    43→  // Features (license)
+    44→  features          String   @default("[\"catalog\",\"rfq\",\"messaging\",\"payments\",\"reviews\"]") // JSON array of enabled features
+    45→  
+    46→  // Status
+    47→  isActive          Boolean  @default(true)
+    48→  isPublic          Boolean  @default(true) // Visible in marketplace listing
+    49→  
+    50→  // Owner (if white-label client)
+    51→  ownerId           String?
+    52→  planType          String   @default("free") // free, professional, enterprise
+    53→  subscriptionEnd   DateTime?
+    54→  
+    55→  // Customization
+    56→  customCSS         String?
+    57→  customJS          String?
+    58→  footerText        String?
+    59→  contactEmail      String?
+    60→  contactPhone      String?
+    61→  
+    62→  // Social links
+    63→  websiteUrl        String?
+    64→  facebookUrl       String?
+    65→  linkedinUrl       String?
+    66→  twitterUrl        String?
+    67→  
+    68→  createdAt DateTime @default(now())
+    69→  updatedAt DateTime @updatedAt
+    70→  
+    71→  users             User[]
+    72→  companies         Company[]
+    73→  
+    74→  @@map("tenants")
+    75→}
+    76→
+    77→// ============================================
+    78→// USER & AUTHENTICATION
+    79→// ============================================
+    80→
+    81→enum UserRole {
+    82→  SUPER_ADMIN
+    83→  ADMIN
+    84→  MODERATOR
+    85→  BUYER
+    86→  SUPPLIER
+    87→}
+    88→
+    89→enum VerificationStatus {
+    90→  PENDING
+    91→  VERIFIED
+    92→  REJECTED
+    93→  SUSPENDED
+    94→}
+    95→
+    96→model User {
+    97→  id            String   @id @default(cuid())
+    98→  email         String   @unique
+    99→  password      String
+   100→  firstName     String
+   101→  lastName      String
+   102→  phone         String?
+   103→  avatar        String?
+   104→  role          UserRole @default(BUYER)
+   105→  isActive      Boolean  @default(true)
+   106→  emailVerified Boolean  @default(false)
+   107→  lastLoginAt   DateTime?
+   108→  lastLoginIp   String?
+   109→  
+   110→  // Multi-tenant
+   111→  tenantId      String
+   112→  
+   113→  // Relations
+   114→  tenant        Tenant   @relation(fields: [tenantId], references: [id])
+   115→  companies     Company[] @relation("UserCompanies")
+   116→  reviews      Review[]
+   117→  reviewVotes  ReviewVote[]
+   118→  favorites    Favorite[]
+   119→  notifications Notification[]
+   120→  emailLogs    EmailLog[] @relation("UserEmailLogs")
+   121→  emailPreference EmailPreference?
+   122→  messagesSent  Message[] @relation("MessageFrom")
+   123→  messagesReceived Message[] @relation("MessageTo")
+   124→  conversationParticipants ConversationParticipant[]
+   125→  ordersPlaced Order[] @relation("BuyerOrders")
+   126→  rfqsCreated  RFQ[] @relation("BuyerRFQs")
+   127→  
+   128→  // AI Features
+   129→  interactions UserInteraction[]
+   130→  recommendations Recommendation[]
+   131→  chatSessions  ChatSession[]
+   132→  
+   133→  // Security Relations
+   134→  twoFactorSecret TwoFactorSecret?
+   135→  twoFactorVerifications TwoFactorVerification[]
+   136→  userSessions UserSession[]
+   137→  passwordHistory PasswordHistory[]
+   138→  
+   139→  // API Marketplace Relations
+   140→  apiKeys        ApiKey[]       @relation("UserApiKeys")
+   141→  developerApps  DeveloperApp[] @relation("UserDeveloperApps")
+   142→  webhooks       Webhook[]      @relation("UserWebhooks")
+   143→  
+   144→  createdAt DateTime @default(now())
+   145→  updatedAt DateTime @updatedAt
+   146→
+   147→  @@index([tenantId])
+   148→  @@map("users")
+   149→}
+   150→
+   151→model Company {
+   152→  id                  String             @id @default(cuid())
+   153→  name                String
+   154→  slug                String             @unique
+   155→  legalForm           String             // SARL, EURL, SPA, SNC
+   156→  rcNumber            String             // Registre de Commerce
+   157→  nif                 String             // Numéro d'Identification Fiscale
+   158→  nis                 String             // Numéro d'Identification Statistique
+   159→  website             String?
+   160→  description         String?
+   161→  logo                String?
+   162→  coverImage          String?
+   163→  yearEstablished     Int?
+   164→  employeeCount       Int?
+   165→  productionCapacity  String?
+   166→  exportCapability    Boolean            @default(false)
+   167→  verificationStatus  VerificationStatus  @default(PENDING)
+   168→  rating              Float              @default(0)
+   169→  reviewCount         Int                @default(0)
+   170→  responseRate        Float              @default(0)
+   171→  
+   172→  // Enhanced Verification (Phase 6A)
+   173→  verificationLevel   VerificationLevel   @default(BASIC)
+   174→  verifications       SupplierVerification[] @relation("CompanyVerifications")
+   175→  badges              CompanyBadge[]        @relation("CompanyBadges")
+   176→  
+   177→  // Multimedia (Phase 6C)
+   178→  videos              CompanyVideo[]       @relation("CompanyVideos")
+   179→  virtualTours        VirtualTour[]         @relation("VirtualTours")
+   180→  
+   181→  // Exhibitions (Phase 6F)
+   182→  booths              ExhibitionBooth[]     @relation("ExhibitionBooths")
+   183→  
+   184→  // Location
+   185→  wilaya              String
+   186→  commune             String?
+   187→  address             String?
+   188→  latitude            Float?   // GPS coordinates for map display
+   189→  longitude           Float?   // GPS coordinates for map display
+   190→  
+   191→  // Contact
+   192→  contactEmail        String
+   193→  contactPhone        String
+   194→  
+   195→  isVerified          Boolean            @default(false)
+   196→  isActive            Boolean            @default(true)
+   197→  
+   198→  // Multi-tenant
+   199→  tenantId            String
+   200→  
+   201→  // User relation (one-to-many: one user can have many companies)
+   202→  userId              String
+   203→  
+   204→  // Relations
+   205→  tenant              Tenant             @relation(fields: [tenantId], references: [id])
+   206→  user                User               @relation("UserCompanies", fields: [userId], references: [id], onDelete: Cascade)
+   207→  products            Product[]
+   208→  ordersReceived      Order[] @relation("SupplierOrders")
+   209→  quotations          Quotation[]
+   210→  companyReviews      Review[] @relation("CompanyReviews")
+   211→  
+   212→  createdAt DateTime @default(now())
+   213→  updatedAt DateTime @updatedAt
+   214→
+   215→  @@index([tenantId])
+   216→  @@map("companies")
+   217→}
+   218→
+   219→// ============================================
+   220→// PRODUCT CATALOG
+   221→// ============================================
+   222→
+   223→model Category {
+   224→  id          String   @id @default(cuid())
+   225→  name        String
+   226→  slug        String   @unique
+   227→  description String?
+   228→  parentId    String?
+   229→  image       String?
+   230→  icon        String?
+   231→  sortOrder   Int      @default(0)
+   232→  isActive    Boolean  @default(true)
+   233→
+   234→  parent      Category? @relation("CategoryTree", fields: [parentId], references: [id])
+   235→  subcategories Category[] @relation("CategoryTree")
+   236→  products    Product[]
+   237→  rfqs        RFQ[]
+   238→  
+   239→  // Phase 6G: Insights & Guides
+   240→  marketInsights     MarketInsight[] @relation("MarketInsights")
+   241→  buyingGuides       BuyingGuide[] @relation("BuyingGuides")
+   242→
+   243→  createdAt DateTime @default(now())
+   244→  updatedAt DateTime @updatedAt
+   245→
+   246→  @@map("categories")
+   247→}
+   248→
+   249→model Product {
+   250→  id                  String   @id @default(cuid())
+   251→  name                String
+   252→  slug                String   @unique
+   253→  sku                 String?  @unique
+   254→  shortDescription    String?
+   255→  description         String?
+   256→  
+   257→  // Pricing
+   258→  price               Float?
+   259→  priceRangeMin       Float?
+   260→  priceRangeMax       Float?
+   261→  currency            String   @default("DZD")
+   262→  negotiablePrice     Boolean  @default(false)
+   263→  
+   264→  // Inventory
+   265→  moq                 Int?
+   266→  unit                String?
+   267→  availability        String   @default("in_stock")
+   268→  
+   269→  // Production
+   270→  leadTime            String?
+   271→  
+   272→  // Origin
+   273→  countryOfOrigin     String?
+   274→  
+   275→  // Phase 6D: Advanced Features
+   276→  certifications      ProductCertification[]   @relation("ProductCertifications")
+   277→  bulkPricingTiers    BulkPricingTier[]         @relation("BulkPricingTiers")
+   278→  customizationOptions CustomizationOption[]     @relation("CustomizationOptions")
+   279→  packageItems        PackageItem[]             @relation("PackageItems")
+   280→  relatedProductsFrom RelatedProduct[]           @relation("RelatedProductsFrom")
+   281→  relatedProductsTo   RelatedProduct[]           @relation("RelatedProductsTo")
+   282→  
+   283→  // Phase 6C: Video
+   284→  videos              ProductVideo[]            @relation("ProductVideos")
+   285→  
+   286→  // Phase 6G: Trending
+   287→  trendingRecords      TrendingProduct[]        @relation("TrendingProducts")
+   288→  
+   289→  // Relations
+   290→  companyId           String
+   291→  categoryId          String
+   292→  
+   293→  company             Company  @relation(fields: [companyId], references: [id])
+   294→  category            Category @relation(fields: [categoryId], references: [id])
+   295→  
+   296→  images              ProductImage[]
+   297→  favorites           Favorite[] @relation("ProductFavorites")
+   298→  reviews             Review[] @relation("ProductReviews")
+   299→  orderItems          OrderItem[]
+   300→  negotiations        Negotiation[] @relation("ProductNegotiations")
+   301→  
+   302→  viewCount           Int      @default(0)
+   303→  status              String   @default("draft")
+   304→  isFeatured          Boolean  @default(false)
+   305→  isActive            Boolean  @default(true)
+   306→
+   307→  createdAt DateTime @default(now())
+   308→  updatedAt DateTime @updatedAt
+   309→
+   310→  @@index([categoryId])
+   311→  @@index([companyId])
+   312→  @@map("products")
+   313→}
+   314→
+   315→model ProductImage {
+   316→  id          String @id @default(cuid())
+   317→  productId   String
+   318→  url         String
+   319→  alt         String?
+   320→  sortOrder   Int      @default(0)
+   321→  isPrimary   Boolean  @default(false)
+   322→
+   323→  product     Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+   324→
+   325→  @@map("product_images")
+   326→}
+   327→
+   328→// ============================================
+   329→// RFQ (REQUEST FOR QUOTATION) SYSTEM
+   330→// ============================================
+   331→
+   332→enum RFQStatus {
+   333→  DRAFT
+   334→  PUBLISHED
+   335→  QUOTATIONS_RECEIVED
+   336→  NEGOTIATION
+   337→  AWARDED
+   338→  CLOSED
+   339→  CANCELLED
+   340→}
+   341→
+   342→model RFQ {
+   343→  id                  String    @id @default(cuid())
+   344→  title               String
+   345→  description         String?
+   346→  quantity            Int
+   347→  unit                String?
+   348→  targetPrice         Float?
+   349→  targetCurrency      String    @default("DZD")
+   350→  deliveryLocation     String?
+   351→  requiredDeliveryDate DateTime?
+   352→  expirationDate      DateTime?
+   353→  
+   354→  // Relations
+   355→  buyerId             String
+   356→  categoryId          String?
+   357→  
+   358→  buyer               User     @relation("BuyerRFQs", fields: [buyerId], references: [id])
+   359→  category            Category? @relation(fields: [categoryId], references: [id])
+   360→  quotations          Quotation[]
+   361→  
+   362→  status              RFQStatus @default(DRAFT)
+   363→
+   364→  createdAt DateTime @default(now())
+   365→  updatedAt DateTime @updatedAt
+   366→
+   367→  @@index([buyerId])
+   368→  @@map("rfqs")
+   369→}
+   370→
+   371→// ============================================
+   372→// QUOTATION SYSTEM
+   373→// ============================================
+   374→
+   375→enum QuotationStatus {
+   376→  DRAFT
+   377→  SENT
+   378→  VIEWED
+   379→  ACCEPTED
+   380→  REJECTED
+   381→  EXPIRED
+   382→}
+   383→
+   384→model Quotation {
+   385→  id          String         @id @default(cuid())
+   386→  rfqId       String
+   387→  companyId   String
+   388→  totalPrice  Float
+   389→  currency    String         @default("DZD")
+   390→  notes       String?
+   391→  validUntil  DateTime?
+   392→
+   393→  rfq         RFQ            @relation(fields: [rfqId], references: [id])
+   394→  company     Company        @relation(fields: [companyId], references: [id])
+   395→  items       QuotationItem[]
+   396→
+   397→  status      QuotationStatus @default(DRAFT)
+   398→
+   399→  createdAt DateTime @default(now())
+   400→  updatedAt DateTime @updatedAt
+   401→
+   402→  @@index([rfqId])
+   403→  @@index([companyId])
+   404→  @@map("quotations")
+   405→}
+   406→
+   407→model QuotationItem {
+   408→  id          String @id @default(cuid())
+   409→  quotationId String
+   410→  productName String
+   411→  quantity    Int
+   412→  unitPrice   Float
+   413→  totalPrice  Float
+   414→  unit        String?
+   415→
+   416→  quotation   Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+   417→
+   418→  @@map("quotation_items")
+   419→}
+   420→
+   421→// ============================================
+   422→// MESSAGING SYSTEM
+   423→// ============================================
+   424→
+   425→model Conversation {
+   426→  id          String   @id @default(cuid())
+   427→  type        String   @default("direct")
+   428→
+   429→  participants ConversationParticipant[]
+   430→  messages    Message[]
+   431→
+   432→  lastMessageAt DateTime?
+   433→
+   434→  createdAt DateTime @default(now())
+   435→  updatedAt DateTime @updatedAt
+   436→
+   437→  @@map("conversations")
+   438→}
+   439→
+   440→model ConversationParticipant {
+   441→  id             String   @id @default(cuid())
+   442→  conversationId String
+   443→  userId         String
+   444→
+   445→  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+   446→  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+   447→
+   448→  joinedAt       DateTime @default(now())
+   449→
+   450→  @@unique([conversationId, userId])
+   451→  @@map("conversation_participants")
+   452→}
+   453→
+   454→model Message {
+   455→  id          String   @id @default(cuid())
+   456→  conversationId String
+   457→  fromUserId  String
+   458→  toUserId    String
+   459→  content     String?
+   460→  fileType    String?
+   461→  fileUrl     String?
+   462→  fileName    String?
+   463→  isRead      Boolean  @default(false)
+   464→
+   465→  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+   466→  fromUser    User     @relation("MessageFrom", fields: [fromUserId], references: [id])
+   467→  toUser      User     @relation("MessageTo", fields: [toUserId], references: [id])
+   468→
+   469→  createdAt DateTime @default(now())
+   470→
+   471→  @@index([conversationId])
+   472→  @@map("messages")
+   473→}
+   474→
+   475→// ============================================
+   476→// ORDER MANAGEMENT
+   477→// ============================================
+   478→
+   479→enum OrderStatus {
+   480→  PENDING
+   481→  CONFIRMED
+   482→  PROCESSING
+   483→  SHIPPED
+   484→  DELIVERED
+   485→  CANCELLED
+   486→  COMPLETED
+   487→}
+   488→
+   489→model Order {
+   490→  id              String      @id @default(cuid())
+   491→  orderNumber     String      @unique
+   492→  buyerId         String
+   493→  companyId       String
+   494→  subtotal        Float
+   495→  taxAmount       Float       @default(0)
+   496→  shippingCost    Float       @default(0)
+   497→  totalAmount     Float
+   498→  currency        String      @default("DZD")
+   499→  notes           String?
+   500→  
+   501→  deliveryName    String
+   502→  deliveryPhone   String
+   503→  deliveryAddress String
+   504→  deliveryWilaya  String
+   505→  
+   506→  buyer           User       @relation("BuyerOrders", fields: [buyerId], references: [id])
+   507→  company         Company     @relation("SupplierOrders", fields: [companyId], references: [id])
+   508→  items           OrderItem[]
+   509→  payment         Payment?
+   510→  
+   511→  // Phase 6B: Trade Assurance
+   512→  escrow           EscrowAccount?
+   513→  
+   514→  // Phase 6H: Logistics
+   515→  shipments        Shipment[] @relation("OrderShipments")
+   516→  
+   517→  // Phase 8I: Negotiations
+   518→  negotiations     Negotiation[] @relation("OrderNegotiations")
+   519→  
+   520→  status          OrderStatus @default(PENDING)
+   521→
+   522→  createdAt DateTime @default(now())
+   523→  updatedAt DateTime @updatedAt
+   524→
+   525→  @@index([buyerId])
+   526→  @@index([companyId])
+   527→  @@map("orders")
+   528→}
+   529→
+   530→model OrderItem {
+   531→  id          String  @id @default(cuid())
+   532→  orderId     String
+   533→  productId   String
+   534→  productName String
+   535→  quantity    Int
+   536→  unitPrice   Float
+   537→  totalPrice  Float
+   538→
+   539→  order       Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+   540→  product     Product @relation(fields: [productId], references: [id])
+   541→
+   542→  @@map("order_items")
+   543→}
+   544→
+   545→// ============================================
+   546→// REVIEWS & RATINGS SYSTEM
+   547→// ============================================
+   548→
+   549→model Review {
+   550→  id            String   @id @default(cuid())
+   551→  
+   552→  // Relations
+   553→  productId     String?  // For product reviews
+   554→  companyId     String?  // For company reviews
+   555→  orderId       String?  // If verified purchase
+   556→  reviewerId    String
+   557→  
+   558→  // Content
+   559→  rating        Int      // 1-5 (can be stored as int, display as half-stars)
+   560→  title         String?
+   561→  comment       String?
+   562→  pros          String?  // JSON array ["Good quality", "Fast delivery"]
+   563→  cons          String?  // JSON array ["Expensive", "Late shipping"]
+   564→  
+   565→  // Company review categories (JSON object)
+   566→  categoryRatings String? // {"quality": 5, "communication": 4, "delivery": 3, "value": 4, "afterSales": 5}
+   567→  
+   568→  // Media
+   569→  images        String?  // JSON array of image URLs
+   570→  
+   571→  // Metadata
+   572→  isVerifiedPurchase Boolean @default(false)
+   573→  isAnonymous   Boolean  @default(false)
+   574→  isFeatured    Boolean  @default(false)
+   575→  
+   576→  // Voting
+   577→  helpfulCount  Int      @default(0)
+   578→  notHelpfulCount Int    @default(0)
+   579→  
+   580→  // Status & Moderation
+   581→  status        String   @default("published") // published, pending, rejected, hidden, flagged
+   582→  reportedAt    DateTime?
+   583→  reportReason  String?
+   584→  moderatedBy   String?
+   585→  moderatedAt   DateTime?
+   586→  
+   587→  // Response (from supplier)
+   588→  response      String?
+   589→  respondedAt   DateTime?
+   590→  respondedBy   String?  // Company userId
+   591→  
+   592→  createdAt DateTime @default(now())
+   593→  updatedAt DateTime @updatedAt
+   594→  
+   595→  product       Product? @relation("ProductReviews", fields: [productId], references: [id])
+   596→  company       Company? @relation("CompanyReviews", fields: [companyId], references: [id])
+   597→  reviewer      User     @relation(fields: [reviewerId], references: [id])
+   598→  votes         ReviewVote[]
+   599→  
+   600→  @@index([productId])
+   601→  @@index([companyId])
+   602→  @@index([reviewerId])
+   603→  @@index([status])
+   604→  @@map("reviews")
+   605→}
+   606→
+   607→model ReviewVote {
+   608→  id          String   @id @default(cuid())
+   609→  reviewId    String
+   610→  userId      String
+   611→  type        String   // "helpful" | "not_helpful"
+   612→  
+   613→  review      Review   @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+   614→  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+   615→  
+   616→  createdAt DateTime @default(now())
+   617→  
+   618→  @@unique([reviewId, userId, type])
+   619→  @@map("review_votes")
+   620→}
+   621→
+   622→// ============================================
+   623→// FAVORITES
+   624→// ============================================
+   625→
+   626→enum FavoriteType {
+   627→  PRODUCT
+   628→  SUPPLIER
+   629→  RFQ
+   630→}
+   631→
+   632→model Favorite {
+   633→  id          String       @id @default(cuid())
+   634→  userId      String
+   635→  itemType    FavoriteType
+   636→  itemId      String
+   637→
+   638→  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+   639→  product     Product?     @relation("ProductFavorites", fields: [itemId], references: [id])
+   640→
+   641→  @@unique([userId, itemType, itemId])
+   642→  @@map("favorites")
+   643→}
+   644→
+   645→// ============================================
+   646→// NOTIFICATIONS (Enhanced)
+   647→// ============================================
+   648→
+   649→enum NotificationCategory {
+   650→  AUTH           // Email verify, password reset
+   651→  RFQ            // New quotation, RFQ awarded
+   652→  ORDER          // Order updates
+   653→  MESSAGE        // New message
+   654→  SYSTEM         // Platform announcements
+   655→  MARKETING      // Promotions
+   656→}
+   657→
+   658→enum NotificationType {
+   659→  // Auth notifications
+   660→  EMAIL_VERIFICATION_REQUIRED
+   661→  EMAIL_VERIFIED
+   662→  PASSWORD_RESET_REQUEST
+   663→  PASSWORD_RESET_SUCCESS
+   664→  LOGIN_ALERT
+   665→  
+   666→  // RFQ notifications
+   667→  NEW_RFQ_RECEIVED
+   668→  NEW_QUOTATION_RECEIVED
+   669→  QUOTATION_ACCEPTED
+   670→  QUOTATION_REJECTED
+   671→  RFQ_AWARDED
+   672→  RFQ_EXPIRED
+   673→  
+   674→  // Order notifications
+   675→  ORDER_CONFIRMED
+   676→  ORDER_PROCESSING
+   677→  ORDER_SHIPPED
+   678→  ORDER_DELIVERED
+   679→  ORDER_CANCELLED
+   680→  PAYMENT_RECEIVED
+   681→  REFUND_PROCESSED
+   682→  
+   683→  // Message notifications
+   684→  NEW_MESSAGE
+   685→  MESSAGE_MENTIONED
+   686→  
+   687→  // System notifications
+   688→  COMPANY_VERIFIED
+   689→  COMPANY_VERIFICATION_REJECTED
+   690→  ACCOUNT_INACTIVE_REMINDER
+   691→  WELCOME
+   692→  SYSTEM_ANNOUNCEMENT
+   693→  
+   694→  // Marketing notifications
+   695→  FEATURED_PRODUCT
+   696→  PROMOTION
+   697→  WEEKLY_DIGEST
+   698→  
+   699→  // Review notifications
+   700→  NEW_REVIEW
+   701→}
+   702→
+   703→model Notification {
+   704→  id              String               @id @default(cuid())
+   705→  userId          String
+   706→  type            NotificationType
+   707→  category        NotificationCategory
+   708→  title           String
+   709→  message         String
+   710→  data            String?              // JSON string for additional data
+   711→  actionUrl       String?              // Link for CTA
+   712→  actionText      String?              // Text for CTA button
+   713→  isRead          Boolean              @default(false)
+   714→  readAt          DateTime?
+   715→  emailSent       Boolean              @default(false)
+   716→  emailSentAt     DateTime?
+   717→
+   718→  user            User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+   719→
+   720→  createdAt       DateTime            @default(now())
+   721→
+   722→  @@index([userId, isRead])
+   723→  @@index([userId, category])
+   724→  @@index([createdAt])
+   725→  @@map("notifications")
+   726→}
+   727→
+   728→// ============================================
+   729→// EMAIL LOGS & PREFERENCES
+   730→// ============================================
+   731→
+   732→enum EmailType {
+   733→  WELCOME_BUYER
+   734→  WELCOME_SUPPLIER
+   735→  WELCOME_ADMIN
+   736→  EMAIL_VERIFICATION
+   737→  PASSWORD_RESET
+   738→  LOGIN_ALERT
+   739→  NEW_RFQ_NOTIFICATION
+   740→  QUOTATION_RECEIVED
+   741→  QUOTATION_ACCEPTED
+   742→  QUOTATION_REJECTED
+   743→  RFQ_AWARDED
+   744→  ORDER_CONFIRMED
+   745→  ORDER_SHIPPED
+   746→  ORDER_DELIVERED
+   747→  ORDER_CANCELLED
+   748→  PAYMENT_RECEIVED
+   749→  COMPANY_VERIFICATION_APPROVED
+   750→  COMPANY_VERIFICATION_REJECTED
+   751→  WEEKLY_DIGEST
+   752→  INACTIVE_REENGAGEMENT
+   753→  FEATURED_PRODUCT_PROMO
+   754→  PLATFORM_UPDATE
+   755→}
+   756→
+   757→enum EmailStatus {
+   758→  PENDING
+   759→  SENT
+   760→  DELIVERED
+   761→  BOUNCED
+   762→  COMPLAINT
+   763→  FAILED
+   764→}
+   765→
+   766→model EmailLog {
+   767→  id              String       @id @default(cuid())
+   768→  userId          String?
+   769→  emailType       EmailType
+   770→  toEmail         String
+   771→  subject         String
+   772→  status          EmailStatus   @default(PENDING)
+   773→  providerId      String?       // External ID from Resend/SendGrid
+   774→  errorMessage    String?
+   775→  sentAt          DateTime?
+   776→  deliveredAt     DateTime?
+   777→  bouncedAt       DateTime?
+   778→
+   779→  user            User?        @relation("UserEmailLogs", fields: [userId], references: [id], onDelete: SetNull)
+   780→
+   781→  createdAt       DateTime      @default(now())
+   782→
+   783→  @@index([userId])
+   784→  @@index([status])
+   785→  @@index([emailType])
+   786→  @@map("email_logs")
+   787→}
+   788→
+   789→model EmailPreference {
+   790→  id                  String   @id @default(cuid())
+   791→  userId              String   @unique
+   792→  
+   793→  // Global preferences
+   794→  emailEnabled        Boolean  @default(true)
+   795→  marketingEmails     Boolean  @default(true)
+   796→  
+   797→  // Category-level preferences
+   798→  authEmails          Boolean  @default(true)
+   799→  rfqEmails           Boolean  @default(true)
+   800→  orderEmails         Boolean  @default(true)
+   801→  messageEmails       Boolean  @default(false)  // Default off - in-app only
+   802→  systemEmails        Boolean  @default(true)
+   803→  
+   804→  // Digest frequency (for non-critical emails)
+   805→  digestFrequency     String   @default("immediate")  // immediate, daily, weekly, off
+   806→  
+   807→  // Unsubscribe token for one-click unsubscribe
+   808→  unsubscribeToken    String   @unique @default(cuid())
+   809→  unsubscribedAt      DateTime?
+   810→  
+   811→  updatedAt           DateTime @updatedAt
+   812→  
+   813→  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+   814→  
+   815→  @@map("email_preferences")
+   816→}
+   817→
+   818→// ============================================
+   819→// PAYMENT SYSTEM - Algerian Payment Methods
+   820→// ============================================
+   821→
+   822→enum PaymentStatus {
+   823→  PENDING
+   824→  PROCESSING
+   825→  COMPLETED
+   826→  FAILED
+   827→  REFUNDED
+   828→  PENDING_VERIFICATION
+   829→  CANCELLED
+   830→}
+   831→
+   832→enum PaymentMethod {
+   833→  CIB           // Carte Interbancaire (Visa/Mastercard)
+   834→  CCP           // Chèque Postale
+   835→  BARIDIMOB     // Mobile Payment Algeria
+   836→  BANK_TRANSFER // Virement Bancaire
+   837→  COD           // Cash on Delivery
+   838→}
+   839→
+   840→model Payment {
+   841→  id              String       @id @default(cuid())
+   842→  orderId         String       @unique
+   843→  amount          Float
+   844→  currency        String       @default("DZD")
+   845→  method          PaymentMethod
+   846→  status          PaymentStatus @default(PENDING)
+   847→  
+   848→  // CIB fields
+   849→  cardLast4       String?
+   850→  cardType        String?      // "visa", "mastercard"
+   851→  transactionId   String?
+   852→  
+   853→  // CCP fields
+   854→  ccpReference    String?      // Format: CCP-YYYYMMDD-XXXXX
+   855→  ccpAccount      String?
+   856→  ccpHolderName   String?
+   857→  
+   858→  // BaridiMob fields
+   859→  phoneNumber     String?
+   860→  
+   861→  // Bank Transfer fields
+   862→  rib             String?
+   863→  bankName        String?
+   864→  receiptUrl      String?
+   865→  
+   866→  // COD fields
+   867→  deliveryWilaya  String?
+   868→  codFee          Float?       // Cash handling fee
+   869→  
+   870→  // Common fields
+   871→  referenceNumber String?      @unique // Unique payment reference
+   872→  notes           String?
+   873→  paidAt          DateTime?
+   874→  failureReason   String?
+   875→  metadata        String?      // JSON string for additional data
+   876→  
+   877→  order           Order        @relation(fields: [orderId], references: [id])
+   878→  logs            TransactionLog[]
+   879→  
+   880→  createdAt DateTime @default(now())
+   881→  updatedAt DateTime @updatedAt
+   882→
+   883→  @@index([orderId])
+   884→  @@index([status])
+   885→  @@index([method])
+   886→  @@index([referenceNumber])
+   887→  @@map("payments")
+   888→}
+   889→
+   890→model TransactionLog {
+   891→  id          String   @id @default(cuid())
+   892→  paymentId   String?
+   893→  action      String   // created, processing, success, failure, refund, verified, rejected
+   894→  details     String?  // JSON string
+   895→  ipAddress   String?
+   896→  userAgent   String?
+   897→  userId      String?
+   898→
+   899→  payment     Payment? @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+   900→
+   901→  createdAt DateTime @default(now())
+   902→
+   903→  @@index([paymentId])
+   904→  @@map("transaction_logs")
+   905→}
+   906→
+   907→// ============================================
+   908→// ALGERIAN WILAYAS (Seed Data)
+   909→// ============================================
+   910→
+   911→model Wilaya {
+   912→  id                String   @id @default(cuid())
+   913→  name              String   // French name
+   914→  nameAr            String   // Arabic name
+   915→  code              String   @unique // 01-69
+   916→  
+   917→  // Administrative data
+   918→  numberOfDairas    Int      // Number of districts (daïras)
+   919→  numberOfCommunes  Int      // Number of communes
+   920→  surfaceAreaKm2    Float    // Surface area in km²
+   921→  population2008    Int?     // Population census 2008
+   922→  density           Float?   // Population density (hab./km²)
+   923→  
+   924→  // Metadata
+   925→  isActive          Boolean  @default(true)
+   926→  isNewWilaya       Boolean  @default(false) // Created after 1984 (2019 new wilayas: 49-58)
+   927→  isProposed        Boolean  @default(false) // Proposed wilayas (59-69)
+   928→
+   929→  createdAt DateTime @default(now())
+   930→  updatedAt DateTime @updatedAt
+   931→
+   932→  @@map("wilayas")
+   933→}
+   934→
+   935→// ============================================
+   936→// ANALYTICS SYSTEM
+   937→// ============================================
+   938→
+   939→model AnalyticsEvent {
+   940→  id          String   @id @default(cuid())
+   941→  eventType   String   // page_view, event, transaction, error, engagement, rfq, ecommerce
+   942→  eventName   String   // view_product, search, signup, add_to_cart, etc.
+   943→  
+   944→  // User info (anonymized where needed)
+   945→  userId      String?
+   946→  sessionId   String
+   947→  userAgent   String?
+   948→  ipAddress   String?  // Hashed for privacy
+   949→  
+   950→  // Event data (JSON)
+   951→  eventData   String?  // JSON object with event params
+   952→  url         String?
+   953→  referrer    String?
+   954→  
+   955→  // Ecommerce data
+   956→  orderId     String?
+   957→  revenue     Float?
+   958→  
+   959→  // Timestamps
+   960→  createdAt DateTime @default(now())
+   961→  
+   962→  @@index([eventType, eventName])
+   963→  @@index([createdAt])
+   964→  @@index([userId])
+   965→  @@map("analytics_events")
+   966→}
+   967→
+   968→model DailyStats {
+   969→  id            String   @id @default(cuid())
+   970→  date          DateTime @unique
+   971→  
+   972→  // Users
+   973→  newUsers      Int      @default(0)
+   974→  activeUsers   Int      @default(0)
+   975→  returningUsers Int     @default(0)
+   976→  
+   977→  // Content
+   978→  pageViews     Int      @default(0)
+   979→  uniquePageViews Int    @default(0)
+   980→  
+   981→  // Actions
+   982→  searches      Int      @default(0)
+   983→  rfqsPosted    Int      @default(0)
+   984→  quotationsSent Int     @default(0)
+   985→  ordersCreated Int      @default(0)
+   986→  
+   987→  // Revenue
+   988→  totalRevenue  Float    @default(0)
+   989→  avgOrderValue Float    @default(0)
+   990→  
+   991→  // By Source
+   992→  organicTraffic  Int    @default(0)
+   993→  directTraffic   Int    @default(0)
+   994→  referralTraffic Int    @default(0)
+   995→  
+   996→  createdAt DateTime @default(now())
+   997→  
+   998→  @@index([date])
+   999→  @@map("daily_stats")
+  1000→}
+  1001→
+  1002→model FunnelStage {
+  1003→  id              String   @id @default(cuid())
+  1004→  funnelName      String   // "buyer_journey", "supplier_onboarding"
+  1005→  stageName       String   // "visit", "signup", "first_rfq", "first_order"
+  1006→  stageOrder      Int
+  1007→  usersCount      Int      @default(0)
+  1008→  conversionRate  Float    @default(0)  // Percentage from previous stage
+  1009→  dropOffRate     Float    @default(0)  // Percentage drop from previous stage
+  1010→  date            DateTime
+  1011→  
+  1012→  @@index([funnelName, date])
+  1013→  @@map("funnel_stages")
+  1014→}
+  1015→
+  1016→model SearchTerm {
+  1017→  id            String   @id @default(cuid())
+  1018→  term          String
+  1019→  searchCount   Int      @default(1)
+  1020→  resultCount   Int      @default(0)
+  1021→  clickThroughRate Float @default(0)
+  1022→  lastSearchedAt DateTime @default(now())
+  1023→  
+  1024→  @@index([term])
+  1025→  @@index([searchCount])
+  1026→  @@map("search_terms")
+  1027→}
+  1028→
+  1029→model PageView {
+  1030→  id            String   @id @default(cuid())
+  1031→  path          String
+  1032→  title         String
+  1033→  viewCount     Int      @default(1)
+  1034→  uniqueViews   Int      @default(1)
+  1035→  avgTimeOnPage Float    @default(0)  // In seconds
+  1036→  bounceRate    Float    @default(0)  // Percentage
+  1037→  exitRate      Float    @default(0)  // Percentage
+  1038→  
+  1039→  @@index([path])
+  1040→  @@index([viewCount])
+  1041→  @@map("page_views")
+  1042→}
+  1043→
+  1044→// ============================================
+  1045→// SECURITY - TWO-FACTOR AUTHENTICATION (2FA)
+  1046→// ============================================
+  1047→
+  1048→model TwoFactorSecret {
+  1049→  id          String   @id @default(cuid())
+  1050→  userId      String   @unique
+  1051→  secret      String   // TOTP secret (encrypted)
+  1052→  backupCodes String?  // JSON array of encrypted backup codes
+  1053→  enabled     Boolean  @default(false)
+  1054→  createdAt   DateTime @default(now())
+  1055→  updatedAt   DateTime @updatedAt
+  1056→  
+  1057→  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  1058→  
+  1059→  @@map("two_factor_secrets")
+  1060→}
+  1061→
+  1062→model TwoFactorVerification {
+  1063→  id        String   @id @default(cuid())
+  1064→  userId    String
+  1065→  code      String   // The OTP code (hashed for comparison)
+  1066→  type      String   // "setup", "login", "backup"
+  1067→  expiresAt DateTime
+  1068→  usedAt    DateTime?
+  1069→  ipAddress String?
+  1070→  
+  1071→  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  1072→  
+  1073→  createdAt DateTime @default(now())
+  1074→  
+  1075→  @@index([userId])
+  1076→  @@map("two_factor_verifications")
+  1077→}
+  1078→
+  1079→// ============================================
+  1080→// SECURITY - AUDIT LOGS
+  1081→// ============================================
+  1082→
+  1083→model AuditLog {
+  1084→  id            String   @id @default(cuid())
+  1085→  
+  1086→  // Who
+  1087→  userId        String?
+  1088→  userRole      String?
+  1089→  ipAddress     String?
+  1090→  userAgent     String?
+  1091→  
+  1092→  // What
+  1093→  action        String   // "user.login", "product.create", "order.update", etc.
+  1094→  resource      String?  // Resource type affected
+  1095→  resourceId    String?  // Resource ID
+  1096→  
+  1097→  // Details
+  1098→  oldValue      String?  // JSON of previous state (for updates)
+  1099→  newValue      String?  // JSON of new state
+  1100→  metadata      String?  // Additional context
+  1101→  
+  1102→  // Result
+  1103→  success       Boolean  @default(true)
+  1104→  errorMessage  String?
+  1105→  
+  1106→  // Timestamps
+  1107→  createdAt     DateTime @default(now()) @map("created_at")
+  1108→  
+  1109→  @@index([userId])
+  1110→  @@index([action])
+  1111→  @@index([createdAt])
+  1112→  @@index([resource, resourceId])
+  1113→  @@map("audit_logs")
+  1114→}
+  1115→
+  1116→// ============================================
+  1117→// SECURITY - SESSION MANAGEMENT
+  1118→// ============================================
+  1119→
+  1120→model UserSession {
+  1121→  id            String   @id @default(cuid())
+  1122→  userId        String
+  1123→  token         String   @unique
+  1124→  deviceType    String?  // "desktop", "mobile", "tablet"
+  1125→  deviceName    String?  // Browser/OS name
+  1126→  ipAddress     String?
+  1127→  userAgent     String?
+  1128→  lastActiveAt  DateTime @default(now())
+  1129→  expiresAt     DateTime
+  1130→  isCurrent     Boolean  @default(false)
+  1131→  
+  1132→  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  1133→  
+  1134→  createdAt     DateTime @default(now())
+  1135→  
+  1136→  @@index([userId])
+  1137→  @@index([token])
+  1138→  @@map("user_sessions")
+  1139→}
+  1140→
+  1141→// ============================================
+  1142→// SECURITY - PASSWORD HISTORY
+  1143→// ============================================
+  1144→
+  1145→model PasswordHistory {
+  1146→  id        String   @id @default(cuid())
+  1147→  userId    String
+  1148→  passwordHash String // Hashed old password
+  1149→  
+  1150→  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  1151→  
+  1152→  createdAt DateTime @default(now())
+  1153→  
+  1154→  @@index([userId])
+  1155→  @@map("password_history")
+  1156→}
+  1157→
+  1158→// ============================================
+  1159→// SECURITY - BLOCKED IPS / RATE LIMITING LOGS
+  1160→// ============================================
+  1161→
+  1162→model SecurityEvent {
+  1163→  id          String   @id @default(cuid())
+  1164→  eventType   String   // "brute_force", "rate_limit_exceeded", "suspicious_activity", "2fa_failure"
+  1165→  ipAddress   String?
+  1166→  userId      String?
+  1167→  details     String?  // JSON with event details
+  1168→  severity    String   @default("low") // "low", "medium", "high", "critical"
+  1169→  resolved    Boolean  @default(false)
+  1170→  resolvedAt  DateTime?
+  1171→  resolvedBy  String?  // Admin ID who resolved it
+  1172→  
+  1173→  createdAt   DateTime @default(now())
+  1174→  
+  1175→  @@index([ipAddress])
+  1176→  @@index([eventType])
+  1177→  @@index([createdAt])
+  1178→  @@map("security_events")
+  1179→}
+  1180→
+  1181→// ============================================
+  1182→// AI RECOMMENDATION SYSTEM
+  1183→// ============================================
+  1184→
+  1185→model UserInteraction {
+  1186→  id          String   @id @default(cuid())
+  1187→  userId      String?
+  1188→  type        String   // "view", "search", "contact", "favorite", "rfq", "order"
+  1189→  
+  1190→  // What they interacted with
+  1191→  productId   String?
+  1192→  categoryId  String?
+  1193→  companyId   String?
+  1194→  searchTerm  String?
+  1195→  
+  1196→  // Context
+  1197→  referrer    String?
+  1198→  deviceType  String?  // mobile, desktop, tablet
+  1199→  position    Int?     // Position in list (for click tracking)
+  1200→  
+  1201→  // Metadata
+  1202→  duration    Int?     // How long they viewed (seconds)
+  1203→  sessionId   String?
+  1204→  
+  1205→  createdAt DateTime @default(now())
+  1206→  
+  1207→  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  1208→  
+  1209→  @@index([userId, type])
+  1210→  @@index([userId, createdAt])
+  1211→  @@index([productId])
+  1212→  @@index([createdAt])
+  1213→  @@map("user_interactions")
+  1214→}
+  1215→
+  1216→model Recommendation {
+  1217→  id          String   @id @default(cuid())
+  1218→  userId      String?
+  1219→  type        String   // "product", "supplier", "category"
+  1220→  itemId      String   // Recommended item ID
+  1221→  score       Float    // Relevance score 0-1
+  1222→  reason      String?  // "Because you viewed X", "Popular in your category"
+  1223→  source      String   // "collaborative_filtering", "content_based", "popular", "trending"
+  1224→  clicked     Boolean  @default(false)
+  1225→  converted   Boolean  @default(false)
+  1226→  dismissed   Boolean  @default(false)
+  1227→  createdAt DateTime @default(now())
+  1228→  expiresAt  DateTime?
+  1229→  
+  1230→  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  1231→  
+  1232→  @@index([userId])
+  1233→  @@index([userId, type])
+  1234→  @@index([source])
+  1235→  @@map("recommendations")
+  1236→}
+  1237→
+  1238→// ============================================
+  1239→// AI CHATBOT SYSTEM
+  1240→// ============================================
+  1241→
+  1242→model ChatSession {
+  1243→  id          String   @id @default(cuid())
+  1244→  userId      String?
+  1245→  sessionId   String   @unique  // Public session ID for anonymous users
+  1246→  
+  1247→  // Session metadata
+  1248→  startedAt   DateTime @default(now())
+  1249→  lastActiveAt DateTime @default(now())
+  1250→  messageCount Int     @default(0)
+  1251→  isResolved  Boolean  @default(false)
+  1252→  handedOffToHuman Boolean @default(false)
+  1253→  
+  1254→  // Context data (JSON strings for flexibility)
+  1255→  context     String?  // JSON object with conversation context
+  1256→  userInfo    String?  // JSON object with user info collected
+  1257→  
+  1258→  messages    ChatMessage[]
+  1259→  
+  1260→  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  1261→  
+  1262→  @@index([sessionId])
+  1263→  @@index([userId])
+  1264→  @@map("chat_sessions")
+  1265→}
+  1266→
+  1267→model ChatMessage {
+  1268→  id          String   @id @default(cuid())
+  1269→  sessionId   String
+  1270→  content     String
+  1271→  
+  1272→  // Message metadata
+  1273→  role        String   // "user", "bot", "system"
+  1274→  intent      String?  // Detected intent for bot messages
+  1275→  confidence  Float?   // Intent detection confidence 0-1
+  1276→  
+  1277→  // Response data (JSON)
+  1278→  suggestions String?  // JSON array of suggestion chips
+  1279→  cards       String?  // JSON array of product cards
+  1280→  
+  1281→  // Feedback
+  1282→  feedback    String?  // "helpful", "not_helpful", null
+  1283→  feedbackAt  DateTime?
+  1284→  
+  1285→  createdAt DateTime @default(now())
+  1286→  
+  1287→  session     ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  1288→  
+  1289→  @@index([sessionId])
+  1290→  @@index([role])
+  1291→  @@map("chat_messages")
+  1292→}
+  1293→
+  1294→model ChatFeedback {
+  1295→  id          String   @id @default(cuid())
+  1296→  messageId   String
+  1297→  sessionId   String
+  1298→  userId      String?
+  1299→  
+  1300→  rating      String   // "positive", "negative", "neutral"
+  1301→  comment     String?
+  1302→  category    String?  // "accuracy", "helpfulness", "clarity", "relevance"
+  1303→  
+  1304→  createdAt DateTime @default(now())
+  1305→  
+  1306→  @@index([messageId])
+  1307→  @@index([sessionId])
+  1308→  @@map("chat_feedback")
+  1309→}
+  1310→
+  1311→// ============================================
+  1312→// API MARKETPLACE - Developer Portal System
+  1313→// ============================================
+  1314→
+  1315→model ApiKey {
+  1316→  id            String    @id @default(cuid())
+  1317→  key           String    @unique // SHA-256 hashed
+  1318→  keyPrefix     String    @default("") // Display prefix like "at_xxxx..."
+  1319→  name          String    // Human-readable name for the key
+  1320→  permissions   String    @default("[]") // JSON array of ApiPermission strings
+  1321→  rateLimit     Int       @default(100) // Requests per minute
+  1322→  allowedIps    String?   // JSON array of allowed IP addresses (null = all)
+  1323→  isActive      Boolean   @default(true)
+  1324→  lastUsedAt    DateTime?
+  1325→  ownerId       String
+  1326→  expiresAt     DateTime?
+  1327→  usageCount    Int       @default(0)
+  1328→  createdAt     DateTime  @default(now())
+  1329→  updatedAt     DateTime  @updatedAt
+  1330→  
+  1331→  owner         User      @relation("UserApiKeys", fields: [ownerId], references: [id], onDelete: Cascade)
+  1332→  apps          DeveloperApp[]
+  1333→  usageRecords  ApiUsageRecord[]
+  1334→  
+  1335→  @@index([ownerId])
+  1336→  @@index([key])
+  1337→  @@map("api_keys")
+  1338→}
+  1339→
+  1340→model DeveloperApp {
+  1341→  id          String   @id @default(cuid())
+  1342→  name        String
+  1343→  description String?
+  1344→  websiteUrl  String?  @map("website_url")
+  1345→  callbackUrl String?  @map("callback_url")
+  1346→  apiKeyId    String
+  1347→  ownerId     String
+  1348→  createdAt   DateTime @default(now())
+  1349→  updatedAt   DateTime @updatedAt
+  1350→  
+  1351→  owner       User     @relation("UserDeveloperApps", fields: [ownerId], references: [id], onDelete: Cascade)
+  1352→  apiKey      ApiKey   @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
+  1353→  
+  1354→  @@index([ownerId])
+  1355→  @@index([apiKeyId])
+  1356→  @@map("developer_apps")
+  1357→}
+  1358→
+  1359→model ApiUsageRecord {
+  1360→  id           String   @id @default(cuid())
+  1361→  apiKeyId     String
+  1362→  endpoint     String
+  1363→  method       String
+  1364→  statusCode   Int
+  1365→  responseTime Int // Response time in milliseconds
+  1366→  ip           String
+  1367→  userAgent    String?
+  1368→  timestamp    DateTime @default(now())
+  1369→  
+  1370→  apiKey       ApiKey   @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
+  1371→  
+  1372→  @@index([apiKeyId])
+  1373→  @@index([timestamp])
+  1374→  @@index([endpoint])
+  1375→  @@map("api_usage_records")
+  1376→}
+  1377→
+  1378→model Webhook {
+  1379→  id             String   @id @default(cuid())
+  1380→  eventType      String   // WebhookEventType enum as string
+  1381→  url            String   // Endpoint URL to receive webhook
+  1382→  secret         String   // Secret for signature verification
+  1383→  isActive       Boolean  @default(true)
+  1384→  lastTriggeredAt DateTime?
+  1385→  successCount   Int      @default(0)
+  1386→  failureCount   Int      @default(0)
+  1387→  ownerId        String
+  1388→  createdAt      DateTime @default(now())
+  1389→  updatedAt      DateTime @updatedAt
+  1390→  
+  1391→  owner          User     @relation("UserWebhooks", fields: [ownerId], references: [id], onDelete: Cascade)
+  1392→  
+  1393→  @@index([ownerId])
+  1394→  @@index([eventType])
+  1395→  @@map("webhooks")
+  1396→}
+  1397→
+  1398→// ============================================
+  1399→// PHASE 6A: SUPPLIER VERIFICATION & TRUST SYSTEM
+  1400→// ============================================
+  1401→
+  1402→enum VerificationLevel {
+  1403→  BASIC           // Email & phone verified
+  1404→  VERIFIED        // Business documents verified
+  1405→  CERTIFIED       // On-site inspection passed
+  1406→  PREMIUM         // SGS/TUV third-party audit
+  1407→  ENTERPRISE      // Full enterprise verification
+  1408→}
+  1409→
+  1410→enum VerificationType {
+  1411→  BUSINESS_LICENSE
+  1412→  TAX_COMPLIANCE
+  1413→  BANK_ACCOUNT
+  1414→  IDENTITY
+  1415→  ADDRESS
+  1416→  PHONE
+  1417→  EMAIL
+  1418→  PRODUCT_QUALITY
+  1419→  PRODUCTION_CAPACITY
+  1420→  EXPORT_LICENSE
+  1421→  ISO_CERTIFICATION
+  1422→  SGS_AUDIT
+  1423→  CUSTOM
+  1424→}
+  1425→
+  1426→model SupplierVerification {
+  1427→  id                String            @id @default(cuid())
+  1428→  companyId         String
+  1429→  
+  1430→  // Verification Level & Status
+  1431→  level             VerificationLevel @default(BASIC)
+  1432→  status            VerificationStatus @default(PENDING)
+  1433→  
+  1434→  // Verification Details
+  1435→  type              VerificationType
+  1436→  documents         String?            // JSON array of document URLs
+  1437→  
+  1438→  // Inspector Info (for on-site verification)
+  1439→  inspectorName     String?
+  1440→  inspectorId       String?
+  1441→  inspectionDate    DateTime?
+  1442→  inspectionNotes   String?
+  1443→  inspectionPhotos  String?            // JSON array of photo URLs
+  1444→  inspectionVideos  String?            // JSON array of video URLs
+  1445→  
+  1446→  // Scoring
+  1447→  score             Int?               // 0-100 overall score
+  1448→  categoryScores    String?            // JSON {"quality": 90, "capacity": 85, ...}
+  1449→  
+  1450→  // Validity
+  1451→  issuedAt          DateTime?
+  1452→  expiresAt         DateTime?
+  1453→  isValid           Boolean            @default(false)
+  1454→  
+  1455→  // Admin Review
+  1456→  reviewedBy        String?
+  1457→  reviewedAt        DateTime?
+  1458→  reviewNotes       String?
+  1459→  rejectionReason   String?
+  1460→  
+  1461→  // Badge/Certificate
+  1462→  badgeUrl          String?
+  1463→  certificateUrl    String?
+  1464→  certificateNumber String?            @unique
+  1465→  
+  1466→  company           Company?           @relation("CompanyVerifications", fields: [companyId], references: [id], onDelete: Cascade)
+  1467→  
+  1468→  createdAt         DateTime           @default(now())
+  1469→  updatedAt         DateTime           @updatedAt
+  1470→  
+  1471→  @@index([companyId])
+  1472→  @@index([level])
+  1473→  @@index([status])
+  1474→  @@index([certificateNumber])
+  1475→  @@map("supplier_verifications")
+  1476→}
+  1477→
+  1478→model VerificationBadge {
+  1479→  id                String            @id @default(cuid())
+  1480→  name              String             // "Verified Supplier", "Premium Seller", etc.
+  1481→  description       String?
+  1482→  icon              String             // Badge icon URL or emoji
+  1483→  color             String             @default("#006233") // Badge color
+  1484→  level             VerificationLevel  // Minimum level required
+  1485→  
+  1486→  // Display Settings
+  1487→  isDisplayed       Boolean            @default(true)
+  1488→  sortOrder         Int                @default(0)
+  1489→  
+  1490→  companies         CompanyBadge[]
+  1491→  
+  1492→  createdAt         DateTime           @default(now())
+  1493→  
+  1494→  @@map("verification_badges")
+  1495→}
+  1496→
+  1497→model CompanyBadge {
+  1498→  id                String   @id @default(cuid())
+  1499→  companyId         String
+  1500→  badgeId           String
+  1501→  awardedAt         DateTime @default(now())
+  1502→  expiresAt         DateTime?
+  1503→  isActive          Boolean   @default(true)
+  1504→  
+  1505→  company           Company?           @relation("CompanyBadges", fields: [companyId], references: [id], onDelete: Cascade)
+  1506→  badge             VerificationBadge @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+  1507→  
+  1508→  @@unique([companyId, badgeId])
+  1509→  @@index([companyId])
+  1510→  @@map("company_badges")
+  1511→}
+  1512→
+  1513→// ============================================
+  1514→// PHASE 6B: TRADE ASSURANCE & ESCROW SYSTEM
+  1515→// ============================================
+  1516→
+  1517→enum EscrowStatus {
+  1518→  PENDING
+  1519→  FUNDED
+  1520→  IN_ESCROW
+  1521→  RELEASED
+  1522→  REFUNDED
+  1523→  PARTIAL_REFUND
+  1524→  DISPUTED
+  1525→  CANCELLED
+  1526→}
+  1527→
+  1528→enum DisputeStatus {
+  1529→  OPEN
+  1530→  INVESTIGATING
+  1531→  MEDIATION
+  1532→  ARBITRATION
+  1533→  RESOLVED
+  1534→  CANCELLED
+  1535→}
+  1536→
+  1537→enum DisputeReason {
+  1538→  PRODUCT_NOT_AS_DESCRIBED
+  1539→  QUALITY_ISSUES
+  1540→  SHIPPING_DELAY
+  1541→  WRONG_PRODUCT
+  1542→  DAMAGED_GOODS
+  1543→  PARTIAL_SHIPMENT
+  1544→  SCAM_SUSPICION
+  1545→  OTHER
+  1546→}
+  1547→
+  1548→model EscrowAccount {
+  1549→  id                String       @id @default(cuid())
+  1550→  accountId         String       @unique // Public account identifier
+  1551→  orderId           String       @unique
+  1552→  
+  1553→  // Amounts
+  1554→  amount            Float
+  1555→  currency          String       @default("DZD")
+  1556→  releasedAmount    Float         @default(0)
+  1557→  refundedAmount    Float         @default(0)
+  1558→  feeAmount         Float         @default(0) // Platform fee
+  1559→  
+  1560→  // Status
+  1561→  status            EscrowStatus @default(PENDING)
+  1562→  
+  1563→  // Timeline
+  1564→  fundedAt          DateTime?
+  1565→  inEscrowAt        DateTime?
+  1566→  releaseRequestedAt DateTime?
+  1567→  releasedAt        DateTime?
+  1568→  refundRequestedAt  DateTime?
+  1569→  refundedAt        DateTime?
+  1570→  
+  1571→  // Parties
+  1572→  buyerId           String
+  1573→  supplierCompanyId String
+  1574→  
+  1575→  // Dispute (if any)
+  1576→  dispute           Dispute?
+  1577→  
+  1578→  // Release Conditions
+  1579→  autoReleaseDays   Int          @default(30) // Auto-release after N days
+  1580→  autoReleaseAt     DateTime?
+  1581→  
+  1582→  // Transaction Details
+  1583→  paymentMethod     String?
+  1584→  paymentReference  String?
+  1585→  
+  1586→  order             Order        @relation(fields: [orderId], references: [id])
+  1587→  
+  1588→  createdAt         DateTime     @default(now())
+  1589→  updatedAt         DateTime     @updatedAt
+  1590→  
+  1591→  @@index([orderId])
+  1592→  @@index([status])
+  1593→  @@index([buyerId])
+  1594→  @@map("escrow_accounts")
+  1595→}
+  1596→
+  1597→model Dispute {
+  1598→  id                String         @id @default(cuid())
+  1599→  escrowId          String         @unique
+  1600→  
+  1601→  // Dispute Details
+  1602→  title             String
+  1603→  description       String
+  1604→  reason            DisputeReason
+  1605→  status            DisputeStatus @default(OPEN)
+  1606→  
+  1607→  // Amount Requested
+  1608→  requestedAmount   Float?
+  1609→  offeredAmount     Float?
+  1610→  settledAmount     Float?
+  1611→  
+  1612→  // Parties
+  1613→  openedBy          String         // User ID who opened dispute
+  1614→  buyerId           String
+  1615→  supplierCompanyId String
+  1616→  
+  1617→  // Evidence
+  1618→  evidence          String?        // JSON array of evidence URLs {type, url, description}
+  1619→  
+  1620→  // Resolution
+  1621→  resolution        String?        // Resolution text
+  1622→  resolvedBy        String?        // Admin/Mediator ID
+  1623→  resolvedAt        DateTime?
+  1624→  rulingInFavorOf   String?        // "buyer" or "supplier"
+  1625→  
+  1626→  // Mediation/Arbitration
+  1627→  mediatorId        String?
+  1628→  mediatorAssignedAt DateTime?
+  1629→  arbitrationId    String?
+  1630→  
+  1631→  // Timeline
+  1632→  responseDeadline  DateTime?
+  1633→  escalationAt      DateTime?
+  1634→  
+  1635→  escrow            EscrowAccount  @relation(fields: [escrowId], references: [id], onDelete: Cascade)
+  1636→  messages          DisputeMessage[]
+  1637→  
+  1638→  createdAt         DateTime       @default(now())
+  1639→  updatedAt         DateTime       @updatedAt
+  1640→  
+  1641→  @@index([status])
+  1642→  @@index([buyerId])
+  1643→  @@index([openedBy])
+  1644→  @@map("disputes")
+  1645→}
+  1646→
+  1647→model DisputeMessage {
+  1648→  id                String   @id @default(cuid())
+  1649→  disputeId         String
+  1650→  senderId          String
+  1651→  senderRole        String   // "buyer", "supplier", "mediator", "admin"
+  1652→  content           String
+  1653→  attachments       String?  // JSON array of file URLs
+  1654→  
+  1655→  dispute           Dispute  @relation(fields: [disputeId], references: [id], onDelete: Cascade)
+  1656→  
+  1657→  createdAt         DateTime @default(now())
+  1658→  
+  1659→  @@index([disputeId])
+  1660→  @@map("dispute_messages")
+  1661→}
+  1662→
+  1663→// ============================================
+  1664→// PHASE 6C: VIDEO SHOWROOM & MULTIMEDIA
+  1665→// ============================================
+  1666→
+  1667→model ProductVideo {
+  1668→  id                String   @id @default(cuid())
+  1669→  productId         String
+  1670→  
+  1671→  // Video Details
+  1672→  title             String
+  1673→  description       String?
+  1674→  videoUrl          String   // Video file or embed URL
+  1675→  thumbnailUrl      String?
+  1676→  duration          Int?     // Duration in seconds
+  1677→  
+  1678→  // Video Type
+  1679→  type              String   @default("product_demo") // product_demo, factory_tour, testimonial, tutorial
+  1680→  language          String?  // ar, fr, en
+  1681→  
+  1682→  // Status
+  1683→  isPrimary         Boolean  @default(false)
+  1684→  status            String   @default("processing") // processing, ready, failed
+  1685→  
+  1686→  // Stats
+  1687→  viewCount         Int      @default(0)
+  1688→  
+  1689→  product           Product?  @relation("ProductVideos", fields: [productId], references: [id], onDelete: Cascade)
+  1690→  
+  1691→  createdAt         DateTime @default(now())
+  1692→  
+  1693→  @@index([productId])
+  1694→  @@map("product_videos")
+  1695→}
+  1696→
+  1697→model CompanyVideo {
+  1698→  id                String   @id @default(cuid())
+  1699→  companyId         String
+  1700→  
+  1701→  // Video Details
+  1702→  title             String
+  1703→  description       String?
+  1704→  videoUrl          String
+  1705→  thumbnailUrl      String?
+  1706→  duration          Int?
+  1707→  
+  1708→  // Video Type
+  1709→  type              String   @default("company_intro") // company_intro, factory_tour, production_line, ceo_message, exhibition
+  1710→  language          String?
+  1711→  
+  1712→  // Status
+  1713→  isFeatured        Boolean  @default(false)
+  1714→  status            String   @default("processing")
+  1715→  
+  1716→  // Stats
+  1717→  viewCount         Int      @default(0)
+  1718→  
+  1719→  company           Company?  @relation("CompanyVideos", fields: [companyId], references: [id], onDelete: Cascade)
+  1720→  
+  1721→  createdAt         DateTime @default(now())
+  1722→  
+  1723→  @@index([companyId])
+  1724→  @@map("company_videos")
+  1725→}
+  1726→
+  1727→model VirtualTour {
+  1728→  id                String   @id @default(cuid())
+  1729→  companyId         String
+  1730→  
+  1731→  // Tour Details
+  1732→  title             String
+  1733→  description       String?
+  1734→  tourUrl           String   // 360° tour URL or viewer config
+  1735→  coverImage        String?
+  1736→  
+  1737→  // Tour Type
+  1738→  type              String   @default("factory") // factory, office, showroom, warehouse
+  1739→  
+  1740→  // Hotspots (interactive points)
+  1741→  hotspots          String?  // JSON array {position, title, content, mediaUrl}
+  1742→  
+  1743→  // Stats
+  1744→  viewCount         Int      @default(0)
+  1745→  
+  1746→  company           Company?  @relation("VirtualTours", fields: [companyId], references: [id], onDelete: Cascade)
+  1747→  
+  1748→  createdAt         DateTime @default(now())
+  1749→  
+  1750→  @@index([companyId])
+  1751→  @@map("virtual_tours")
+  1752→}
+  1753→
+  1754→// ============================================
+  1755→// PHASE 6D: ADVANCED PRODUCT FEATURES
+  1756→// ============================================
+  1757→
+  1758→model ProductCertification {
+  1759→  id                String   @id @default(cuid())
+  1760→  productId         String
+  1761→  
+  1762→  // Certification Details
+  1763→  name              String   // CE, ISO 9001, SGS, TUV, etc.
+  1764→  issuingBody       String   // Certification body
+  1765→  certificateNumber String?
+  1766→  issueDate         DateTime?
+  1767→  expiryDate        DateTime?
+  1768→  
+  1769→  // Documents
+  1770→  certificateUrl    String?
+  1771→  
+  1772→  // Status
+  1773→  isValid           Boolean  @default(true)
+  1774→  verifiedBy        String?  // Admin who verified
+  1775→  verifiedAt        DateTime?
+  1776→  
+  1777→  product           Product?  @relation("ProductCertifications", fields: [productId], references: [id], onDelete: Cascade)
+  1778→  
+  1779→  createdAt         DateTime @default(now())
+  1780→  
+  1781→  @@index([productId])
+  1782→  @@map("product_certifications")
+  1783→}
+  1784→
+  1785→model BulkPricingTier {
+  1786→  id                String   @id @default(cuid())
+  1787→  productId         String
+  1788→  
+  1789→  // Tier Details
+  1790→  minQuantity       Int      // Minimum quantity for this tier
+  1791→  maxQuantity       Int?     // Null means unlimited
+  1792→  unitPrice         Float    // Price per unit at this tier
+  1793→  discountPercent   Float?   // Discount percentage
+  1794→  
+  1795→  // Currency
+  1796→  currency          String   @default("DZD")
+  1797→  
+  1798→  // Validity
+  1799→  validFrom         DateTime?
+  1800→  validUntil        DateTime?
+  1801→  
+  1802→  product           Product?  @relation("BulkPricingTiers", fields: [productId], references: [id], onDelete: Cascade)
+  1803→  
+  1804→  createdAt         DateTime @default(now())
+  1805→  
+  1806→  @@index([productId])
+  1807→  @@map("bulk_pricing_tiers")
+  1808→}
+  1809→
+  1810→model CustomizationOption {
+  1811→  id                String   @id @default(cuid())
+  1812→  productId         String
+  1813→  
+  1814→  // Option Details
+  1815→  name              String   // Color, Size, Material, etc.
+  1816→  type              String   @default("select") // select, radio, checkbox, text, number, file
+  1817→  isRequired         Boolean  @default(false)
+  1818→  
+  1819→  // Options (for select/radio/checkbox types)
+  1820→  options           String?  // JSON array [{value, label, priceModifier, stock}]
+  1821→  
+  1822→  // Display
+  1823→  sortOrder         Int      @default(0)
+  1824→  
+  1825→  product           Product?  @relation("CustomizationOptions", fields: [productId], references: [id], onDelete: Cascade)
+  1826→  
+  1827→  values            CustomizationValue[]
+  1828→  
+  1829→  createdAt         DateTime @default(now())
+  1830→  
+  1831→  @@index([productId])
+  1832→  @@map("customization_options")
+  1833→}
+  1834→
+  1835→model CustomizationValue {
+  1836→  id                String   @id @default(cuid())
+  1837→  optionId          String
+  1838→  
+  1839→  value             String   // Selected/entered value
+  1840→  priceModifier     Float     @default(0) // Additional cost
+  1841→  
+  1842→  option            CustomizationOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  1843→  
+  1844→  @@map("customization_values")
+  1845→}
+  1846→
+  1847→model ProductPackage {
+  1848→  id                String   @id @default(cuid())
+  1849→  
+  1850→  // Package Details
+  1851→  name              String   // "Starter Pack", "Business Bundle", etc.
+  1852→  description       String?
+  1853→  discountPercent   Float     @default(0) // Package discount
+  1854→  
+  1855→  // Pricing
+  1856→  totalPrice        Float?
+  1857→  currency          String    @default("DZD")
+  1858→  
+  1859→  // Status
+  1860→  isActive          Boolean   @default(true)
+  1861→  
+  1862→  products          PackageItem[]
+  1863→  
+  1864→  createdAt         DateTime  @default(now())
+  1865→  updatedAt         DateTime  @updatedAt
+  1866→  
+  1867→  @@map("product_packages")
+  1868→}
+  1869→
+  1870→model PackageItem {
+  1871→  id                String   @id @default(cuid())
+  1872→  packageId         String
+  1873→  productId         String
+  1874→  quantity          Int      @default(1)
+  1875→  includedPrice     Float?   // If null, use current product price
+  1876→  
+  1877→  packageProduct    ProductPackage @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  1878→  product           Product?  @relation("PackageItems", fields: [productId], references: [id], onDelete: Cascade)
+  1879→  
+  1880→  @@index([packageId])
+  1881→  @@index([productId])
+  1882→  @@map("package_items")
+  1883→}
+  1884→
+  1885→// Related Products (Up-sells/Cross-sells)
+  1886→model RelatedProduct {
+  1887→  id                String   @id @default(cuid())
+  1888→  productId         String   // Main product
+  1889→  relatedProductId   String   // Related product
+  1890→  type              String   @default("related") // related, up_sell, cross_sell, complementary, alternative
+  1891→  sortOrder         Int      @default(0)
+  1892→  
+  1893→  product           Product?  @relation("RelatedProductsFrom", fields: [productId], references: [id], onDelete: Cascade)
+  1894→  relatedProduct    Product?  @relation("RelatedProductsTo", fields: [relatedProductId], references: [id], onDelete: Cascade)
+  1895→  
+  1896→  @@unique([productId, relatedProductId])
+  1897→  @@index([productId])
+  1898→  @@map("related_products")
+  1899→}
+  1900→
+  1901→// ============================================
+  1902→// PHASE 6E: INSPECTION & QUALITY CONTROL
+  1903→// ============================================
+  1904→
+  1905→enum InspectionStatus {
+  1906→  REQUESTED
+  1907→  SCHEDULED
+  1908→  IN_PROGRESS
+  1909→  COMPLETED
+  1910→  CANCELLED
+  1911→  FAILED
+  1912→}
+  1913→
+  1914→enum InspectionType {
+  1915→  PRE_PRODUCTION
+  1916→  DURING_PRODUCTION
+  1917→  PRE_SHIPMENT
+  1918→  CONTAINER_LOADING
+  1919→  SAMPLE_INSPECTION
+  1920→  FACTORY_AUDIT
+  1921→}
+  1922→
+  1923→model InspectionService {
+  1924→  id                String           @id @default(cuid())
+  1925→  
+  1926→  // Service Definition
+  1927→  name              String
+  1928→  description       String?
+  1929→  type              InspectionType
+  1930→  basePrice         Float
+  1931→  currency          String           @default("DZD")
+  1932→  
+  1933→  // Timeframe
+  1934→  typicalLeadTime   Int               @default(3) // Days
+  1935→  
+  1936→  // Status
+  1937→  isActive          Boolean           @default(true)
+  1938→  
+  1939→  bookings          InspectionBooking[]
+  1940→  
+  1941→  createdAt         DateTime          @default(now())
+  1942→  
+  1943→  @@map("inspection_services")
+  1944→}
+  1945→
+  1946→model InspectionBooking {
+  1947→  id                String           @id @default(cuid())
+  1948→  bookingNumber     String           @unique
+  1949→  
+  1950→  // Service Reference
+  1951→  serviceId         String
+  1952→  
+  1953→  // Buyer Info
+  1954→  buyerId           String
+  1955→  
+  1956→  // Supplier Info
+  1957→  supplierCompanyId String
+  1958→  
+  1959→  // Product Reference
+  1960→  productId         String?
+  1961→  orderId           String?
+  1962→  
+  1963→  // Inspection Details
+  1964→  preferredDate     DateTime?
+  1965→  address           String?
+  1966→  contactPerson     String?
+  1967→  contactPhone      String?
+  1968→  specialInstructions String?
+  1969→  
+  1970→  // Status
+  1971→  status            InspectionStatus  @default(REQUESTED)
+  1972→  
+  1973→  // Assignment
+  1974→  inspectorId       String?
+  1975→  inspectorName     String?
+  1976→  scheduledAt       DateTime?
+  1977→  completedAt       DateTime?
+  1978→  
+  1979→  // Results
+  1980→  result            String?           // JSON object with detailed results
+  1981→  overallScore      Int?              // 0-100
+  1982→  passFail          String?           // "pass", "fail", "conditional"
+  1983→  reportUrl         String?
+  1984→  
+  1985→  // Photos/Videos
+  1986→  photos            String?           // JSON array of photo URLs
+  1987→  videos            String?           // JSON array of video URLs
+  1988→  
+  1989→  // Payment
+  1990→  amount            Float?
+  1991→  currency          String            @default("DZD")
+  1992→  paidAt            DateTime?
+  1993→  
+  1994→  // Timeline
+  1995→  requestedAt       DateTime          @default(now())
+  1996→  confirmedAt       DateTime?
+  1997→  cancelledAt       DateTime?
+  1998→  cancellationReason String?
+  1999→  
+  2000→  service           InspectionService @relation(fields: [serviceId], references: [id])
+
+[showing lines 1-2000 of 3167; use offset=2001 with limit to continue reading]

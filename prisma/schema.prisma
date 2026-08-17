@@ -141,6 +141,9 @@ model User {
   developerApps  DeveloperApp[] @relation("UserDeveloperApps")
   webhooks       Webhook[]      @relation("UserWebhooks")
   
+  // Payment Methods (Phase 8B)
+  savedPaymentMethods SavedPaymentMethod[]
+  
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -297,6 +300,7 @@ model Product {
   favorites           Favorite[] @relation("ProductFavorites")
   reviews             Review[] @relation("ProductReviews")
   orderItems          OrderItem[]
+  negotiations        Negotiation[] @relation("ProductNegotiations")
   
   viewCount           Int      @default(0)
   status              String   @default("draft")
@@ -512,6 +516,9 @@ model Order {
   
   // Phase 6H: Logistics
   shipments        Shipment[] @relation("OrderShipments")
+  
+  // Phase 8I: Negotiations
+  negotiations     Negotiation[] @relation("OrderNegotiations")
   
   status          OrderStatus @default(PENDING)
 
@@ -826,11 +833,13 @@ enum PaymentStatus {
 }
 
 enum PaymentMethod {
-  CIB           // Carte Interbancaire (Visa/Mastercard)
+  CIB           // Carte Interbancaire (Visa/Mastercard) - via SATIM
   CCP           // Chèque Postale
   BARIDIMOB     // Mobile Payment Algeria
   BANK_TRANSFER // Virement Bancaire
   COD           // Cash on Delivery
+  SATIM         // SATIM/CIB Official Gateway
+  STRIPE        // Stripe International Cards
 }
 
 model Payment {
@@ -845,6 +854,11 @@ model Payment {
   cardLast4       String?
   cardType        String?      // "visa", "mastercard"
   transactionId   String?
+  
+  // External Gateway IDs (Phase 8A/8B)
+  satimTransactionId     String?   // SATIM transaction reference
+  stripePaymentIntentId  String?   // Stripe Payment Intent ID
+  stripeClientSecret     String?   // Stripe client secret (temporary)
   
   // CCP fields
   ccpReference    String?      // Format: CCP-YYYYMMDD-XXXXX
@@ -898,6 +912,82 @@ model TransactionLog {
 
   @@index([paymentId])
   @@map("transaction_logs")
+}
+
+// ============================================
+// WEBHOOK EVENT LOGS (Phase 8A/8B)
+// ============================================
+
+model WebhookEventLog {
+  id              String       @id @default(cuid())
+  
+  // Source gateway
+  gateway         String       // "SATIM" or "STRIPE"
+  eventType       String       // e.g., "payment_intent.succeeded", "PAYMENT_SUCCESS"
+  
+  // Event data
+  eventId         String?      // External event ID (Stripe event ID, etc.)
+  payload         String?      // Full payload as JSON
+  
+  // Processing status
+  processed       Boolean      @default(false)
+  success         Boolean      @default(false)
+  errorMessage    String?
+  
+  // Related entities
+  paymentId       String?
+  orderId         String?
+  
+  // Request info
+  ipAddress       String?
+  signatureValid  Boolean      @default(false) // Whether webhook signature was valid
+
+  createdAt DateTime @default(now())
+
+  @@index([gateway])
+  @@index([eventType])
+  @@index([paymentId])
+  @@index([createdAt])
+  @@map("webhook_event_logs")
+}
+
+// ============================================
+// SAVED PAYMENT METHODS (Phase 8B - Future Use)
+// ============================================
+
+model SavedPaymentMethod {
+  id              String       @id @default(cuid())
+  userId          String
+  
+  // Payment method details
+  gateway         String       // "STRIPE" or "SATIM"
+  paymentMethodId String       // External ID (e.g., Stripe PM ID)
+  cardLast4       String
+  cardType        String       // "visa", "mastercard", "amex"
+  cardBrand       String?      // Display name (e.g., "Visa ending in 4242")
+  expiryMonth     Int
+  expiryYear      Int
+  
+  // Billing details (optional)
+  billingName     String?
+  billingEmail    String?
+  
+  // Status
+  isDefault       Boolean      @default(false)
+  isActive        Boolean      @default(true)
+  
+  // Metadata
+  metadata        String?      // JSON for additional data
+
+  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([gateway])
+  @@index([isActive])
+  @@map("saved_payment_methods")
 }
 
 // ============================================
@@ -2490,4 +2580,861 @@ model TrackingEvent {
   
   @@index([shipmentId])
   @@map("tracking_events")
+}
+
+// ============================================
+// CRM MODULE (Phase 8I)
+// ============================================
+
+model CRMContact {
+  id                      String    @id @default(cuid())
+  companyId               String
+  userId                  String?
+  
+  // Personal Info
+  firstName               String
+  lastName                String
+  email                   String
+  phone                   String
+  mobile                  String?
+  jobTitle                String
+  department              String?
+  role                    String    @default("DECISION_MAKER")
+  
+  // Social/Professional
+  linkedinUrl             String?
+  avatarUrl               String?
+  
+  // Preferences
+  preferredLanguage       String    @default("FR")
+  preferredContactMethod String    @default("EMAIL")
+  timezone                String    @default("Africa/Algiers")
+  
+  // Tags & Notes
+  tags                    String    @default("[]") // JSON array
+  notes                   String?
+  
+  lastInteractionAt       DateTime?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+  
+  interactions            CRMInteraction[]
+  
+  @@index([companyId])
+  @@index([email])
+  @@index([lastName])
+  @@map("crm_contacts")
+}
+
+model CRMLead {
+  id                      String    @id @default(cuid())
+  leadNumber              String    @unique
+  
+  // Source Info
+  source                  String
+  sourceDetails           String?
+  campaignId              String?
+  
+  // Company Info
+  companyName             String
+  industry                String?
+  companySize             String?
+  website                 String?
+  wilaya                  String?
+  city                    String?
+  
+  // Contact Person
+  primaryContactId        String
+  
+  // Pipeline
+  status                  String    @default("NEW")
+  pipelineStage           String
+  estimatedValue          Float
+  currency                String    @default("DZD")
+  probability             Int       @default(0)
+  expectedCloseDate       DateTime
+  
+  // Assignment
+  assignedTo              String
+  teamId                  String?
+  
+  // Products/Services Interest
+  interestedCategories    String    @default("[]") // JSON array
+  interestedProducts      String    @default("[]") // JSON array
+  specificRequirements    String?
+  
+  // Scoring
+  leadScore               Int       @default(0)
+  engagementScore         Int       @default(0)
+  
+  // Conversion
+  convertedToCompanyId    String?
+  convertedToOrderId      String?
+  convertedAt             DateTime?
+  
+  // Loss Analysis
+  lostReason              String?
+  lostToCompetitor        String?
+  
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+  
+  tasks                   CRMTask[]
+  interactions            CRMInteraction[]
+  
+  @@index([assignedTo])
+  @@index([status])
+  @@index([source])
+  @@index([expectedCloseDate])
+  @@map("crm_leads")
+}
+
+model CRMTask {
+  id                      String    @id @default(cuid())
+  leadId                  String?
+  contactId               String?
+  companyId               String
+  
+  title                   String
+  description             String
+  type                    String    @default("OTHER") // CALL, EMAIL, MEETING, FOLLOW_UP, PROPOSAL, DEMO, REMINDER, OTHER
+  priority                String    @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
+  status                  String    @default("TODO") // TODO, IN_PROGRESS, COMPLETED, CANCELLED, DEFERRED
+  
+  dueDate                 DateTime
+  dueTime                 String?
+  completedAt             DateTime?
+  
+  assignedTo              String
+  createdBy               String
+  
+  // Reminders
+  remindBefore            Int       @default(60) // Minutes before
+  reminderSent            Boolean   @default(false)
+  
+  // Result
+  resultNotes             String?
+  outcome                 String?
+  
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+  
+  lead                    CRMLead?   @relation(fields: [leadId], references: [id])
+  
+  @@index([assignedTo])
+  @@index([status])
+  @@index([dueDate])
+  @@map("crm_tasks")
+}
+
+model CRMInteraction {
+  id                      String    @id @default(cuid())
+  contactId               String
+  leadId                  String?
+  companyId               String
+  
+  type                    String    // CALL, EMAIL, MEETING, NOTE, SYSTEM, CHAT, QUOTE_SENT, ORDER_PLACED
+  direction               String    // INBOUND, OUTBOUND
+  
+  subject                 String
+  content                 String
+  
+  // Metadata
+  duration                Int?      // Minutes for calls/meetings
+  channel                 String?   // Email, Phone, WhatsApp, etc.
+  
+  // Outcomes
+  sentiment               String?   // POSITIVE, NEUTRAL, NEGATIVE
+  nextSteps               String?
+  
+  // Attachments
+  attachmentUrls          String    @default("[]") // JSON array
+  
+  // Automation
+  automated               Boolean   @default(false)
+  triggeredBy             String?
+  
+  createdBy               String
+  createdAt               DateTime  @default(now())
+  
+  contact                 CRMContact @relation(fields: [contactId], references: [id])
+  lead                    CRMLead?   @relation(fields: [leadId], references: [id])
+  
+  @@index([contactId])
+  @@index([leadId])
+  @@index([createdAt])
+  @@map("crm_interactions")
+}
+
+model CRMPipeline {
+  id                      String    @id @default(cuid())
+  name                    String
+  description             String?
+  stages                  Json // PipelineStage[]
+  defaultLeadStatus       String    @default("NEW")
+  
+  isPublic                Boolean   @default(true)
+  allowedRoles            String    @default("[]") // JSON array
+  
+  autoAdvanceRules        Json // AutoAdvanceRule[]
+  
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+  
+  @@map("crm_pipelines")
+}
+
+model CRMSegment {
+  id                      String    @id @default(cuid())
+  name                    String
+  description             String?
+  filters                 Json // SegmentFilter[]
+  contactCount            Int       @default(0)
+  lastCalculated          DateTime?
+  createdAt               DateTime  @default(now())
+  
+  @@map("crm_segments")
+}
+
+model CRMAutomationRule {
+  id                      String    @id @default(cuid())
+  name                    String
+  eventType               String    // LEAD_CREATED, LEAD_STAGE_CHANGED, TASK_COMPLETED, INTERACTION_LOGGED, etc.
+  conditions              Json // Condition[]
+  actions                 Json // Action[]
+  enabled                 Boolean   @default(true)
+  lastTriggeredAt         DateTime?
+  executionCount          Int       @default(0)
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+  
+  @@map("crm_automation_rules")
+}
+
+// ============================================
+// ERP INTEGRATION MODULE (Phase 8J)
+// ============================================
+
+model ERPConfig {
+  id                      String    @id @default(cuid())
+  name                    String
+  type                    String    // SAP, ODOO, DYNAMICS, CUSTOM
+  enabled                 Boolean   @default(false)
+  
+  // Connection
+  endpoint                String
+  apiKey                  String?
+  username                String?
+  password                String?
+  clientId                String?
+  clientSecret            String?
+  authType                String    @default("API_KEY") // API_KEY, BASIC, OAUTH2, CERTIFICATE
+  
+  // Sync Settings
+  defaultSyncFreq         String    @default("DAILY") // REALTIME, EVERY_5_MIN, HOURLY, DAILY, MANUAL
+  syncDirections          Json
+  fieldMappings           Json
+  
+  // Webhook
+  webhookSecret           String?
+  webhookEndpoint         String?
+  
+  // Status
+  lastSyncAt              DateTime?
+  connectionStatus        String    @default("UNKNOWN") // UNKNOWN, CONNECTED, ERROR
+  
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+  
+  syncLogs                ERPSyncLog[]
+  inventorySyncRules      InventorySyncRule[]
+  
+  @@unique([name, type])
+  @@map("erp_configs")
+}
+
+model ERPSyncLog {
+  id                      String    @id @default(cuid())
+  erpConfigId             String
+  entityType              String    // PRODUCTS, INVENTORY, ORDERS, CUSTOMERS, PRICES, CATEGORIES, SUPPLIERS, INVOICES, SHIPMENTS
+  direction               String    // PUSH, PULL
+  status                  String    @default("PENDING") // SUCCESS, FAILED, PARTIAL, PENDING, SKIPPED
+  
+  recordsProcessed        Int       @default(0)
+  recordsSuccess          Int       @default(0)
+  recordsFailed           Int       @default(0)
+  errors                  String    @default("[]") // JSON array of errors
+  
+  startedAt               DateTime  @default(now())
+  completedAt             DateTime?
+  durationMs              Int?
+  
+  erpConfig               ERPConfig  @relation(fields: [erpConfigId], references: [id], onDelete: Cascade)
+  
+  @@index([erpConfigId])
+  @@index([status])
+  @@index([startedAt])
+  @@map("erp_sync_logs")
+}
+
+model InventorySyncRule {
+  id                      String    @id @default(cuid())
+  erpConfigId             String
+  productCategory         String?   // Apply to category
+  syncFrequency           String    @default("DAILY")
+  conflictResolution      String    @default("ERP_WINS") // PLATFORM_WINS, ERP_WINS, MANUAL, LATEST_WINS
+  lowStockThreshold       Int       @default(10) // Alert when below this
+  enableBackorders        Boolean   @default(false)
+  reserveStockOnOrder     Boolean   @default(true) // Reserve ERP stock when order placed
+  
+  erpConfig               ERPConfig  @relation(fields: [erpConfigId], references: [id], onDelete: Cascade)
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+  
+  @@index([erpConfigId])
+  @@map("inventory_sync_rules")
+}
+
+// ============================================
+// NEGOTIATION SYSTEM - Advanced Offer/Counter-Offer
+// ============================================
+
+model Negotiation {
+  id                String            @id @default(cuid())
+  negotiationNumber String            @unique // NEG-YYYYMMDD-XXXX
+  
+  // Related entities
+  productId         String?
+  orderId           String?
+  rfqId             String?
+  
+  // Parties
+  buyerId           String
+  sellerId          String
+  initiatorId       String // Who started it
+  currentRole       String             @default("BUYER") // BUYER or SELLER - Whose turn
+  
+  // Status tracking
+  status            String             @default("DRAFT") // DRAFT, SENT, UNDER_REVIEW, COUNTERED, ACCEPTED, REJECTED, EXPIRED, WITHDRAWN, ARCHIVED
+  type              String             @default("PRICE") // PRICE, QUANTITY, DELIVERY_TERMS, PAYMENT_TERMS, SPECIFICATIONS, BUNDLE, COMPREHENSIVE
+  
+  // Progress
+  totalOffers       Int                @default(0)
+  counterOffers     Int                @default(0)
+  lastOfferAt       DateTime
+  concludedOutcome  String?            // Accepted price, terms summary
+  
+  // Settings
+  maxDuration       Int                @default(30) // Days before auto-expire
+  autoAcceptThreshold Float?           // If offer within X% of asking, auto-accept
+  isPrivate         Boolean            @default(false) // Hidden from other suppliers
+  allowCounterOffer Boolean            @default(true)
+  
+  startedAt         DateTime           @default(now())
+  concludedAt       DateTime?
+  
+  offers            NegotiationOffer[]
+  
+  product           Product?          @relation("ProductNegotiations", fields: [productId], references: [id])
+  order             Order?            @relation("OrderNegotiations", fields: [orderId], references: [id])
+  
+  @@index([buyerId])
+  @@index([sellerId])
+  @@index([status])
+  @@index([productId])
+  @@map("negotiations")
+}
+
+model NegotiationOffer {
+  id                String            @id @default(cuid())
+  negotiationId     String
+  offerNumber       Int               // Sequential per negotiation
+  fromRole           String            // BUYER or SELLER
+  fromUserId        String
+  toUserId          String
+  
+  // Content
+  type              String             @default("PRICE")
+  originalPrice     Float?
+  offeredPrice      Float?
+  quantity          Float?
+  deliveryDays      Int?
+  paymentTerms      String?
+  specifications    Json?              // Record<string, any>
+  notes             String?
+  
+  // AI Analysis (optional)
+  aiScore           Int?               // 0-100, how fair is this offer?
+  aiSuggestion      String?
+  marketComparison  Json?              // { averagePrice, percentile }
+  
+  // Timestamps
+  validUntil        DateTime           // Offer expiry (default 72h)
+  respondedAt       DateTime?
+  status            String             @default("PENDING") // PENDING, ACCEPTED, REJECTED, COUNTERED, EXPIRED
+  
+  createdAt         DateTime           @default(now())
+  
+  negotiation       Negotiation        @relation(fields: [negotiationId], references: [id], onDelete: Cascade)
+  
+  @@index([negotiationId])
+  @@index([status])
+  @@map("negotiation_offers")
+}
+
+// ============================================
+// CONTRACT SYSTEM - Legal Document Generation
+// ============================================
+
+model Contract {
+  id                  String            @id @default(cuid())
+  contractNumber      String            @unique // CTR-YYYYMMDD-XXXX
+  contractType        String            // SALES_AGREEMENT, SUPPLY_CONTRACT, SERVICE_AGREEMENT, DISTRIBUTION_AGREEMENT, NON_DISCLOSURE, EXCLUSIVITY, FRAMEWORK_AGREEMENT
+  status              String            @default("DRAFT") // DRAFT, REVIEW, PENDING_SIGNATURE, SIGNED, ACTIVE, EXPIRED, TERMINATED, VOID
+  language            String            @default("BILINGUAL") // AR, FR, BILINGUAL
+  
+  // Parties (JSON serialized ContractParty)
+  partyAInfo          Json              // Supplier info
+  partyBInfo          Json              // Buyer info
+  
+  // Subject matter
+  subject             String
+  subjectAr           String
+  subjectFr           String
+  effectiveDate       DateTime
+  endDate             DateTime?         // Null for indefinite
+  
+  // Financial terms
+  totalValue          Float             @default(0)
+  currency            String            @default("DZD")
+  paymentTerms        String
+  penaltyClause       String?           // Late payment penalties
+  warrantyTerms       String?
+  
+  // Clauses (JSON arrays)
+  clauses             Json              // ContractClause[]
+  customClauses       Json              // Custom ContractClause[]
+  
+  // Signatures
+  partyASignedAt      DateTime?
+  partyBSignedAt      DateTime?
+  partyASignatureUrl  String?
+  partyBSignatureUrl  String?
+  
+  // Versioning
+  version             Int               @default(1)
+  parentContractId    String?           // For amendments
+  
+  // Metadata
+  createdBy           String
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+  
+  relatedNegotiationId String?
+  relatedOrderId      String?
+  
+  attachments        ContractAttachment[]
+  
+  @@index([contractType])
+  @@index([status])
+  @@index([createdBy])
+  @@map("contracts")
+}
+
+model ContractAttachment {
+  id              String    @id @default(cuid())
+  contractId      String
+  fileName        String
+  fileType        String   // PDF, DOCX, IMAGE, OTHER
+  fileSize        Int      // bytes
+  fileUrl         String
+  uploadedBy      String
+  description     String?
+  
+  createdAt       DateTime @default(now())
+  
+  contract        Contract  @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  
+  @@index([contractId])
+  @@map("contract_attachments")
+}
+
+// ============================================
+// PHASE 8D: INSTALLMENT PLANS (DPA)
+// ============================================
+
+enum InstallmentPlanType {
+  DPA_30_DAYS      // 30-day deferred (common in Algeria)
+  DPA_60_DAYS      // 60-day deferred
+  DPA_90_DAYS      // 90-day deferred (with bank guarantee)
+  INSTALLMENT_3X   // 3 equal monthly installments
+  INSTALLMENT_6X   // 6 equal monthly installments
+  INSTALLMENT_12X  // 12 monthly installments (large orders)
+  CUSTOM           // Custom plan negotiated
+}
+
+enum InstallmentStatus {
+  PENDING_APPROVAL // Awaiting seller/bank approval
+  APPROVED         // Plan approved, payments scheduled
+  ACTIVE           // Payments in progress
+  DELINQUENT       // Payment overdue
+  DEFAULTED        // Failed to pay
+  COMPLETED        // All installments paid
+  CANCELLED        // Plan cancelled
+}
+
+model InstallmentPlan {
+  id                    String            @id @default(cuid())
+  orderId               String           @unique
+  buyerId               String
+  sellerId              String
+  type                  InstallmentPlanType
+  status                InstallmentStatus @default(PENDING_APPROVAL)
+  
+  totalAmount           Float
+  downPayment           Float             // Initial payment (usually 30%)
+  remainingBalance      Float
+  installmentCount      Int
+  installmentAmount     Float
+  interestRate          Float             @default(0) // APR
+  totalInterest         Float             @default(0)
+  
+  firstPaymentDate      DateTime
+  frequency             String            @default("MONTHLY") // MONTHLY, BI_MONTHLY, QUARTERLY
+  
+  bankGuaranteeRequired Boolean           @default(false)
+  bankGuarrantyDocument String?
+  
+  approvedAt            DateTime?
+  approvedBy            String?           // Admin/Seller ID
+  
+  nextInstallmentDue    DateTime?
+  installmentsPaid      Int               @default(0)
+  
+  notes                 String?
+  
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+  
+  installments          Installment[]
+  
+  @@index([buyerId])
+  @@index([sellerId])
+  @@index([orderId])
+  @@index([status])
+  @@map("installment_plans")
+}
+
+model Installment {
+  id                String    @id @default(cuid())
+  planId            String
+  installmentNumber Int
+  dueDate           DateTime
+  amount            Float
+  principalPortion  Float
+  interestPortion   Float
+  paidAt            DateTime?
+  paymentMethod     String?
+  transactionId     String?
+  status            String    @default("PENDING") // PENDING, PAID, OVERDUE, PARTIAL, WAIVED
+  lateFeeApplied    Float     @default(0)
+  notes             String?
+  
+  plan              InstallmentPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  
+  @@index([planId])
+  @@index([status])
+  @@index([dueDate])
+  @@map("installments")
+}
+
+// ============================================
+// PHASE 8E: INVOICE SYSTEM
+// ============================================
+
+enum InvoiceStatus {
+  DRAFT
+  ISSUED
+  PAID
+  PARTIAL
+  OVERDUE
+  CANCELLED
+  REFUNDED
+}
+
+enum InvoiceType {
+  COMMERCIAL
+  PROFORMA
+  CREDIT_NOTE
+  DEBIT_NOTE
+  DOWN_PAYMENT
+  INSTALLMENT
+}
+
+model Invoice {
+  id              String        @id @default(cuid())
+  invoiceNumber   String        @unique
+  invoiceType     InvoiceType
+  status          InvoiceStatus @default(DRAFT)
+  
+  sellerId        String
+  buyerId         String
+  orderId         String
+  
+  issueDate       DateTime
+  dueDate         DateTime
+  paidDate        DateTime?
+  
+  subtotal        Float
+  discountTotal   Float         @default(0)
+  tvaAmount       Float         @default(0)
+  tssAmount       Float         @default(0)
+  totalAmount     Float
+  amountPaid      Float         @default(0)
+  balanceDue      Float
+  
+  currency        String         @default("DZD")
+  paymentTerms    String         @default("Net 30") // e.g., "Net 30", "Net 60"
+  notes           String?
+  termsConditions String?
+  pdfPath         String?
+  
+  quotationId      String?
+  relatedInvoiceId String?       // For credit/debit notes
+  
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  
+  items            InvoiceItem[]
+  payments         InvoicePayment[]
+  
+  @@index([sellerId])
+  @@index([buyerId])
+  @@index([orderId])
+  @@index([status])
+  @@index([invoiceNumber])
+  @@map("invoices")
+}
+
+model InvoiceItem {
+  id          String  @id @default(cuid())
+  invoiceId   String
+  description String
+  quantity    Float
+  unitPrice   Float
+  discount    Int     @default(0) // Percentage
+  taxRate     Int     @default(19) // TVA percentage (9%, 19%, or 0%)
+  taxAmount   Float
+  lineTotal   Float
+  
+  sortOrder   Int     @default(0)
+  
+  invoice     Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  
+  @@index([invoiceId])
+  @@map("invoice_items")
+}
+
+model InvoicePayment {
+  id              String    @id @default(cuid())
+  invoiceId       String
+  amount          Float
+  paymentMethod   String    // CIB, CCP, BARIDIMOB, BANK_TRANSFER, etc.
+  transactionId   String?
+  referenceNumber String?
+  notes           String?
+  paidAt          DateTime  @default(now())
+  
+  invoice         Invoice   @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  
+  @@index([invoiceId])
+  @@map("invoice_payments")
+}
+
+// ============================================
+// PHASE 8C + 8F: CRYPTO PAYMENTS & MULTI-CURRENCY SUPPORT
+// ============================================
+
+/// Exchange rates for multi-currency support
+model ExchangeRate {
+  id            String   @id @default(cuid())
+  fromCurrency  String   // DZD (base currency)
+  toCurrency    String   // USD, EUR, GBP, CAD, TND, MAD
+  rate          String   // Stored as string for precision (Decimal equivalent)
+  source        String   // 'european_central_bank', 'open_exchange_rates', 'bank_of_algeria'
+  fetchedAt     DateTime @default(now())
+  
+  @@unique([fromCurrency, toCurrency])
+  @@index([fetchedAt])
+  @@map("exchange_rates")
+}
+
+/// Cryptocurrency payments tracking
+model CryptoPayment {
+  id                String         @id @default(cuid())
+  orderId           String         @unique
+  
+  // Payment Details
+  cryptoCurrency    String         // BTC, ETH, USDT, USDC
+  depositAddress    String         // Platform's wallet address
+  expectedAmount    String         // Expected amount in crypto (string for precision)
+  actualAmount      String?        // Actual received amount (string for precision)
+  txHash            String?        @unique // Blockchain transaction hash
+  
+  // Confirmation Tracking
+  confirmations     Int            @default(0)
+  requiredConfirms  Int            @default(3) // BTC: 3, ETH: 12, USDT/USDC: 6
+  status            String         @default("PENDING") // PENDING, PARTIAL, CONFIRMED, EXPIRED, OVERPAID
+  
+  // Timing
+  expiresAt         DateTime       // 15-minute payment window
+  confirmedAt       DateTime?
+  
+  // Refund Info
+  buyerWalletAddress String?      // For potential refunds
+  
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  
+  @@index([status])
+  @@index([expiresAt])
+  @@index([txHash])
+  @@map("crypto_payments")
+}
+
+// ============================================
+// PHASE 8K: WEBRTC VOICE/VIDEO CALLS
+// ============================================
+
+/// WebRTC call records for in-platform voice/video calling
+model WebRTCCall {
+  id                  String    @id @default(cuid())
+  
+  // Call configuration
+  callType            String    // AUDIO, VIDEO, SCREEN_SHARE
+  status              String    @default("RINGING") // RINGING, CONNECTED, ON_HOLD, ENDED, DECLINED, FAILED
+  
+  // Participants
+  callerId            String
+  callerName          String
+  callerAvatar        String?
+  calleeId            String
+  calleeName          String
+  calleeAvatar        String?
+  
+  // Context (what triggered the call)
+  contextType         String    @default("DIRECT") // DIRECT, ORDER_RELATED, PRODUCT_QUESTION, SUPPORT
+  contextId           String?   // Order ID, Product ID, etc.
+  
+  // Timing
+  initiatedAt         DateTime  @default(now())
+  connectedAt         DateTime?
+  endedAt             DateTime?
+  durationSeconds     Int?
+  
+  // Media quality settings
+  mediaQuality        String    @default("HD") // SD, HD, FHD, UHD
+  
+  // WebRTC data (stored for debugging)
+  offerSdp            String?   // SDP offer from caller
+  answerSdp           String?   // SDP answer from callee
+  iceCandidates       String    @default("[]") // JSON array of ICE candidates
+  
+  // Recording
+  isRecording         Boolean   @default(false)
+  recordingUrl        String?
+  
+  // AI Transcription (optional feature)
+  transcription       String?   // Long text for transcription content
+  transcriptionEnabled Boolean  @default(false)
+  transcriptionLanguage String?
+  
+  // Premium features / cost tracking
+  isPremiumCall       Boolean   @default(false)
+  costPerMinute       String?   // Cost per minute in DZD (stored as string for precision)
+  totalCost           String?   // Total call cost in DZD (stored as string for precision)
+  
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  
+  @@index([callerId])
+  @@index([calleeId])
+  @@index([status])
+  @@index([initiatedAt])
+  @@map("webrtc_calls")
+}
+
+// ============================================
+// PHASE 8L: AUGMENTED REALITY (AR) SHOWROOM
+// ============================================
+
+/// 3D models for AR product viewing
+model ARProductModel {
+  id                  String    @id @default(cuid())
+  productId           String    @unique  // Reference to product
+  
+  // Model files
+  modelUrl            String    // CDN URL to 3D model file
+  thumbnailUrl        String    // Preview thumbnail URL
+  format              String    // GLTF, GLB, USDZ, FBX
+  
+  // Transform defaults (stored as JSON strings)
+  scale               String    @default("{\"x\":1,\"y\":1,\"z\":1}")
+  rotation            String    @default("{\"x\":0,\"y\":0,\"z\":0}")
+  
+  // Model metadata
+  fileSize            Int       @default(0) // Size in KB
+  polygonCount        Int       @default(0)
+  optimizedForMobile  Boolean   @default(true)
+  
+  // Interactive elements (stored as JSON strings)
+  hotspots            String    @default("[]") // Interactive click points
+  animations          String    @default("[]") // Available animations
+  materialVariations String    @default("[]") // Color/material options
+  
+  // Status & stats
+  isEnabled           Boolean   @default(true)
+  viewsCount          Int       @default(0)
+  avgViewDuration     Int       @default(0) // Average view duration in seconds
+  
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  
+  viewEvents          ARViewEvent[]
+  
+  @@index([productId])
+  @@index([isEnabled])
+  @@map("ar_product_models")
+}
+
+/// AR viewer analytics events
+model ARViewEvent {
+  id                  String    @id @default(cuid())
+  modelId             String
+  
+  // User info (anonymous if not logged in)
+  userId              String?
+  
+  // Event type and details
+  eventType           String    // VIEW, INTERACT, SHARE, HOTSPOT_CLICK, SCREENSHOT
+  duration           Int?      // How long they viewed (seconds)
+  
+  // Device info
+  deviceType          String    // mobile, desktop, tablet
+  browserSupport      String    // WEBXR, THREEJS_FALLBACK
+  userAgent           String?
+  
+  // Location (if available)
+  ipAddress           String?
+  country             String?
+  
+  createdAt           DateTime  @default(now())
+  
+  model               ARProductModel @relation(fields: [modelId], references: [id], onDelete: Cascade)
+  
+  @@index([modelId])
+  @@index([eventType])
+  @@index([createdAt])
+  @@index([userId])
+  @@map("ar_view_events")
 }
