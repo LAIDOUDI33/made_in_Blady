@@ -1,0 +1,181 @@
+# Field Mapping Example - AlgeriaTrade.dz ERP Integration
+# 
+# This file demonstrates how to map fields between your ERP system and AlgeriaTrade.dz marketplace.
+# 
+# Columns:
+# - entity_type: The type of data (product, inventory, order, order_line)
+# - source_field: Field name/path in your ERP system
+# - target_field: Target field name in AlgeriaTrade.dz API
+# - data_type: Data type of the field (string, integer, decimal, boolean, date, enum, array, reference)
+# - required: Whether this field is required (yes/no)
+# - transformation: Optional transformations to apply (can be combined with |)
+# - default_value: Default value if source is empty/null
+# - lookup_table: For converting values (source_value->target_value format)
+# - validation_rule: Validation rule for the field
+# - notes: Additional comments or instructions
+
+entity_type,source_field,target_field,data_type,required,transformation,default_value,lookup_table,validation_rules,notes
+# ====================
+# PRODUCT FIELDS
+# ====================
+product,sku,sku,string,yes,TRIM|UPPERCASE,,,"Regex: ^[A-Z0-9\-_]{3,50}$,Unique identifier for product"
+product,name,title,string,yes,TRIM,,,"Max 255 chars,Required for listing"
+product,name_ar,title_ar,string,no,TRIM,,,"Arabic product name for bilingual support"
+product,short_description,description,text,no,,,"HTML supported, max 50000 chars"
+product,long_description,detailed_description,text,no,,,"Extended description if available"
+product,list_price,decimal,yes,ROUND(2),0,"Min: 0, Max: 999999999.99,Price in DZD"
+product,currency,currency,string,no,,DZD,"ISO 4217 code, default DZD"
+product,cost_price,cost_price,decimal,no,ROUND(2),,"Internal use only, not shown to buyers"
+product,compare_at_price,compare_at_price,decimal,no,ROUND(2),,"Original price for sale display"
+product,quantity_in_stock,stock_quantity,integer,yes,ROUND(0),0,"Must be >= 0"
+product,reorder_level,low_stock_threshold,integer,no,,10,"Alert when stock falls below this"
+product,allow_backorders,allow_backorder,boolean,no,,false,"Allow orders when out of stock"
+product,category_code,category_id,reference,recommended,,CAT-099,"See category mapping table below","Map to AlgeriaTaxonomy ID"
+product,brand_name,brand,string,no,TRIM,,,"Brand/manufacturer name"
+product,manufacturer_name,manufacturer,string,no,TRIM,,,"Full manufacturer legal name"
+product,manufacturer_part_no,manufacturer_part_no,string,no,TRIM,,,"MPN from manufacturer"
+product,ean_code,barcode,string,no,TRIM,,,"EAN-13 or UPC barcode"
+product,barcode_type,barcode_type,string,no,,EAN13,"EAN13, UPC-A, UPC-E, CODE128"
+product,weight_kg,weight,decimal,no,ROUND(3),,"Weight in kilograms"
+product,weight_unit,weight_unit,string,no,,kg,"kg, g, lb, oz"
+product,length_cm,length,decimal,no,ROUND(2),,"Length in centimeters"
+product,width_cm,width,decimal,no,ROUND(2),,"Width in centimeters"
+product,height_cm,height,decimal,no,ROUND(2),,"Height in centimeters"
+product,dimension_unit,dimension_unit,string,no,,cm,"cm, m, in, ft"
+product,country_of_origin,origin_country,string,no,,DZ,"ISO 3166-1 alpha-2 country code"
+product,hs_tariff_code,hs_code,string,no,,,"Har System code for customs"
+product,warranty_months,warranty_months,integer,no,,0,"Warranty period in months"
+product,status,status,enum,no,,active,"Values: active, draft, archived, disabled"
+product,is_published,is_visible,boolean,no,,true,"Show/hide from catalog"
+product,image_url_primary,images,array,no,ARRAY_WRAP,,,"Array of image URLs, max 10"
+product,tags,tags,array,no,,,"Search/helper tags"
+product,custom_attributes,custom_fields,obj,no,,,"JSON object for custom data"
+product,created_date,created_at,datetime,no,ISO8601,,,"ISO 8601 UTC datetime"
+product,last_updated,updated_at,datetime,no,ISO8601,,,"ISO 8601 UTC datetime"
+
+# ====================
+# INVENTORY FIELDS
+# ====================
+inventory,sku,sku,string,yes,TRIM,,,"Must match product SKU"
+inventory,warehouse_code,warehouse_id,yes,TRIM|PREFIX(WH-),,"Warehouse identifier"
+inventory,quantity_on_hand,quantity,integer,yes,ROUND(0),0,"Physical stock count"
+inventory,quantity_reserved,reserved_quantity,integer,no,ROUND(0),0,"Reserved for orders"
+inventory,quantity_available,available_quantity,integer,computed,quantity-reserved,,,"Auto-calculated"
+inventory,bin_location,location_bin,string,no,TRIM,,,"Storage bin location"
+inventory,batch_lot_number,lot_number,string,no,TRIM,,,"Batch or lot number"
+inventory,expiry_date,expiry_date,date,no,YYYY-MM-DD,,,"Format: YYYY-MM-DD"
+inventory,last_counted_date,last_counted_date,date,no,YYYY-MM-DD,,,"Last physical inventory date"
+inventory,unit_cost,unit_cost,decimal,no,ROUND(2),,"Current cost per unit"
+
+# ====================
+# ORDER FIELDS
+# ====================
+order,order_id,order_id,string,yes,TRIM,,,"Unique order identifier"
+order,order_number,order_number,string,yes,TRIM,,,"Human-readable order number"
+order,current_status,status,enum,yes,,pending_confirmation,"See status mapping table"
+order,customer_id,customer_id,string,yes,TRIM,,,"Buyer/customer identifier"
+order,customer_email,email,string,no,TRIM_LOWERCASE,,,"Valid email format required"
+order,customer_company,company_name,string,no,TRIM,,,"Company/legal name"
+order,billing_address,billing_address,obj,no,,,"JSON address object"
+order,shipping_address,shipping_address,obj,no,,,"JSON address object"
+order,line_items,items,array,yes,,,"Array of order line items"
+order,subtotal_amount,subtotal,decimal,yes,ROUND(2),0,"Items total before shipping/tax"
+order,shipping_cost,shipping_amount,decimal,no,ROUND(2),0,"Shipping charges"
+order,tax_amount,tax_amount,decimal,no,ROUND(2),0,"Tax amount"
+order,discount_amount,discount_amount,decimal,no,ROUND(2),0,"Total discounts"
+order,grand_total,total_amount,decimal,yes,ROUND(2),0,"Final order total"
+order,currency_code,currency,string,yes,,DZD,"ISO 4217 currency code"
+order,payment_method,payment_method,string,no,,,"bank_transfer, ccb, satim, etc."
+order,payment_status,payment_status,enum,no,,pending,"pending, paid, failed, refunded"
+order,customer_notes,notes,text/no,,,"Notes from buyer"
+order,seller_notes,internal_notes,text/no,,,"Internal seller-only notes"
+order,order_date,created_at,datetime,auto,ISO8601,,,"When order was created"
+order,last_modified,updated_at,datetime,auto,ISO8601,,,"Last update timestamp"
+
+# ====================
+# ORDER LINE ITEM FIELDS
+# ====================
+order_line,line_id,line_id,string,yes,TRIM,,,"Unique line item identifier"
+order_line,product_sku,sku,string,yes,TRIM,,,"Product SKU reference"
+order_line,product_name,product_name,string,yes,TRIM,,,"Product title at time of order"
+order_line,ordered_quantity,quantity,integer,yes,ROUND(0),1,"Quantity ordered"
+order_line,unit_price,unit_price,decimal,yes,ROUND(2),,"Price per unit at order time"
+order_line,discount_percent,discount_percent,decimal,no,ROUND(2),0,"Line item discount %"
+order_line,tax_rate,tax_rate,decimal,no,ROUND(2),19,"Tax rate applied (default 19% DZD)"
+order_line,tax_amount,tax_amount,decimal,no,ROUND(2),0,"Tax amount for line"
+order_line,line_total,line_total,decimal,yes,ROUND(2),,"Quantity * Unit Price (adjusted)"
+
+# ====================
+# LOOKUP TABLES / VALUE MAPPINGS
+# ====================
+# Category Mapping (your_category -> AlgeriaTaxonomy)
+LOOKUP,CATEGORY_MAPPING,,,,
+,ELEC,CAT-001,Electronics & Electrical
+,TEXT,CAT-002,Textiles & Apparel
+,MACH,CAT-003,Machinery & Equipment
+,FOOD,CAT-004,Food & Beverage
+,CHEM,CAT-005,Chemicals & Pharmaceuticals
+,CONST,CAT-006,Construction Materials
+,AUTO,CAT-007,Automotive & Parts
+,AGRI,CAT-008,Agricultural Products
+,PACK,CAT-009,Packaging & Printing
+,META,CAT-010,Metals & Minerals
+,OTHER,CAT-099,Other/Uncategorized
+
+# Status Mapping (ERP status -> AlgeriaTrade status)
+LOOKUP,ORDER_STATUS_MAPPING,,,,
+,DRAFT,pending_confirmation,Awaiting confirmation
+,PENDING,pending_confirmation,Awaiting confirmation
+,CONFIRMED,confirmed,Order accepted by seller
+,PROCESSING,processing,Being prepared/packed
+,READY,ready_to_ship,Picked and ready
+,SHIPPED,shipped,Handed to carrier
+,IN_TRANSIT,in_transit,On the way to buyer
+,DELIVERED,delivered,Received by buyer
+,COMPLETED,completed,Order closed successfully
+,CANCELLED,cancelled,Order cancelled
+,REFUNDED,refunded,Refund processed
+
+# Unit of Measure Mapping
+LOOKUP,UOM_MAPPING,,,,
+,PC,unit,Piece/Each
+,UNIT,unit,Unit
+,EA,unit,Each
+,BOX,box,Box
+,CTN,carton,Carton
+,PKG,pack,Package
+,KG,kg,Kilogram
+,G,g,Gram
+,TON,tonne,Tonne
+,L,liter,Liter
+,ML,ml,Milliliter
+,M,meter,Meter
+,CM,cm,Centimeter
+,SET,set,Set
+,PAIR,pair,Pair
+
+# Warehouse Code Prefixing
+LOOKUP,WAREHOUSE_PREFIXES,,,,
+,ALG,WH-ALGIERS,Algiers Main Warehouse
+,ORA,WH-ORAN,Oran Regional
+,CON,WH-CONSTANTINE,Constantine Regional
+,BLA,WH-BLIDA,Blida Distribution Center
+,SIF,WF-SETIF,Setif Regional
+
+# ====================
+# TRANSFORMATION REFERENCE
+# ====================
+TRANSFORMATION_REFERENCE,,,,
+,TRIM,Remove leading/trailing whitespace,"'  product  ' -> 'product'"
+,UPPERCASE,Convert to uppercase,"'Product' -> 'PRODUCT'"
+,LOWERCASE,Convert to lowercase,"'Product' -> 'product'"
+,ROUND(n),Round to n decimal places,"19.995 -> 20.00 (n=2)"
+,ISO8601,Format as ISO 8601 datetime,"20250115 -> 2025-01-15T00:00:00Z"
+,YYYY-MM-DD,Format as date,"20250115 -> 2025-01-15"
+,ARRAY_WRAP,Wrap single value in array,"'url' -> ['url']"
+,PREFIX(x),Add prefix to value,"'123' -> 'WH-123'"
+,SUFFIX(x),Add suffix to value,"'SKU' -> 'SKU-v2'"
+,REPLACE(old,new),Replace text,"'A-B-C' -> 'ABC'"
+,CONCAT(a,b),Concatenate with delimiter,"'SKU' + '001' -> 'SKU-001'"
+,DEFAULT(x),Use default if null/empty,"null -> 'N/A'"
+,REGEX(pattern),Extract using regex,"'SKU-123' -> '123'"

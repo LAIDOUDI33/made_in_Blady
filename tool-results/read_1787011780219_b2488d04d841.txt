@@ -1,0 +1,689 @@
+     1→'use client';
+     2→
+     3→import React, { useState, useEffect, useCallback } from 'react';
+     4→import {
+     5→  Plus,
+     6→  ArrowRightLeft,
+     7→  CheckCircle2,
+     8→  XCircle,
+     9→  Clock,
+    10→  TrendingUp,
+    11→  MessageSquare,
+    12→  Eye,
+    13→  Send,
+    14→  Wifi,
+    15→  Users,
+    16→} from 'lucide-react';
+    17→import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+    18→import { Button } from '@/components/ui/button';
+    19→import { Badge } from '@/components/ui/badge';
+    20→import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+    21→import { Separator } from '@/components/ui/separator';
+    22→import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+    23→import { 
+    24→  NegotiationDashboard,
+    25→  NegotiationForm,
+    26→  NegotiationTimeline,
+    27→  OfferComparison,
+    28→  type OfferFormData,
+    29→} from '@/components/negotiation';
+    30→import type { NegotiationWithOffers } from '@/lib/negotiation/engine';
+    31→import type { NegotiationStatus, NegotiationType } from '@/lib/negotiation/config';
+    32→import { useNegotiationSocket } from '@/hooks/useNegotiationSocket';
+    33→
+    34→// Mock data for demonstration
+    35→const mockNegotiations: NegotiationWithOffers[] = [
+    36→  {
+    37→    id: 'neg-001',
+    38→    negotiationNumber: 'NEG-20260218-0001',
+    39→    orderId: null,
+    40→    productId: 'prod-001',
+    41→    sellerId: 'seller-001',
+    42→    buyerId: 'buyer-001', // Current user
+    43→    type: 'PRICE',
+    44→    status: 'COUNTERED' as NegotiationStatus,
+    45→    originalPrice: 150000,
+    46→    proposedPrice: 135000,
+    47→    currentPrice: 142500,
+    48→    expiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000),
+    49→    acceptedAt: null,
+    50→    createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000),
+    51→    updatedAt: new Date(Date.now() - 6 * 60 * 60 * 1000),
+    52→    offers: [
+    53→      {
+    54→        id: 'offer-001',
+    55→        negotiationId: 'neg-001',
+    56→        fromUserId: 'buyer-001',
+    57→        toUserId: 'seller-001',
+    58→        price: 135000,
+    59→        quantity: 100,
+    60→        deliveryDate: '2026-03-15',
+    61→        paymentTerms: 'NET_30',
+    62→        message: 'Looking for a better price for bulk order',
+    63→        status: 'COUNTERED',
+    64→        createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000),
+    65→      },
+    66→      {
+    67→        id: 'offer-002',
+    68→        negotiationId: 'neg-001',
+    69→        fromUserId: 'seller-001',
+    70→        toUserId: 'buyer-001',
+    71→        price: 142500,
+    72→        quantity: 100,
+    73→        deliveryDate: '2026-03-15',
+    74→        paymentTerms: 'NET_30',
+    75→        message: 'Best we can do for this quantity. Quality guaranteed.',
+    76→        status: 'PENDING',
+    77→        createdAt: new Date(Date.now() - 6 * 60 * 60 * 1000),
+    78→      },
+    79→    ],
+    80→  },
+    81→  {
+    82→    id: 'neg-002',
+    83→    negotiationNumber: 'NEG-20260217-0045',
+    84→    orderId: null,
+    85→    productId: 'prod-002',
+    86→    sellerId: 'seller-002',
+    87→    buyerId: 'buyer-001',
+    88→    type: 'BUNDLE',
+    89→    status: 'PENDING' as NegotiationStatus,
+    90→    originalPrice: 280000,
+    91→    proposedPrice: 250000,
+    92→    currentPrice: 250000,
+    93→    expiresAt: new Date(Date.now() + 20 * 60 * 60 * 1000),
+    94→    acceptedAt: null,
+    95→    createdAt: new Date(Date.now() - 12 * 60 * 60 * 1000),
+    96→    updatedAt: new Date(Date.now() - 12 * 60 * 60 * 1000),
+    97→    offers: [
+    98→      {
+    99→        id: 'offer-003',
+   100→        negotiationId: 'neg-002',
+   101→        fromUserId: 'buyer-001',
+   102→        toUserId: 'seller-002',
+   103→        price: 250000,
+   104→        quantity: 50,
+   105→        deliveryDate: '2026-03-01',
+   106→        paymentTerms: 'COD',
+   107→        message: 'Bundle deal request for multiple items',
+   108→        status: 'PENDING',
+   109→        createdAt: new Date(Date.now() - 12 * 60 * 60 * 1000),
+   110→      },
+   111→    ],
+   112→  },
+   113→  {
+   114→    id: 'neg-003',
+   115→    negotiationNumber: 'NEG-20260215-0089',
+   116→    orderId: null,
+   117→    productId: 'prod-003',
+   118→    sellerId: 'seller-003',
+   119→    buyerId: 'buyer-001',
+   120→    type: 'PRICE',
+   121→    status: 'ACCEPTED' as NegotiationStatus,
+   122→    originalPrice: 95000,
+   123→    proposedPrice: 85000,
+   124→    currentPrice: 90000,
+   125→    expiresAt: new Date(Date.now() + 72 * 60 * 60 * 1000),
+   126→    acceptedAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
+   127→    createdAt: new Date(Date.now() - 48 * 60 * 60 * 1000),
+   128→    updatedAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
+   129→    offers: [
+   130→      {
+   131→        id: 'offer-004',
+   132→        negotiationId: 'neg-003',
+   133→        fromUserId: 'buyer-001',
+   134→        toUserId: 'seller-003',
+   135→        price: 85000,
+   136→        quantity: 25,
+   137→        deliveryDate: '2026-02-28',
+   138→        paymentTerms: 'ADVANCE_50',
+   139→        message: 'Initial offer for quality check',
+   140→        status: 'ACCEPTED',
+   141→        createdAt: new Date(Date.now() - 48 * 60 * 60 * 1000),
+   142→      },
+   143→      {
+   144→        id: 'offer-005',
+   145→        negotiationId: 'neg-003',
+   146→        fromUserId: 'seller-003',
+   147→        toUserId: 'buyer-001',
+   148→        price: 90000,
+   149→        quantity: 25,
+   150→        deliveryDate: '2026-02-28',
+   151→        paymentTerms: 'ADVANCE_50',
+   152→        message: 'Counter offer with better warranty included',
+   153→        status: 'ACCEPTED',
+   154→        createdAt: new Date(Date.now() - 4 * 60 * 60 * 1000),
+   155→      },
+   156→    ],
+   157→  },
+   158→];
+   159→
+   160→const CURRENT_USER_ID = 'buyer-001';
+   161→
+   162→export default function NegotiationSystemPage() {
+   163→  const [negotiations, setNegotiations] = useState<NegotiationWithOffers[]>(mockNegotiations);
+   164→  const [selectedNegotiation, setSelectedNegotiation] = useState<NegotiationWithOffers | null>(null);
+   165→  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+   166→  const [isCounterDialogOpen, setIsCounterDialogOpen] = useState(false);
+   167→  const [counterForNegotiation, setCounterForNegotiation] = useState<string | null>(null);
+   168→  const [isLoading, setIsLoading] = useState(false);
+   169→
+   170→  // WebSocket for real-time updates (using first active negotiation)
+   171→  const activeNegotiation = negotiations.find(n => n.status === 'PENDING' || n.status === 'COUNTERED');
+   172→  
+   173→  const socket = useNegotiationSocket({
+   174→    negotiationId: activeNegotiation?.id || '',
+   175→    userId: CURRENT_USER_ID,
+   176→    onNegotiationUpdate: (update) => {
+   177→      console.log('📢 Received negotiation update:', update);
+   178→      // In real app, this would refresh the negotiation data
+   179→      handleRefresh();
+   180→    },
+   181→    autoConnect: !!activeNegotiation,
+   182→  });
+   183→
+   184→  // Handle creating a new offer
+   185→  const handleCreateOffer = useCallback(async (data: OfferFormData) => {
+   186→    setIsLoading(true);
+   187→    
+   188→    try {
+   189→      // Simulate API call
+   190→      await new Promise(resolve => setTimeout(resolve, 1500));
+   191→      
+   192→      const newNegotiation: NegotiationWithOffers = {
+   193→        id: `neg-${Date.now()}`,
+   194→        negotiationNumber: `NEG-${new Date().toISOString().slice(0,10).replace(/-/g,'')}-${Math.floor(Math.random()*10000).toString().padStart(4,'0')}`,
+   195→        orderId: null,
+   196→        productId: 'prod-new',
+   197→        sellerId: 'seller-new',
+   198→        buyerId: CURRENT_USER_ID,
+   199→        type: data.type,
+   200→        status: 'PENDING',
+   201→        originalPrice: data.originalPrice,
+   202→        proposedPrice: data.proposedPrice,
+   203→        currentPrice: data.proposedPrice,
+   204→        expiresAt: new Date(Date.now() + 72 * 60 * 60 * 1000),
+   205→        acceptedAt: null,
+   206→        createdAt: new Date(),
+   207→        updatedAt: new Date(),
+   208→        offers: [{
+   209→          id: `offer-${Date.now()}`,
+   210→          negotiationId: '',
+   211→          fromUserId: CURRENT_USER_ID,
+   212→          toUserId: 'seller-new',
+   213→          price: data.proposedPrice,
+   214→          quantity: data.quantity,
+   215→          deliveryDate: data.deliveryDate,
+   216→          paymentTerms: data.paymentTerms,
+   217→          message: data.message,
+   218→          status: 'PENDING',
+   219→          createdAt: new Date(),
+   220→        }],
+   221→      };
+   222→
+   223→      setNegotiations(prev => [newNegotiation, ...prev]);
+   224→      setIsCreateDialogOpen(false);
+   225→      
+   226→      alert('✅ Offer created successfully! / تم إنشاء العرض بنجاح!');
+   227→    } catch (error) {
+   228→      console.error('Error creating offer:', error);
+   229→      alert('❌ Failed to create offer');
+   230→    } finally {
+   231→      setIsLoading(false);
+   232→    }
+   233→  }, []);
+   234→
+   235→  // Handle counter-offer
+   236→  const handleCounterOffer = useCallback(async (data: OfferFormData) => {
+   237→    if (!counterForNegotiation) return;
+   238→    
+   239→    setIsLoading(true);
+   240→    
+   241→    try {
+   242→      await new Promise(resolve => setTimeout(resolve, 1500));
+   243→      
+   244→      setNegotiations(prev => prev.map(neg => {
+   245→        if (neg.id !== counterForNegotiation) return neg;
+   246→        
+   247→        const newOffer = {
+   248→          id: `offer-${Date.now()}`,
+   249→          negotiationId: neg.id,
+   250→          fromUserId: CURRENT_USER_ID,
+   251→          toUserId: neg.sellerId,
+   252→          price: data.proposedPrice,
+   253→          quantity: data.quantity || neg.offers[neg.offers.length - 1]?.quantity,
+   254→          deliveryDate: data.deliveryDate || neg.offers[neg.offers.length - 1]?.deliveryDate,
+   255→          paymentTerms: data.paymentTerms || neg.offers[neg.offers.length - 1]?.paymentTerms as any,
+   256→          message: data.message,
+   257→          status: 'PENDING' as string,
+   258→          createdAt: new Date(),
+   259→        };
+   260→
+   261→        return {
+   262→          ...neg,
+   263→          status: 'COUNTERED' as NegotiationStatus,
+   264→          currentPrice: data.proposedPrice,
+   265→          proposedPrice: data.proposedPrice,
+   266→          updatedAt: new Date(),
+   267→          offers: [...neg.offers.map(o => ({ ...o, status: o.status === 'PENDING' ? 'COUNTERED' : o.status })), newOffer],
+   268→        };
+   269→      }));
+   270→
+   271→      setIsCounterDialogOpen(false);
+   272→      setCounterForNegotiation(null);
+   273→      
+   274→      alert('✅ Counter-offer submitted! / تم إرسال العرض المضاد!');
+   275→    } catch (error) {
+   276→      console.error('Error submitting counter:', error);
+   277→      alert('❌ Failed to submit counter-offer');
+   278→    } finally {
+   279→      setIsLoading(false);
+   280→    }
+   281→  }, [counterForNegotiation]);
+   282→
+   283→  // Handle accept offer
+   284→  const handleAccept = useCallback(async (negotiationId: string) => {
+   285→    try {
+   286→      await new Promise(resolve => setTimeout(resolve, 800));
+   287→      
+   288→      setNegotiations(prev => prev.map(neg => {
+   289→        if (neg.id !== negotiationId) return neg;
+   290→        
+   291→        return {
+   292→          ...neg,
+   293→          status: 'ACCEPTED' as NegotiationStatus,
+   294→          acceptedAt: new Date(),
+   295→          updatedAt: new Date(),
+   296→          offers: neg.offers.map((o, i) => ({
+   297→            ...o,
+   298→            status: i === neg.offers.length - 1 ? 'ACCEPTED' : o.status === 'PENDING' ? 'REJECTED' : o.status,
+   299→          })),
+   300→        };
+   301→      }));
+   302→      
+   303→      alert('✅ Offer accepted! Order can now be created.');
+   304→    } catch (error) {
+   305→      console.error('Error accepting offer:', error);
+   306→    }
+   307→  }, []);
+   308→
+   309→  // Handle reject offer
+   310→  const handleReject = useCallback(async (negotiationId: string) => {
+   311→    try {
+   312→      await new Promise(resolve => setTimeout(resolve, 800));
+   313→      
+   314→      setNegotiations(prev => prev.map(neg => {
+   315→        if (neg.id !== negotiationId) return neg;
+   316→        
+   317→        return {
+   318→          ...neg,
+   319→          status: 'REJECTED' as NegotiationStatus,
+   320→          updatedAt: new Date(),
+   321→          offers: neg.offers.map(o => ({ ...o, status: 'REJECTED' })),
+   322→        };
+   323→      }));
+   324→      
+   325→      alert('⛔ Offer rejected.');
+   326→    } catch (error) {
+   327→      console.error('Error rejecting offer:', error);
+   328→    }
+   329→  }, []);
+   330→
+   331→  // Handle view details
+   332→  const handleViewDetails = useCallback((id: string) => {
+   333→    const negotiation = negotiations.find(n => n.id === id);
+   334→    if (negotiation) {
+   335→      setSelectedNegotiation(negotiation);
+   336→    }
+   337→  }, [negotiations]);
+   338→
+   339→  // Handle open counter dialog
+   340→  const handleOpenCounter = useCallback((id: string) => {
+   341→    setCounterForNegotiation(id);
+   342→    setIsCounterDialogOpen(true);
+   343→  }, []);
+   344→
+   345→  // Refresh negotiations
+   346→  const handleRefresh = useCallback(() => {
+   347→    // Simulate refresh by triggering re-render
+   348→    setNegotiations(prev => [...prev]);
+   349→  }, []);
+   350→
+   351→  return (
+   352→    <div className="min-h-screen bg-background">
+   353→      {/* Header */}
+   354→      <header className="border-b bg-card">
+   355→        <div className="container mx-auto px-4 py-4">
+   356→          <div className="flex items-center justify-between">
+   357→            <div className="flex items-center gap-3">
+   358→              <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+   359→                <ArrowRightLeft className="h-6 w-6 text-primary" />
+   360→              </div>
+   361→              <div>
+   362→                <h1 className="text-2xl font-bold">AlgeriaTrade.dz</h1>
+   363→                <p className="text-sm text-muted-foreground">Advanced Negotiation System</p>
+   364→              </div>
+   365→            </div>
+   366→
+   367→            <div className="flex items-center gap-3">
+   368→              {/* Real-time indicator */}
+   369→              {activeNegotiation && (
+   370→                <Badge variant={socket.isConnected ? 'default' : 'secondary'} className="flex items-center gap-1">
+   371→                  <Wifi className={`h-3 w-3 ${socket.isConnected ? '' : 'text-muted-foreground'}`} />
+   372→                  {socket.isConnected ? `${socket.onlineUsers.length} Online` : 'Offline'}
+   373→                </Badge>
+   374→              )}
+   375→
+   376→              {/* Create New Button */}
+   377→              <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+   378→                <DialogTrigger asChild>
+   379→                  <Button className="flex items-center gap-2">
+   380→                    <Plus className="h-4 w-4" />
+   381→                    New Offer
+   382→                  </Button>
+   383→                </DialogTrigger>
+   384→                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+   385→                  <DialogHeader>
+   386→                    <DialogTitle>Create New Negotiation</DialogTitle>
+   387→                  </DialogHeader>
+   388→                  <NegotiationForm
+   389→                    mode="create"
+   390→                    onSubmit={handleCreateOffer}
+   391→                    onCancel={() => setIsCreateDialogOpen(false)}
+   392→                    isSubmitting={isLoading}
+   393→                  />
+   394→                </DialogContent>
+   395→              </Dialog>
+   396→            </div>
+   397→          </div>
+   398→        </div>
+   399→      </header>
+   400→
+   401→      {/* Main Content */}
+   402→      <main className="container mx-auto px-4 py-6">
+   403→        <Tabs defaultValue="dashboard" className="space-y-6">
+   404→          <TabsList className="grid w-full grid-cols-3 lg:w-[400px]">
+   405→            <TabsTrigger value="dashboard" className="flex items-center gap-2">
+   406→              <TrendingUp className="h-4 w-4" />
+   407→              Dashboard
+   408→            </TabsTrigger>
+   409→            <TabsTrigger value="details" className="flex items-center gap-2" disabled={!selectedNegotiation}>
+   410→              <Eye className="h-4 w-4" />
+   411→              Details
+   412→            </TabsTrigger>
+   413→            <TabsTrigger value="timeline" className="flex items-center gap-2" disabled={!selectedNegotiation}>
+   414→              <MessageSquare className="h-4 w-4" />
+   415→              Timeline
+   416→            </TabsTrigger>
+   417→          </TabsList>
+   418→
+   419→          {/* Dashboard Tab */}
+   420→          <TabsContent value="dashboard">
+   421→            <NegotiationDashboard
+   422→              negotiations={negotiations}
+   423→              currentUserId={CURRENT_USER_ID}
+   424→              onCreateNew={() => setIsCreateDialogOpen(true)}
+   425→              onViewDetails={handleViewDetails}
+   426→              onNegotiate={handleOpenCounter}
+   427→              onAccept={handleAccept}
+   428→              isLoading={false}
+   429→            />
+   430→
+   431→            {/* Selected Negotiation Preview */}
+   432→            {selectedNegotiation && (
+   433→              <div className="mt-6 grid grid-cols-1 xl:grid-cols-2 gap-6">
+   434→                <OfferComparison negotiation={selectedNegotiation} />
+   435→                
+   436→                <Card>
+   437→                  <CardHeader>
+   438→                    <CardTitle>Quick Actions</CardTitle>
+   439→                    <CardDescription>For {selectedNegotiation.negotiationNumber}</CardDescription>
+   440→                  </CardHeader>
+   441→                  <CardContent className="space-y-3">
+   442→                    {(selectedNegotiation.status === 'PENDING' || selectedNegotiation.status === 'COUNTERED') && (
+   443→                      <>
+   444→                        <Button 
+   445→                          className="w-full justify-start gap-2" 
+   446→                          variant="default"
+   447→                          onClick={() => handleAccept(selectedNegotiation.id)}
+   448→                        >
+   449→                          <CheckCircle2 className="h-4 w-4" />
+   450→                          Accept Current Offer
+   451→                        </Button>
+   452→                        <Button 
+   453→                          className="w-full justify-start gap-2" 
+   454→                          variant="outline"
+   455→                          onClick={() => handleOpenCounter(selectedNegotiation.id)}
+   456→                        >
+   457→                          <Send className="h-4 w-4" />
+   458→                          Submit Counter-Offer
+   459→                        </Button>
+   460→                        <Button 
+   461→                          className="w-full justify-start gap-2 text-red-600 hover:text-red-700" 
+   462→                          variant="outline"
+   463→                          onClick={() => handleReject(selectedNegotiation.id)}
+   464→                        >
+   465→                          <XCircle className="h-4 w-4" />
+   466→                          Reject Offer
+   467→                        </Button>
+   468→                      </>
+   469→                    )}
+   470→                    
+   471→                    {selectedNegotiation.status === 'ACCEPTED' && (
+   472→                      <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+   473→                        <p className="font-medium text-green-800 flex items-center gap-2">
+   474→                          <CheckCircle2 className="h-5 w-5" />
+   475→                          This negotiation was accepted!
+   476→                        </p>
+   477→                        <p className="text-sm text-green-600 mt-1">
+   478→                          Final Price: {selectedNegotiation.currentPrice.toLocaleString()} د.ج
+   479→                        </p>
+   480→                        <Button className="mt-3 w-full" size="sm">
+   481→                          Create Order
+   482→                        </Button>
+   483→                      </div>
+   484→                    )}
+   485→
+   486→                    {socket.isConnected && activeNegotiation?.id === selectedNegotiation.id && (
+   487→                      <Separator />
+   488→                    )}
+   489→
+   490→                    {socket.isConnected && activeNegotiation?.id === selectedNegotiation.id && (
+   491→                      <div className="flex items-center gap-2 p-3 bg-blue-50 rounded-lg text-sm text-blue-700">
+   492→                        <Users className="h-4 w-4" />
+   493→                        <span>{socket.onlineUsers.length} participant(s) online</span>
+   494→                        {socket.typingUsers.length > 0 && (
+   495→                          <span className="italic">Someone is typing...</span>
+   496→                        )}
+   497→                      </div>
+   498→                    )}
+   499→                  </CardContent>
+   500→                </Card>
+   501→              </div>
+   502→            )}
+   503→          </TabsContent>
+   504→
+   505→          {/* Details Tab */}
+   506→          <TabsContent value="details">
+   507→            {selectedNegotiation ? (
+   508→              <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+   509→                <OfferComparison negotiation={selectedNegotiation} />
+   510→                
+   511→                <Card>
+   512→                  <CardHeader>
+   513→                    <CardTitle>Negotiation Info</CardTitle>
+   514→                  </CardHeader>
+   515→                  <CardContent className="space-y-4">
+   516→                    <div className="grid grid-cols-2 gap-4 text-sm">
+   517→                      <div>
+   518→                        <p className="text-muted-foreground">Number</p>
+   519→                        <p className="font-medium">{selectedNegotiation.negotiationNumber}</p>
+   520→                      </div>
+   521→                      <div>
+   522→                        <p className="text-muted-foreground">Type</p>
+   523→                        <Badge>{selectedNegotiation.type}</Badge>
+   524→                      </div>
+   525→                      <div>
+   526→                        <p className="text-muted-foreground">Status</p>
+   527→                        <Badge variant={
+   528→                          selectedNegotiation.status === 'ACCEPTED' ? 'default' :
+   529→                          selectedNegotiation.status === 'PENDING' ? 'secondary' :
+   530→                          selectedNegotiation.status === 'COUNTERED' ? 'outline' : 'destructive'
+   531→                        }>
+   532→                          {selectedNegotiation.status}
+   533→                        </Badge>
+   534→                      </div>
+   535→                      <div>
+   536→                        <p className="text-muted-foreground">Expires</p>
+   537→                        <p className="font-medium">
+   538→                          {new Date(selectedNegotiation.expiresAt).toLocaleDateString()}
+   539→                        </p>
+   540→                      </div>
+   541→                    </div>
+   542→
+   543→                    <Separator />
+   544→
+   545→                    <div>
+   546→                      <p className="text-muted-foreground mb-2">Price Progression</p>
+   547→                      <div className="space-y-2">
+   548→                        {selectedNegotiation.offers.map((offer, i) => (
+   549→                          <div key={offer.id} className="flex items-center gap-3">
+   550→                            <span className="text-xs text-muted-foreground w-16">#{i + 1}</span>
+   551→                            <div className="flex-1 h-6 bg-muted rounded overflow-hidden">
+   552→                              <div 
+   553→                                className="h-full bg-primary transition-all"
+   554→                                style={{ width: `${(offer.price! / selectedNegotiation.originalPrice) * 100}%` }}
+   555→                              />
+   556→                            </div>
+   557→                            <span className="text-sm font-mono w-28 text-right">
+   558→                              {offer.price?.toLocaleString()} د.ج
+   559→                            </span>
+   560→                          </div>
+   561→                        ))}
+   562→                      </div>
+   563→                    </div>
+   564→                  </CardContent>
+   565→                </Card>
+   566→              </div>
+   567→            ) : (
+   568→              <Card>
+   569→                <CardContent className="py-12 text-center">
+   570→                  <Eye className="h-12 w-12 mx-auto mb-3 text-muted-foreground opacity-50" />
+   571→                  <p className="text-muted-foreground">Select a negotiation to view details</p>
+   572→                </CardContent>
+   573→              </Card>
+   574→            )}
+   575→          </TabsContent>
+   576→
+   577→          {/* Timeline Tab */}
+   578→          <TabsContent value="timeline">
+   579→            {selectedNegotiation ? (
+   580→              <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+   581→                <div className="xl:col-span-2">
+   582→                  <NegotiationTimeline
+   583→                    offers={selectedNegotiation.offers}
+   584→                    currentUserId={CURRENT_USER_ID}
+   585→                  />
+   586→                </div>
+   587→                
+   588→                <Card>
+   589→                  <CardHeader>
+   590→                    <CardTitle className="text-lg">Summary</CardTitle>
+   591→                  </CardHeader>
+   592→                  <CardContent className="space-y-4">
+   593→                    <div className="space-y-2">
+   594→                      <div className="flex justify-between text-sm">
+   595→                        <span className="text-muted-foreground">Total Offers</span>
+   596→                        <span className="font-medium">{selectedNegotiation.offers.length}</span>
+   597→                      </div>
+   598→                      <div className="flex justify-between text-sm">
+   599→                        <span className="text-muted-foreground">Original Price</span>
+   600→                        <span className="font-medium">{selectedNegotiation.originalPrice.toLocaleString()} د.ج</span>
+   601→                      </div>
+   602→                      <div className="flex justify-between text-sm">
+   603→                        <span className="text-muted-foreground">Current Price</span>
+   604→                        <span className="font-medium text-primary">{selectedNegotiation.currentPrice.toLocaleString()} د.ج</span>
+   605→                      </div>
+   606→                      <div className="flex justify-between text-sm">
+   607→                        <span className="text-muted-foreground">Your Savings</span>
+   608→                        <span className="font-medium text-green-600">
+   609→                          {(selectedNegotiation.originalPrice - selectedNegotiation.currentPrice).toLocaleString()} د.ج
+   610→                          ({((selectedNegotiation.originalPrice - selectedNegotiation.currentPrice) / selectedNegotiation.originalPrice * 100).toFixed(1)}%)
+   611→                        </span>
+   612→                      </div>
+   613→                    </div>
+   614→
+   615→                    <Separator />
+   616→
+   617→                    <div className="space-y-2">
+   618→                      <p className="text-sm font-medium">Participants</p>
+   619→                      <div className="flex items-center gap-2">
+   620→                        <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold">
+   621→                          B
+   622→                        </div>
+   623→                        <span className="text-sm">You (Buyer)</span>
+   624→                      </div>
+   625→                      <div className="flex items-center gap-2">
+   626→                        <div className="h-8 w-8 rounded-full bg-secondary flex items-center justify-center text-xs font-bold">
+   627→                          S
+   628→                        </div>
+   629→                        <span className="text-sm">Seller</span>
+   630→                      </div>
+   631→                    </div>
+   632→
+   633→                    {socket.isConnected && (
+   634→                      <>
+   635→                        <Separator />
+   636→                        <div className="p-3 bg-green-50 rounded-lg text-sm text-green-700">
+   637→                          <Wifi className="h-4 w-4 inline mr-1" />
+   638→                          Live updates enabled
+   639→                        </div>
+   640→                      </>
+   641→                    )}
+   642→                  </CardContent>
+   643→                </Card>
+   644→              </div>
+   645→            ) : (
+   646→              <Card>
+   647→                <CardContent className="py-12 text-center">
+   648→                  <MessageSquare className="h-12 w-12 mx-auto mb-3 text-muted-foreground opacity-50" />
+   649→                  <p className="text-muted-foreground">Select a negotiation to view timeline</p>
+   650→                </CardContent>
+   651→              </Card>
+   652→            )}
+   653→          </TabsContent>
+   654→        </Tabs>
+   655→      </main>
+   656→
+   657→      {/* Counter-Offer Dialog */}
+   658→      <Dialog open={isCounterDialogOpen} onOpenChange={setIsCounterDialogOpen}>
+   659→        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+   660→          <DialogHeader>
+   661→            <DialogTitle>Submit Counter-Offer</DialogTitle>
+   662→          </DialogHeader>
+   663→          {(() => {
+   664→            const neg = negotiations.find(n => n.id === counterForNegotiation);
+   665→            return (
+   666→              <NegotiationForm
+   667→                mode="counter"
+   668→                initialData={{
+   669→                  originalPrice: neg?.originalPrice,
+   670→                  proposedPrice: neg?.currentPrice,
+   671→                  quantity: neg?.offers[neg?.offers.length - 1]?.quantity,
+   672→                  deliveryDate: neg?.offers[neg?.offers.length - 1]?.deliveryDate,
+   673→                  paymentTerms: neg?.offers[neg?.offers.length - 1]?.paymentTerms,
+   674→                }}
+   675→                onSubmit={handleCounterOffer}
+   676→                onCancel={() => {
+   677→                  setIsCounterDialogOpen(false);
+   678→                  setCounterForNegotiation(null);
+   679→                }}
+   680→                isSubmitting={isLoading}
+   681→              />
+   682→            );
+   683→          })()}
+   684→        </DialogContent>
+   685→      </Dialog>
+   686→    </div>
+   687→  );
+   688→}
+   689→

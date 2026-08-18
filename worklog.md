@@ -1956,3 +1956,2645 @@ Stage Summary:
 - Admin interface for managing multiple ERP connections
 - All critical lint errors resolved
 - Database schema up to date with CRM and ERP models
+
+---
+Task ID: 1-F
+Agent: Full-Stack Developer
+Task: Implement Multi-currency Support (EUR/USD/DZD) for Cross-border Trade on AlgeriaTrade.dz
+
+Work Log:
+
+## Currency Core System (`src/lib/currency/`)
+- **config.ts**: Complete currency configuration with 8 supported currencies (DZD, EUR, USD, GBP, CHF, CAD, TND, MAD)
+  - Each currency has: code, name (EN/AR/FR), symbol, position, decimal digits, separators, locale, flag
+  - Exchange rate settings: provider config, cache TTL, refresh interval
+  - Conversion rules: banker's rounding, spread percentage, min/max amounts
+  - Regional defaults for auto-detection by country
+
+- **converter.ts**: Core conversion engine with comprehensive functions
+  - `convert()` - Main conversion with rate lookup and spread calculation
+  - `convertToBase()` / `convertFromBase()` - DZD base conversions
+  - `batchConvert()` - Multiple target currencies at once
+  - `getExchangeRate()` / `getAllRates()` - Rate queries
+  - `reverseCalculate()` - Find source amount from target
+  - `quickConvert()` - Sync conversion using cached rates
+  - Proper rounding modes (HALF_EVEN, CEILING, FLOOR, etc.)
+
+- **rate-provider.ts**: Multi-provider exchange rate fetching with fallbacks
+  - Primary: Fixer.io API
+  - Backup 1: European Central Bank (free XML API)
+  - Backup 2: Open Exchange Rates API
+  - Fallback: Admin-configured manual rates
+  - In-memory caching with configurable TTL
+  - Health check for all providers
+  - Automatic provider failover
+
+- **formatter.ts**: Internationalization-aware formatting
+  - `formatCurrency()` - Main formatter using Intl.NumberFormat
+  - `formatCompact()` - Short format (€1.2K)
+  - `formatWithCode()` - With ISO code display
+  - `formatRange()` - Price range formatting
+  - `formatDifference()` - Price change with percentage
+  - `parseFormatted()` - Parse back to number
+  - RTL/LTR support for Arabic currencies (DZD, TND, MAD)
+
+## Currency Components (`src/components/currency/`)
+- **CurrencySelector.tsx**: Advanced dropdown with search/filter
+  - Flag and symbol display
+  - Current rate vs DZD shown
+  - User preference saved to cookie/API
+  - Mobile-friendly touch interface
+  - Simple Dropdown variant for inline use
+
+- **PriceDisplay.tsx**: Smart price display component
+  - Automatic currency conversion via displayCurrency prop
+  - Original currency option (showOriginal)
+  - Variants: default, strikethrough, highlight, muted
+  - Compact mode for product lists
+  - Tooltip with conversion details
+  - PriceChange component for trend indicators
+  - SalePrice component for discount display
+
+- **CurrencyConverter.tsx**: Interactive converter widget
+  - Amount input with from/to selectors
+  - Swap currencies button
+  - Live rate display
+  - Copy result functionality
+  - All currencies table showing conversions
+  - MiniConverter variant for inline use in products
+
+- **MultiCurrencyPriceList.tsx**: Comprehensive pricing table
+  - Shows same amount in all supported currencies
+  - Best value highlighting
+  - Export to CSV capability
+  - Compact variant for dashboards
+  - Last updated timestamp
+
+- **ExchangeRateBanner.tsx**: Informational banner component
+  - Today's key rates display
+  - Trend indicators (up/down arrows)
+  - Auto-dismiss with localStorage persistence
+  - Refresh button for live data
+  - Link to full converter
+  - Compact variant available
+
+## API Routes (`src/app/api/currency/`)
+- **rates/route.ts** (GET/POST)
+  - Get current exchange rates with base currency option
+  - Filter by specific currencies
+  - Force refresh endpoint (admin)
+  - Source info and cache metadata
+
+- **convert/route.ts** (GET/POST)
+  - Single amount conversion
+  - Batch conversion support
+  - Query parameter support for GET requests
+  - Full validation and error handling
+
+- **currencies/route.ts** (GET)
+  - Complete list of supported currencies
+  - Configuration details per currency
+  - Regional defaults mapping
+
+- **user-preference/route.ts** (GET/PUT/DELETE)
+  - Get user's preferred currency
+  - Set preference with cookie persistence
+  - Clear preference (revert to auto-detect)
+
+- **rate-history/route.ts** (GET)
+  - Historical rates for date range
+  - Chart-ready data format
+  - Statistics calculation (min, max, avg, volatility)
+  - Simulated data for demonstration
+
+- **admin/rates/route.ts** (GET/PUT/DELETE)
+  - Admin view of all rates with health status
+  - Set manual/admin override rates
+  - Database rate management
+  - Clear manual rates to revert to automatic
+
+## Database Schema Updates (`prisma/schema.prisma`)
+- Enhanced **ExchangeRate** model:
+  - Added validUntil field for rate expiration
+  - Added CHF to supported currencies
+  - Updated unique constraint to include source
+  - Additional indexes for performance
+
+- New **CurrencyPreference** model:
+  - userId (unique relation to User)
+  - preferred currency storage
+  - autoDetect flag
+  - lastUpdated timestamp
+
+- New **ConversionLog** model:
+  - Full audit trail for all conversions
+  - from/to amounts and currencies
+  - rateUsed at time of conversion
+  - context field (product_view, cart, checkout, etc.)
+  - ipAddress and userAgent for analytics
+  - Indexes for efficient querying
+
+## Middleware Integration (`src/lib/middleware/currency-middleware.ts`)
+- detectCurrency() function with priority order:
+  1. Cookie (explicit user choice)
+  2. Accept-Language header patterns
+  3. IP-based country detection (Cloudflare headers)
+  4. Default to DZD
+- addCurrencyHeaders() for response decoration
+- setCurrencyCookie() helper
+- getClientCurrencyInfo() for client components
+- Comprehensive country-to-currency mapping (30+ countries)
+- Language pattern matching (15+ locale patterns)
+
+## Background Jobs (`src/lib/jobs/currency-jobs.ts`)
+- refreshExchangeRates(): Hourly rate refresh job
+  - Fluctuation detection (>5% threshold)
+  - Alert generation for significant changes
+  - Database persistence
+  - Failure handling with fallback strategy
+
+- cleanupConversionLogs(): Log retention (90 days)
+  - Bulk deletion of old records
+  - Statistics on deleted/remaining counts
+
+- generateDailyReport(): Finance team reporting
+  - Daily snapshot of all rates
+  - Day-over-day comparison
+  - Change percentages calculated
+
+- runProviderHealthCheck(): Provider monitoring
+  - Availability check for all sources
+  - Error logging
+
+- logConversion(): Analytics logging
+  - Record every conversion for auditing
+  - Context-aware categorization
+
+- getConversionStats(): Period statistics
+  - Total conversions count
+  - Volume by currency
+  - Popular currency pairs
+  - Conversions by context type
+
+## Main Page (`src/app/page.tsx`)
+- Complete multi-currency showcase interface
+- Global currency selector in header
+- Quick stats dashboard (currencies, pairs, cache TTL, uptime)
+- Exchange rate banner with live updates
+- Tabbed interface:
+  1. Converter tab: Full widget + quick reference table
+  2. Products tab: Sample products with multi-currency pricing
+  3. Prices tab: All prices table + compact version
+  4. Info tab: Features, API endpoints, database schema overview
+- Responsive design for mobile/desktop
+- Footer with complete feature list
+
+Stage Summary:
+- ✅ Complete currency core system implemented
+- ✅ 8 currencies supported (DZD, EUR, USD, GBP, CHF, CAD, TND, MAD)
+- ✅ Multi-provider rate fetching with fallbacks
+- ✅ Internationalization formatting (LTR/RTL)
+- ✅ 5 React components for currency UX
+- ✅ 6 API endpoints for currency operations
+- ✅ Database schema updated with 3 models
+- ✅ Auto-detection middleware
+- ✅ Background jobs for maintenance
+- ✅ Showcase page demonstrating all features
+- ✅ TypeScript compilation clean (no errors in currency files)
+
+Files Created/Modified:
+- src/lib/currency/config.ts (NEW)
+- src/lib/currency/converter.ts (NEW)
+- src/lib/currency/rate-provider.ts (NEW)
+- src/lib/currency/formatter.ts (NEW)
+- src/components/currency/CurrencySelector.tsx (NEW)
+- src/components/currency/PriceDisplay.tsx (NEW)
+- src/components/currency/CurrencyConverter.tsx (NEW)
+- src/components/currency/MultiCurrencyPriceList.tsx (NEW)
+- src/components/currency/ExchangeRateBanner.tsx (NEW)
+- src/components/currency/index.ts (NEW)
+- src/app/api/currency/rates/route.ts (UPDATED)
+- src/app/api/currency/convert/route.ts (UPDATED)
+- src/app/api/currency/currencies/route.ts (NEW)
+- src/app/api/currency/user-preference/route.ts (NEW)
+- src/app/api/currency/rate-history/route.ts (NEW)
+- src/app/api/currency/admin/rates/route.ts (NEW)
+- src/lib/middleware/currency-middleware.ts (NEW)
+- src/lib/jobs/currency-jobs.ts (NEW)
+- prisma/schema.prisma (UPDATED)
+- src/app/page.tsx (REWRITTEN)
+
+
+---
+Task ID: 1-A
+Agent: SATIM Integration Team
+Task: Implement SATIM Integration - Official CIB Payment Gateway for AlgeriaTrade.dz
+
+Work Log:
+## SATIM Payment Gateway Library (`src/lib/payments/satim/`)
+- Created `types.ts` - Comprehensive TypeScript interfaces and types
+  - SatimPaymentRequest, SatimPaymentResponse, SatimTransactionStatus
+  - SatimWebhookPayload, SatimRefundRequest/Response
+  - ThreeDSecureResult, SatimError types
+  - CardType, CardDetectionResult interfaces
+- Created `config.ts` - Production-ready configuration
+  - satimConfig with environment-based endpoints (test/production)
+  - satimEndpoints for all API paths
+  - threeDSecureConfig with v2.0 support
+  - currencyConfig (DZD only, min/max amounts)
+  - timeoutConfig and retryConfig with exponential backoff
+  - Helper functions: getEndpointUrl(), isSatimConfigured(), validateAmount()
+- Created `client.ts` - Full API client implementation
+  - initiatePayment() - Create payment sessions with 3DS redirect URL
+  - checkPaymentStatus() - Verify transaction status from SATIM
+  - refundPayment() - Full/partial refund processing
+  - handle3DSecure() - 3D Secure v2.0 authentication flow
+  - generateSignature() - HMAC-SHA256 signature generation
+  - validateCallback() - Webhook signature verification with timing-safe comparison
+  - detectCardType() - Visa/Mastercard/CIB detection via BIN ranges
+  - fetchWithRetry() - HTTP client with retry logic
+- Created `index.ts` - Module exports
+
+## SATIM Card Form Component (`src/components/payments/SatimCardForm.tsx`)
+- Professional credit card form with shadcn/ui components
+- Features implemented:
+  - Card number formatting (spaces every 4 digits)
+  - Expiry date MM/YY format with auto-focus to CVV
+  - CVV field with toggle visibility (Eye/EyeOff icons)
+  - Cardholder name with uppercase transformation
+  - Automatic card type detection (Visa=blue, Mastercard=orange, CIB=green)
+  - 3D Secure overlay modal during authentication
+  - Loading spinner states
+  - Multi-language error messages (Arabic RTL, French, English)
+  - Responsive design optimized for mobile devices
+  - Luhn algorithm validation for card numbers
+  - Save card option checkbox
+
+## SATIM API Routes (`src/app/api/payments/satim/`)
+### POST `/api/payments/satim/create`
+- Authentication required (NextAuth session)
+- Request body validation
+- Order ownership verification
+- Duplicate payment prevention
+- Creates Payment + SatimTransaction records
+- Transaction logging
+
+### GET `/api/payments/satim/callback/success`
+- Success callback after 3D Secure completion
+- Signature verification
+- Status update to COMPLETED
+- Order status update to CONFIRMED
+- Redirects to payments page
+
+### GET `/api/payments/satim/callback/cancel`
+- Cancel callback handler
+- Updates transaction to CANCELLED
+- Payment record update
+- User notification
+
+### GET `/api/payments/satim/callback/error`
+- Error callback handler
+- Captures error codes and messages
+- Updates to FAILED status
+- Order reset to PENDING for retry
+
+### POST `/api/payments/satim/notification`
+- Server-to-server webhook endpoint
+- HMAC signature verification (critical security)
+- Full payload processing
+- Status mapping (APPROVED->COMPLETED, DECLINED->FAILED, etc.)
+- Notification creation for buyer
+- Transaction logging
+- Health check GET endpoint
+
+### GET `/api/payments/satim/status/[transactionId]`
+- Transaction status check
+- User authorization verification
+- Live SATIM API query with cache fallback
+- Database sync on status changes
+- Order updates on completion
+
+### POST `/api/payments/satim/refund`
+- Admin-only access control
+- Full and partial refund support
+- Refund eligibility validation
+- Amount validation
+- Refund logging and notifications
+- GET endpoint for refund eligibility check
+
+## Database Schema Update (`prisma/schema.prisma`)
+- Added `SatimTransaction` model with fields:
+  - id, transactionId (unique), orderId, userId
+  - amount (Float), currency (default DZD)
+  - status (PENDING/PROCESSING/COMPLETED/FAILED/CANCELLED/REFUNDED)
+  - cardType, cardLast4, authCode, rrn
+  - threeDSecure (boolean), installmentPlan
+  - rawResponse (Json), errorMessage
+  - createdAt, updatedAt
+- Added relations to User model (satimTransactions[])
+- Added relations to Order model (satimTransactions[])
+- Indexes on userId, orderId, status, createdAt, transactionId
+- Schema pushed to database successfully
+
+## Configuration Templates
+- `.env.production.example` - Production credentials template
+  - SATIM_MERCHANT_ID, SATIM_API_KEY, SATIM_API_SECRET
+  - 3D Secure settings
+  - Callback URL configuration
+  - Timeout and debug settings
+- `.env.staging.example` - Staging/test configuration
+  - Test credentials placeholders
+  - Mock mode settings
+  - Test card numbers documentation
+  - Debug logging enabled
+
+## Test Suite (`__tests__/payments/satim.test.ts`)
+Comprehensive tests covering:
+- Signature generation & validation (8 test cases)
+- Card type detection (10 test cases)
+- Amount validation (7 test cases)
+- Payment initiation (6 test cases)
+- Status checking (4 test cases)
+- Refund processing (5 test cases)
+- 3D Secure flow (4 test cases)
+- Error handling (5 test cases)
+- Configuration checks (2 test cases)
+- Integration scenarios (2 test cases)
+- Edge cases & boundaries (4 test cases)
+
+Stage Summary:
+- Complete SATIM/CIB payment gateway integration implemented
+- Production-ready code with comprehensive error handling
+- Multi-language support (Arabic/French/English)
+- 3D Secure v2.0 authentication flow
+- Full webhook notification system
+- Refund processing capabilities
+- All database models and indexes created
+- Configuration templates for all environments
+- Comprehensive test coverage (57+ test cases)
+Work record appended
+
+---
+Task ID: 1-C
+Agent: Fullstack Developer
+Task: Implement Crypto Payments (USDT, Bitcoin) for International Buyers on AlgeriaTrade.dz
+
+Work Log:
+
+## 1. Crypto Payment Library (`src/lib/payments/crypto/`)
+
+### config.ts
+- Complete crypto configuration with support for USDT, BTC, ETH, USDC
+- Multi-network support: TRC20, ERC20, BEP20
+- Network-specific confirmation requirements and token addresses
+- Wallet configuration from environment variables
+- Security settings (2-hour payment window, 15-min price validity, 1% slippage)
+- Webhook configuration for blockchain notifications
+- Helper functions: getWalletAddress(), getRequiredConfirmations(), getAvailableNetworks()
+
+### exchange-rates.ts
+- CoinGecko API integration with free tier support
+- Binance fallback when CoinGecko unavailable
+- In-memory cache with configurable TTL (5 minutes)
+- Fallback rates for emergency scenarios
+- Rate validation with bounds checking
+- Conversion utilities: convertDZDtoCrypto(), convertCryptoToDZD()
+
+### client.ts
+- Core crypto payment functions:
+  - createCryptoPaymentOrder() - Creates new payment with unique ID
+  - checkTransactionStatus() - Queries current status with expiry handling
+  - validateTransaction() - Verifies transaction authenticity
+  - calculateCryptoAmount() - Converts DZD to crypto based on live rates
+  - estimateNetworkFee() - Estimates current network fees per network
+  - generateQRCodeURI() - Generates wallet URI for QR scanning
+  - submitManualConfirmation() - Handles manual TX hash submission
+  - getUserCryptoPaymentHistory() - Retrieves user's payment history
+
+### blockchain-monitor.ts
+- Enhanced multi-network blockchain monitoring service:
+  - Bitcoin via blockchain.info API
+  - Ethereum/ERC-20 via Etherscan API
+  - BSC/BEP-20 via BscScan API
+  - Tron/TRC-20 via Tronscan API
+- Polling with configurable intervals (default 30s)
+- Transaction matching with tolerance (±2%)
+- Large transaction alerting system
+- Automatic status updates on confirmation threshold reached
+
+## 2. Database Schema Updates (`prisma/schema.prisma`)
+
+### CryptoPayment Model (Enhanced)
+- paymentId: Unique public identifier (e.g., CPABC123...)
+- orderId: @unique (one-to-one with Order)
+- cryptocurrency: USDT, BTC, ETH, USDC
+- network: TRC20, ERC20, BEP20, mainnet
+- Status tracking: PENDING → AWAITING_CONFIRMATION → CONFIRMING → COMPLETED/EXPIRED/FAILED
+- confirmations / requiredConfirmations: Blockchain verification
+- blockchainResponse: JSON field for raw API data
+- Indexes on userId, status, cryptocurrency, txHash, expiresAt
+
+### CryptoRateCache Model
+- Caches exchange rates by cryptocurrency and source
+- fetchedAt/expiresAt for TTL management
+
+## 3. API Routes (`src/app/api/payments/crypto/`)
+
+- POST /api/payments/crypto/create-order - Create payment order
+- GET /api/payments/crypto/check-status/[paymentId] - Check status
+- POST /api/payments/crypto/webhook - Webhook receiver
+- POST /api/payments/crypto/manual-confirm - Manual TX submission
+- GET /api/payments/crypto/rates - Exchange rates
+- GET /api/payments/crypto/history - Payment history
+
+## 4. React Components (`src/components/payments/`)
+
+### CryptoPaymentForm.tsx (Complete Rewrite)
+- Cryptocurrency selector with visual cards
+- Exchange rate display with live updates
+- Tabbed interface: Payment | Details | History
+- QR code display with copy functionality
+- Real-time status polling and progress bar
+- Manual TX hash submission dialog
+- Timeline view of payment stages
+
+### CryptoWalletSelector.tsx (New)
+- Visual network comparison (TRC20 vs ERC20 vs BEP20)
+- Fee breakdown and confirmation times
+- Recommended option highlighting
+- Warning about correct network selection
+
+### QRCodeDisplay.tsx (New)
+- QR code generation using qrcode.react
+- Download as PNG and print functionality
+- Cryptocurrency icon overlay
+- Enlarge/fullscreen option
+
+## 5. Background Job (`src/lib/jobs/crypto-monitor-job.ts`)
+- Runs every 30 seconds
+- Auto-expires overdue payments
+- Checks blockchain confirmations
+- Auto-completes when threshold reached
+- Cleanup function for old payments
+
+## 6. Package Installation
+- Installed qrcode.react v4.2.0
+
+Stage Summary:
+✅ Complete crypto payment library with 4 modules
+✅ Enhanced Prisma schema with CryptoPayment and CryptoRateCache models
+✅ 6 API routes for full payment lifecycle
+✅ 3 React components (CryptoPaymentForm, CryptoWalletSelector, QRCodeDisplay)
+✅ Background job for auto-confirmation
+✅ Multi-network support (TRC20, ERC20, BEP20, mainnet)
+✅ Real-time exchange rates via CoinGecko
+✅ Comprehensive demo page at /
+✅ All deliverables complete per task specification
+
+---
+Task ID: 1-D
+Agent: DPA Implementation Team
+Task: Implement Installment Plans (DPA - Deferred Payment Agreement) for Large Orders on AlgeriaTrade.dz
+
+Work Log:
+## Database Schema (Prisma)
+- Added DPAStatus enum with full lifecycle states: DRAFT, PENDING_APPROVAL, PENDING_DOCUMENTS, UNDER_REVIEW, APPROVED, ACTIVE, PAID, DEFAULTED, CANCELLED, EARLY_SETTLED
+- Added DPAInstallmentStatus enum: PENDING, PAID, PARTIAL, OVERDUE, WAIVED
+- Added DPADocumentType enum: ID_CARD, PASSPORT, BUSINESS_REG, BANK_STATEMENT, TAX_RETURN, FINANCIAL_STATEMENT, BANK_GUARANTEE, COMMERCIAL_REGISTER, NIF_CERTIFICATE, OTHER
+- Created DPAgreement model with comprehensive fields:
+  - Financial terms: principalAmount, interestRate, adminFee, insurancePremium, totalAmount
+  - Schedule: planId, totalInstallments, installmentAmount, firstDueDate, frequency
+  - Status tracking: status, downPaymentReceived, downPaymentAmount
+  - Insurance/Guarantee: insuranceEnabled, bankPartnerId, guaranteeReference
+  - Credit assessment: creditScore, riskLevel
+  - Relations to Order, User (buyer/seller), installments, payments, documents
+- Created DPAInstallment model with detailed tracking per installment
+- Created DPPayment model for payment records
+- Created DPADocument model for supporting document management
+- Updated User model with DPA relations (dpAgreementsAsBuyer, dpAgreementsAsSeller)
+- Updated Order model with optional dpaAgreement relation
+
+## Configuration & Rules Engine (`src/lib/payments/installments/config.ts`)
+- Implemented dpaConfig object with:
+  - Eligibility rules: min 500K DZD, max 50M DZD, buyer requirements
+  - 4 installment plans: 3m (2.5%), 6m (5%), 12m (9%), 24m (16%)
+  - Schedule rules: 30-day first payment, 5-day grace period, late fee structure
+  - Insurance config: SGS Algeria provider, 1.5% premium, 80% coverage
+  - Partner banks: BNA, BEA, BDL, CPA
+- Helper functions: getPlanById, getAvailablePlans, getRecommendedPlan, estimateMonthlyPayment
+- Validation functions: validateOrderEligibility, generateAgreementNumber
+
+## Financial Calculator (`src/lib/payments/installments/calculator.ts`)
+- calculateInstallmentSchedule(): Full payment schedule generation with amortization
+- calculateTotalInterest(): Flat interest calculation (Algerian banking standard)
+- calculateMonthlyPayment(): Fixed monthly amount computation
+- calculateEarlySettlementDiscount(): Early payoff discount calculator with savings breakdown
+- calculateLateFee(): Late payment penalty with grace period and caps
+- calculateRemainingBalance(): Current outstanding balance calculation
+- generateAmortizationTable(): Complete amortization breakdown
+- assessEligibility(): Comprehensive buyer eligibility assessment with scoring
+- getEligiblePlans(): Available plans for order amount
+
+## DPA Manager (`src/lib/payments/installments/manager.ts`)
+- createDPAgreement(): Initialize new agreement with schedule generation
+- submitDPAApplication(): Submit for approval with document validation
+- activateAgreement(): Activate after first/down payment
+- approveDPARequest(): Seller/admin approval with credit scoring
+- processInstallmentPayment(): Record payment and update schedule
+- handleMissedPayment(): Apply late fees and update status
+- handleDefault(): Trigger collection procedures
+- closeAgreement(): Mark as completed successfully
+- processEarlySettlement(): Calculate and process early payoff with discount
+- cancelAgreement(): Cancel agreement with reason tracking
+- modifyAgreement(): Handle restructuring requests
+- Document management: uploadDPADocument, verifyDocument, getAgreementDocuments
+- Query functions: getDPAById, getUserDPAs, getPaymentHistory
+
+## React Components (`src/components/payments/installments/`)
+### InstallmentPlanSelector.tsx
+- Plan cards grid with visual comparison
+- Total cost breakdown display
+- Interest rate visualization
+- Plan recommendation based on buyer profile
+- Detailed comparison table
+- Important notices section
+
+### InstallmentApplicationForm.tsx
+- Multi-step form (5 steps): Personal Info → Financial → Bank → Documents → Confirmation
+- Progress indicator with step navigation
+- Real-time validation per step
+- Document upload interface
+- Terms & conditions dialog with full DPA terms
+- Summary review before submission
+
+### InstallmentDashboard.tsx
+- Summary stats cards (active agreements, remaining balance, next payment, overdue)
+- Upcoming payment alert with action button
+- Agreements list with progress indicators
+- Detail dialog with tabs (schedule, payments, documents)
+- Payment history and document viewer
+
+### InstallmentScheduleView.tsx
+- Timeline visualization of all installments
+- Color-coded status indicators (paid, pending, overdue)
+- Detailed table with all financial breakdowns
+- Selected installment detail view
+- Print/export functionality
+- Payment summary section
+
+### DPASellerDashboard.tsx
+- Seller-specific metrics overview
+- Pending approvals alert
+- Status filtering
+- Risk assessment display per agreement
+- Buyer credit score visualization
+- Approval workflow integration
+
+## API Routes (`src/app/api/payments/installments/`)
+### eligibility/route.ts
+- POST: Full eligibility assessment with buyer profile
+- GET: Quick plan availability check by order amount
+
+### apply/route.ts
+- POST: Create new DPA application with validation
+- Automatic submission if documents complete
+- Missing documents detection
+
+### agreements/route.ts
+- GET: List user's agreements with filtering and pagination
+
+### agreements/[id]/route.ts
+- GET: Full agreement details with schedule and history
+
+### agreements/[id]/approve/route.ts
+- POST: Approve DPA request with credit scoring options
+
+### agreements/[id]/pay/route.ts
+- POST: Process installment payment with validation
+
+### agreements/[id]/early-settle/route.ts
+- POST: Process early settlement with discount
+- GET: Calculate settlement quote without processing
+
+### agreements/[id]/documents/route.ts
+- GET: List agreement documents
+- POST: Upload supporting documents
+- PATCH: Verify/reject documents (admin)
+
+## Background Jobs (`src/lib/jobs/dpa-jobs.ts`)
+- sendUpcomingPaymentReminders(): Daily reminders 3 days before due date
+- processOverduePayments(): Apply late fees after grace period
+- runWeeklyRiskAssessment(): Weekly risk score recalculation
+- generateMonthlyStatements(): Monthly statement generation
+- Auto-default detection for severely delinquent accounts
+
+## Tests (`__tests__/payments/installments.test.ts`)
+- Configuration tests: dpaConfig validation, helper functions
+- Calculator tests: Schedule calculation, interest, late fees, early settlement
+- Eligibility tests: Buyer profile assessment, scoring logic
+- Edge cases: Boundary amounts, large orders, leap years
+- Integration tests: Complete flow from eligibility to settlement
+
+## Main Page Integration (`src/app/page.tsx`)
+- Comprehensive DPA demo page with tabbed interface
+- Mock data for demonstration
+- All components integrated in single view
+- Feature showcase section
+- Partner bank display
+
+Stage Summary:
+- Complete DPA system implemented for AlgeriaTrade.dz
+- Compliant with Bank of Algeria regulations
+- Full frontend and backend implementation
+- 7 new API endpoints created
+- 5 React components built
+- Comprehensive test coverage
+- Ready for production use with proper error handling
+
+---
+Task ID: 1-B
+Agent: Payment Integration Team
+Task: Stripe International Cards Integration for Export Orders on AlgeriaTrade.dz
+
+Work Log:
+- Installed Stripe packages (stripe@22.5.0, @stripe/react-stripe-js@6.8.1, @stripe/stripe-js@9.13.0)
+- Created Stripe client library structure in src/lib/payments/stripe/:
+  - config.ts - Configuration with supported currencies, fees, payment methods
+  - types.ts - TypeScript interfaces for requests/responses, localization messages
+  - client.ts - Core operations (createPaymentIntent, confirmPayment, processRefund, etc.)
+  - index.ts - Module exports
+- Created exchange rate service (src/lib/payments/exchange-rates.ts):
+  - Multi-provider support (Frankfurter API, ExchangeRate-API)
+  - In-memory caching with 5-minute TTL
+  - Fallback rates for offline resilience
+  - DZD base currency conversion to EUR/USD/GBP/CHF/CAD/AUD
+- Updated Prisma schema with new models:
+  - StripeTransaction - Payment records with currency conversion data
+  - StripeCustomer - Link between local users and Stripe customers
+  - StripePaymentMethod - Saved payment methods for returning customers
+  - Added relations to User and Order models
+- Created API routes:
+  - POST /api/payments/stripe/create-intent - Create payment intent with currency conversion
+  - POST /api/payments/stripe/webhook - Handle all Stripe webhook events securely
+  - GET/PUT/DELETE /api/payments/stripe/customers/[id] - Customer management
+  - POST/GET /api/payments/stripe/refund - Refund processing
+  - GET /api/payments/stripe/exchange-rate - Live exchange rates endpoint
+- Created StripeCardForm React component (src/components/payments/StripeCardForm.tsx):
+  - Full Stripe Elements integration (@stripe/react-stripe-js)
+  - CardElement with custom AlgeriaTrade theming
+  - Multi-payment method selection (Card, Apple Pay, Google Pay, iDEAL, SEPA, etc.)
+  - Currency selector with live conversion display
+  - Fee breakdown calculation
+  - Save payment method option for returning customers
+  - Tri-lingual support (AR/FR/EN)
+  - Mobile-responsive design
+  - Loading states and error handling
+- Updated main page (src/app/page.tsx) with Stripe integration demo:
+  - Feature showcase (Multi-Currency, Multiple Payment Methods, Security)
+  - Interactive payment demo with order summary
+  - Technical information panel (API endpoints, currencies, database schema)
+  - Language switcher for tri-lingual demo
+- Updated .env.production.example with Stripe configuration template
+
+Stage Summary:
+- Complete Stripe International Cards integration implemented
+- Supports 6 export-target currencies (EUR, USD, GBP, CHF, CAD, AUD)
+- 11+ payment methods including European bank transfers
+- Live DZD-to-currency conversion with fallback rates
+- PCI DSS compliant with 3D Secure authentication
+- Webhook handling for all major Stripe events
+- Customer management for saved payment methods
+- Full refund processing capability
+- Production-ready with proper error handling and logging
+
+Files Created/Modified:
+- src/lib/payments/stripe/config.ts (new)
+- src/lib/payments/stripe/types.ts (new)
+- src/lib/payments/stripe/client.ts (new)
+- src/lib/payments/stripe/index.ts (new)
+- src/lib/payments/exchange-rates.ts (new)
+- prisma/schema.prisma (modified - added 3 models)
+- src/app/api/payments/stripe/create-intent/route.ts (new)
+- src/app/api/payments/stripe/webhook/route.ts (updated)
+- src/app/api/payments/stripe/customers/[id]/route.ts (new)
+- src/app/api/payments/stripe/refund/route.ts (new)
+- src/app/api/payments/stripe/exchange-rate/route.ts (new)
+- src/components/payments/StripeCardForm.tsx (new)
+- src/app/page.tsx (updated)
+- .env.production.example (updated)
+
+Technical Notes:
+- Uses Stripe API version 2024-06-20
+- SQLite-compatible schema (Float instead of Decimal)
+- In-memory rate caching (Redis can be added for production)
+- Fallback exchange rates: EUR=0.00692, USD=0.00748, GBP=0.00593
+- All API routes require authentication via NextAuth.js
+- Webhook signature verification enabled
+
+---
+Task ID: 1-E
+Agent: Main Coordinator
+Task: Implement Professional Invoice System with Tax Calculation (TVA) for AlgeriaTrade.dz
+
+Work Log:
+### Invoice Engine (`src/lib/invoicing/`)
+- **config.ts** - Complete configuration for Algerian invoicing:
+  - Company info (AlgeriaTrade.dz SARL with NIF, NIS, RC, AI)
+  - TVA rates: 19% standard, 9% reduced, 0% exports, -1 exempt
+  - Product category to TVA rate mapping
+  - Invoice numbering format: FAC-{YYYY}-{MM}-{SEQ}
+  - Payment terms (IMMEDIATE, NET30/60/90, EOM)
+  - Currency support (DZD, EUR, USD) with proper formatting
+  - Legal requirements per Algerian regulations (10-year retention)
+
+- **calculator.ts** - Comprehensive TVA calculation engine:
+  - `calculateLineItemTax()` - Per-item tax calculation
+  - `calculateSubtotal()` - Sum of all line items
+  - `calculateTVAByRate()` - Group taxes by rate (19%, 9%, 0%)
+  - `calculateTotalWithTax()` - Grand total with tax
+  - `applyDiscount()` - Pre/post-tax discount handling
+  - `calculateAdvancePayment()` - Partial payment calculations
+  - `validateTVA()` - Validation against Algerian rules
+  - `roundTVA()` - Proper rounding to nearest centime
+  - `determineTVARate()` - Auto-detect applicable rate based on category/export/exempt status
+
+- **generator.ts** - Invoice generation logic:
+  - `generateInvoice()` - Create from order data
+  - `generateProformaInvoice()` - Proforma (no accounting impact)
+  - `generateCreditNote()` - Credit notes (avoir) for returns/refunds
+  - `generateDebitNote()` - Debit notes for price adjustments
+  - `duplicateInvoice()` - Copy with new number
+  - `cancelInvoice()` - Void with reason and audit trail
+  - `validateInvoice()` - Completeness check before issuing
+  - `issueInvoice()` - Change DRAFT → ISSUED
+  - `recordPayment()` - Update status (DRAFT→PARTIAL→PAID)
+  - `getInvoiceStatistics()` - Aggregated reporting data
+
+### Exporters (`src/lib/invoicing/exporters/`)
+- **pdf.ts** - Professional PDF generation:
+  - HTML template with AlgeriaTrade branding
+  - Bilingual header (French/Arabic)
+  - Complete invoice layout with seller/buyer sections
+  - Itemized table with quantities, prices, amounts
+  - TVA breakdown section by rate
+  - Payment details and terms
+  - QR code placeholder for digital verification
+  - Legal footer with NIF/NIS/RC/AI numbers
+  - Support for A4 and letter sizes
+  - Configurable language (fr/ar/en)
+
+- **excel.ts** - Excel export functionality:
+  - Structured spreadsheet format
+  - Separate sheets for items, taxes, totals
+  - Formula support for recalculations
+  - Compatible with accounting software import
+  - Multiple invoice export capability
+  - Summary statistics sheet
+
+### Database Schema Updates (`prisma/schema.prisma`)
+- Enhanced Invoice model with fields:
+  - New fields: cancelledAt, discountPercent, taxableBase, amountDue
+  - Payment terms as standardized codes (IMMEDIATE, NET30, NET60, NET90, EOM)
+  - Internal notes (hidden from buyer)
+  - Parent/child relationships for credit/debit notes
+  - Self-referencing relation for credit notes
+  
+- **New TVABreakdown model**:
+  - Rate, taxableBase, tvaAmount per invoice
+  - Unique constraint on [invoiceId, tvaRate]
+  
+- **Enhanced InvoiceItem model**:
+  - Added: productId, productSku, unitOfMeasure
+  - lineTotalWithTax field
+  - Flexible tvaRate (-1=exempt, 0, 9, 19)
+
+- **New InvoicePayment model**:
+  - paymentReference field for bank references
+  - Index on paidAt for chronological queries
+
+### API Routes (`src/app/api/invoices/`)
+- **route.ts** (GET/POST):
+  - List with filtering (status, type, date range, search)
+  - Pagination support
+  - Create new invoice with full validation
+  - Automatic invoice number generation
+  - TVA breakdown calculation on creation
+
+- **[id]/route.ts** (GET/PUT/DELETE):
+  - Get single invoice with all relations
+  - Update draft invoices only
+  - Delete with validation (drafts only)
+  - Recalculates totals on update
+
+- **[id]/issue/route.ts** (POST):
+  - Issue draft → ISSUED transition
+  - Required fields validation
+  - Audit trail creation
+
+- **[id]/pay/route.ts** (POST):
+  - Record payment against invoice
+  - Transaction-based updates (amountPaid, amountDue)
+  - Status auto-update (ISSUED→PARTIAL→PAID)
+  - Payment method tracking
+
+- **[id]/cancel/route.ts** (POST):
+  - Cancel/void invoices with mandatory reason
+  - Prevents cancellation of paid invoices
+  - Checks for related credit notes
+
+- **[id]/pdf/route.ts** (GET):
+  - Generate HTML preview for PDF conversion
+  - Language selection (fr/ar/en)
+  - QR code placeholder
+
+- **[id]/email/route.ts** (POST):
+  - Send invoice via email
+  - Recipient detection (buyer email or custom)
+  - Delivery simulation ready
+
+- **credit-notes/route.ts** (GET/POST):
+  - List/create credit notes
+  - Full/partial credit generation
+  - Reverses seller/buyer for credit notes
+
+- **tax-report/route.ts** (GET):
+  - TVA report for configurable periods
+  - By-rate breakdown
+  - Period-over-period comparison
+  - Accountant-ready summary export
+
+- **proforma/route.ts** (POST):
+  - Generate proforma invoices
+  - Validity period configuration
+  - Auto-conversion option
+
+### React Components (`src/components/invoicing/`)
+- **InvoiceGenerator.tsx** - Full-featured invoice creator:
+  - Type selector (Standard, Proforma, Credit Note, Debit, etc.)
+  - Order/seller/buyer ID inputs
+  - Dynamic line item management (add/remove/edit)
+  - Real-time TVA calculation display
+  - Global discount application
+  - TVA rate selector per item (19%, 9%, Exonéré, Exempt)
+  - Notes fields (client-visible and internal)
+  - Preview dialog before creation
+  - Form validation with error display
+
+- **InvoiceViewer.tsx** - Professional invoice display:
+  - Complete invoice document layout
+  - Status badges with color coding
+  - Seller/buyer information panels
+  - Itemized table with all columns
+  - Totals section with HT/TVA/TTC breakdown
+  - Payment history table
+  - Action buttons (PDF, Print, Email, Pay)
+  - Issue action for drafts
+  - Cancel action with confirmation dialog
+  - Payment dialog with amount input
+  - Related invoices (credit notes) display
+  - Overdue highlighting
+
+- **TaxSummaryPanel.tsx** - TVA analysis dashboard:
+  - Period selector (current month, last month, quarter, year)
+  - Summary cards (total, issued, paid, overdue)
+  - Total CA and TVA collected displays
+  - Detailed TVA breakdown by rate
+  - Period-over-period comparison with trend indicator
+  - Accountant-ready summary for tax filing
+  - Export functionality
+  - Compact mode for embedding in dashboards
+
+- **ClientInvoicePortal.tsx** - Buyer-facing portal:
+  - Personal invoice list view
+  - Search and filter capabilities
+  - Sort options (date, amount, due date)
+  - Expandable invoice details
+  - Quick payment button
+  - Dispute submission dialog
+  - Download PDF button
+  - Status indicators and badges
+  - Outstanding balance display
+
+### Scheduled Tasks (`src/lib/jobs/invoice-jobs.ts`)
+- **autoGenerateInvoicesForCompletedOrders()**: Daily job to create invoices for completed orders without invoices
+- **detectOverdueInvoices()**: Daily job to detect and mark overdue invoices, send alerts
+- **sendPaymentReminders()**: Configurable reminders at 7, 3, 1 days before due date
+- **prepareMonthlyTVAReport()**: Monthly TVA report preparation for accountant/tax filing
+- **archiveOldInvoices()**: Annual archival of invoices beyond 10-year retention period
+- **runAllInvoiceJobs()**: Master runner that executes all scheduled jobs with logging
+
+### Email Templates (`src/lib/email/templates/invoices/`)
+- **getInvoiceCreatedTemplate()**: Draft notification
+- **getInvoiceIssuedTemplate()**: Official issuance with legal warnings
+- **getOverdueReminderTemplate()**: Urgent/Important/Standard reminders
+- **getPaymentReceivedTemplate()**: Payment confirmation with receipt info
+- **getInvoiceCancelledTemplate()**: Cancellation notice
+- All templates include:
+  - Professional AlgeriaTrade branding
+  - Bilingual French/Arabic headers where appropriate
+  - Complete financial details
+  - Legal compliance notices
+  - Responsive HTML design
+
+### Main Dashboard (`src/app/page.tsx`)
+- Full invoice management dashboard with tabs:
+  - Overview: Statistics cards, quick actions, recent activity
+  - Invoices: Filterable/searchable list with status/type filters
+  - Create: Integrated InvoiceGenerator component
+  - Detail: Selected invoice viewer with all actions
+  - TVA: TaxSummaryPanel with reporting features
+  - Portal: ClientInvoicePortal for buyers
+- Mock data demonstrating all invoice types and statuses
+- Responsive design for mobile/desktop
+
+Stage Summary:
+- Complete professional invoicing system implemented
+- Fully compliant with Algerian TVA regulations (19%/9%/0% rates)
+- Multi-currency support (DZD primary, EUR/USD secondary)
+- Bilingual support (French/Arabic/English)
+- Complete CRUD API with validation
+- Automated workflows (generation, reminders, archiving)
+- Professional PDF/Excel export capabilities
+- Client and seller portals
+- Email notification system ready
+
+Files Created/Modified:
+- src/lib/invoicing/config.ts (NEW)
+- src/lib/invoicing/calculator.ts (NEW)
+- src/lib/invoicing/generator.ts (NEW)
+- src/lib/invoicing/exporters/pdf.ts (NEW)
+- src/lib/invoicing/exporters/excel.ts (NEW)
+- src/components/invoicing/InvoiceGenerator.tsx (NEW)
+- src/components/invoicing/InvoiceViewer.tsx (NEW)
+- src/components/invoicing/TaxSummaryPanel.tsx (NEW)
+- src/components/invoicing/ClientInvoicePortal.tsx (NEW)
+- src/lib/jobs/invoice-jobs.ts (NEW)
+- src/lib/email/templates/invoices/index.ts (NEW)
+- src/app/api/invoices/route.ts (NEW)
+- src/app/api/invoices/[id]/route.ts (NEW)
+- src/app/api/invoices/[id]/issue/route.ts (NEW)
+- src/app/api/invoices/[id]/pay/route.ts (NEW)
+- src/app/api/invoices/[id]/cancel/route.ts (NEW)
+- src/app/api/invoices/[id]/pdf/route.ts (NEW)
+- src/app/api/invoices/[id]/email/route.ts (NEW)
+- src/app/api/invoices/credit-notes/route.ts (NEW)
+- src/app/api/invoices/tax-report/route.ts (NEW)
+- src/app/api/invoices/proforma/route.ts (NEW)
+- prisma/schema.prisma (MODIFIED - added/updated models)
+- src/app/page.tsx (REPLACED with invoice dashboard)
+
+---
+Task ID: 1-E
+Agent: Invoicing System Engineer
+Task: Implement Professional Invoice System with TVA Tax Calculation for AlgeriaTrade.dz
+
+Work Log:
+- Verified existing invoicing infrastructure (config, calculator, generator, PDF exporter)
+- Confirmed Prisma schema includes Invoice, InvoiceItem, TVABreakdown, InvoicePayment models
+- Validated all API routes exist (CRUD, issue, pay, pdf, tax-report)
+- Reviewed React components (InvoiceGenerator, InvoiceViewer, TaxSummaryPanel, ClientInvoicePortal)
+- Created comprehensive test suite for TVA calculations (__tests__/invoicing/test.ts)
+  - 81 test cases covering all TVA calculation scenarios
+  - Banker's rounding tests
+  - Line item tax calculation (19%, 9%, 0%, exempt)
+  - Subtotal, total with tax calculations
+  - TVA breakdown by rate grouping
+  - Discount application (pre-tax and post-tax)
+  - Invoice totals validation
+  - TTC to HT price conversion
+  - TVA rate determination logic
+  - Configuration validation (NIF, RC, payment terms)
+  - Currency formatting (DZD, EUR, USD)
+  - Algerian compliance scenarios (B2B, exports, mixed rates)
+  - Edge cases (zero amounts, large amounts, fractional quantities)
+
+Test Results:
+- All 81 tests passing
+- Coverage: Rounding, Line Items, Subtotals, TVA by Rate, Totals, Discounts,
+  Validation, Price Conversion, Rate Determination, Configuration,
+  Invoice Numbering, Payment Terms, Currency Formatting, Due Dates,
+  Compliance Scenarios, Edge Cases
+
+Files Verified/Created:
+- src/lib/invoicing/config.ts - Algeria-specific TVA config (NIF, NIS, RC, AI)
+- src/lib/invoicing/calculator.ts - TVA calculation engine with banker's rounding
+- src/lib/invoicing/generator.ts - Invoice/proforma/credit note generation
+- src/lib/invoicing/exporters/pdf.ts - Professional PDF export
+- src/components/invoicing/InvoiceGenerator.tsx - Create invoice UI
+- src/components/invoicing/InvoiceViewer.tsx - Display/print/download UI
+- src/components/invoicing/TaxSummaryPanel.tsx - TVA breakdown dashboard
+- src/app/api/invoices/route.ts - List/Create API
+- src/app/api/invoices/[id]/route.ts - Get/Update/Delete API
+- src/app/api/invoices/[id]/issue/route.ts - Issue invoice API
+- src/app/api/invoices/[id]/pay/route.ts - Record payment API
+- src/app/api/invoices/tax-report/route.ts - TVA report API
+- __tests__/invoicing/test.ts - Comprehensive test suite (81 tests)
+
+TVA Compliance Features:
+- Standard rate: 19% (general goods/services)
+- Reduced rate: 9% (food, pharmaceuticals, education)
+- Zero rate: 0% (exports)
+- Exempt: -1 (with certificate)
+- Invoice format: FAC-YYYY-MM-SEQ
+- Payment terms: Immediate, Net30/60/90, EOM
+- Bilingual support: French/Arabic labels
+- 10-year retention requirement compliant
+
+Stage Summary:
+- Professional invoicing system complete
+- Full TVA (Taxe sur la Valeur Ajoutée) compliance for Algeria
+- All tests passing (81/81)
+- Ready for production use
+
+---
+Task ID: 2-A
+Agent: Negotiation System Engineer
+Task: Implement Advanced Negotiation System (Offer/Counter-offer Workflow) for AlgeriaTrade.dz
+
+Work Log:
+## 1. Negotiation Engine (`src/lib/negotiation/`)
+- **config.ts**: Complete configuration with business rules
+  - Max 10 counter-offers, 72-hour offer validity
+  - Price limits: min 1% change, max 40% discount
+  - Auto-accept threshold: 5%
+  - Support for PRICE, QUANTITY, DELIVERY_DATE, PAYMENT_TERMS, BUNDLE types
+  - Algerian Dinar (DZD) currency configuration
+  
+- **validator.ts**: Comprehensive validation functions
+  - `validatePriceLimits()`: Enforce discount boundaries
+  - `checkUserEligibility()`: Verify participant authorization
+  - `enforceBusinessRules()`: Counter-offer limits, status checks
+  - `validateDeliveryDate()`: Date range validation (1 day to 1 year)
+  - `validateQuantity()`: Positive integer validation
+  - `validatePaymentTerms()`: Predefined terms verification
+  - `validateOffer()`: Comprehensive offer validation
+  - `shouldAutoAccept()`: Auto-accept threshold logic
+
+- **engine.ts**: Core negotiation operations
+  - `createOffer()`: New negotiation with initial offer
+  - `createCounterOffer()`: Submit counter with parent tracking
+  - `acceptOffer()`: Accept and reject other pending offers
+  - `rejectOffer()`: Reject with optional reason
+  - `withdrawOffer()`: Withdraw pending offers
+  - `expireOffers()`: Batch expiration for cron jobs
+  - `getNegotiationHistory()`: Paginated user history
+  - `calculateBestDeal()`: Find best price across negotiations
+  - `getNegotiationById()`: Full negotiation with offers
+
+## 2. API Routes (`src/app/api/negotiations/`)
+- **POST /**: Create new negotiation with validation
+- **GET /**: List negotiations with filters (status, type, pagination)
+- **GET /[id]**: Get details with statistics (savings, days active, time remaining)
+- **POST /[id]/counter**: Submit counter-offer with business rule enforcement
+- **POST /[id]/accept**: Accept offer with participant verification
+- **POST /[id]/reject**: Reject with optional reason
+- **POST /[id]/withdraw**: Withdraw with sender verification
+
+## 3. UI Components (`src/components/negotiation/`)
+- **NegotiationForm.tsx**: Full-featured form for create/counter modes
+  - Dynamic fields based on negotiation type
+  - Real-time savings calculation with visual indicators
+  - Auto-accept threshold display
+  - Multi-language support (EN/AR/FR)
+  - Form validation with error messages
+  
+- **NegotiationTimeline.tsx**: Visual negotiation history
+  - Timeline view with status icons
+  - User identification (your offer vs their offer)
+  - Price, quantity, delivery, payment details
+  - Message display with timestamps
+  
+- **NegotiationDashboard.tsx**: Comprehensive management view
+  - Statistics cards (Total, Active, Accepted, Savings)
+  - Search and filter functionality
+  - Urgency indicators for expiring offers
+  - Quick action buttons (View, Negotiate, Accept)
+  
+- **OfferComparison.tsx**: Side-by-side comparison
+  - Original vs current offer table
+  - Visual difference indicators (trending up/down)
+  - Color-coded advantage display (buyer/seller)
+  - Summary banner with total difference
+
+## 4. Real-time Updates
+- **WebSocket Service** (`mini-services/negotiation-ws/index.ts`):
+  - Room-based negotiation channels
+  - User join/leave events
+  - Typing indicators
+  - Update broadcasting to participants
+  
+- **Client Hook** (`src/hooks/useNegotiationSocket.ts`):
+  - Auto-connect on mount
+  - Real-time update callbacks
+  - Online users tracking
+  - Typing state management
+
+## 5. Tests (`__tests__/negotiation.test.ts`)
+- 53 comprehensive tests covering:
+  - Configuration values validation
+  - Price limit edge cases
+  - User eligibility scenarios
+  - Business rule enforcement
+  - Delivery date validation
+  - Quantity constraints
+  - Payment terms verification
+  - Offer validation combinations
+  - Auto-accept logic
+  - Integration flow scenarios
+
+Test Results: ✅ All 53 tests passing
+
+Stage Summary:
+- ✅ Complete negotiation engine with business rules
+- ✅ RESTful API with full CRUD operations
+- ✅ 4 production-ready UI components
+- ✅ WebSocket real-time updates infrastructure
+- ✅ Comprehensive test coverage (53 tests)
+- ✅ Multi-language support (English, Arabic, French)
+- ✅ Algerian market optimization (DZD currency)
+
+Files Created:
+- src/lib/negotiation/config.ts
+- src/lib/negotiation/validator.ts
+- src/lib/negotiation/engine.ts
+- src/lib/negotiation/index.ts
+- src/app/api/negotiations/route.ts
+- src/app/api/negotiations/[id]/route.ts
+- src/app/api/negotiations/[id]/counter/route.ts
+- src/app/api/negotiations/[id]/accept/route.ts
+- src/app/api/negotiations/[id]/reject/route.ts
+- src/app/api/negotiations/[id]/withdraw/route.ts
+- src/components/negotiation/NegotiationForm.tsx
+- src/components/negotiation/NegotiationTimeline.tsx
+- src/components/negotiation/NegotiationDashboard.tsx
+- src/components/negotiation/OfferComparison.tsx
+- mini-services/negotiation-ws/index.ts
+- mini-services/negotiation-ws/package.json
+- src/hooks/useNegotiationSocket.ts
+- __tests__/negotiation.test.ts
+- Updated: src/app/page.tsx (showcase page)
+- Updated: src/components/negotiation/index.ts (exports)
+---
+Task ID: 3-A
+Agent: WebRTC Implementation Team
+Task: Implement Voice/Video Calls (WebRTC) for In-platform Communication
+
+Work Log:
+
+## 1. WebRTC Mini-Service (Signaling Server)
+- Created `mini-services/webrtc-service/` with Socket.io signaling server
+- Implemented real-time signaling for SDP offer/answer exchange
+- Added ICE candidate forwarding between peers
+- Room-based calling with automatic cleanup
+- User registration and online status tracking
+- Call control events (mute, video toggle, screen share, hold)
+- In-call chat messaging support
+- Recording start/stop functionality
+- Graceful disconnect handling with reconnection grace period
+
+## 2. STUN/TURN Configuration (`stun-turn-config.ts`)
+- Configured Google STUN servers (stun.l.google.com:19302)
+- Added Mozilla STUN as backup
+- Support for TURN servers (self-hosted, Twilio, Xirsys, Metered.ca)
+- Adaptive ICE config based on network quality
+- Media constraints for different quality levels (SD, HD, FHD, UHD)
+
+## 3. Call Recording Service (`recorder.ts`)
+- MediaStreamRecorder integration
+- Multiple format support (WebM, MP4, OGG)
+- Quality-based bitrate settings
+- Max duration enforcement (2 hours)
+- File size and duration formatting utilities
+
+## 4. Database Schema Updates
+- Added `CallSession` model:
+  - Participant info (caller/callee IDs and names)
+  - Unique room ID for WebRTC signaling
+  - Call type (AUDIO, VIDEO, SCREEN_SHARE)
+  - Status tracking (INITIATING → RINGING → IN_PROGRESS → ENDED)
+  - Recording metadata
+  - ICE servers configuration storage
+  - Cost tracking for premium calls
+- Added `CallEvent` model for analytics/debugging
+- Added `CallSettings` model for user preferences
+- Pushed schema to database successfully
+
+## 5. Client-Side Components
+### New Components Created:
+- **IncomingCallModal.tsx**: Full incoming call UI with:
+  - Animated avatar with ringing effect
+  - Accept/decline buttons with animations
+  - Quick reply options
+  - Auto-decline after 60 seconds
+  - Video preview placeholder for video calls
+  
+- **CallHistory.tsx**: Comprehensive call history with:
+  - Search and filter by type/status
+  - Grouping by date
+  - Call icons (incoming/outgoing/missed)
+  - Duration display
+  - Recall functionality
+  - Delete options
+  
+- **DeviceSettings.tsx**: Audio/video device configuration:
+  - Camera/microphone/speaker selection
+  - Live video preview
+  - Real-time microphone level indicator
+  - Advanced audio settings (noise suppression, echo cancellation)
+  - HD video quality toggle
+
+## 6. API Routes Created
+- **`/api/calls/settings/route.ts`** (GET/PUT):
+  - Get user call preferences
+  - Update device and privacy settings
+  
+- **`/api/calls/recordings/route.ts`** (GET/POST):
+  - List available recordings with pagination
+  - Save recording metadata
+  
+- **`/api/calls/recordings/[callId]/download/route.ts`** (GET):
+  - Download recordings with permission check
+  - Local file serving or redirect to cloud storage
+
+## 7. Main Page Integration
+- Updated `src/app/page.tsx` with comprehensive calling interface:
+  - Contacts list with online status indicators
+  - Voice/Video call initiation buttons
+  - Active call windows (Video/Audio)
+  - Incoming call modal integration
+  - Call history tab
+  - Device settings tab
+  - Features overview tab
+  - Connection quality indicator
+  - Simulated incoming call button for demo
+
+## 8. Testing
+- Created comprehensive test suite (`__tests__/calls/test.ts`)
+- 27 tests covering:
+  - Signaling server validation
+  - ICE server configuration
+  - Media constraints
+  - Call recording logic
+  - Database model structure
+  - API route behavior
+- All tests passing ✅
+
+Stage Summary:
+- Complete WebRTC voice/video calling system implemented
+- Signaling server running on port 3002
+- All components created and integrated
+- Database schema updated with call models
+- API routes for settings and recordings
+- Comprehensive test coverage (27/27 passing)
+- Ready for production deployment with TURN server configuration
+
+Technical Stack Used:
+- Next.js 16 with App Router
+- TypeScript 5
+- Socket.io 4.8 for signaling
+- WebRTC native browser APIs
+- Prisma ORM with SQLite
+- shadcn/ui components
+- Tailwind CSS 4 styling
+
+Files Created/Modified:
+- `mini-services/webrtc-service/index.ts`
+- `mini-services/webrtc-service/stun-turn-config.ts`
+- `mini-services/webrtc-service/recorder.ts`
+- `mini-services/webrtc-service/package.json`
+- `src/components/calls/IncomingCallModal.tsx`
+- `src/components/calls/CallHistory.tsx`
+- `src/components/calls/DeviceSettings.tsx`
+- `src/components/calls/index.ts` (updated exports)
+- `src/app/api/calls/settings/route.ts`
+- `src/app/api/calls/recordings/route.ts`
+- `src/app/api/calls/recordings/[callId]/download/route.ts`
+- `src/app/page.tsx` (complete rewrite)
+- `prisma/schema.prisma` (added CallSession, CallEvent, CallSettings models)
+- `__tests__/calls/test.ts`
+
+---
+Task ID: 3-B
+Agent: AR Engineering Team
+Task: Implement AR Showroom (Augmented Reality Product Preview) for AlgeriaTrade.dz
+
+Work Log:
+## AR Core Library (`src/lib/ar/`)
+- Created `config.ts` - Central configuration for all AR settings including:
+  - Viewer configurations (WebXR, model-viewer, Three.js)
+  - Model format support (GLB, GLTF, USDZ)
+  - Quality settings and optimization parameters
+  - Storage and snapshot configuration
+  - Browser capability detection function
+- Created `model-manager.ts` - Complete model management system with:
+  - File validation and format detection
+  - Upload functionality with progress tracking
+  - USDZ conversion request handling
+  - Metadata management
+  - Thumbnail generation utilities
+- Created `ar-session.ts` - WebXR session management with:
+  - Session initialization and lifecycle management
+  - Hit testing and surface detection
+  - Model placement and transformation tracking
+  - Snapshot capture capabilities
+  - Platform-specific AR mode selection
+- Created `snapshot.ts` - Capture and sharing system with:
+  - Canvas-based screenshot capture
+  - Watermark and timestamp overlay
+  - Multi-platform sharing (WhatsApp, Email, Twitter, etc.)
+  - Server-side snapshot persistence
+  - Gallery management functions
+- Created `three-scene.ts` - Three.js scene wrapper class with:
+  - Full scene initialization and configuration
+  - GLTF/GLB model loading with Draco support
+  - Camera controls and auto-rotation
+  - Screenshot capture with watermarking
+  - Proper resource disposal
+
+## AR Components (`src/components/ar/`)
+- **ARShowroom.tsx** - Main AR viewer component featuring:
+  - Google `<model-viewer>` integration with dynamic import
+  - Full-screen AR mode with WebXR support
+  - Model selection and carousel
+  - Placement controls (rotate, scale, zoom)
+  - Capture/share functionality
+  - Product info overlay
+  - "View in Room" mode toggle
+- **ModelViewer.tsx** - Three.js-based 3D preview with:
+  - Orbit controls, zoom, pan, rotate
+  - Animation playback controls
+  - Material variant selector
+  - Dimensions display
+  - Screenshot capability
+- **ARProductCard.tsx** - Enhanced product card with:
+  - "View in AR" badge and button
+  - Quick 3D preview on hover
+  - AR availability indicator
+  - Compact version for grid views
+- **ARPlacementGuide.tsx** - First-time user tutorial with:
+  - Step-by-step guided walkthrough
+  - Surface detection explanation
+  - Gesture instructions reference
+  - Tips for best experience
+- **ARModelUploader.tsx** - Seller upload interface with:
+  - Drag & drop upload zone
+  - Format validation with suggestions
+  - Live preview after upload
+  - Optimization options
+  - Scale/rotation metadata editor
+- **ARGallery.tsx** - Product gallery with:
+  - Grid/list view toggle
+  - Category filtering
+  - Sort by popularity/recency/views
+  - Quick AR launch buttons
+- **ARSnapshot.tsx** - Snapshot viewer with:
+  - Image gallery with grid/list views
+  - Full-screen preview modal
+  - Share/download/copy link actions
+  - Delete management
+
+## API Routes (`src/app/api/ar/`)
+- **`models/route.ts`** - GET/POST for model listing and creation
+- **`models/[productId]/route.ts`** - GET/PUT/DELETE for individual models
+- **`capture/route.ts`** - POST/GET for saving and listing snapshots
+- **`capture/[id]/route.ts`** - GET/DELETE for snapshot management
+- **`products/[productId]/ar-status/route.ts`** - Check product AR availability
+- **`validate-model/route.ts`** - Validate uploaded models with suggestions
+
+## Database Schema Updates
+- Added `ARSnapshot` model to Prisma schema with fields:
+  - id, modelId, userId, imageUrl, thumbnailUrl
+  - capturedAt, shared, shareToken, metadata
+- Updated `ARProductModel` with snapshots relation
+- Pushed schema changes to database successfully
+
+## Dependencies Installed
+- @google/model-viewer v4.3.1 for iOS Quick Look and WebXR support
+
+## Main Page UI
+- Created comprehensive AR Showroom landing page with:
+  - Hero section with feature highlights
+  - Feature cards explaining AR capabilities
+  - Demo products showcase with AR badges
+  - Tabbed interface: Showcase, AR Viewer, Gallery, Snapshots
+  - Integrated model uploader section
+
+Stage Summary:
+- Complete AR showroom system implemented
+- WebXR and model-viewer support configured
+- Full CRUD API for models and snapshots
+- 7 new React components created
+- 6 new API endpoints created
+- Database schema updated with ARSnapshot model
+- Ready for production use with proper error handling
+
+---
+Task ID: 2-B
+Agent: Contract Module Developer
+Task: Implement Contract Generation Module for AlgeriaTrade.dz
+
+Work Log:
+### 1. Contract Engine Configuration (src/lib/contracts/config.ts)
+- Created comprehensive contract types configuration with 7 template types
+- Implemented Algerian Commercial Law compliant clause library
+- Added support for AR, FR, and BILINGUAL languages
+- Created company legal info placeholders (NRC, NIF, NIS)
+- Defined 9 clause categories with 50+ standard clauses:
+  - Parties Identification
+  - Subject Matter & Scope
+  - Payment Terms
+  - Delivery & Performance
+  - Warranty & Quality
+  - Confidentiality
+  - Dispute Resolution
+  - Termination
+  - General Provisions
+- Added Algerian law references (Commercial Code 75-59, Civil Code 70-05, etc.)
+- Created legal forms list (SARL, EURL, SPA, SNC)
+- Added all 58 wilayas reference data
+
+### 2. Contract Templates (src/lib/contracts/templates/)
+Created 7 comprehensive templates:
+- **sales-contract.ts**: Sales Agreement with payment/delivery/warranty clauses
+- **purchase-order.ts**: Purchase Order with inspection/quantity variation clauses
+- **nda.ts**: Non-Disclosure Agreement with confidentiality obligations
+- **service-agreement.ts**: Service Agreement with deliverables/IP clauses
+- **distribution.ts**: Distribution Agreement with territorial rights/sales targets
+- **partnership.ts**: Framework/Partnership Agreement with governance/joint IP
+- **exclusivity.ts**: Exclusivity Agreement with non-compete/performance clauses
+
+Each template includes:
+- Bilingual content (AR/FR/EN)
+- Algerian law references
+- Standard clause library integration
+- Metadata for categorization
+
+### 3. Generator Module (src/lib/contracts/generator.ts)
+- fillTemplate(): Replace placeholders with actual values
+- addClauses(): Add additional clauses to template
+- removeClauses(): Remove non-required clauses
+- generatePreview(): Generate structured preview data
+- generateContract(): Create complete contract object with auto-generated number
+
+### 4. E-Signature Module (src/lib/contracts/e-signature.ts)
+- createSignature(): Create digital signature record with SHA-256 hash
+- verifySignature(): Verify signature integrity and authenticity
+- createSignatureRequest(): Create signing request with expiration
+- updateSignatureRequestStatus(): Track request lifecycle
+- getPendingRequestsForUser(): List pending signatures
+- addAuditEntry(): Comprehensive audit trail logging
+- formatAuditTrail(): Multi-language audit formatting
+- generateCertificateOfAuthenticity(): Tamper-evident certificate generation
+- verifyCertificate(): Certificate validation
+- getSigningStatusSummary(): Overall signing status
+
+### 5. Clause Management (src/lib/contracts/clauses.ts)
+- findClauses(): Search and filter clauses by category/type/keyword
+- getSuggestedClauses(): Get context-aware clause suggestions
+- validateClause(): Validate clause data completeness
+- hasUnfilledPlaceholders(): Detect remaining template variables
+- getCategorySummary(): Get category statistics
+- Custom clause CRUD operations (create/read/update/delete)
+
+### 6. PDF Export Module (src/lib/contracts/pdf-export.ts)
+- generateContractHTML(): Full HTML document generation with:
+  - Professional letterhead with AlgeriaTrade branding
+  - Bilingual header (AR/FR)
+  - Party information blocks
+  - Formatted clauses with language toggle
+  - Signature blocks with date stamps
+  - Stamp/seal area placeholder
+  - Page numbers
+  - Responsive design for A4 print
+- generatePDFFilename(): Standardized filename generation
+- Support for watermark option
+
+### 7. React Components (src/components/contracts/)
+**ContractWizard.tsx**:
+- 4-step wizard: Template → Parties → Details → Review
+- Real-time validation per step
+- Responsive design with mobile support
+- Progress indicator with step labels in EN/AR/FR
+
+**ContractPreview.tsx**:
+- Full contract display with expandable clauses
+- Language toggle (AR/FR/Bilingual)
+- Party cards with company details
+- Signature status indicators
+- Compact mode for list view
+- Action buttons (Sign/Edit/PDF)
+
+**ContractSigner.tsx**:
+- Three signature methods: Draw / Type / Upload
+- Canvas-based drawing with touch support
+- Legal notice about Law 10-11 compliance
+- Terms agreement checkbox
+- Security timestamp display
+- Loading states
+
+**ClauseSelector.tsx**:
+- Category sidebar with counts
+- Search functionality
+- Required-only filter
+- Bulk select/deselect by category
+- Selection state management
+- Disabled state for required clauses
+
+**TemplateGallery.tsx**:
+- Card grid layout with colored headers
+- Category filter dropdown
+- Template preview dialog with full details
+- Usage statistics display
+- Mobile-responsive compact view
+
+**ContractList.tsx** (Updated):
+- Enhanced filtering (status/type/search)
+- Desktop table + mobile card views
+- Pagination controls
+- Empty state with CTA
+- Bilingual status labels
+
+### 8. API Routes (src/app/api/contracts/)
+- **GET /api/contracts**: List contracts with pagination/filters
+- **POST /api/contracts**: Create new contract
+- **POST /api/contracts/generate**: Preview or generate contract
+- **GET /api/contracts/templates**: List available templates
+- **GET /api/contracts/clauses**: Search/list clauses
+- **GET /api/contracts/[id]**: Get contract details (JSON or HTML)
+- **PUT /api/contracts/[id]**: Update draft contract
+- **DELETE /api/contracts/[id]**: Delete draft contract
+- **POST /api/contracts/[id]/sign**: Sign contract with e-signature
+- **GET /api/contracts/[id]/sign**: Get signing status
+
+### 9. Tests (__tests__/contracts.test.ts)
+Comprehensive test coverage:
+- Configuration tests (types, languages, categories)
+- Clause library tests (getAll, getByCategory, getById, search)
+- Template tests (listAll, getByType, bilingual content)
+- Generator tests (fillTemplate, add/removeClauses, preview, generate)
+- E-Signature tests (create, verify, requests, certificates, audit)
+- Clause management tests (validate, placeholders, suggestions)
+- PDF export tests (HTML generation, filename)
+
+### 10. Main Page Update (src/app/page.tsx)
+Complete contract module showcase:
+- Hero section with module overview
+- Statistics dashboard (templates, clauses, languages)
+- Quick action cards (Templates, Wizard, Demo)
+- Template gallery integration
+- Demo contract preview with full features
+- Feature highlights (Law compliance, bilingual, e-signatures, PDF)
+- Legal compliance information panel
+- Tab-based navigation between views
+
+Stage Summary:
+✅ Complete contract generation engine with 7 templates
+✅ 50+ Algerian law compliant standard clauses
+✅ E-Signature module with SHA-256 verification
+✅ PDF export with professional formatting
+✅ 5 React components for full UI workflow
+✅ 8 API endpoints for complete CRUD operations
+✅ Comprehensive test suite
+✅ Main page integration with demo capabilities
+
+Files Created/Modified:
+- src/lib/contracts/config.ts (NEW)
+- src/lib/contracts/generator.ts (NEW)
+- src/lib/contracts/e-signature.ts (NEW)
+- src/lib/contracts/clauses.ts (NEW)
+- src/lib/contracts/pdf-export.ts (NEW)
+- src/lib/contracts/index.ts (NEW)
+- src/lib/contracts/templates/index.ts (NEW)
+- src/lib/contracts/templates/sales-contract.ts (NEW)
+- src/lib/contracts/templates/purchase-order.ts (NEW)
+- src/lib/contracts/templates/nda.ts (NEW)
+- src/lib/contracts/templates/service-agreement.ts (NEW)
+- src/lib/contracts/templates/distribution.ts (NEW)
+- src/lib/contracts/templates/partnership.ts (NEW)
+- src/lib/contracts/templates/exclusivity.ts (NEW)
+- src/components/contracts/ContractWizard.tsx (NEW)
+- src/components/contracts/ContractPreview.tsx (UPDATED)
+- src/components/contracts/ContractSigner.tsx (NEW)
+- src/components/contracts/ClauseSelector.tsx (NEW)
+- src/components/contracts/TemplateGallery.tsx (NEW)
+- src/components/contracts/index.ts (UPDATED)
+- src/app/api/contracts/route.ts (UPDATED)
+- src/app/api/contracts/generate/route.ts (NEW)
+- src/app/api/contracts/templates/route.ts (UPDATED)
+- src/app/api/contracts/clauses/route.ts (NEW)
+- src/app/api/contracts/[id]/route.ts (UPDATED)
+- src/app/api/contracts/[id]/sign/route.ts (NEW)
+- __tests__/contracts.test.ts (NEW)
+- src/app/page.tsx (UPDATED)
+
+
+---
+Task ID: 2-C
+Agent: Main Coordinator
+Task: Implement CRM Integration Suite for AlgeriaTrade.dz
+
+Work Log:
+- Created comprehensive CRM module in `src/lib/crm/` with 8 sub-modules:
+  - config.ts: Pipeline stages, activity types, lead scoring rules, notification preferences, email templates, segment fields, export configuration
+  - contacts.ts: Contact CRUD, import/export, duplicate detection (string similarity), contact merging, tags management
+  - leads.ts: Lead CRUD, scoring algorithm (engagement/fit/behavior/urgency/authority), stage transitions, conversion tracking, round-robin assignment
+  - pipeline.ts: Deal management, Kanban-style pipeline board, stage transitions (lead→qualified→proposal→negotiation→won/lost), pipeline analytics & forecasting
+  - activities.ts: Activity logging (calls/emails/meetings/notes), timeline view, auto follow-up scheduling, sentiment analysis (EN/FR), activity statistics
+  - tasks.ts: Task CRUD, priority levels (urgent/high/medium/low), due date tracking, bulk operations, reminders system
+  - analytics.ts: Dashboard KPIs, conversion metrics, revenue forecasting (conservative/moderate/optimistic), customer lifetime value, report generation
+  - communication.ts: Email template rendering, communication history, internal notes, quick send helpers
+
+- Created 10 new React components in `src/components/crm/`:
+  - CRMDashboard.tsx: Main dashboard with KPIs, recent leads, tasks, activity widgets
+  - ContactManager.tsx: Full contact table with search/filter, create/edit dialog, pagination, detail view dialog
+  - LeadList.tsx: Lead list with scoring badges, source/status filters, stage progress bars, detail dialog
+  - PipelineView.tsx: Horizontal pipeline view, funnel visualization, stage summaries, deal cards
+  - DealCard.tsx: Compact and full deal cards, stage colors, probability indicators, loss reason display
+  - ActivityFeed.tsx: Timeline with type icons/colors, log activity dialog, filter by type
+  - TaskList.tsx: Task list with priority badges, status indicators, overdue highlighting
+  - QuickActions.tsx: 9 quick action buttons (add contact/lead, call/email/meeting/task/export/import/reports)
+  - SegmentBuilder.tsx: Visual segment builder with AND/OR filters, field operators, preview counts
+  - CRMReports.tsx: Overview/pipeline/conversion/activity tabs, charts, insights/recommendations
+
+- Created 8 API routes in `src/app/api/crm/`:
+  - /contacts/route.ts: GET (list/search), POST (create)
+  - /contacts/[id]/route.ts: GET, PUT, DELETE + POST for stage changes
+  - /deals/route.ts: GET (list/search), POST (create)
+  - /deals/[id]/route.ts: GET, PUT, DELETE + win/lose operations
+  - /activities/route.ts: GET (list/search with filters), POST (log activity)
+  - /analytics/route.ts: GET dashboard/conversion/forecast/clv/report data
+  - /import/route.ts: POST (bulk import from CSV)
+  - /export/route.ts: GET (export as CSV/JSON)
+
+- Updated main page (`src/app/page.tsx`) to integrate full CRM suite with tabbed interface
+
+- Created comprehensive test suite in `__tests__/crm/test.ts` covering all major functions
+
+Stage Summary:
+- Complete CRM integration suite ready for production use
+- Full sales pipeline management (6 stages)
+- Automated lead scoring algorithm
+- Multi-language support (EN/FR) for Algerian market
+- Import/export functionality for data portability
+- Real-time analytics and reporting dashboard
+
+---
+Task ID: 2-C (Retry)
+Agent: CRM Integration Specialist
+Task: Implement CRM Integration Suite for AlgeriaTrade.dz
+
+Work Log:
+
+## 1. Core Library Files (`src/lib/crm/`)
+
+### config.ts - Configuration & Constants
+- Pipeline stages configuration (Lead → Qualified → Proposal → Negotiation → Closed Won/Lost)
+- Activity types with multilingual labels (EN/AR/FR)
+- Lead scoring rules with weighted factors:
+  - Engagement (30 points max)
+  - Fit/ICP match (25 points max)
+  - Behavior signals (20 points max)
+  - Urgency indicators (15 points max)
+  - Authority level (10 points max)
+- Lead sources configuration (website, referral, trade_show, rfq, etc.)
+- Task priorities (urgent, high, medium, low) with response time targets
+- Contact statuses (active, inactive, prospect, customer, churned)
+- Notification preferences configuration
+- Email templates for follow-up, proposals, welcome, reminders
+- CRM settings defaults optimized for Algerian market
+- Segment field options for contact filtering
+- Export/import field configurations
+- Analytics defaults (date ranges, chart colors)
+
+### contacts.ts - Contact Management
+- Full CRUD operations (create, read, update, delete)
+- Advanced search with filters (status, role, tags, source, city, date ranges)
+- Pagination support with configurable page size
+- Duplicate detection algorithm with:
+  - Email matching (weight: 40)
+  - Phone normalization and matching (weight: 25)
+  - Name similarity using Levenshtein distance (weight: 20)
+  - Company matching (weight: 15)
+- Contact merging with data consolidation
+- Tag management (add, remove, list all unique tags)
+- Import from CSV-like data with duplicate handling options
+- Export to structured format with field selection
+- DB mapping layer for Prisma schema compatibility
+
+### leads.ts - Lead Management
+- Lead CRUD with auto-generated lead numbers
+- Lead scoring algorithm based on:
+  - Source quality (RFQ highest, cold call lowest)
+  - Estimated value tiers
+  - Company size indicators
+- Stage transitions with probability updates
+- Qualification workflow (NEW → CONTACTED → QUALIFIED → PROPOSAL → NEGOTIATION → WON/LOST)
+- Conversion tracking (lead to deal conversion)
+- Loss analysis (reason, competitor)
+- Search and filtering capabilities
+- Source tracking and analytics
+
+### pipeline.ts - Sales Pipeline & Deals
+- Pipeline management (create, read, update default/custom pipelines)
+- Deal CRUD operations
+- Stage transition handling with history tracking
+- Win/Loss deal operations with reason capture
+- Probability calculation based on stage
+- Pipeline analytics including:
+  - Total deals value (weighted and unweighted)
+  - Average deal size
+  - Conversion rates by stage
+  - Win rate calculations
+  - Velocity metrics (deals/month)
+  - Value trends by month
+  - Top loss reasons analysis
+- Revenue forecasting:
+  - Weighted forecast (probability-based)
+  - Best case scenario
+  - Committed deals (70%+ probability)
+  - Monthly breakdown
+
+### activities.ts - Activity Logging & Timeline
+- Activity types: calls, emails, meetings, notes, follow-ups, demos, etc.
+- Direction tracking (inbound/outbound)
+- Duration tracking for calls/meetings
+- Sentiment analysis (positive/negative/neutral) with bilingual keyword support
+- Attachment support via URL storage
+- Automation flags for system-generated activities
+- Timeline view combining activities and completed tasks
+- Follow-up scheduling based on activity type:
+  - Calls → 24 hours
+  - Emails → 48 hours
+  - Meetings → 1 week
+  - Demos → 2 days
+  - Proposals → 3 days
+- Activity statistics (by type, direction, day, duration averages)
+
+### tasks.ts - Task Management
+- Task CRUD with status tracking (TODO, IN_PROGRESS, COMPLETED, CANCELLED, DEFERRED)
+- Task types: CALL, EMAIL, MEETING, FOLLOW_UP, PROPOSAL, DEMO, REMINDER, OTHER
+- Priority levels with color coding
+- Due date and time tracking
+- Reminder system (configurable minutes before due date)
+- Completion tracking with result notes and outcomes
+- Advanced search and filtering:
+  - Overdue tasks
+  - Tasks due today/this week
+  - By status, priority, type, assignee
+- Task statistics dashboard:
+  - Counts by status and priority
+  - Overdue and due today counts
+  - Completion rate
+  - Average completion time
+- Bulk operations (complete, reassign, update priorities)
+- Reminder scheduling and tracking
+
+### analytics.ts - Sales Analytics & Reporting
+- Dashboard metrics aggregation:
+  - Contacts (total, new this period, active)
+  - Leads (total, new, qualified, by source)
+  - Pipeline value (total, weighted)
+  - Deals (won, lost, win rate, avg size)
+  - Revenue this period
+  - Tasks (open, overdue)
+  - Activities count
+  - Trend data (contacts, leads, revenue over time)
+- Conversion metrics:
+  - Overall conversion rate
+  - By source conversion rates
+  - Monthly conversion trends
+  - Average conversion days
+  - Funnel stage visualization
+- Revenue forecasting:
+  - Current month, next month, quarter, year projections
+  - Confidence levels (conservative, moderate, optimistic)
+  - By salesperson breakdown
+- Customer Lifetime Value (CLV):
+  - Average CLV calculation
+  - Top customers ranking
+  - Retention rate tracking
+  - Average lifespan estimation
+- Report generation with AI-powered recommendations
+
+## 2. Components (`src/components/crm/`)
+
+### CRMDashboard.tsx
+- KPI cards grid (6 metrics): Contacts, Prospects, Won, Conversion %, Pipeline Value, Overdue
+- Time range selector (7d, 30d, 90d)
+- Refresh and export actions
+- Tabbed interface: Overview, Pipeline, Kanban, Tasks, Activity
+- Recent leads display with LeadCard components
+- Quick action buttons grid
+- Leads by source visualization
+
+### ContactManager.tsx
+- Full contact table with sorting
+- Search and filter controls
+- Status badges and role indicators
+- Tag display
+- Bulk operations support
+- Pagination controls
+
+### PipelineView.tsx
+- Visual pipeline representation
+- Stage-based deal organization
+- Drag-and-drop stage transitions
+- Deal value summaries per stage
+- Win/loss indicators
+
+### KanbanBoard.tsx
+- Kanban-style board layout
+- Column-based stage view
+- Deal cards with key info
+- Quick status changes
+- Compact card mode available
+
+### DealCard.tsx
+- Individual deal display
+- Stage and probability indicators
+- Value formatting (DZD currency)
+- Expected close date
+- Compact and full modes
+- Action buttons (edit, move, win/lose)
+
+### ActivityFeed.tsx
+- Chronological activity timeline
+- Type-specific icons and colors
+- Contact/lead linking
+- Filterable by type, date range
+- Configurable item limit
+- Sentiment indicators
+
+### TaskList.tsx
+- Task listing with priorities
+- Color-coded priority badges
+- Due date indicators (overdue highlighting)
+- Status transitions
+- Bulk complete capability
+- Assignment display
+
+### Additional Components
+- **LeadCard.tsx**: Lead display with score badge
+- **LeadList.tsx**: Full lead management interface
+- **QuickActions.tsx**: Quick action button bar
+- **SegmentBuilder.tsx**: Contact segmentation UI
+- **CRMReports.tsx**: Analytics reports viewer
+- **InteractionTimeline.tsx**: Combined entity timeline
+- **ContactDetail.tsx**: Detailed contact view
+- **LeadScoringBadge.tsx**: Visual score indicator
+
+## 3. API Routes (`src/app/api/crm/`)
+
+| Route | Methods | Description |
+|-------|---------|-------------|
+| `/api/crm/contacts` | GET, POST | Contact list/search, create |
+| `/api/crm/contacts/[id]` | GET, PUT, DELETE | Single contact CRUD |
+| `/api/crm/leads` | GET, POST | Lead list/filter, create |
+| `/api/crm/leads/[id]` | GET, PUT | Single lead operations |
+| `/api/crm/leads/[id]/convert` | POST | Convert lead to deal |
+| `/api/crm/deals` | GET, POST | Deal list/create |
+| `/api/crm/deals/[id]` | GET, PUT, DELETE | Single deal CRUD |
+| `/api/crm/pipelines` | GET, POST | Pipeline management |
+| `/api/crm/activities` | GET, POST | Activity logging |
+| `/api/crm/tasks` | GET, POST | Task CRUD |
+| `/api/crm/tasks/[id]/complete` | POST | Complete task |
+| `/api/crm/analytics` | GET | Analytics data |
+| `/api/crm/dashboard/stats` | GET | Dashboard KPIs |
+| `/api/crm/segments` | GET, POST | Segmentation |
+| `/api/crm/export` | GET | Data export (CSV) |
+| `/api/crm/import` | POST | Data import |
+| `/api/crm/interactions` | GET, POST | Interaction logging |
+
+## 4. Database Schema (Prisma Models)
+
+```prisma
+model CRMContact {
+  id, companyId, userId
+  firstName, lastName, email, phone, mobile
+  jobTitle, department, role
+  linkedinUrl, avatarUrl
+  preferredLanguage, preferredContactMethod, timezone
+  tags (JSON), notes
+  lastInteractionAt, createdAt, updatedAt
+}
+
+model CRMLead {
+  id, leadNumber (unique)
+  source, sourceDetails, campaignId
+  companyName, industry, companySize, website
+  wilaya, city, primaryContactId
+  status, pipelineStage
+  estimatedValue, currency, probability
+  expectedCloseDate, assignedTo, teamId
+  interestedCategories, interestedProducts, specificRequirements
+  leadScore, engagementScore, convertedToDealId
+  notes (JSON), createdAt, updatedAt
+}
+
+model CRMTask {
+  id, leadId, contactId, companyId
+  title, description, type, priority, status
+  dueDate, dueTime, completedAt
+  assignedTo, createdBy
+  remindBefore, reminderSent
+  resultNotes, outcome
+  createdAt, updatedAt
+}
+
+model CRMInteraction {
+  id, contactId, leadId, companyId
+  type, direction, subject, content
+  duration, channel
+  sentiment, nextSteps
+  attachmentUrls (JSON)
+  automated, triggeredBy, createdBy
+  createdAt
+}
+
+model CRMPipeline {
+  id, name, description
+  stages (JSON), defaultLeadStatus
+  isPublic, allowedRoles (JSON)
+  autoAdvanceRules (JSON)
+  createdAt, updatedAt
+}
+
+model CRMSegment {
+  id, name, description
+  filters (JSON), contactCount
+  lastCalculated, createdAt
+}
+
+model CRMAutomationRule {
+  id, name, eventType
+  conditions (JSON), actions (JSON)
+  enabled, lastTriggeredAt, executionCount
+  createdAt, updatedAt
+}
+```
+
+## 5. Tests (`__tests__/crm/test.ts`)
+
+Comprehensive test suite covering:
+- Config validation (pipeline stages, activity types, priorities)
+- Contact CRUD and validation
+- Duplicate detection algorithms
+- Contact merging functionality
+- Lead creation and scoring
+- Stage transitions
+- Deal lifecycle (create, win, lose)
+- Activity logging and sentiment analysis
+- Follow-up scheduling
+- Task CRUD and completion
+- Analytics and reporting
+- End-to-end integration tests
+
+## Implementation Notes
+
+1. **Algerian Market Optimization**:
+   - Default currency: DZD
+   - Timezone: Africa/Algiers
+   - Bilingual support (French/Arabic) in all configs
+   - Phone number formatting for +213 prefix
+   - Wilaya-based geographic organization
+
+2. **Performance Considerations**:
+   - Parallel database queries where possible
+   - Efficient pagination
+   - Indexed searches
+   - Cached aggregations
+
+3. **Security**:
+   - Owner-scoped data access
+   - Input validation on all endpoints
+   - SQL injection prevention via Prisma ORM
+
+4. **Extensibility**:
+   - Custom pipeline support
+   - Automation rules engine
+   - Segment builder for targeted outreach
+   - Plugin-ready architecture
+
+Stage Summary:
+- ✅ Core library complete (7 modules)
+- ✅ UI components complete (14 components)
+- ✅ API routes complete (17 endpoints)
+- ✅ Database schema defined (7 models)
+- ✅ Test suite comprehensive (30+ test cases)
+- ✅ Lint passing (0 errors in CRM code)
+- Platform Status: CRM SUITE COMPLETE AND READY FOR USE
+
+---
+Task ID: 2-D
+Agent: ERP Integration Specialist
+Task: Implement Inventory/ERP Sync System for AlgeriaTrade.dz
+
+Work Log:
+## ERP Core Library (`src/lib/erp/`)
+
+### 1. Configuration (`config.ts`)
+- Defined supported ERP systems: SAP S/4HANA, Odoo, Microsoft Dynamics 365, Custom REST API
+- Created comprehensive type definitions:
+  - `ERPSystemType`, `AuthType`, `SyncDirection`, `ConflictResolution`, `SyncFrequency`
+  - `ERPSystemConfig` with capabilities, endpoints, rate limiting per system
+  - `SyncScheduleConfig` with delta sync and full sync settings
+  - `FieldMappingDefinition` with transform rules and validation
+- Implemented default field mappings for SAP (MATNR, MAKTX, etc.) and Odoo (id, name, list_price, etc.)
+- Added retry policy configuration with exponential backoff
+
+### 2. Base Connector (`connectors/base-connector.ts`)
+- Abstract class `BaseERPConnector` implementing `IERPConnector` interface
+- Core methods: `connect()`, `disconnect()`, `testConnection()`, `fetchProducts()`, `syncInventory()`, `pushOrder()`
+- Built-in retry logic with configurable backoff
+- Data transformation helpers (nested value get/set, field transforms)
+- Authentication header builder supporting API Key, Basic Auth, OAuth2
+- Event hooks: onSyncStart, onSyncComplete, onError
+
+### 3. SAP Connector (`sap-connector.ts`)
+- SAP S/4HANA / Business One integration via OData/REST APIs
+- Type definitions for SAP entities: `SAPMaterial`, `SAPBusinessPartner`, `SAPSalesOrder`, `SAPStock`
+- Methods: pullProducts(), pullInventory(), pullCustomers(), pullOrders()
+- Push operations: pushProduct(), pushInventory(), pushOrder(), pushCustomer()
+- SAP-specific OData endpoint paths and status mapping
+
+### 4. Odoo Connector (`odoo-connector.ts`)
+- Odoo Community/Enterprise integration via XML-RPC/JSON-RPC
+- Type definitions: `OdooProduct`, `OdooPartner`, `OdooSaleOrder`, `OdooStockMove`
+- Full CRUD operations for products, partners, sale orders, stock moves
+- Odoo-specific authentication flow (database selection, uid management)
+- XML-RPC method execution helpers
+
+### 5. REST Connector (`connectors/rest-connector.ts`)
+- Generic REST API connector with OAuth2 support
+- Configurable custom endpoints with request/response transforms
+- Pagination support: offset, cursor, page-based
+- Webhook registration/unregistration methods
+- Token refresh mechanism for OAuth2 flows
+
+### 6. Sync Engine (`sync-engine.ts`)
+- Bidirectional sync orchestration with conflict resolution
+- Delta sync support with timestamp-based change detection
+- Operation queue with priority handling
+- Conflict resolution strategies: LAST_WRITE_WINS, MANUAL, MERGE, PLATFORM_WINS, ERP_WINS
+- Comprehensive logging and error tracking
+- Health check functionality for all connectors
+
+### 7. Field Mapper (`field-mapper.ts`)
+- Visual field mapping UI components
+- Transform options: uppercase, lowercase, toNumber, toFloat, toDate, formatPrice, etc.
+- Validation rules: required, pattern, minLength, maxLength, enum
+- Preset management (save/load/export/import mappings)
+- DataTransformer class with full transformation pipeline
+- Local and ERP field definitions with sample values
+
+### 8. Webhook Handler (`webhook-handler.ts`)
+- Multi-ERP webhook receiving and processing
+- HMAC-SHA256 signature verification
+- Timestamp validation to prevent replay attacks
+- IP allowlisting support
+- Event routing to appropriate handlers
+- Default configurations per ERP type
+
+### 9. Security Module (`security.ts`)
+- AES-256-GCM encryption for credential storage
+- Secure key generation and management
+- HMAC signature generation and verification (timing-safe comparison)
+- Credential masking for logs/display
+- In-memory rate limiter implementation
+- IP allowlist/blocklist classes
+- Input validation utilities
+
+## UI Components (`src/components/erp/`)
+
+### 1. ERPSetupWizard.tsx
+- Multi-step wizard (5 steps): Selection → Connection → Mapping → Sync Config → Finalization
+- Progress indicator with step navigation
+- Real-time connection testing
+- Summary view before activation
+
+### 2. ConnectorSelection.tsx
+- Visual ERP type selector with cards
+- Feature highlights per ERP system
+- Capability indicators
+
+### 3. ConnectionForm.tsx
+- Dynamic form based on ERP type
+- Credential fields: endpoint, auth type, API keys, OAuth2 settings
+- Form validation
+
+### 4. SyncDashboard.tsx
+- Real-time sync status display
+- Per-entity sync controls
+- Auto-sync toggle
+- Schedule configuration
+- Recent sync log viewer integration
+
+### 5. SyncLogViewer.tsx
+- Filterable sync history table
+- Status badges (SUCCESS, FAILED, PARTIAL, PENDING)
+- Detailed error view expansion
+- CSV export functionality
+- Pagination support
+
+### 6. Additional Components
+- FieldMappingEditor.tsx - Drag-and-drop field mapping UI
+- SyncConfiguration.tsx - Frequency, direction, conflict resolution settings
+- InventoryStatus.tsx - Stock level display with reconciliation
+- ERPTestConnection.tsx - Connection testing interface
+- ERPConfigForm.tsx - Complete configuration form
+
+## API Routes (`src/app/api/erp/`)
+
+| Route | Method | Description |
+|-------|--------|-------------|
+| `/api/erp/connectors` | GET/POST | List/Create connectors |
+| `/api/erp/connectors/[id]` | GET/PUT/DELETE | Get/Update/Delete connector |
+| `/api/erp/connectors/[id]/sync` | POST | Trigger manual sync |
+| `/api/erp/connectors/[id]/logs` | GET | Get sync logs |
+| `/api/erp/configs` | GET/POST | List/Create configs |
+| `/api/erp/configs/[id]` | GET/PUT | Get/Update config |
+| `/api/erp/configs/[id]/sync` | POST | Trigger config sync |
+| `/api/erp/webhook/[connectorType]` | POST | Receive webhooks |
+| `/api/erp/field-mappings` | GET/POST | Manage field mappings |
+| `/api/erp/sync-history` | GET | Get sync history |
+| `/api/erp/inventory-status` | GET | Get inventory status |
+
+## Database Schema (Prisma)
+
+```prisma
+model ErpConnector {
+  id            String    @id @default(cuid())
+  userId        String
+  name          String
+  type          String    // SAP, ODOO, DYNAMICS, CUSTOM, REST
+  displayName   String?
+  credentials   String    @default("{}") // Encrypted JSON
+  status        String    @default("DISCONNECTED")
+  lastSyncAt    DateTime?
+  nextSyncAt    DateTime?
+  errorCount    Int       @default(0)
+  errorMessage  String?
+  fieldMappings String    @default("[]")
+  syncConfig    String    @default("{}")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  syncLogs      ErpSyncLogNew[]
+  inventoryRecords InventorySyncRecord[]
+}
+
+model ErpSyncLogNew {
+  id                String    @id @default(cuid())
+  connectorId       String
+  direction         String    // PUSH, PULL, BIDIRECTIONAL
+  entityType        String
+  recordsProcessed  Int       @default(0)
+  recordsSuccess    Int       @default(0)
+  recordsFailed     Int       @default(0)
+  startedAt         DateTime  @default(now())
+  completedAt       DateTime?
+  durationSeconds   Int?
+  status            String    @default("PENDING")
+  errorMessage      String?
+  details           String    @default("{}")
+  connector         ErpConnector @relation(...)
+}
+
+model InventorySyncRecord {
+  id                 String    @id @default(cuid())
+  connectorId        String
+  externalProductId  String?
+  internalProductId  String
+  externalSku        String?
+  internalSku        String?
+  quantity           Float     @default(0)
+  lastSyncedAt       DateTime?
+  syncStatus         String    @default("PENDING") // SYNCED, PENDING, ERROR, CONFLICT
+  connector          ErpConnector @relation(...)
+}
+```
+
+## Background Jobs (`src/lib/jobs/erp-jobs.ts`)
+
+1. **ScheduledSyncJob** - Hourly/daily sync execution for all active connectors
+2. **HealthCheckJob** - Every 5-minute health verification with failure alerts
+3. **CleanupJob** - Daily cleanup of old logs (90-day retention)
+4. **InventoryReconciliationJob** - 6-hourly stock reconciliation with auto-correction
+5. **ERPJobsManager** - Unified start/stop/status control
+
+## Main Dashboard (`src/app/page.tsx`)
+
+Complete ERP Integration Hub featuring:
+- System statistics overview (connectors, syncs, success rate, records)
+- Tabbed interface: Overview, Connectors, Sync, Inventory
+- Active connector cards with status indicators
+- Recent activity feed
+- Supported ERPs showcase
+- Quick actions for setup and synchronization
+
+Stage Summary:
+- Complete ERP integration system implemented
+- 5 ERP systems supported (SAP, Odoo, Dynamics, Custom, REST)
+- Full bidirectional sync capability with conflict resolution
+- Security-first design with AES-256 encryption
+- Comprehensive UI for configuration and monitoring
+- Background job infrastructure for automated operations
+- All lint warnings resolved (no errors in ERP codebase)
+---
+Task ID: Action-4
+Agent: Training Materials Team
+Task: Create Training Materials for CRM and Negotiation Features on AlgeriaTrade.dz
+
+Work Log:
+- Created comprehensive directory structure: docs/TRAINING/ with SCRIPTS/, CHEATSHEETS/, QUIZZES/ subdirectories
+- Developed main Training Guide (CRM-NEGOTIATION-GUIDE.md) covering:
+  - Part 1: CRM Module Training (5 chapters)
+    - Chapter 1: Getting Started (Dashboard, Navigation, Quick Actions)
+    - Chapter 2: Contact Management (Adding contacts, Segmentation, Tags)
+    - Chapter 3: Sales Pipeline (Stages, Deal Management, Forecasting)
+    - Chapter 4: Activities & Tasks (Logging interactions, Follow-ups)
+    - Chapter 5: Analytics & Reports (KPIs, Win/Loss Analysis)
+  - Part 2: Negotiation System Training (4 chapters)
+    - Chapter 1: Understanding Negotiations (When to use, Business rules)
+    - Chapter 2: For Buyers (Making offers, Handling counters)
+    - Chapter 3: For Sellers (Reviewing offers, Making counters)
+    - Chapter 4: Best Practices (Tips, Common mistakes)
+- Created Video Tutorial Scripts:
+  - crm-overview-script.txt (~15 minute walkthrough with demo scenarios)
+  - negotiation-demo-script.txt (~12 minute complete negotiation scenario)
+- Generated PDF Quick Reference Cards using Creative Fixed Canvas pipeline:
+  - crm-cheatsheet.pdf (Keyboard shortcuts, Pipeline stages, Lead scoring, KPIs)
+  - negotiation-cheatsheet.pdf (Rules, Workflow steps, Tips, Common mistakes)
+- Developed Assessment Quizzes in JSON format:
+  - crm-quiz.json (12 questions covering all CRM modules)
+  - negotiation-quiz.json (15 questions covering buyer/seller perspectives)
+- Created Comprehensive FAQ Document (FAQ.md):
+  - 35 questions across CRM and Negotiation categories
+  - Organized by topic for easy navigation
+  - Includes troubleshooting section
+
+Deliverables Summary:
+├── docs/TRAINING/
+│   ├── CRM-NEGOTIATION-GUIDE.md (Main training manual - ~26KB)
+│   ├── FAQ.md (35 FAQs covering both systems - ~18KB)
+│   ├── SCRIPTS/
+│   │   ├── crm-overview-script.txt (Video tutorial script)
+│   │   └── negotiation-demo-script.txt (Demo scenario script)
+│   ├── CHEATSHEETS/
+│   │   ├── crm-cheatsheet.pdf (Quick reference card - 135KB)
+│   │   ├── crm-cheatsheet.html (Source file)
+│   │   ├── crm-cheatsheet-blueprint.json (Design blueprint)
+│   │   ├── negotiation-cheatsheet.pdf (Quick reference card - 116KB)
+│   │   ├── negotiation-cheatsheet.html (Source file)
+│   │   └── negotiation-cheatsheet-blueprint.json (Design blueprint)
+│   └── QUIZZES/
+│       ├── crm-quiz.json (12 assessment questions)
+│       └── negotiation-quiz.json (15 assessment questions)
+
+Stage Summary:
+- All training materials completed as per requirements
+- Ready for team onboarding and user education
+- Materials cover both CRM and Negotiation systems comprehensively
+- Multiple formats available (text, PDF, JSON) for different use cases
+
+---
+Task ID: Action-3
+Agent: DevOps Engineering Team
+Task: Create Production Deployment Guide and CI/CD Pipeline Updates for AlgeriaTrade.dz Phase 8
+
+Work Log:
+- Updated CI/CD Pipeline (.github/workflows/deploy-production.yml) with Phase 8 enhancements:
+  - Stage 9: Payment Provider Verification (SATIM, Stripe, Crypto webhook tests)
+  - Stage 10: ERP Connector Validation (SAP/Odoo connectivity validation)
+  - Stage 11: AR Model Optimization (GLB optimization and USDZ generation)
+  - Stage 12: Database Migration (Prisma migrations and data seeding)
+  - Stage 13: Enhanced Smoke Tests (full service health verification)
+  - Updated rollback procedure with Phase 8 service handling
+  - Enhanced Slack notifications with Phase 8 specific details
+- Created Deployment Checklist (docs/PHASE8-DEPLOYMENT-CHECKLIST.md):
+  - Pre-deployment requirements (code merging, testing, backups)
+  - Payment configuration (SATIM, Stripe, Crypto setup)
+  - Service deployment (WebRTC, background jobs, CDN)
+  - Database migration procedures
+  - ERP integration setup (SAP/Odoo configuration)
+  - AR model configuration (storage, optimization pipeline)
+  - Post-deployment verification steps
+  - Monitoring and alerting checklist
+  - Sign-off section with role-based approval
+- Created Docker Compose Update (docker-compose.phase8.yml):
+  - webrtc-signaling service (port 3002, Redis-backed state)
+  - crypto-monitor job (blockchain transaction monitoring)
+  - erp-sync-scheduler (SAP/Odoo synchronization)
+  - currency-refresher (exchange rate updates via Fixer.io)
+  - invoice-worker (PDF invoice generation)
+  - ar-model-processor (on-demand GLB optimization)
+  - Volume definitions for new services
+  - Resource limits and health checks for all services
+- Created Migration Script (scripts/migrate-phase8.sh):
+  - Pre-migration backup functionality
+  - Prisma schema generation and migration execution
+  - Data seeding (TVA rates, currencies, payment providers, CRM pipeline stages)
+  - Performance index creation for all new tables
+  - Post-migration verification checks
+  - Rollback capability from backup
+  - Dry-run mode for testing
+  - Comprehensive logging
+- Created Rollback Plan (docs/PHASE8-ROLLBACK-PLAN.md):
+  - Automatic and manual rollback triggers
+  - Decision authority matrix by situation type
+  - Pre-rollback diagnostic checklist
+  - Three rollback options: Full DB restore, Migration rollback, Feature flag disable
+  - Complete feature flags reference for instant disable without downtime
+  - Service shutdown/startup order sequences
+  - Communication templates (Slack alerts, customer emails)
+  - Data integrity verification scripts
+  - Financial data reconciliation queries for payment rollbacks
+  - Post-rollback action timeline
+  - Escalation matrix with contact information
+- Created Grafana Dashboards (docs/grafana/phase8-dashboards.json):
+  - Payment Processing Metrics panel:
+    - Total payment volume, success rate, active sessions, avg transaction time
+    - Transactions by provider (timeseries + pie chart)
+    - Error breakdown by type
+  - Currency Exchange Rates panel:
+    - USD/DZD, EUR/DZD rates display
+    - Rate freshness indicator
+    - Conversion request volume
+    - Cache hit rate, API failures
+    - Exchange rate history chart
+  - CRM Pipeline Health panel:
+    - Active deals count, pipeline value, win rate
+    - Average deal cycle time, new leads, activities
+    - Deals by stage bar chart
+    - Deal creation heatmap (day/hour)
+  - ERP Sync Status panel:
+    - Sync status indicator (color-coded)
+    - Records synced, sync errors counters
+    - Last successful sync timestamp
+    - SAP/Odoo connection status
+    - Sync activity log
+  - WebRTC Call Quality panel:
+    - Active calls, avg duration, success rate
+    - Signaling server latency (P99)
+    - ICE connection failures
+    - Audio/video packet loss metrics
+    - Calls initiated vs completed comparison
+  - AR Model Performance panel:
+    - Model catalog size, load times (P95)
+    - Viewer sessions per minute
+    - CDN cache hit rate
+    - Processing queue depth
+    - Optimization duration metrics
+    - Load time distribution (P50/P90/P99)
+
+Deliverables Summary:
+├── .github/workflows/deploy-production.yml (Updated CI/CD pipeline with 6 new stages)
+├── docs/PHASE8-DEPLOYMENT-CHECKLIST.md (Comprehensive deployment checklist)
+├── docker-compose.phase8.yml (New services overlay compose file)
+├── scripts/migrate-phase8.sh (Executable migration script - made executable)
+├── docs/PHASE8-ROLLBACK-PLAN.md (Complete rollback documentation)
+└── docs/grafana/phase8-dashboards.json (Grafana dashboard configuration)
+
+Stage Summary:
+- All Phase 8 deployment deliverables completed
+- CI/CD pipeline enhanced with provider-specific verification stages
+- Docker Compose ready for Phase 8 service deployment
+- Migration script tested-ready with backup/rollback support
+- Rollback plan covers all failure scenarios with <15min recovery target
+- Grafana dashboards provide comprehensive monitoring for all new features
+- Ready for production deployment of AlgeriaTrade.dz Phase 8
+
+---
+Task ID: Action-5
+Agent: Documentation Team
+Task: Create ERP Onboarding Guide for Pilot Customers on AlgeriaTrade.dz
+
+Work Log:
+- Created comprehensive ERP Integration Pilot Program documentation package
+- Developed main onboarding guide (PILOT-GUIDE.md) with 6-phase, 14-day implementation plan
+- Created technical reference document (TECHNICAL-REFERENCE.md) with complete API specifications
+- Built 3 checklist templates for pre-launch, go-live, and monthly maintenance
+- Documented support escalation matrix with severity levels and SLAs
+- Provided sample configuration files for SAP, Odoo, REST API connectors
+- Included field mapping reference CSV with transformation examples
+
+Files Created:
+1. docs/ERP-ONBOARDING/PILOT-GUIDE.md
+   - Complete 14-day pilot program guide
+   - Phase 1: Preparation (Day 1-2)
+   - Phase 2: Connection Setup (Day 3-4)
+   - Phase 3: Field Mapping (Day 5-7)
+   - Phase 4: Sync Configuration (Day 8-9)
+   - Phase 5: Testing (Day 10-12)
+   - Phase 6: Go-Live (Day 14)
+   - Troubleshooting common issues section
+
+2. docs/ERP-ONBOARDING/TECHNICAL-REFERENCE.md
+   - API endpoint specifications with request/response examples
+   - Authentication requirements for all supported ERPs
+   - Webhook payload formats and signature verification
+   - Complete field mapping reference (products, inventory, orders)
+   - Rate limits and throttling guidelines
+   - Comprehensive error codes dictionary
+   - Security requirements (encryption, IP allowlisting, certificates)
+
+3. docs/ERP-ONBOARDING/CHECKLISTS/pre-launch-checklist.md
+   - Administrative preparation items
+   - ERP system assessment checklist
+   - Access & credentials setup
+   - Network & infrastructure requirements
+   - Data preparation guidelines
+   - Risk assessment template
+
+4. docs/ERP-ONBOARDING/CHECKLISTS/go-live-checklist.md
+   - Technical validation criteria
+   - Order flow testing scenarios
+   - Monitoring & alerting configuration
+   - Operational readiness verification
+   - Go-live execution checklist
+   - Post go-live monitoring plan
+
+5. docs/ERP-ONBOARDING/CHECKLISTS/monthly-maintenance-checklist.md
+   - Health check summary metrics
+   - Connection & authentication review
+   - Synchronization performance analysis
+   - Data quality audit procedures
+   - Security review checklist
+   - Optimization opportunities tracking
+
+6. docs/ERP-ONBOARDING/SUPPORT-MATRIX.md
+   - Issue severity classification (P1-P5)
+   - Escalation matrix by issue type
+   - Contact directory template
+   - SLA definitions (response & resolution times)
+   - Major incident management procedures
+   - Quick reference card
+
+7. docs/ERP-ONBOARDING/SAMPLES/sap-config-example.json
+   - SAP S/4HANA configuration template
+   - OData service settings
+   - OAuth2 authentication setup
+   - Field mapping examples
+
+8. docs/ERP-ONBOARDING/SAMPLES/odoo-config-example.json
+   - Odoo 16/17 configuration template
+   - XML-RPC/API key authentication
+   - Model-specific field mappings
+   - Category and warehouse mapping
+
+9. docs/ERP-ONBOARDING/SAMPLES/rest-api-config-example.json
+   - Custom REST API connector template
+   - Multiple authentication method support
+   - Endpoint configuration patterns
+   - Advanced pagination and retry settings
+
+10. docs/ERP-ONBOARDING/SAMPLES/field-mapping-example.csv
+    - Complete field mapping spreadsheet
+    - Product, inventory, order field mappings
+    - Lookup tables for categories, statuses, UoM
+    - Transformation reference guide
+
+Stage Summary:
+- Complete ERP onboarding documentation package created
+- All deliverables per requirements satisfied
+- Ready for pilot customer distribution
+- Supports SAP, Odoo, Dynamics 365, and custom REST APIs
+
+---
+Task ID: Action-2
+Agent: Test Engineering Team
+Task: Create Staging Test Suite for Payment Flows on AlgeriaTrade.dz
+
+Work Log:
+
+1. Created Test Utilities (`__tests__/utils/payment-test-helpers.ts`)
+   - Luhn algorithm implementation for card number validation
+   - Test card generation (Visa, Mastercard, CIB)
+   - Crypto address generation (BTC, ETH, USDT, USDC - multiple networks)
+   - Webhook mock generators (Stripe, SATIM, Crypto)
+   - Order creation helpers with realistic data
+   - Payment status polling with timeout handling
+   - Assertion helpers (payment success, refund, TVA, conversion accuracy, DPA schedules)
+   - Load testing utilities (concurrent requests, metrics calculation)
+   - Data generation helpers (Algerian phone, email, DZD amounts, wilaya codes)
+
+2. Created Test Data Fixtures (`__tests__/fixtures/`)
+   - test-orders.json: 5 test orders covering domestic, export, DPA, crypto scenarios
+   - test-products.json: 9 products across agriculture, textiles, machinery, crafts, electronics
+   - test-users.json: 9 users (buyers and sellers) with varied profiles
+   - test-payments.json: 5 payment records (SATIM, Stripe, Crypto, DPA, Refund)
+   - webhooks/stripe-success.json: Complete payment_intent.succeeded webhook
+   - webhooks/satim-approved.json: SATIM APPROVED callback with 3DS data
+   - webhooks/crypto-confirmed.json: USDT TRC20 confirmed transaction
+
+3. Created Payment Flow Tests (`__tests__/payments/staging-flows.test.ts`)
+   
+   SATIM Test Cases:
+   - Card number formatting (Visa, Mastercard, CIB) with Luhn validation
+   - 3D Secure flow simulation (v2.0 and v1.0 fallback)
+   - HMAC-SHA256 signature generation/validation
+   - Callback handling (APPROVED, CANCELLED, ERROR, DECLINED)
+   - Refund processing (full and partial)
+   - Amount limits validation (min 100 DZD, max 50M DZD)
+
+   Stripe Test Cases:
+   - PaymentIntent creation (EUR/USD)
+   - Currency conversion (DZD → EUR/USD) with accuracy checks
+   - Webhook signature verification
+   - Customer creation and saved payment methods
+   - Refund in original currency
+   - Apple Pay/Google Pay flow simulation
+
+   Crypto Test Cases:
+   - Payment order creation (USDT/TRC20, BTC, ETH)
+   - QR code generation
+   - Exchange rate fetching and caching
+   - Transaction status polling
+   - Manual confirmation flow
+   - Rate locking mechanism with slippage tolerance
+
+   DPA/Installment Test Cases:
+   - Eligibility checking (rating, history, bank guarantee requirements)
+   - Schedule calculation (3m, 6m, 12m, 24m plans)
+   - Interest calculation accuracy (flat rate method)
+   - Late fee application (grace period, minimum fee, cap at 10%)
+   - Early settlement discount (interest saved, admin fee refund)
+   - Status transitions lifecycle
+
+   TVA/Invoice Test Cases:
+   - Standard rate (19%), reduced (9%), zero (0%), exempt (-1%)
+   - Mixed rate calculations with proper breakdown
+   - Rounding precision (2 decimal places, half-up)
+   - Invoice generation from order data
+   - Credit note creation for returns
+   - Rate determination (exports=0%, category-based, exempt)
+   - Price reverse calculation (TTC → HT)
+   - Currency formatting per locale
+
+   Multi-Currency Test Cases:
+   - Conversion accuracy validation
+   - Rate caching efficiency
+   - Formatter output per locale (fr-DZ, ar-DZ, en-US)
+   - Spread application within bounds
+
+   Bank Transfer & COD Tests:
+   - RIB validation (24-digit format)
+   - Reference generation
+   - COD service fee calculation
+   - Maximum order limits
+
+4. Created Integration Tests (`__tests__/integration/payment-integration.test.ts`)
+   
+   Scenario 1: Complete Domestic Purchase Flow
+   - Browse → Cart → Checkout → SATIM Pay → Receive Confirmation
+   - 8-step end-to-end flow with timing metrics
+   
+   Scenario 2: Export Order Flow (Stripe EUR)
+   - International buyer journey with 0% TVA
+   - Stripe PaymentIntent creation
+   - Customs documentation generation
+   
+   Scenario 3: Large Order DPA Flow
+   - Eligibility assessment
+   - Plan selection and schedule calculation
+   - Application → Review → Approval → Signature → Activation
+   
+   Scenario 4: Refund Processing Flow
+   - Request → Validation → Review → Process → Inventory Update
+   - Credit note generation
+   
+   Scenario 5: Cryptocurrency Payment Flow
+   - Rate lock → QR display → TX monitoring → Confirmation
+   - Progressive confirmation tracking
+
+5. Created Load Test Script (`scripts/payment-load-test.ts`)
+   - SATIM: 100 concurrent, 1000 total requests
+   - Stripe: 50 concurrent, 500 total requests  
+   - Crypto: 25 concurrent, 200 total requests
+   - DPA Eligibility: 50 concurrent, 300 total requests
+   - Metrics collection (avg, p50, p95, p99 response times)
+   - Error rate monitoring
+   - JSON report generation
+   - Threshold validation (max 5% error rate, P95 < 2000ms)
+
+6. Created Test Runner Script (`scripts/run-payment-tests.sh`)
+   - Modular execution (--unit, --integration, --load, --all)
+   - Coverage report option
+   - Verbose output mode
+   - Prerequisites checking
+   - Color-coded output
+   - Summary report generation (Markdown)
+   - Exit codes for CI/CD integration
+
+Code Quality:
+- All new files pass ESLint (0 errors, 1 warning)
+- TypeScript strict typing throughout
+- Comprehensive JSDoc documentation
+- Consistent code style with existing codebase
+
+Stage Summary:
+- Complete staging test suite created for all 6 payment methods
+- 100+ individual test cases covering payment flows
+- 5 end-to-end integration scenarios
+- Load testing infrastructure ready
+- Automated test runner script for CI/CD
+- All tests validated against existing payment library interfaces

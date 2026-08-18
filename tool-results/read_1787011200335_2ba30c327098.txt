@@ -1,0 +1,706 @@
+     1→'use client'
+     2→
+     3→import React, { useState } from 'react'
+     4→import {
+     5→  FileText,
+     6→  Download,
+     7→  Printer,
+     8→  Mail,
+     9→  Eye,
+    10→  CreditCard,
+    11→  Calendar,
+    12→  Building2,
+    13→  User,
+    14→  AlertCircle,
+    15→  CheckCircle2,
+    16→  Clock,
+    17→  XCircle,
+    18→  Loader2,
+    19→  ExternalLink,
+    20→} from 'lucide-react'
+    21→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+    22→import { Button } from '@/components/ui/button'
+    23→import { Badge } from '@/components/ui/badge'
+    24→import { Separator } from '@/components/ui/separator'
+    25→import {
+    26→  Table,
+    27→  TableBody,
+    28→  TableCell,
+    29→  TableHead,
+    30→  TableHeader,
+    31→  TableRow,
+    32→} from '@/components/ui/table'
+    33→import {
+    34→  Dialog,
+    35→  DialogContent,
+    36→  DialogDescription,
+    37→  DialogFooter,
+    38→  DialogHeader,
+    39→  DialogTitle,
+    40→} from '@/components/ui/dialog'
+    41→import { formatCurrency } from '@/lib/invoicing/calculator'
+    42→
+    43→// Types
+    44→interface InvoiceItem {
+    45→  id: string
+    46→  description: string
+    47→  quantity: number
+    48→  unitPrice: number
+    49→  discount: number
+    50→  tvaRate: number
+    51→  tvaAmount: number
+    52→  lineTotal: number
+    53→  lineTotalWithTax: number
+    54→  productSku?: string
+    55→}
+    56→
+    57→interface TVABreakdownEntry {
+    58→  rate: number
+    59→  taxableBase: number
+    60→  tvaAmount: number
+    61→}
+    62→
+    63→interface InvoicePayment {
+    64→  id: string
+    65→  amount: number
+    66→  paymentMethod: string
+    67→  paymentReference?: string
+    68→  notes?: string
+    69→  paidAt: string
+    70→}
+    71→
+    72→interface InvoiceData {
+    73→  id: string
+    74→  invoiceNumber: string
+    75→  invoiceType: string
+    76→  status: string
+    77→  sellerId: string
+    78→  buyerId: string
+    79→  orderId?: string
+    80→  issueDate: string
+    81→  dueDate?: string
+    82→  paidAt?: string
+    83→  cancelledAt?: string
+    84→  subtotal: number
+    85→  discountAmount: number
+    86→  discountPercent: number
+    87→  taxableBase: number
+    88→  tvaAmount: number
+    89→  totalAmount: number
+    90→  amountPaid: number
+    91→  amountDue: number
+    92→  currency: string
+    93→  paymentTerms: string
+    94→  notes?: string
+    95→  internalNotes?: string
+    96→  parentInvoiceId?: string
+    97→  items: InvoiceItem[]
+    98→  tvaBreakdown: TVABreakdownEntry[]
+    99→  payments: InvoicePayment[]
+   100→  parentInvoice?: { invoiceNumber: string }
+   101→  creditNotes?: Array<{ id: string; invoiceNumber: string; status: string }>
+   102→}
+   103→
+   104→interface InvoiceViewerProps {
+   105→  invoice: InvoiceData
+   106→  onDownload?: (invoiceId: string) => void
+   107→  onPrint?: (invoiceId: string) => void
+   108→  onEmail?: (invoiceId: string) => void
+   109→  onPay?: (invoiceId: string, amount: number) => void
+   110→  onIssue?: (invoiceId: string) => void
+   111→  onCancel?: (invoiceId: string, reason: string) => void
+   112→  showActions?: boolean
+   113→  isLoading?: boolean
+   114→}
+   115→
+   116→export function InvoiceViewer({
+   117→  invoice,
+   118→  onDownload,
+   119→  onPrint,
+   120→  onEmail,
+   121→  onPay,
+   122→  onIssue,
+   123→  onCancel,
+   124→  showActions = true,
+   125→  isLoading = false,
+   126→}: InvoiceViewerProps) {
+   127→  const [showPaymentDialog, setShowPaymentDialog] = useState(false)
+   128→  const [showCancelDialog, setShowCancelDialog] = useState(false)
+   129→  const [cancelReason, setCancelReason] = useState('')
+   130→  const [paymentAmount, setPaymentAmount] = useState(invoice.amountDue)
+   131→  const [isProcessing, setIsProcessing] = useState(false)
+   132→
+   133→  // Status configuration
+   134→  const statusConfig: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
+   135→    DRAFT: { label: 'Brouillon', color: 'bg-gray-100 text-gray-700', icon: <FileText className="h-3 w-3" /> },
+   136→    ISSUED: { label: 'Émise', color: 'bg-blue-100 text-blue-700', icon: <Eye className="h-3 w-3" /> },
+   137→    PAID: { label: 'Payée', color: 'bg-green-100 text-green-700', icon: <CheckCircle2 className="h-3 w-3" /> },
+   138→    PARTIAL: { label: 'Partielle', color: 'bg-yellow-100 text-yellow-700', icon: <Clock className="h-3 w-3" /> },
+   139→    OVERDUE: { label: 'En retard', color: 'bg-red-100 text-red-700', icon: <AlertCircle className="h-3 w-3" /> },
+   140→    CANCELLED: { label: 'Annulée', color: 'bg-gray-100 text-gray-500', icon: <XCircle className="h-3 w-3" /> },
+   141→  }
+   142→
+   143→  // Type labels
+   144→  const typeLabels: Record<string, string> = {
+   145→    STANDARD: 'Facture Standard',
+   146→    PROFORMA: 'Facture Proforma',
+   147→    CREDIT_NOTE: "Note de Crédit (Avoir)",
+   148→    DEBIT_NOTE: 'Note de Débit',
+   149→    DOWN_PAYMENT: "Facture d'Acompte",
+   150→    INSTALLMENT: "Facture d'Échéance",
+   151→  }
+   152→
+   153→  // Payment term labels
+   154→  const paymentTermLabels: Record<string, string> = {
+   155→    IMMEDIATE: 'Paiement immédiat',
+   156→    NET30: 'Net 30 jours',
+   157→    NET60: 'Net 60 jours',
+   158→    NET90: 'Net 90 jours',
+   159→    EOM: 'Fin de mois',
+   160→  }
+   161→
+   162→  const status = statusConfig[invoice.status] || { label: invoice.status, color: 'bg-gray-100', icon: null }
+   163→  const isOverdue = invoice.dueDate && new Date(invoice.dueDate) < new Date() && 
+   164→                   ['ISSUED', 'PARTIAL'].includes(invoice.status)
+   165→
+   166→  // Handle issue action
+   167→  const handleIssue = async () => {
+   168→    if (!onIssue) return
+   169→    setIsProcessing(true)
+   170→    try {
+   171→      await onIssue(invoice.id)
+   172→    } finally {
+   173→      setIsProcessing(false)
+   174→    }
+   175→  }
+   176→
+   177→  // Handle cancel action
+   178→  const handleCancel = async () => {
+   179→    if (!onCancel || !cancelReason.trim()) return
+   180→    setIsProcessing(true)
+   181→    try {
+   182→      await onCancel(invoice.id, cancelReason)
+   183→      setShowCancelDialog(false)
+   184→      setCancelReason('')
+   185→    } finally {
+   186→      setIsProcessing(false)
+   187→    }
+   188→  }
+   189→
+   190→  // Handle payment
+   191→  const handlePayment = async () => {
+   192→    if (!onPay || paymentAmount <= 0) return
+   193→    setIsProcessing(true)
+   194→    try {
+   195→      await onPay(invoice.id, paymentAmount)
+   196→      setShowPaymentDialog(false)
+   197→    } finally {
+   198→      setIsProcessing(false)
+   199→    }
+   200→  }
+   201→
+   202→  if (isLoading) {
+   203→    return (
+   204→      <div className="flex items-center justify-center py-12">
+   205→        <Loader2 className="h-8 w-8 animate-spin text-[#006233]" />
+   206→        <span className="ml-2 text-gray-600">Chargement de la facture...</span>
+   207→      </div>
+   208→    )
+   209→  }
+   210→
+   211→  return (
+   212→    <div className="space-y-6">
+   213→      {/* Header with Actions */}
+   214→      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+   215→        <div>
+   216→          <div className="flex items-center gap-3">
+   217→            <FileText className="h-8 w-8 text-[#006233]" />
+   218→            <div>
+   219→              <h2 className="text-xl font-bold">{invoice.invoiceNumber}</h2>
+   220→              <p className="text-sm text-gray-500">{typeLabels[invoice.invoiceType] || invoice.invoiceType}</p>
+   221→            </div>
+   222→          </div>
+   223→          {invoice.parentInvoice && (
+   224→            <p className="text-xs text-gray-400 mt-1 flex items-center gap-1">
+   225→              <ExternalLink className="h-3 w-3" />
+   226→              Lié à: {invoice.parentInvoice.invoiceNumber}
+   227→            </p>
+   228→          )}
+   229→        </div>
+   230→
+   231→        <div className="flex items-center gap-3 flex-wrap">
+   232→          <Badge className={`${status.color} text-xs`}>
+   233→            {status.icon}
+   234→            <span className="ml-1">{status.label}</span>
+   235→          </Badge>
+   236→          {isOverdue && (
+   237→            <Badge variant="destructive" className="text-xs animate-pulse">
+   238→              EN RETARD
+   239→            </Badge>
+   240→          )}
+   241→          
+   242→          {showActions && (
+   243→            <div className="flex gap-2 mt-2 sm:mt-0">
+   244→              {onDownload && (
+   245→                <Button variant="outline" size="sm" onClick={() => onDownload(invoice.id)}>
+   246→                  <Download className="h-4 w-4 mr-1" />
+   247→                  PDF
+   248→                </Button>
+   249→              )}
+   250→              {onPrint && (
+   251→                <Button variant="outline" size="sm" onClick={() => onPrint(invoice.id)}>
+   252→                  <Printer className="h-4 w-4 mr-1" />
+   253→                  Imprimer
+   254→                </Button>
+   255→              )}
+   256→              {onEmail && (
+   257→                <Button variant="outline" size="sm" onClick={() => onEmail(invoice.id)}>
+   258→                  <Mail className="h-4 w-4 mr-1" />
+   259→                  Email
+   260→                </Button>
+   261→              )}
+   262→            </div>
+   263→          )}
+   264→        </div>
+   265→      </div>
+   266→
+   267→      {/* Invoice Document */}
+   268→      <Card className="overflow-hidden">
+   269→        {/* Document Header */}
+   270→        <div className="bg-gradient-to-r from-[#006233] to-[#008040] p-6 text-white">
+   271→          <div className="flex justify-between items-start">
+   272→            <div>
+   273→              <h1 className="text-2xl font-bold tracking-wide">FACTURE</h1>
+   274→              <p className="text-white/80 mt-1" dir="rtl">فاتورة</p>
+   275→            </div>
+   276→            <div className="text-right bg-white/10 px-4 py-2 rounded-lg backdrop-blur-sm">
+   277→              <p className="text-xs uppercase tracking-wider opacity-80">N° Facture</p>
+   278→              <p className="text-lg font-mono font-bold">{invoice.invoiceNumber}</p>
+   279→            </div>
+   280→          </div>
+   281→        </div>
+   282→
+   283→        <CardContent className="p-6 space-y-6">
+   284→          {/* Parties */}
+   285→          <div className="grid md:grid-cols-2 gap-6">
+   286→            {/* Seller */}
+   287→            <div className="space-y-2">
+   288→              <div className="flex items-center gap-2 text-[#006233] font-semibold mb-2">
+   289→                <Building2 className="h-4 w-4" />
+   290→                Émetteur / البائع
+   291→              </div>
+   292→              <div className="text-sm space-y-1 pl-6 border-l-2 border-[#006233]/30">
+   293→                <p className="font-medium">AlgeriaTrade.dz SARL</p>
+   294→                <p className="text-gray-600">123 Rue Didouche Mourad, Alger, 16000</p>
+   295→                <p className="text-gray-500 text-xs">NIF: 000000000000000</p>
+   296→                <p className="text-gray-500 text-xs">RC: 16A/AAAA/BBBB</p>
+   297→                <p className="text-gray-500 text-xs">AI: 0000000</p>
+   298→              </div>
+   299→            </div>
+   300→
+   301→            {/* Buyer */}
+   302→            <div className="space-y-2">
+   303→              <div className="flex items-center gap-2 text-[#D52B1E] font-semibold mb-2">
+   304→                <User className="h-4 w-4" />
+   305→                Client / المشتري
+   306→              </div>
+   307→              <div className="text-sm space-y-1 pl-6 border-l-2 border-[#D52B1E]/30">
+   308→                <p className="font-medium">Client ID: {invoice.buyerId.slice(0, 12)}...</p>
+   309→                <p className="text-gray-600">Algérie</p>
+   310→              </div>
+   311→            </div>
+   312→          </div>
+   313→
+   314→          {/* Invoice Details */}
+   315→          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-gray-50 rounded-lg">
+   316→            <div>
+   317→              <p className="text-xs text-gray-500 uppercase">Date d&apos;émission</p>
+   318→              <p className="font-semibold flex items-center gap-1">
+   319→                <Calendar className="h-3 w-3" />
+   320→                {new Date(invoice.issueDate).toLocaleDateString('fr-DZ')}
+   321→              </p>
+   322→            </div>
+   323→            <div>
+   324→              <p className="text-xs text-gray-500 uppercase">Date d&apos;échéance</p>
+   325→              <p className={`font-semibold flex items-center gap-1 ${isOverdue ? 'text-red-600' : ''}`}>
+   326→                <Calendar className="h-3 w-3" />
+   327→                {invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString('fr-DZ') : '-'}
+   328→              </p>
+   329→            </div>
+   330→            <div>
+   331→              <p className="text-xs text-gray-500 uppercase">Conditions</p>
+   332→              <p className="font-semibold">{paymentTermLabels[invoice.paymentTerms] || invoice.paymentTerms}</p>
+   333→            </div>
+   334→            <div>
+   335→              <p className="text-xs text-gray-500 uppercase">Devise</p>
+   336→              <p className="font-semibold">{invoice.currency}</p>
+   337→            </div>
+   338→          </div>
+   339→
+   340→          {/* Items Table */}
+   341→          <Table>
+   342→            <TableHeader>
+   343→              <TableRow className="bg-gray-50">
+   344→                <TableHead>Description</TableHead>
+   345→                <TableHead className="text-center">Qté</TableHead>
+   346→                <TableHead className="text-right">P.U.</TableHead>
+   347→                <TableHead className="text-center">Remise</TableHead>
+   348→                <TableHead className="text-center">TVA</TableHead>
+   349→                <TableHead className="text-right">Total TTC</TableHead>
+   350→              </TableRow>
+   351→            </TableHeader>
+   352→            <TableBody>
+   353→              {invoice.items.map((item) => (
+   354→                <TableRow key={item.id}>
+   355→                  <TableCell className="font-medium">
+   356→                    {item.description}
+   357→                    {item.productSku && (
+   358→                      <span className="block text-xs text-gray-400">SKU: {item.productSku}</span>
+   359→                    )}
+   360→                  </TableCell>
+   361→                  <TableCell className="text-center">
+   362→                    {item.quantity.toLocaleString('fr-DZ')}
+   363→                  </TableCell>
+   364→                  <TableCell className="text-right">
+   365→                    {formatCurrency(item.unitPrice, invoice.currency as any)}
+   366→                  </TableCell>
+   367→                  <TableCell className="text-center">
+   368→                    {item.discount > 0 ? `${item.discount}%` : '-'}
+   369→                  </TableCell>
+   370→                  <TableCell className="text-center">
+   371→                    <Badge 
+   372→                      variant={item.tvaRate === 0 || item.tvaRate === -1 ? 'secondary' : 'outline'} 
+   373→                      className="text-xs"
+   374→                    >
+   375→                      {item.tvaRate === -1 ? 'Exon.' : item.tvaRate === 0 ? '0%' : `${item.tvaRate}%`}
+   376→                    </Badge>
+   377→                  </TableCell>
+   378→                  <TableCell className="text-right font-medium">
+   379→                    {formatCurrency(item.lineTotalWithTax, invoice.currency as any)}
+   380→                  </TableCell>
+   381→                </TableRow>
+   382→              ))}
+   383→            </TableBody>
+   384→          </Table>
+   385→
+   386→          {/* Totals */}
+   387→          <div className="flex justify-end">
+   388→            <div className="w-full md:w-80 space-y-2">
+   389→              <div className="flex justify-between text-sm py-1">
+   390→                <span className="text-gray-600">Sous-total HT</span>
+   391→                <span>{formatCurrency(invoice.subtotal, invoice.currency as any)}</span>
+   392→              </div>
+   393→              
+   394→              {invoice.discountAmount > 0 && (
+   395→                <div className="flex justify-between text-sm py-1 text-green-600">
+   396→                  <span>Remise totale</span>
+   397→                  <span>-{formatCurrency(invoice.discountAmount, invoice.currency as any)}</span>
+   398→                </div>
+   399→              )}
+   400→              
+   401→              {/* TVA Breakdown Summary */}
+   402→              {invoice.tvaBreakdown.map((entry) => (
+   403→                <div key={entry.rate} className="flex justify-between text-sm py-1 text-blue-600">
+   404→                  <span>TVA ({entry.rate === -1 ? 'Exonéré' : `${entry.rate}%`})</span>
+   405→                  <span>{formatCurrency(entry.tvaAmount, invoice.currency as any)}</span>
+   406→                </div>
+   407→              ))}
+   408→              
+   409→              <Separator />
+   410→              
+   411→              <div className="flex justify-between font-bold text-lg py-2">
+   412→                <span>Total TTC</span>
+   413→                <span className="text-[#006233]">
+   414→                  {formatCurrency(invoice.totalAmount, invoice.currency as any)}
+   415→                </span>
+   416→              </div>
+   417→
+   418→              {invoice.amountPaid > 0 && (
+   419→                <>
+   420→                  <Separator />
+   421→                  <div className="flex justify-between text-sm py-1 text-green-600">
+   422→                    <span>Montant payé</span>
+   423→                    <span>+{formatCurrency(invoice.amountPaid, invoice.currency as any)}</span>
+   424→                  </div>
+   425→                  <div className="flex justify-between font-semibold py-1">
+   426→                    <span>Solde dû</span>
+   427→                    <span className={invoice.amountDue > 0 ? 'text-red-600' : 'text-green-600'}>
+   428→                      {formatCurrency(Math.max(0, invoice.amountDue), invoice.currency as any)}
+   429→                    </span>
+   430→                  </div>
+   431→                </>
+   432→              )}
+   433→            </div>
+   434→          </div>
+   435→
+   436→          {/* Notes */}
+   437→          {invoice.notes && (
+   438→            <div className="p-4 bg-gray-50 rounded-lg">
+   439→              <p className="text-xs text-gray-500 uppercase mb-1">Notes</p>
+   440→              <p className="text-sm text-gray-700 whitespace-pre-wrap">{invoice.notes}</p>
+   441→            </div>
+   442→          )}
+   443→
+   444→          {/* Payment Actions */}
+   445→          {(invoice.status === 'ISSUED' || invoice.status === 'PARTIAL') && 
+   446→           invoice.amountDue > 0 &&
+   447→           showActions && onPay && (
+   448→            <div className="p-4 bg-gradient-to-r from-[#006233]/10 to-transparent rounded-lg border border-[#006233]/20">
+   449→              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+   450→                <div>
+   451→                  <p className="font-semibold text-[#006233]">
+   452→                    Solde à payer: {formatCurrency(invoice.amountDue, invoice.currency as any)}
+   453→                  </p>
+   454→                  <p className="text-sm text-gray-600">
+   455→                    Effectuez le paiement pour finaliser cette facture
+   456→                  </p>
+   457→                </div>
+   458→                <Button 
+   459→                  onClick={() => setShowPaymentDialog(true)} 
+   460→                  className="bg-[#006233] hover:bg-[#004d28]"
+   461→                >
+   462→                  <CreditCard className="h-4 w-4 mr-2" />
+   463→                  Payer maintenant
+   464→                </Button>
+   465→              </div>
+   466→            </div>
+   467→          )}
+   468→
+   469→          {/* Issue Action for Drafts */}
+   470→          {invoice.status === 'DRAFT' && showActions && onIssue && (
+   471→            <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+   472→              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+   473→                <div>
+   474→                  <p className="font-semibold text-blue-800">
+   475→                    Cette facture est un brouillon
+   476→                  </p>
+   477→                  <p className="text-sm text-blue-600">
+   478→                    Émettez-la pour la rendre officielle et la envoyer au client
+   479→                  </p>
+   480→                </div>
+   481→                <Button 
+   482→                  onClick={handleIssue} 
+   483→                  disabled={isProcessing}
+   484→                  className="bg-blue-600 hover:bg-blue-700"
+   485→                >
+   486→                  {isProcessing ? (
+   487→                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+   488→                  ) : (
+   489→                    <CheckCircle2 className="mr-2 h-4 w-4" />
+   490→                  )}
+   491→                  Émettre la facture
+   492→                </Button>
+   493→              </div>
+   494→            </div>
+   495→          )}
+   496→
+   497→          {/* Cancel Action */}
+   498→          {(invoice.status === 'DRAFT' || invoice.status === 'ISSUED') && 
+   499→           showActions && onCancel && (
+   500→            <div className="mt-4">
+   501→              <Button 
+   502→                variant="destructive" 
+   503→                size="sm"
+   504→                onClick={() => setShowCancelDialog(true)}
+   505→              >
+   506→                <XCircle className="h-4 w-4 mr-2" />
+   507→                Annuler cette facture
+   508→              </Button>
+   509→            </div>
+   510→          )}
+   511→        </CardContent>
+   512→
+   513→        {/* Footer */}
+   514→        <div className="px-6 py-4 bg-gray-50 border-t text-center">
+   515→          <p className="text-xs text-gray-500">
+   516→            Document généré par AlgeriaTrade.dz - Conforme à la réglementation fiscale algérienne
+   517→          </p>
+   518→          <p className="text-xs text-gray-400 mt-1">
+   519→            Généré le {new Date().toLocaleString('fr-DZ')} | Page 1/1
+   520→          </p>
+   521→        </div>
+   522→      </Card>
+   523→
+   524→      {/* Payment History */}
+   525→      {invoice.payments.length > 0 && (
+   526→        <Card>
+   527→          <CardHeader className="pb-4">
+   528→            <CardTitle className="text-base flex items-center gap-2">
+   529→              <CreditCard className="h-5 w-5" />
+   530→              Historique des paiements ({invoice.payments.length})
+   531→            </CardTitle>
+   532→          </CardHeader>
+   533→          <CardContent>
+   534→            <Table>
+   535→              <TableHeader>
+   536→                <TableRow>
+   537→                  <TableHead>Date</TableHead>
+   538→                  <TableHead>Méthode</TableHead>
+   539→                  <TableHead className="text-right">Montant</TableHead>
+   540→                  <TableHead>Référence</TableHead>
+   541→                </TableRow>
+   542→              </TableHeader>
+   543→              <TableBody>
+   544→                {invoice.payments.map((payment) => (
+   545→                  <TableRow key={payment.id}>
+   546→                    <TableCell>
+   547→                      {new Date(payment.paidAt).toLocaleDateString('fr-DZ')}
+   548→                    </TableCell>
+   549→                    <TableCell>
+   550→                      <Badge variant="outline" className="text-xs">
+   551→                        {payment.paymentMethod}
+   552→                      </Badge>
+   553→                    </TableCell>
+   554→                    <TableCell className="text-right font-medium text-green-600">
+   555→                      +{formatCurrency(payment.amount, invoice.currency as any)}
+   556→                    </TableCell>
+   557→                    <TableCell className="text-gray-500 text-sm">
+   558→                      {payment.paymentReference || '-'}
+   559→                    </TableCell>
+   560→                  </TableRow>
+   561→                ))}
+   562→              </TableBody>
+   563→            </Table>
+   564→          </CardContent>
+   565→        </Card>
+   566→      )}
+   567→
+   568→      {/* Related Credit Notes */}
+   569→      {invoice.creditNotes && invoice.creditNotes.length > 0 && (
+   570→        <Card>
+   571→          <CardHeader className="pb-4">
+   572→            <CardTitle className="text-base">Notes de crédit associées</CardTitle>
+   573→          </CardHeader>
+   574→          <CardContent>
+   575→            <div className="space-y-2">
+   576→              {invoice.creditNotes.map((cn) => (
+   577→                <div key={cn.id} className="flex items-center justify-between p-3 bg-orange-50 rounded-lg">
+   578→                  <div className="flex items-center gap-3">
+   579→                    <FileText className="h-5 w-5 text-orange-600" />
+   580→                    <div>
+   581→                      <p className="font-medium">{cn.invoiceNumber}</p>
+   582→                      <p className="text-xs text-gray-500">Note de crédit</p>
+   583→                    </div>
+   584→                  </div>
+   585→                  <Badge className={cn.status === 'PAID' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}>
+   586→                    {cn.status}
+   587→                  </Badge>
+   588→                </div>
+   589→              ))}
+   590→            </div>
+   591→          </CardContent>
+   592→        </Card>
+   593→      )}
+   594→
+   595→      {/* Payment Dialog */}
+   596→      <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
+   597→        <DialogContent>
+   598→          <DialogHeader>
+   599→            <DialogTitle>Enregistrer un paiement</DialogTitle>
+   600→            <DialogDescription>
+   601→              Entrez les détails du paiement pour la facture {invoice.invoiceNumber}
+   602→            </DialogDescription>
+   603→          </DialogHeader>
+   604→          
+   605→          <div className="space-y-4 py-4">
+   606→            <div className="space-y-2">
+   607→              <label className="text-sm font-medium">Montant du paiement</label>
+   608→              <div className="relative">
+   609→                <input
+   610→                  type="number"
+   611→                  value={paymentAmount}
+   612→                  onChange={(e) => setPaymentAmount(Number(e.target.value))}
+   613→                  className="w-full px-3 py-2 border rounded-md pr-12"
+   614→                  min="0"
+   615→                  max={invoice.amountDue}
+   616→                  step="any"
+   617→                />
+   618→                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">
+   619→                  {invoice.currency}
+   620→                </span>
+   621→              </div>
+   622→              <p className="text-xs text-gray-500">
+   623→                Solde restant: {formatCurrency(invoice.amountDue, invoice.currency as any)}
+   624→              </p>
+   625→            </div>
+   626→            
+   627→            <div className="p-3 bg-blue-50 rounded-lg">
+   628→              <p className="text-sm text-blue-700">
+   629→                Après ce paiement, le nouveau solde sera:{' '}
+   630→                <strong>
+   631→                  {formatCurrency(Math.max(0, invoice.amountDue - paymentAmount), invoice.currency as any)}
+   632→                </strong>
+   633→              </p>
+   634→            </div>
+   635→          </div>
+   636→          
+   637→          <DialogFooter>
+   638→            <Button variant="outline" onClick={() => setShowPaymentDialog(false)}>
+   639→              Annuler
+   640→            </Button>
+   641→            <Button 
+   642→              onClick={handlePayment} 
+   643→              disabled={isProcessing || paymentAmount <= 0 || paymentAmount > invoice.amountDue}
+   644→              className="bg-[#006233] hover:bg-[#004d28]"
+   645→            >
+   646→              {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+   647→              Confirmer le paiement
+   648→            </Button>
+   649→          </DialogFooter>
+   650→        </DialogContent>
+   651→      </Dialog>
+   652→
+   653→      {/* Cancel Dialog */}
+   654→      <Dialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
+   655→        <DialogContent>
+   656→          <DialogHeader>
+   657→            <DialogTitle>Annuler la facture</DialogTitle>
+   658→            <DialogDescription>
+   659→              Vous êtes sur le point d&apos;annuler la facture {invoice.invoiceNumber}. 
+   660→              Cette action est irréversible.
+   661→            </DialogDescription>
+   662→          </DialogHeader>
+   663→          
+   664→          <div className="space-y-4 py-4">
+   665→            <div className="space-y-2">
+   666→              <label className="text-sm font-medium">Raison de l&apos;annulation *</label>
+   667→              <textarea
+   668→                value={cancelReason}
+   669→                onChange={(e) => setCancelReason(e.target.value)}
+   670→                className="w-full px-3 py-2 border rounded-md"
+   671→                rows={3}
+   672→                placeholder="Expliquez pourquoi vous annulez cette facture..."
+   673→                required
+   674→              />
+   675→            </div>
+   676→            
+   677→            <div className="p-3 bg-red-50 rounded-lg flex items-start gap-2">
+   678→              <AlertCircle className="h-5 w-5 text-red-500 shrink-0 mt-0.5" />
+   679→              <div className="text-sm text-red-700">
+   680→                <p className="font-medium">Attention</p>
+   681→                <p>Une fois annulée, cette facture ne pourra plus être modifiée ou payée.</p>
+   682→              </div>
+   683→            </div>
+   684→          </div>
+   685→          
+   686→          <DialogFooter>
+   687→            <Button variant="outline" onClick={() => setShowCancelDialog(false)}>
+   688→              Retour
+   689→            </Button>
+   690→            <Button 
+   691→              variant="destructive" 
+   692→              onClick={handleCancel} 
+   693→              disabled={isProcessing || !cancelReason.trim()}
+   694→            >
+   695→              {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+   696→              Confirmer l&apos;annulation
+   697→            </Button>
+   698→          </DialogFooter>
+   699→        </DialogContent>
+   700→      </Dialog>
+   701→    </div>
+   702→  )
+   703→}
+   704→
+   705→export default InvoiceViewer
+   706→

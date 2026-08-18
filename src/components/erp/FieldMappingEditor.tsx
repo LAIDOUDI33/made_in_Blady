@@ -156,7 +156,9 @@ export default function FieldMappingEditor({
   // Load mappings when entity type changes
   useEffect(() => {
     const defaults = predefinedMappings[erpType]?.[entityType] || []
+    // Reset mappings when entity type changes - this is intentional
     setMappings(defaults)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [erpType, entityType])
 
   const handleAddMapping = () => {

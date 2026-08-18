@@ -1,0 +1,885 @@
+     1→// Odoo ERP Connector (XML-RPC & REST API)
+     2→// AlgeriaTrade.dz B2B Platform - Phase 8J
+     3→
+     4→import { BaseERPClient, ERPConfig, EntityType, SyncOptions, SyncResult, SyncError, FieldMapping } from './integration-framework'
+     5→
+     6→export interface OdooConfig extends ERPConfig {
+     7→  type: 'ODOO'
+     8→  // Odoo-specific settings
+     9→  database?: string  // Odoo database name
+    10→  apiVersion?: number  // REST API version (e.g., v16, v17)
+    11→  useXMLRPC?: boolean  // Use XML-RPC instead of REST
+    12→}
+    13→
+    14→export interface OdooProduct {
+    15→  id: number
+    16→  name: string
+    17→  default_code?: string  // SKU/Reference
+    18→  list_price: number
+    19→  description?: string
+    20→  description_sale?: string
+    21→  type: string  // product, consu, service
+    22→  sale_ok: boolean
+    23→  purchase_ok: boolean
+    24→  categ_id: [number, string]  // Category ID and name
+    25→  uom_id: [number, string]  // Unit of measure
+    26→  active: boolean
+    27→  image_1920?: string  // Base64 encoded image
+    28→  barcode?: string
+    29→  weight?: number
+    30→  volume?: number
+    31→  standard_price?: number  // Cost price
+    32→}
+    33→
+    34→export interface OdooPartner {
+    35→  id: number
+    36→  name: string
+    37→  email?: string
+    38→  phone?: string
+    39→  mobile?: string
+    40→  street?: string
+    41→  street2?: string
+    42→  city?: string
+    43→  zip?: string
+    44→  country_id?: [number, string]
+    45→  state_id?: [number, string]  // Region/State
+    46→  vat?: string  // Tax ID / NIF
+    47→  is_company: boolean
+    48→  customer_rank: number
+    49→  supplier_rank: number
+    50→  type: string  // contact, delivery, invoice, other
+    51→  function?: string  // Job position
+    52→  parent_id?: [number, string]
+    53→  user_id?: [number, string]  // Salesperson
+    54→  property_payment_term_id?: [number, string]
+    55→}
+    56→
+    57→export interface OdooSaleOrder {
+    58→  id: number
+    59→  name: string  // Order reference
+    60→  partner_id: [number, string]
+    61→  state: string  // draft, sent, sale, done, cancel
+    62→  amount_total: number
+    63→  amount_untaxed: number
+    64→  date_order: string
+    65→  validity_date?: string
+    66→  create_date: string
+    67→  write_date: string
+    68→  user_id: [number, string]
+    69→  team_id?: [number, string]
+    70→  client_order_ref?: string  // PO Reference
+    71→  note?: string
+    72→  order_line?: OdooSaleOrderLine[]
+    73→}
+    74→
+    75→export interface OdooSaleOrderLine {
+    76→  id: number
+    77→  order_id: number
+    78→  product_id: [number, string]
+    79→  name: string  // Description
+    80→  product_uom_qty: number
+    81→  price_unit: number
+    82→  price_subtotal: number
+    83→  discount: number
+    84→  tax_id: [[number, string]]  // Taxes applied
+    85→  qty_delivered: number
+    86→  qty_invoiced: number
+    87→}
+    88→
+    89→export interface OdooStockQuant {
+    90→  id: number
+    91→  product_id: [number, string]
+    92→  location_id: [number, string]
+    93→  lot_id?: [number, string]
+    94→  package_id?: [number, string]
+    95→  quantity: number
+    96→  reserved_quantity: number
+    97→  available_quantity: number
+    98→}
+    99→
+   100→export class OdooConnector extends BaseERPClient {
+   101→  config: OdooConfig
+   102→  
+   103→  constructor(config: OdooConfig) {
+   104→    super()
+   105→    this.config = config
+   106→  }
+   107→
+   108→  async testConnection(): Promise<boolean> {
+   109→    try {
+   110→      if (this.config.useXMLRPC) {
+   111→        return await this.testXMLRPCConnection()
+   112→      }
+   113→      
+   114→      const response = await this.makeRESTRequest('GET', '/res.partner', { limit: 1 })
+   115→      return Array.isArray(response) || response?.count !== undefined
+   116→    } catch (error) {
+   117→      console.error('Odoo connection test failed:', error)
+   118→      return false
+   119→    }
+   120→  }
+   121→
+   122→  async pullEntities(entityType: EntityType, options?: SyncOptions): Promise<SyncResult> {
+   123→    const result: SyncResult = {
+   124→      success: true,
+   125→      processed: 0,
+   126→      created: 0,
+   127→      updated: 0,
+   128→      failed: 0,
+   129→      skipped: 0,
+   130→      errors: [],
+   131→    }
+   132→
+   133→    switch (entityType) {
+   134→      case 'PRODUCTS':
+   135→        await this.pullProducts(result, options)
+   136→        break
+   137→        
+   138→      case 'INVENTORY':
+   139→        await this.pullInventory(result, options)
+   140→        break
+   141→        
+   142→      case 'CUSTOMERS':
+   143→        await this.pullCustomers(result, options)
+   144→        break
+   145→        
+   146→      case 'ORDERS':
+   147→        await this.pullOrders(result, options)
+   148→        break
+   149→        
+   150→      case 'CATEGORIES':
+   151→        await this.pullCategories(result, options)
+   152→        break
+   153→        
+   154→      case 'SUPPLIERS':
+   155→        await this.pullSuppliers(result, options)
+   156→        break
+   157→        
+   158→      case 'INVOICES':
+   159→        await this.pullInvoices(result, options)
+   160→        break
+   161→        
+   162→      default:
+   163→        result.errors.push({
+   164→          message: `Entity type ${entityType} not supported for Odoo pull`,
+   165→          code: 'UNSUPPORTED_ENTITY',
+   166→        })
+   167→        result.success = false
+   168→    }
+   169→
+   170→    return result
+   171→  }
+   172→
+   173→  async pushEntities(entityType: EntityType, data: any[], options?: SyncOptions): Promise<SyncResult> {
+   174→    const result: SyncResult = {
+   175→      success: true,
+   176→      processed: data.length,
+   177→      created: 0,
+   178→      updated: 0,
+   179→      failed: 0,
+   180→      skipped: 0,
+   181→      errors: [],
+   182→    }
+   183→
+   184→    if (options?.dryRun) {
+   185→      result.created = data.length
+   186→      return result
+   187→    }
+   188→
+   189→    for (const item of data) {
+   190→      try {
+   191→        const odooData = this.transformData(item, this.config.fieldMappings, 'toERP')
+   192→        
+   193→        switch (entityType) {
+   194→          case 'PRODUCTS':
+   195→            await this.pushProduct(odooData, item.id)
+   196→            result.updated++
+   197→            break
+   198→            
+   199→          case 'INVENTORY':
+   200→            await this.pushInventoryUpdate(odooData, item.id)
+   201→            result.updated++
+   202→            break
+   203→            
+   204→          case 'ORDERS':
+   205→            await this.pushOrder(odooData, item.id)
+   206→            result.created++
+   207→            break
+   208→            
+   209→          case 'CUSTOMERS':
+   210→            await this.pushCustomer(odooData, item.id)
+   211→            result.created++
+   212→            break
+   213→            
+   214→          default:
+   215→            result.skipped++
+   216→        }
+   217→        
+   218→        result.processed++
+   219→      } catch (error: any) {
+   220→        result.failed++
+   221→        result.errors.push({
+   222→          recordId: item.id,
+   223→          message: error.message || 'Failed to push entity to Odoo',
+   224→          code: 'PUSH_ERROR',
+   225→          details: error,
+   226→        })
+   227→      }
+   228→    }
+   229→
+   230→    result.success = result.failed === 0
+   231→    return result
+   232→  }
+   233→
+   234→  async getEntity(entityType: EntityType, externalId: string): Promise<any> {
+   235→    switch (entityType) {
+   236→      case 'PRODUCTS':
+   237→        return this.getOdooProduct(parseInt(externalId))
+   238→        
+   239→      case 'CUSTOMERS':
+   240→        return this.getOdooPartner(parseInt(externalId))
+   241→        
+   242→      case 'ORDERS':
+   243→        return this.getOdooSaleOrder(parseInt(externalId))
+   244→        
+   245→      default:
+   246→        throw new Error(`Get entity not supported for ${entityType}`)
+   247→    }
+   248→  }
+   249→
+   250→  async createEntity(entityType: EntityType, data: any): Promise<string> {
+   251→    const odooData = this.transformData(data, this.config.fieldMappings, 'toERP')
+   252→    
+   253→    switch (entityType) {
+   254→      case 'PRODUCTS':
+   255→        return String(await this.createOdooProduct(odooData))
+   256→        
+   257→      case 'CUSTOMERS':
+   258→        return String(await this.createOdooPartner(odooData))
+   259→        
+   260→      case 'ORDERS':
+   261→        return String(await this.createOdooSaleOrder(odooData))
+   262→        
+   263→      default:
+   264→        throw new Error(`Create entity not supported for ${entityType}`)
+   265→    }
+   266→  }
+   267→
+   268→  async updateEntity(entityType: EntityType, externalId: string, data: any): Promise<boolean> {
+   269→    const odooData = this.transformData(data, this.config.fieldMappings, 'toERP')
+   270→    
+   271→    try {
+   272→      switch (entityType) {
+   273→        case 'PRODUCTS':
+   274→          await this.updateOdooProduct(parseInt(externalId), odooData)
+   275→          return true
+   276→          
+   277→        case 'CUSTOMERS':
+   278→          await this.updateOdooPartner(parseInt(externalId), odooData)
+   279→          return true
+   280→          
+   281→        default:
+   282→          throw new Error(`Update entity not supported for ${entityType}`)
+   283→      }
+   284→    } catch (error) {
+   285→      console.error(`Failed to update ${entityType} ${externalId} in Odoo:`, error)
+   286→      return false
+   287→    }
+   288→  }
+   289→
+   290→  async deleteEntity(entityType: EntityType, externalId: string): Promise<boolean> {
+   291→    try {
+   292→      await this.makeRESTRequest('DELETE', this.getEntityEndpoint(entityType, externalId))
+   293→      return true
+   294→    } catch (error) {
+   295→      console.error(`Failed to delete ${entityType} ${externalId} from Odoo:`, error)
+   296→      return false
+   297→    }
+   298→  }
+   299→
+   300→  // ============================================
+   301→  // ODOO-SPECIFIC PULL METHODS
+   302→  // ============================================
+   303→
+   304→  private async pullProducts(result: SyncResult, options?: SyncOptions): Promise<void> {
+   305→    try {
+   306→      let domain: any[] = [['sale_ok', '=', true]]
+   307→      
+   308→      if (options?.fromDate) {
+   309→        domain.push(['write_date', '>=', options.fromDate.toISOString()])
+   310→      }
+   311→      
+   312→      if (options?.entityIds?.length) {
+   313→        domain.push(['id', 'in', options.entityIds.map(id => parseInt(id))])
+   314→      }
+   315→      
+   316→      const response = await this.makeRESTRequest('GET', '/product.product', {
+   317→        domain,
+   318→        fields: ['id', 'name', 'default_code', 'list_price', 'description_sale', 'type', 
+   319→                'sale_ok', 'categ_id', 'barcode', 'weight', 'image_1920'],
+   320→        limit: options?.batchSize || 100,
+   321→      })
+   322→      
+   323→      const products: OdooProduct[] = response || []
+   324→      
+   325→      for (const product of products) {
+   326→        try {
+   327→          const localData = this.transformData(product, this.config.fieldMappings, 'fromERP')
+   328→          
+   329→          const existing = await db.product.findFirst({
+   330→            where: { 
+   331→              OR: [
+   332→                { sku: String(product.default_code || product.id) },
+   333→                { name: product.name },
+   334→              ]
+   335→            }
+   336→          })
+   337→          
+   338→          if (existing) {
+   339→            await db.product.update({
+   340→              where: { id: existing.id },
+   341→              data: {
+   342→                ...localData,
+   343→                sku: String(product.default_code || product.id),
+   344→                price: parseFloat(String(product.list_price)) || undefined,
+   345→                updatedAt: new Date(),
+   346→              }
+   347→            })
+   348→            result.updated++
+   349→          } else {
+   350→            await db.product.create({
+   351→              data: {
+   352→                id: `odoo_${product.id}`,
+   353→                name: product.name,
+   354→                slug: `${product.name}`.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+   355→                sku: String(product.default_code || product.id),
+   356→                shortDescription: product.description_sale?.substring(0, 200),
+   357→                price: parseFloat(String(product.list_price)),
+   358→                currency: 'DZD',
+   359→                status: 'published',
+   360→                availability: product.type === 'service' ? 'on_order' : 'in_stock',
+   361→              }
+   362→            })
+   363→            result.created++
+   364→          }
+   365→          
+   366→          result.processed++
+   367→        } catch (error: any) {
+   368→          result.failed++
+   369→          result.errors.push({
+   370→            recordId: String(product.id),
+   371→            message: error.message || 'Failed to sync product from Odoo',
+   372→          })
+   373→        }
+   374→      }
+   375→    } catch (error: any) {
+   376→      result.success = false
+   377→      result.errors.push({
+   378→        message: error.message || 'Failed to fetch products from Odoo',
+   379→        code: 'FETCH_ERROR',
+   380→      })
+   381→    }
+   382→  }
+   383→
+   384→  private async pullInventory(result: SyncResult, options?: SyncOptions): Promise<void> {
+   385→    try {
+   386→      const response = await this.makeRESTRequest('GET', '/stock.quant', {
+   387→        fields: ['id', 'product_id', 'location_id', 'quantity', 'reserved_quantity'],
+   388→        limit: options?.batchSize || 500,
+   389→      })
+   390→      
+   391→      const quants: OdooStockQuant[] = response || []
+   392→      
+   393→      for (const quant of quants) {
+   394→        try {
+   395→          const productId = quant.product_id?.[0]
+   396→          if (!productId) continue
+   397→          
+   398→          // Update inventory/stock in local database
+   399→          // This would update a stock/inventory table or product stock field
+   400→          console.log(`Syncing inventory for Odoo product ${productId}: ${quant.quantity} available`)
+   401→          
+   402→          result.processed++
+   403→          result.updated++
+   404→        } catch (error: any) {
+   405→          result.failed++
+   406→          result.errors.push({
+   407→            recordId: String(quant.id),
+   408→            message: error.message || 'Failed to sync inventory',
+   409→          })
+   410→        }
+   411→      }
+   412→    } catch (error: any) {
+   413→      result.success = false
+   414→      result.errors.push({
+   415→        message: error.message || 'Failed to fetch inventory from Odoo',
+   416→      })
+   417→    }
+   418→  }
+   419→
+   420→  private async pullCustomers(result: SyncResult, options?: SyncOptions): Promise<void> {
+   421→    try {
+   422→      const response = await this.makeRESTRequest('GET', '/res.partner', {
+   423→        domain: [
+   424→          ['is_company', '=', true],
+   425→          ['customer_rank', '>', 0],
+   426→        ],
+   427→        fields: ['id', 'name', 'email', 'phone', 'mobile', 'street', 'city', 'zip', 
+   428→                'country_id', 'vat', 'function', 'create_date', 'write_date'],
+   429→        limit: options?.batchSize || 100,
+   430→      })
+   431→      
+   432→      const partners: OdooPartner[] = response || []
+   433→      
+   434→      for (const partner of partners) {
+   435→        try {
+   436→          const localData = this.transformData(partner, this.config.fieldMappings, 'fromERP')
+   437→          
+   438→          const existing = await db.company.findFirst({
+   439→            where: { 
+   440→              OR: [
+   441→                { nif: partner.vat },
+   442→                { contactEmail: partner.email },
+   443→              ]
+   444→            }
+   445→          })
+   446→          
+   447→          if (existing) {
+   448→            await db.company.update({
+   449→              where: { id: existing.id },
+   450→              data: {
+   451→                ...localData,
+   452→                updatedAt: new Date(),
+   453→              }
+   454→            })
+   455→            result.updated++
+   456→          } else {
+   457→            await db.company.create({
+   458→              data: {
+   459→                id: `odoo_partner_${partner.id}`,
+   460→                name: partner.name,
+   461→                slug: `${partner.name}`.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+   462→                contactEmail: partner.email,
+   463→                contactPhone: partner.phone || partner.mobile,
+   464→                nif: partner.vat,
+   465→                address: [partner.street, partner.city].filter(Boolean).join(', '),
+   466→                verificationStatus: 'PENDING',
+   467→                userId: 'system_import',
+   468→                tenantId: 'default',
+   469→              }
+   470→            })
+   471→            result.created++
+   472→          }
+   473→          
+   474→          result.processed++
+   475→        } catch (error: any) {
+   476→          result.failed++
+   477→          result.errors.push({
+   478→            recordId: String(partner.id),
+   479→            message: error.message || 'Failed to sync customer from Odoo',
+   480→          })
+   481→        }
+   482→      }
+   483→    } catch (error: any) {
+   484→      result.success = false
+   485→      result.errors.push({
+   486→        message: error.message || 'Failed to fetch customers from Odoo',
+   487→      })
+   488→    }
+   489→  }
+   490→
+   491→  private async pullOrders(result: SyncResult, options?: SyncOptions): Promise<void> {
+   492→    try {
+   493→      const response = await this.makeRESTRequest('GET', '/sale.order', {
+   494→        domain: [['state', 'not in', ['draft', 'cancel']]],
+   495→        fields: ['id', 'name', 'partner_id', 'state', 'amount_total', 'amount_untaxed',
+   496→                'date_order', 'create_date', 'client_order_ref', 'user_id'],
+   497→        limit: options?.batchSize || 100,
+   498→      })
+   499→      
+   500→      const orders: OdooSaleOrder[] = response || []
+   501→      
+   502→      for (const order of orders) {
+   503→        try {
+   504→          const localData = this.transformData(order, this.config.fieldMappings, 'fromERP')
+   505→          
+   506→          const existing = await db.order.findFirst({
+   507→            where: { orderNumber: order.name }
+   508→          })
+   509→          
+   510→          if (!existing && !['cancel'].includes(order.state)) {
+   511→            await db.order.create({
+   512→              data: {
+   513→                id: `odoo_order_${order.id}`,
+   514→                orderNumber: order.name,
+   515→                subtotal: parseFloat(String(order.amount_untaxed)) || 0,
+   516→                totalAmount: parseFloat(String(order.amount_total)) || 0,
+   517→                currency: 'DZD',
+   518→                status: this.mapOdooOrderStatus(order.state),
+   519→                buyerId: 'system_import',
+   520→                companyId: `odoo_partner_${order.partner_id?.[0]}`,
+   521→                createdAt: new Date(order.create_date),
+   522→              }
+   523→            })
+   524→            result.created++
+   525→          }
+   526→          
+   527→          result.processed++
+   528→        } catch (error: any) {
+   529→          result.failed++
+   530→          result.errors.push({
+   531→            recordId: order.name,
+   532→            message: error.message || 'Failed to sync order from Odoo',
+   533→          })
+   534→        }
+   535→      }
+   536→    } catch (error: any) {
+   537→      result.success = false
+   538→      result.errors.push({
+   539→        message: error.message || 'Failed to fetch orders from Odoo',
+   540→      })
+   541→    }
+   542→  }
+   543→
+   544→  private async pullCategories(result: SyncResult, options?: SyncOptions): Promise<void> {
+   545→    try {
+   546→      const response = await this.makeRESTRequest('GET', '/product.category', {
+   547→        fields: ['id', 'name', 'parent_id', 'complete_name'],
+   548→        limit: 200,
+   549→      })
+   550→      
+   551→      const categories = response || []
+   552→      
+   553→      for (const category of categories) {
+   554→        try {
+   555→          // Check if category exists locally by Odoo ID
+   556→          const existing = await db.category.findFirst({
+   557→            where: { name: category.name }
+   558→          })
+   559→          
+   560→          if (!existing) {
+   561→            await db.category.create({
+   562→              data: {
+   563→                id: `odoo_cat_${category.id}`,
+   564→                name: category.name,
+   565→                slug: `${category.name}`.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+   566→                parentId: category.parent_id ? `odoo_cat_${category.parent_id[0]}` : null,
+   567→              }
+   568→            })
+   569→            result.created++
+   570→          }
+   571→          
+   572→          result.processed++
+   573→        } catch (error: any) {
+   574→          result.failed++
+   575→          result.errors.push({
+   576→            recordId: String(category.id),
+   577→            message: error.message || 'Failed to sync category',
+   578→          })
+   579→        }
+   580→      }
+   581→    } catch (error: any) {
+   582→      result.success = false
+   583→      result.errors.push({ message: error.message || 'Failed to fetch categories' })
+   584→    }
+   585→  }
+   586→
+   587→  private async pullSuppliers(result: SyncResult, options?: SyncOptions): Promise<void> {
+   588→    try {
+   589→      const response = await this.makeRESTRequest('GET', '/res.partner', {
+   590→        domain: [
+   591→          ['is_company', '=', true],
+   592→          ['supplier_rank', '>', 0],
+   593→        ],
+   594→        fields: ['id', 'name', 'email', 'phone', 'vat'],
+   595→        limit: options?.batchSize || 50,
+   596→      })
+   597→      
+   598→      const suppliers: OdooPartner[] = response || []
+   599→      
+   600→      for (const supplier of suppliers) {
+   601→        try {
+   602→          console.log(`Syncing supplier: ${supplier.name}`)
+   603→          result.processed++
+   604→          result.updated++
+   605→        } catch (error: any) {
+   606→          result.failed++
+   607→          result.errors.push({
+   608→            recordId: String(supplier.id),
+   609→            message: error.message || 'Failed to sync supplier',
+   610→          })
+   611→        }
+   612→      }
+   613→    } catch (error: any) {
+   614→      result.success = false
+   615→      result.errors.push({ message: error.message || 'Failed to fetch suppliers' })
+   616→    }
+   617→  }
+   618→
+   619→  private async pullInvoices(result: SyncResult, options?: SyncOptions): Promise<void> {
+   620→    try {
+   621→      const response = await this.makeRESTRequest('GET', '/account.move', {
+   622→        domain: [
+   623→          ['move_type', '=', 'out_invoice'],
+   624→          ['state', '=', 'posted'],
+   625→        ],
+   626→        fields: ['id', 'name', 'partner_id', 'amount_total', 'invoice_date', 'state'],
+   627→        limit: options?.batchSize || 100,
+   628→      })
+   629→      
+   630→      const invoices = response || []
+   631→      
+   632→      for (const invoice of invoices) {
+   633→        try {
+   634→          console.log(`Syncing invoice: ${invoice.name}`)
+   635→          result.processed++
+   636→          result.updated++
+   637→        } catch (error: any) {
+   638→          result.failed++
+   639→          result.errors.push({
+   640→            recordId: invoice.name,
+   641→            message: error.message || 'Failed to sync invoice',
+   642→          })
+   643→        }
+   644→      }
+   645→    } catch (error: any) {
+   646→      result.success = false
+   647→      result.errors.push({ message: error.message || 'Failed to fetch invoices' })
+   648→    }
+   649→  }
+   650→
+   651→  // ============================================
+   652→  // ODOO-SPECIFIC PUSH METHODS
+   653→  // ============================================
+   654→
+   655→  private async pushProduct(odooData: any, localId: string): Promise<void> {
+   656→    const existing = await this.getOdooProductBySKU(odooData.default_code)
+   657→    
+   658→    if (existing) {
+   659→      await this.makeRESTRequest('PUT', `/product.product/${existing.id}`, odooData)
+   660→    } else {
+   661→      await this.makeRESTRequest('POST', '/product.product', odooData)
+   662→    }
+   663→  }
+   664→
+   665→  private async pushInventoryUpdate(odooData: any, localId: string): Promise<void> {
+   666→    // Inventory updates in Odoo are typically done via stock moves or quant adjustments
+   667→    await this.makeRESTRequest('POST', '/stock.quant', odooData)
+   668→  }
+   669→
+   670→  private async pushOrder(odooData: any, localId: string): Promise<void> {
+   671→    await this.makeRESTRequest('POST', '/sale.order', odooData)
+   672→  }
+   673→
+   674→  private async pushCustomer(odooData: any, localId: string): Promise<void> {
+   675→    const existing = await this.getOdooPartnerByEmail(odooData.email)
+   676→    
+   677→    if (existing) {
+   678→      await this.makeRESTRequest('PUT', `/res.partner/${existing.id}`, odooData)
+   679→    } else {
+   680→      await this.makeRESTRequest('POST', '/res.partner', odooData)
+   681→    }
+   682→  }
+   683→
+   684→  // ============================================
+   685→  // ODOO SINGLE ENTITY METHODS
+   686→  // ============================================
+   687→
+   688→  private async getOdooProduct(productId: number): Promise<OdooProduct | null> {
+   689→    try {
+   690→      const response = await this.makeRESTRequest('GET', `/product.product/${productId}`, {
+   691→        fields: ['id', 'name', 'default_code', 'list_price', 'description_sale', 'type']
+   692→      })
+   693→      return response || null
+   694→    } catch (error) {
+   695→      return null
+   696→    }
+   697→  }
+   698→
+   699→  private async getOdooProductBySKU(sku?: string): Promise<OdooProduct | null> {
+   700→    if (!sku) return null
+   701→    
+   702→    try {
+   703→      const response = await this.makeRESTRequest('GET', '/product.product', {
+   704→        domain: [['default_code', '=', sku]],
+   705→        fields: ['id', 'name', 'default_code'],
+   706→        limit: 1,
+   707→      })
+   708→      return response?.[0] || null
+   709→    } catch (error) {
+   710→      return null
+   711→    }
+   712→  }
+   713→
+   714→  private async getOdooPartner(partnerId: number): Promise<OdooPartner | null> {
+   715→    try {
+   716→      const response = await this.makeRESTRequest('GET', `/res.partner/${partnerId}`, {
+   717→        fields: ['id', 'name', 'email', 'phone', 'is_company', 'vat']
+   718→      })
+   719→      return response || null
+   720→    } catch (error) {
+   721→      return null
+   722→    }
+   723→  }
+   724→
+   725→  private async getOdooPartnerByEmail(email?: string): Promise<OdooPartner | null> {
+   726→    if (!email) return null
+   727→    
+   728→    try {
+   729→      const response = await this.makeRESTRequest('GET', '/res.partner', {
+   730→        domain: [['email', '=', email]],
+   731→        fields: ['id', 'name', 'email'],
+   732→        limit: 1,
+   733→      })
+   734→      return response?.[0] || null
+   735→    } catch (error) {
+   736→      return null
+   737→    }
+   738→  }
+   739→
+   740→  private async getOdooSaleOrder(orderId: number): Promise<OdooSaleOrder | null> {
+   741→    try {
+   742→      const response = await this.makeRESTRequest('GET', `/sale.order/${orderId}`, {
+   743→        fields: ['id', 'name', 'partner_id', 'state', 'amount_total', 'order_line']
+   744→      })
+   745→      return response || null
+   746→    } catch (error) {
+   747→      return null
+   748→    }
+   749→  }
+   750→
+   751→  private async createOdooProduct(data: any): Promise<number> {
+   752→    const response = await this.makeRESTRequest('POST', '/product.product', data)
+   753→    return response?.id
+   754→  }
+   755→
+   756→  private async createOdooPartner(data: any): Promise<number> {
+   757→    const response = await this.makeRESTRequest('POST', '/res.partner', data)
+   758→    return response?.id
+   759→  }
+   760→
+   761→  private async createOdooSaleOrder(data: any): Promise<number> {
+   762→    const response = await this.makeRESTRequest('POST', '/sale.order', data)
+   763→    return response?.id
+   764→  }
+   765→
+   766→  private async updateOdooProduct(productId: number, data: any): Promise<void> {
+   767→    await this.makeRESTRequest('PUT', `/product.product/${productId}`, data)
+   768→  }
+   769→
+   770→  private async updateOdooPartner(partnerId: number, data: any): Promise<void> {
+   771→    await this.makeRESTRequest('PUT', `/res.partner/${partnerId}`, data)
+   772→  }
+   773→
+   774→  // ============================================
+   775→  // HELPER METHODS
+   776→  // ============================================
+   777→
+   778→  private getEntityEndpoint(entityType: EntityType, externalId: string): string {
+   779→    const endpoints: Record<EntityType, string> = {
+   780→      PRODUCTS: `/product.product/${externalId}`,
+   781→      INVENTORY: `/stock.quant/${externalId}`,
+   782→      ORDERS: `/sale.order/${externalId}`,
+   783→      CUSTOMERS: `/res.partner/${externalId}`,
+   784→      PRICES: ``,
+   785→      CATEGORIES: `/product.category/${externalId}`,
+   786→      SUPPLIERS: `/res.partner/${externalId}`,
+   787→      INVOICES: `/account.move/${externalId}`,
+   788→      SHIPMENTS: `/stock.picking/${externalId}`,
+   789→    }
+   790→    
+   791→    return endpoints[entityType] || ''
+   792→  }
+   793→
+   794→  private mapOdooOrderStatus(odooState: string): string {
+   795→    const statusMap: Record<string, string> = {
+   796→      'draft': 'DRAFT',
+   797→      'sent': 'CONFIRMED',
+   798→      'sale': 'PROCESSING',
+   799→      'done': 'COMPLETED',
+   800→      'cancel': 'CANCELLED',
+   801→    }
+   802→    
+   803→    return statusMap[odooState] || 'UNKNOWN'
+   804→  }
+   805→
+   806→  private async makeRESTRequest(
+   807→    method: string,
+   808→    path: string,
+   809→    params?: Record<string, any>
+   810→  ): Promise<any> {
+   811→    const apiVersion = this.config.apiVersion || 16
+   812→    const url = new URL(`${this.config.endpoint}/web/api/${apiVersion}${path}`)
+   813→    
+   814→    const headers = this.buildAuthHeaders()
+   815→    
+   816→    // Add Odoo-specific headers
+   817→    headers['Content-Type'] = 'application/json'
+   818→    
+   819→    // For GET requests with params, we need to handle them specially
+   820→    let body: any = undefined
+   821→    
+   822→    if (method === 'GET' && params) {
+   823→      // Convert params to query string for GET requests
+   824→      Object.entries(params).forEach(([key, value]) => {
+   825→        if (key === 'domain') {
+   826→          url.searchParams.set(key, JSON.stringify(value))
+   827→        } else if (key === 'fields') {
+   828→          url.searchParams.set(key, JSON.stringify(value))
+   829→        } else {
+   830→          url.searchParams.set(key, String(value))
+   831→        }
+   832→      })
+   833→    } else if (params) {
+   834→      body = params
+   835→    }
+   836→    
+   837→    const response = await fetch(url.toString(), {
+   838→      method,
+   839→      headers,
+   840→      body: body ? JSON.stringify(body) : undefined,
+   841→    })
+   842→    
+   843→    if (!response.ok) {
+   844→      const errorText = await response.text()
+   845→      let errorMessage = `Odoo API error: ${response.status}`
+   846→      
+   847→      try {
+   848→        const errorJson = JSON.parse(errorText)
+   849→        errorMessage = errorJson.error?.message || errorMessage
+   850→      } catch {}
+   851→      
+   852→      throw new Error(errorMessage)
+   853→    }
+   854→    
+   855→    return response.json()
+   856→  }
+   857→
+   858→  // XML-RPC methods (alternative connection method)
+   859→  private async testXMLRPCConnection(): Promise<boolean> {
+   860→    try {
+   861→      // XML-RPC authentication test - dynamic import for compatibility
+   862→      const xmlrpc = (await import('xmlrpc')).default || (await import('xmlrpc'))
+   863→      
+   864→      const client = xmlrpc.createClient({
+   865→        url: `${this.config.endpoint}/xmlrpc/2/common`,
+   866→      })
+   867→      
+   868→      const uid = await new Promise((resolve, reject) => {
+   869→        client.authenticate(
+   870→          this.config.database,
+   871→          this.config.username,
+   872→          this.config.password,
+   873→          {},
+   874→          (err: any, result: any) => err ? reject(err) : resolve(result)
+   875→        )
+   876→      })
+   877→      
+   878→      return typeof uid === 'number'
+   879→    } catch (error) {
+   880→      console.error('Odoo XML-RPC connection test failed:', error)
+   881→      return false
+   882→    }
+   883→  }
+   884→}
+   885→

@@ -1,0 +1,963 @@
+     1→// Sync Engine - Bidirectional sync orchestration
+     2→// Conflict resolution, delta sync, retry logic, audit trail
+     3→// AlgeriaTrade.dz B2B Platform - Inventory/ERP Sync System
+     4→
+     5→import { db } from '@/lib/db'
+     6→import {
+     7→  ERPSystemType,
+     8→  SyncDirection,
+     9→  SyncFrequency,
+    10→  ConflictResolution,
+    11→  DEFAULT_RETRY_POLICY,
+    12→} from './config'
+    13→import { BaseERPConnector, IERPConnector, SyncResult, Product } from './connectors/base-connector'
+    14→
+    15→// ============================================
+    16→// TYPES
+    17→// ============================================
+    18→
+    19→export type SyncOperationStatus = 'QUEUED' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'CANCELLED' | 'PARTIAL'
+    20→
+    21→export interface SyncOperation {
+    22→  id: string
+    23→  connectorId: string
+    24→  entityType: string
+    25→  direction: SyncDirection
+    26→  
+    27→  status: SyncOperationStatus
+    28→  priority: number // Lower = higher priority
+    29→  
+    30→  options: SyncOptions
+    31→  
+    32→  result?: SyncResult
+    33→  createdAt: Date
+    34→  startedAt?: Date
+    35→  completedAt?: Date
+    36→}
+    37→
+    38→export interface SyncOptions {
+    39→  fullSync?: boolean
+    40→  dryRun?: boolean
+    41→  conflictResolution?: ConflictResolution
+    42→  batchSize?: number
+    43→  entityTypes?: string[]
+    44→  
+    45→  // Delta sync settings
+    46→  deltaSyncField?: string
+    47→  lastSyncTimestamp?: Date
+    48→  
+    49→  // Callbacks
+    50→  onProgress?: (progress: SyncProgress) => void
+    51→  onComplete?: (result: SyncResult) => void
+    52→  onError?: (error: Error) => void
+    53→}
+    54→
+    55→export interface SyncProgress {
+    56→  operationId: string
+    57→  entityType: string
+    58→  totalRecords: number
+    59→  processedRecords: number
+    60→  percentage: number
+    61→  currentBatch: number
+    62→  totalBatches: number
+    63→  message?: string
+    64→}
+    65→
+    66→export interface SyncQueueItem {
+    67→  id: string
+    68→  connectorId: string
+    69→  operation: SyncOperation
+    70→  scheduledAt: Date
+    71→  attempts: number
+    72→  maxAttempts: number
+    73→  nextAttemptAt?: Date
+    74→}
+    75→
+    76→export interface SyncEngineConfig {
+    77→  maxConcurrentSyncs: number
+    78→  defaultConflictResolution: ConflictResolution
+    79→  defaultRetryPolicy: typeof DEFAULT_RETRY_POLICY
+    80→  queueRetentionDays: number
+    81→  enableDeltaSync: boolean
+    82→  autoRetryOnFailure: boolean
+    83→  healthCheckIntervalMs: number
+    84→}
+    85→
+    86→// ============================================
+    87→// SYNC ENGINE CLASS
+    88→// ============================================
+    89→
+    90→class SyncEngine {
+    91→  private static instance: SyncEngine
+    92→  
+    93→  private connectors: Map<string, IERPConnector> = new Map()
+    94→  private queue: SyncQueueItem[] = []
+    95→  private activeOperations: Map<string, SyncOperation> = new Map()
+    96→  private config: SyncEngineConfig
+    97→  private isProcessing: boolean = false
+    98→  private processingInterval?: NodeJS.Timeout
+    99→  
+   100→  // Event listeners
+   101→  private listeners: {
+   102→    onSyncStart: Array<(operation: SyncOperation) => void>
+   103→    onSyncComplete: Array<(operation: SyncOperation) => void>
+   104→    onSyncError: Array<(operation: SyncOperation, error: Error) => void>
+   105→    onQueueChange: Array<(queue: SyncQueueItem[]) => void>
+   106→  } = {
+   107→    onSyncStart: [],
+   108→    onSyncComplete: [],
+   109→    onSyncError: [],
+   110→    onQueueChange: [],
+   111→  }
+   112→  
+   113→  private constructor(config?: Partial<SyncEngineConfig>) {
+   114→    this.config = {
+   115→      maxConcurrentSyncs: 3,
+   116→      defaultConflictResolution: 'LAST_WRITE_WINS',
+   117→      defaultRetryPolicy: { ...DEFAULT_RETRY_POLICY },
+   118→      queueRetentionDays: 30,
+   119→      enableDeltaSync: true,
+   120→      autoRetryOnFailure: true,
+   121→      healthCheckIntervalMs: 5 * 60 * 1000,
+   122→      ...config,
+   123→    }
+   124→    
+   125→    this.startQueueProcessor()
+   126→    this.startHealthCheck()
+   127→  }
+   128→  
+   129→  static getInstance(config?: Partial<SyncEngineConfig>): SyncEngine {
+   130→    if (!SyncEngine.instance) {
+   131→      SyncEngine.instance = new SyncEngine(config)
+   132→    }
+   133→    return SyncEngine.instance
+   134→  }
+   135→  
+   136→  // ============================================
+   137→  // CONNECTOR MANAGEMENT
+   138→  // ============================================
+   139→  
+   140→  registerConnector(id: string, connector: IERPConnector): void {
+   141→    this.connectors.set(id, connector)
+   142→    
+   143→    // Set up event handlers
+   144→    connector.onError?.((error) => {
+   145→      console.error(`Connector ${id} error:`, error.message)
+   146→    })
+   147→  }
+   148→  
+   149→  unregisterConnector(id: string): void {
+   150→    this.connectors.delete(id)
+   151→    // Cancel any pending operations for this connector
+   152→    this.queue = this.queue.filter(item => item.connectorId !== id)
+   153→  }
+   154→  
+   155→  getConnector(id: string): IERPConnector | undefined {
+   156→    return this.connectors.get(id)
+   157→  }
+   158→  
+   159→  getConnectors(): Map<string, IERPConnector> {
+   160→    return new Map(this.connectors)
+   161→  }
+   162→  
+   163→  async testAllConnectors(): Promise<Map<string, { success: boolean; message: string }>> {
+   164→    const results = new Map<string, { success: boolean; message: string }>()
+   165→    
+   166→    for (const [id, connector] of this.connectors) {
+   167→      try {
+   168→        const result = await connector.testConnection()
+   169→        results.set(id, { success: result.success, message: result.message })
+   170→      } catch (error) {
+   171→        results.set(id, {
+   172→          success: false,
+   173→          message: error instanceof Error ? error.message : String(error),
+   174→        })
+   175→      }
+   176→    }
+   177→    
+   178→    return results
+   179→  }
+   180→  
+   181→  // ============================================
+   182→  // SYNC OPERATIONS
+   183→  // ============================================
+   184→  
+   185→  async triggerSync(
+   186→    connectorId: string,
+   187→    direction: SyncDirection,
+   188→    entityType: string,
+   189→    options?: Partial<SyncOptions>
+   190→  ): Promise<SyncOperation> {
+   191→    const connector = this.connectors.get(connectorId)
+   192→    if (!connector) {
+   193→      throw new Error(`Connector not found: ${connectorId}`)
+   194→    }
+   195→    
+   196→    const operation: SyncOperation = {
+   197→      id: `sync_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+   198→      connectorId,
+   199→      entityType,
+   200→      direction,
+   201→      status: 'QUEUED',
+   202→      priority: 10,
+   203→      options: {
+   204→        conflictResolution: this.config.defaultConflictResolution,
+   205→        batchSize: 50,
+   206→        ...options,
+   207→      },
+   208→      createdAt: new Date(),
+   209→    }
+   210→    
+   211→    // Add to queue
+   212→    const queueItem: SyncQueueItem = {
+   213→      id: operation.id,
+   214→      connectorId,
+   215→      operation,
+   216→      scheduledAt: new Date(),
+   217→      attempts: 0,
+   218→      maxAttempts: this.config.defaultRetryPolicy.maxRetries + 1,
+   219→    }
+   220→    
+   221→    this.queue.push(queueItem)
+   222→    this.sortQueue()
+   223→    this.emit('onQueueChange', [...this.queue])
+   224→    
+   225→    // Log to database
+   226→    await this.createSyncLog(operation)
+   227→    
+   228→    return operation
+   229→  }
+   230→  
+   231→  async triggerFullSync(
+   232→    connectorId: string,
+   233→    options?: Partial<SyncOptions>
+   234→  ): Promise<SyncOperation[]> {
+   235→    const operations: SyncOperation[] = []
+   236→    const entityTypes = ['PRODUCTS', 'INVENTORY', 'ORDERS', 'CUSTOMERS', 'PRICES']
+   237→    
+   238→    for (const entityType of entityTypes) {
+   239→      const operation = await this.triggerSync(
+   240→        connectorId,
+   241→        'BIDIRECTIONAL',
+   242→        entityType,
+   243→        { ...options, fullSync: true }
+   244→      )
+   245→      operations.push(operation)
+   246→    }
+   247→    
+   248→    return operations
+   249→  }
+   250→  
+   251→  async cancelOperation(operationId: string): Promise<boolean> {
+   252→    const operation = this.activeOperations.get(operationId)
+   253→    if (operation && (operation.status === 'RUNNING' || operation.status === 'QUEUED')) {
+   254→      operation.status = 'CANCELLED'
+   255→      this.activeOperations.delete(operationId)
+   256→      
+   257→      // Remove from queue
+   258→      this.queue = this.queue.filter(item => item.id !== operationId)
+   259→      this.emit('onQueueChange', [...this.queue])
+   260→      
+   261→      return true
+   262→    }
+   263→    
+   264→    return false
+   265→  }
+   266→  
+   267→  getQueue(): SyncQueueItem[] {
+   268→    return [...this.queue]
+   269→  }
+   270→  
+   271→  getActiveOperations(): SyncOperation[] {
+   272→    return Array.from(this.activeOperations.values())
+   273→  }
+   274→  
+   275→  // ============================================
+   276→  // SYNC EXECUTION
+   277→  // ============================================
+   278→  
+   279→  private async processQueue(): Promise<void> {
+   280→    if (this.isProcessing) return
+   281→    
+   282→    const activeCount = Array.from(this.activeOperations.values()).filter(
+   283→      op => op.status === 'RUNNING'
+   284→    ).length
+   285→    
+   286→    if (activeCount >= this.config.maxConcurrentSyncs) return
+   287→    if (this.queue.length === 0) return
+   288→    
+   289→    this.isProcessing = true
+   290→    
+   291→    try {
+   292→      const nextItem = this.queue.shift()
+   293→      if (!nextItem) return
+   294→      
+   295→      // Check if it's time to execute
+   296→      if (nextItem.nextAttemptAt && nextItem.nextAttemptAt > new Date()) {
+   297→        this.queue.unshift(nextItem)
+   298→        return
+   299→      }
+   300→      
+   301→      await this.executeOperation(nextItem)
+   302→    } finally {
+   303→      this.isProcessing = false
+   304→      this.emit('onQueueChange', [...this.queue])
+   305→    }
+   306→  }
+   307→  
+   308→  private async executeOperation(queueItem: SyncQueueItem): Promise<void> {
+   309→    const { operation, connectorId } = queueItem
+   310→    const connector = this.connectors.get(connectorId)
+   311→    
+   312→    if (!connector) {
+   313→      operation.status = 'FAILED'
+   314→      operation.result = {
+   315→        success: false,
+   316→        recordsProcessed: 0,
+   317→        recordsCreated: 0,
+   318→        recordsUpdated: 0,
+   319→        recordsFailed: 1,
+   320→        errors: [{ code: 'CONNECTOR_NOT_FOUND', message: `Connector ${connectorId} not found`, retryable: false }],
+   321→        durationMs: 0,
+   322→        startedAt: new Date(),
+   323→        completedAt: new Date(),
+   324→      }
+   325→      return
+   326→    }
+   327→    
+   328→    operation.status = 'RUNNING'
+   329→    operation.startedAt = new Date()
+   330→    this.activeOperations.set(operation.id, operation)
+   331→    
+   332→    this.emit('onSyncStart', operation)
+   333→    
+   334→    try {
+   335→      let result: SyncResult
+   336→      
+   337→      switch (operation.direction) {
+   338→        case 'PUSH':
+   339→          result = await this.executePushSync(connector, operation)
+   340→          break
+   341→        case 'PULL':
+   342→          result = await this.executePullSync(connector, operation)
+   343→          break
+   344→        case 'BIDIRECTIONAL':
+   345→          result = await this.executeBidirectionalSync(connector, operation)
+   346→          break
+   347→        default:
+   348→          throw new Error(`Unknown sync direction: ${operation.direction}`)
+   349→      }
+   350→      
+   351→      operation.status = result.success ? 'COMPLETED' : (result.recordsFailed > 0 ? 'PARTIAL' : 'FAILED')
+   352→      operation.result = result
+   353→      operation.completedAt = new Date()
+   354→      
+   355→      // Update database log
+   356→      await this.updateSyncLog(operation, result)
+   357→      
+   358→      this.emit('onSyncComplete', operation)
+   359→      operation.options.onComplete?.(result)
+   360→      
+   361→    } catch (error) {
+   362→      operation.status = 'FAILED'
+   363→      operation.result = {
+   364→        success: false,
+   365→        recordsProcessed: 0,
+   366→        recordsCreated: 0,
+   367→        recordsUpdated: 0,
+   368→        recordsFailed: 1,
+   369→        errors: [{
+   370→          code: 'SYNC_ERROR',
+   371→          message: error instanceof Error ? error.message : String(error),
+   372→          retryable: true,
+   373→        }],
+   374→        durationMs: operation.startedAt ? Date.now() - operation.startedAt.getTime() : 0,
+   375→        startedAt: operation.startedAt || new Date(),
+   376→        completedAt: new Date(),
+   377→      }
+   378→      operation.completedAt = new Date()
+   379→      
+   380→      queueItem.attempts++
+   381→      
+   382→      // Retry logic
+   383→      if (this.config.autoRetryOnFailure && queueItem.attempts < queueItem.maxAttempts) {
+   384→        const delay = this.calculateRetryDelay(queueItem.attempts)
+   385→        queueItem.nextAttemptAt = new Date(Date.now() + delay)
+   386→        this.queue.push(queueItem)
+   387→        console.log(`Scheduling retry ${queueItem.attempts}/${queueItem.maxAttempts} for operation ${operation.id}`)
+   388→      }
+   389→      
+   390→      this.emit('onSyncError', operation, error instanceof Error ? error : new Error(String(error)))
+   391→      operation.options.onError?.(error instanceof Error ? error : new Error(String(error)))
+   392→      
+   393→      await this.updateSyncLog(operation, operation.result!)
+   394→    } finally {
+   395→      this.activeOperations.delete(operation.id)
+   396→    }
+   397→  }
+   398→  
+   399→  private async executePushSync(connector: IERPConnector, operation: SyncOperation): Promise<SyncResult> {
+   400→    const startTime = Date.now()
+   401→    
+   402→    switch (operation.entityType) {
+   403→      case 'PRODUCTS': {
+   404→        // Get local products and push to ERP
+   405→        const products = await this.getLocalProducts(operation.options.lastSyncTimestamp)
+   406→        
+   407→        if (operation.options.dryRun) {
+   408→          return this.createDryRunResult(products.length, startTime)
+   409→        }
+   410→        
+   411→        const batches = this.chunkArray(products, operation.options.batchSize || 50)
+   412→        let created = 0
+   413→        let updated = 0
+   414→        let failed = 0
+   415→        const errors: any[] = []
+   416→        
+   417→        for (let i = 0; i < batches.length; i++) {
+   418→          operation.options.onProgress?.({
+   419→            operationId: operation.id,
+   420→            entityType: operation.entityType,
+   421→            totalRecords: products.length,
+   422→            processedRecords: Math.min((i + 1) * (operation.options.batchSize || 50), products.length),
+   423→            percentage: Math.round(((i + 1) / batches.length) * 100),
+   424→            currentBatch: i + 1,
+   425→            totalBatches: batches.length,
+   426→            message: `Pushing batch ${i + 1}/${batches.length}`,
+   427→          })
+   428→          
+   429→          try {
+   430→            const result = await connector.syncInventory(batches[i])
+   431→            created += result.recordsCreated
+   432→            updated += result.recordsUpdated
+   433→            failed += result.recordsFailed
+   434→            errors.push(...result.errors)
+   435→          } catch (error) {
+   436→            failed += batches[i].length
+   437→            errors.push({
+   438→              code: 'BATCH_ERROR',
+   439→              message: error instanceof Error ? error.message : String(error),
+   440→              retryable: true,
+   441→            })
+   442→          }
+   443→        }
+   444→        
+   445→        return this.createSyncResult(created + updated + failed, created, updated, failed, errors, startTime)
+   446→      }
+   447→      
+   448→      case 'INVENTORY': {
+   449→        const inventoryData = await this.getLocalInventory()
+   450→        const result = await connector.syncInventory(inventoryData)
+   451→        result.durationMs = Date.now() - startTime
+   452→        return result
+   453→      }
+   454→      
+   455→      case 'ORDERS': {
+   456→        const orders = await this.getLocalOrders(operation.options.lastSyncTimestamp)
+   457→        let created = 0
+   458→        let failed = 0
+   459→        const errors: any[] = []
+   460→        
+   461→        for (const order of orders) {
+   462→          try {
+   463→            await connector.pushOrder(order)
+   464→            created++
+   465→          } catch (error) {
+   466→            failed++
+   467→            errors.push({
+   468→              recordId: order.id,
+   469→              code: 'PUSH_ORDER_ERROR',
+   470→              message: error instanceof Error ? error.message : String(error),
+   471→              retryable: true,
+   472→            })
+   473→          }
+   474→        }
+   475→        
+   476→        return this.createSyncResult(orders.length, created, 0, failed, errors, startTime)
+   477→      }
+   478→      
+   479→      default:
+   480→        throw new Error(`Push sync not supported for entity type: ${operation.entityType}`)
+   481→    }
+   482→  }
+   483→  
+   484→  private async executePullSync(connector: IERPConnector, operation: SyncOperation): Promise<SyncResult> {
+   485→    const startTime = Date.now()
+   486→    
+   487→    switch (operation.entityType) {
+   488→      case 'PRODUCTS': {
+   489→        const fetchOptions = operation.options.fullSync 
+   490→          ? undefined 
+   491→          : { modifiedSince: operation.options.lastSyncTimestamp }
+   492→        
+   493→        const products = await connector.fetchProducts(fetchOptions)
+   494→        
+   495→        let created = 0
+   496→        let updated = 0
+   497→        let failed = 0
+   498→        const errors: any[] = []
+   499→        
+   500→        for (let i = 0; i < products.length; i++) {
+   501→          operation.options.onProgress?.({
+   502→            operationId: operation.id,
+   503→            entityType: operation.entityType,
+   504→            totalRecords: products.length,
+   505→            processedRecords: i + 1,
+   506→            percentage: Math.round(((i + 1) / products.length) * 100),
+   507→            currentBatch: Math.floor(i / (operation.options.batchSize || 50)) + 1,
+   508→            totalBatches: Math.ceil(products.length / (operation.options.batchSize || 50)),
+   509→            message: `Processing product ${i + 1}/${products.length}`,
+   510→          })
+   511→          
+   512→          try {
+   513→            const transformed = await connector.transformData(products[i], 'fromERP')
+   514→            await this.upsertLocalProduct(transformed, operation.options.conflictResolution)
+   515→            
+   516→            // Check if product exists to determine create vs update
+   517→            const existing = await this.findLocalProductBySKU(products[i].sku)
+   518→            if (existing) updated++
+   519→            else created++
+   520→          } catch (error) {
+   521→            failed++
+   522→            errors.push({
+   523→              recordId: products[i].id,
+   524→              code: 'PULL_PRODUCT_ERROR',
+   525→              message: error instanceof Error ? error.message : String(error),
+   526→              retryable: true,
+   527→            })
+   528→          }
+   529→        }
+   530→        
+   531→        return this.createSyncResult(products.length, created, updated, failed, errors, startTime)
+   532→      }
+   533→      
+   534→      case 'INVENTORY': {
+   535→        const updates = await connector.fetchInventoryUpdates()
+   536→        
+   537→        for (const update of updates) {
+   538→          await this.updateLocalInventory(update)
+   539→        }
+   540→        
+   541→        return this.createSyncResult(updates.length, 0, updates.length, 0, [], startTime)
+   542→      }
+   543→      
+   544→      case 'ORDERS': {
+   545→        const orders = await connector.pullOrders()
+   546→        
+   547→        for (const order of orders) {
+   548→          await this.upsertLocalOrder(order)
+   549→        }
+   550→        
+   551→        return this.createSyncResult(orders.length, orders.length, 0, 0, [], startTime)
+   552→      }
+   553→      
+   554→      default:
+   555→        throw new Error(`Pull sync not supported for entity type: ${operation.entityType}`)
+   556→    }
+   557→  }
+   558→  
+   559→  private async executeBidirectionalSync(connector: IERPConnector, operation: SyncOperation): Promise<SyncResult> {
+   560→    const startTime = Date.now()
+   561→    
+   562→    // Execute both push and pull, then merge results
+   563→    const pushResult = await this.executePushSync(connector, operation)
+   564→    const pullResult = await this.executePullSync(connector, operation)
+   565→    
+   566→    return {
+   567→      success: pushResult.success && pullResult.success,
+   568→      recordsProcessed: pushResult.recordsProcessed + pullResult.recordsProcessed,
+   569→      recordsCreated: pushResult.recordsCreated + pullResult.recordsCreated,
+   570→      recordsUpdated: pushResult.recordsUpdated + pullResult.recordsUpdated,
+   571→      recordsFailed: pushResult.recordsFailed + pullResult.recordsFailed,
+   572→      errors: [...pushResult.errors, ...pullResult.errors],
+   573→      durationMs: Date.now() - startTime,
+   574→      startedAt: pushResult.startedAt,
+   575→      completedAt: new Date(),
+   576→    }
+   577→  }
+   578→  
+   579→  // ============================================
+   580→  // CONFLICT RESOLUTION
+   581→  // ============================================
+   582→  
+   583→  async resolveConflict(
+   584→    localData: any,
+   585→    erpData: any,
+   586→    strategy: ConflictResolution = this.config.defaultConflictResolution
+   587→  ): Promise<any> {
+   588→    switch (strategy) {
+   589→      case 'LAST_WRITE_WINS':
+   590→        const localDate = new Date(localData.updatedAt || localData.updated_at || 0)
+   591→        const erpDate = new Date(erpData.updatedAt || erpData.updated_at || 0)
+   592→        return localDate > erpDate ? localData : erpData
+   593→        
+   594→      case 'PLATFORM_WINS':
+   595→        return localData
+   596→        
+   597→      case 'ERP_WINS':
+   598→        return erpData
+   599→        
+   600→      case 'MERGE':
+   601→        return this.mergeObjects(localData, erpData)
+   602→        
+   603→      case 'MANUAL':
+   604→        // Return both for manual review
+   605→        return {
+   606→          _conflict: true,
+   607→          _local: localData,
+   608→          _erp: erpData,
+   609→        }
+   610→        
+   611→      default:
+   612→        return erpData
+   613→    }
+   614→  }
+   615→  
+   616→  private mergeObjects(target: any, source: any): any {
+   617→    const result = { ...target }
+   618→    
+   619→    for (const key of Object.keys(source)) {
+   620→      if (typeof source[key] === 'object' && source[key] !== null && !Array.isArray(source[key])) {
+   621→        result[key] = this.mergeObjects(result[key] || {}, source[key])
+   622→      } else if (source[key] !== undefined && source[key] !== null) {
+   623→        result[key] = source[key]
+   624→      }
+   625→    }
+   626→    
+   627→    return result
+   628→  }
+   629→  
+   630→  // ============================================
+   631→  // DATABASE HELPERS
+   632→  // ============================================
+   633→  
+   634→  private async createSyncLog(operation: SyncOperation): Promise<void> {
+   635→    try {
+   636→      await db.erpSyncLogNew.create({
+   637→        data: {
+   638→          id: operation.id,
+   639→          connectorId: operation.connectorId,
+   640→          direction: operation.direction,
+   641→          entityType: operation.entityType,
+   642→          status: operation.status,
+   643→          startedAt: operation.createdAt,
+   644→        },
+   645→      })
+   646→    } catch (error) {
+   647→      console.error('Failed to create sync log:', error)
+   648→    }
+   649→  }
+   650→  
+   651→  private async updateSyncLog(operation: SyncOperation, result: SyncResult): Promise<void> {
+   652→    try {
+   653→      await db.erpSyncLogNew.update({
+   654→        where: { id: operation.id },
+   655→        data: {
+   656→          status: operation.status,
+   657→          recordsProcessed: result.recordsProcessed,
+   658→          recordsSuccess: result.recordsSuccess || result.recordsCreated + result.recordsUpdated,
+   659→          recordsFailed: result.recordsFailed,
+   660→          durationSeconds: Math.round(result.durationMs / 1000),
+   661→          completedAt: result.completedAt,
+   662→          errorMessage: result.errors.length > 0 
+   663→            ? JSON.stringify(result.errors.slice(0, 5)) 
+   664→            : undefined,
+   665→          details: JSON.stringify({
+   666→            direction: operation.direction,
+   667→            entityType: operation.entityType,
+   668→          }),
+   669→        },
+   670→      })
+   671→    } catch (error) {
+   672→      console.error('Failed to update sync log:', error)
+   673→    }
+   674→  }
+   675→  
+   676→  private async getLocalProducts(modifiedSince?: Date): Promise<any[]> {
+   677→    const where: any = { status: 'published' }
+   678→    if (modifiedSince) {
+   679→      where.updatedAt = { gte: modifiedSince }
+   680→    }
+   681→    
+   682→    return db.product.findMany({ where })
+   683→  }
+   684→  
+   685→  private async findLocalProductBySKU(sku?: string): Promise<any> {
+   686→    if (!sku) return null
+   687→    return db.product.findFirst({ where: { sku } })
+   688→  }
+   689→  
+   690→  private async upsertLocalProduct(data: any, conflictResolution?: ConflictResolution): Promise<any> {
+   691→    const existing = data.sku ? await this.findLocalProductBySKU(data.sku) : null
+   692→    
+   693→    if (existing) {
+   694→      const resolved = conflictResolution && conflictResolution !== 'PLATFORM_WINS'
+   695→        ? await this.resolveConflict(existing, data, conflictResolution)
+   696→        : data
+   697→        
+   698→      return db.product.update({
+   699→        where: { id: existing.id },
+   700→        data: resolved,
+   701→      })
+   702→    } else {
+   703→      return db.product.create({ data })
+   704→    }
+   705→  }
+   706→  
+   707→  private async getLocalInventory(): Promise<Partial<Product>[]> {
+   708→    const products = await db.product.findMany({
+   709→      where: { status: 'published' },
+   710→      select: { id: true, sku: true, name: true, availability: true },
+   711→    })
+   712→    
+   713→    return products.map(p => ({
+   714→      ...p,
+   715→      quantity: p.availability === 'in_stock' ? 50 : p.availability === 'low_stock' ? 5 : 0,
+   716→    }))
+   717→  }
+   718→  
+   719→  private async updateLocalInventory(update: { productId: string; newQuantity: number }): Promise<void> {
+   720→    const availability = update.newQuantity <= 0 ? 'out_of_stock' :
+   721→                          update.newQuantity <= 10 ? 'low_stock' : 'in_stock'
+   722→    
+   723→    await db.product.update({
+   724→      where: { id: update.productId },
+   725→      data: { availability, updatedAt: new Date() },
+   726→    })
+   727→  }
+   728→  
+   729→  private async getLocalOrders(modifiedSince?: Date): Promise<any[]> {
+   730→    const where: any = {}
+   731→    if (modifiedSince) {
+   732→      where.createdAt = { gte: modifiedSince }
+   733→    }
+   734→    
+   735→    return db.order.findMany({ where })
+   736→  }
+   737→  
+   738→  private async upsertLocalOrder(order: any): Promise<any> {
+   739→    const existing = order.orderNumber 
+   740→      ? await db.order.findFirst({ where: { orderNumber: order.orderNumber } })
+   741→      : null
+   742→      
+   743→    if (existing) {
+   744→      return db.order.update({ where: { id: existing.id }, data: order })
+   745→    } else {
+   746→      return db.order.create({ data: order })
+   747→    }
+   748→  }
+   749→  
+   750→  // ============================================
+   751→  // SCHEDULED SYNC
+   752→  // ============================================
+   753→  
+   754→  startScheduledSync(connectorId: string, frequency: SyncFrequency, entityTypes?: string[]): void {
+   755→    const intervalMs = this.getIntervalFromFrequency(frequency)
+   756→    
+   757→    if (intervalMs > 0) {
+   758→      setInterval(async () => {
+   759→        const types = entityTypes || ['PRODUCTS', 'INVENTORY']
+   760→        for (const entityType of types) {
+   761→          await this.triggerSync(connectorId, 'BIDIRECTIONAL', entityType)
+   762→        }
+   763→      }, intervalMs)
+   764→    }
+   765→  }
+   766→  
+   767→  private getIntervalFromFrequency(frequency: SyncFrequency): number {
+   768→    switch (frequency) {
+   769→      case 'REALTIME':
+   770→      case 'EVERY_5_MIN':
+   771→        return 5 * 60 * 1000
+   772→      case 'EVERY_15_MIN':
+   773→        return 15 * 60 * 1000
+   774→      case 'EVERY_30_MIN':
+   775→        return 30 * 60 * 1000
+   776→      case 'HOURLY':
+   777→        return 60 * 60 * 1000
+   778→      case 'DAILY':
+   779→        return 24 * 60 * 60 * 1000
+   780→      case 'WEEKLY':
+   781→        return 7 * 24 * 60 * 60 * 1000
+   782→      case 'MANUAL':
+   783→        return 0
+   784→      default:
+   785→        return 0
+   786→    }
+   787→  }
+   788→  
+   789→  // ============================================
+   790→  // HEALTH CHECK & CLEANUP
+   791→  // ============================================
+   792→  
+   793→  private startHealthCheck(): void {
+   794→    setInterval(async () => {
+   795→      await this.performHealthCheck()
+   796→    }, this.config.healthCheckIntervalMs)
+   797→  }
+   798→  
+   799→  async performHealthCheck(): Promise<{
+   800→    healthy: number
+   801→    degraded: number
+   802→    unhealthy: number
+   803→    details: Map<string, any>
+   804→  }> {
+   805→    const details = new Map<string, any>()
+   806→    let healthy = 0
+   807→    let degraded = 0
+   808→    let unhealthy = 0
+   809→    
+   810→    for (const [id, connector] of this.connectors) {
+   811→      try {
+   812→        const check = await connector.healthCheck()
+   813→        details.set(id, check)
+   814→        
+   815→        switch (check.status) {
+   816→          case 'healthy': healthy++; break
+   817→          case 'degraded': degraded++; break
+   818→          case 'unhealthy': unhealthy++; break
+   819→        }
+   820→      } catch (error) {
+   821→        unhealthy++
+   822→        details.set(id, { status: 'unhealthy', error: error instanceof Error ? error.message : String(error) })
+   823→      }
+   824→    }
+   825→    
+   826→    return { healthy, degraded, unhealthy, details }
+   827→  }
+   828→  
+   829→  async cleanupOldLogs(daysToKeep: number = 90): Promise<number> {
+   830→    const cutoffDate = new Date()
+   831→    cutoffDate.setDate(cutoffDate.getDate() - daysToKeep)
+   832→    
+   833→    const result = await db.erpSyncLogNew.deleteMany({
+   834→      where: { startedAt: { lt: cutoffDate } },
+   835→    })
+   836→    
+   837→    return result.count
+   838→  }
+   839→  
+   840→  // ============================================
+   841→  // EVENT SYSTEM
+   842→  // ============================================
+   843→  
+   844→  on(event: 'onSyncStart' | 'onSyncComplete' | 'onSyncError' | 'onQueueChange', callback: Function): void {
+   845→    this.listeners[event].push(callback as any)
+   846→  }
+   847→  
+   848→  off(event: 'onSyncStart' | 'onSyncComplete' | 'onSyncError' | 'onQueueChange', callback: Function): void {
+   849→    const index = this.listeners[event].indexOf(callback as any)
+   850→    if (index > -1) {
+   851→      this.listeners[event].splice(index, 1)
+   852→    }
+   853→  }
+   854→  
+   855→  private emit(event: keyof SyncEngine['listeners'], data: any): void {
+   856→    this.listeners[event].forEach(callback => {
+   857→      try {
+   858→        callback(data)
+   859→      } catch (error) {
+   860→        console.error(`Event listener error (${event}):`, error)
+   861→      }
+   862→    })
+   863→  }
+   864→  
+   865→  // ============================================
+   866→  // QUEUE PROCESSING
+   867→  // ============================================
+   868→  
+   869→  private startQueueProcessor(): void {
+   870→    this.processingInterval = setInterval(() => {
+   871→      this.processQueue()
+   872→    }, 1000) // Check every second
+   873→  }
+   874→  
+   875→  stopQueueProcessor(): void {
+   876→    if (this.processingInterval) {
+   877→      clearInterval(this.processingInterval)
+   878→    }
+   879→  }
+   880→  
+   881→  private sortQueue(): void {
+   882→    this.queue.sort((a, b) => a.operation.priority - b.operation.priority)
+   883→  }
+   884→  
+   885→  private calculateRetryDelay(attempt: number): number {
+   886→    const baseDelay = this.config.defaultRetryPolicy.baseDelayMs
+   887→    const multiplier = this.config.defaultRetryPolicy.backoffMultiplier
+   888→    const maxDelay = this.config.defaultRetryPolicy.maxDelayMs
+   889→    
+   890→    return Math.min(baseDelay * Math.pow(multiplier, attempt), maxDelay)
+   891→  }
+   892→  
+   893→  // ============================================
+   894→  // UTILITY METHODS
+   895→  // ============================================
+   896→  
+   897→  private chunkArray<T>(array: T[], size: number): T[][] {
+   898→    const chunks: T[][] = []
+   899→    for (let i = 0; i < array.length; i += size) {
+   900→      chunks.push(array.slice(i, i + size))
+   901→    }
+   902→    return chunks
+   903→  }
+   904→  
+   905→  private createDryRunResult(count: number, startTime: number): SyncResult {
+   906→    return {
+   907→      success: true,
+   908→      recordsProcessed: count,
+   909→      recordsCreated: count,
+   910→      recordsUpdated: 0,
+   911→      recordsFailed: 0,
+   912→      errors: [],
+   913→      durationMs: Date.now() - startTime,
+   914→      startedAt: new Date(startTime),
+   915→      completedAt: new Date(),
+   916→    }
+   917→  }
+   918→  
+   919→  private createSyncResult(
+   920→    processed: number,
+   921→    created: number,
+   922→    updated: number,
+   923→    failed: number,
+   924→    errors: any[],
+   925→    startTime: number
+   926→  ): SyncResult {
+   927→    return {
+   928→      success: failed === 0,
+   929→      recordsProcessed: processed,
+   930→      recordsCreated: created,
+   931→      recordsUpdated: updated,
+   932→      recordsFailed: failed,
+   933→      errors,
+   934→      durationMs: Date.now() - startTime,
+   935→      startedAt: new Date(startTime),
+   936→      completedAt: new Date(),
+   937→    }
+   938→  }
+   939→  
+   940→  // Shutdown
+   941→  async shutdown(): Promise<void> {
+   942→    this.stopQueueProcessor()
+   943→    
+   944→    // Disconnect all connectors
+   945→    for (const [id, connector] of this.connectors) {
+   946→      try {
+   947→        await connector.disconnect()
+   948→      } catch (error) {
+   949→        console.error(`Error disconnecting connector ${id}:`, error)
+   950→      }
+   951→    }
+   952→    
+   953→    this.connectors.clear()
+   954→    this.queue = []
+   955→    this.activeOperations.clear()
+   956→  }
+   957→}
+   958→
+   959→// Export singleton instance
+   960→export const syncEngine = SyncEngine.getInstance()
+   961→
+   962→export default SyncEngine
+   963→

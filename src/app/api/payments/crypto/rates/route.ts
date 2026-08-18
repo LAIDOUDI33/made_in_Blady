@@ -1,79 +1,90 @@
-// GET /api/payments/crypto/rates - Get current crypto exchange rates
+// GET /api/payments/crypto/rates
+// Get current cryptocurrency exchange rates and related info
 
 import { NextResponse } from 'next/server'
-import { getAllCryptoRates, CRYPTO_INFO, CryptoCurrency } from '@/lib/payments/crypto'
+import {
+  getAllExchangeRates,
+  getExchangeRate,
+  getRateCacheStats,
+  SupportedCrypto,
+} from '@/lib/payments/crypto/exchange-rates'
+import {
+  cryptoConfig,
+  cryptoMetadata,
+  networkFeeEstimates,
+  getAvailableNetworks,
+  getRequiredConfirmations,
+} from '@/lib/payments/crypto/config'
 
-// Cache for rates (in-memory, 30 second TTL)
-let cachedRates: Record<CryptoCurrency, number> | null = null
-let lastFetchTime = 0
-const CACHE_TTL_MS = 30000 // 30 seconds
-
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const now = Date.now()
-    
-    // Return cached rates if still valid
-    if (cachedRates && (now - lastFetchTime) < CACHE_TTL_MS) {
+    const { searchParams } = new URL(request.url)
+    const forceRefresh = searchParams.get('refresh') === 'true'
+    const crypto = searchParams.get('crypto') as SupportedCrypto | null
+
+    // If specific crypto requested
+    if (crypto && cryptoConfig.supportedCryptos.includes(crypto)) {
+      const rate = await getExchangeRate(crypto, forceRefresh)
+      
       return NextResponse.json({
         success: true,
         data: {
-          rates: cachedRates,
-          baseCurrency: 'DZD',
-          cached: true,
-          fetchedAt: new Date(lastFetchTime).toISOString(),
+          cryptocurrency: crypto,
+          ...rate,
+          metadata: cryptoMetadata[crypto],
+          networks: getAvailableNetworks(crypto).map(net => ({
+            name: net,
+            feeEstimate: networkFeeEstimates[crypto]?.[net],
+            requiredConfirmations: getRequiredConfirmations(crypto, net),
+          })),
         },
       })
     }
 
-    // Fetch fresh rates
-    const rates = await getAllCryptoRates()
+    // Get all rates
+    const ratesMap = await getAllExchangeRates(forceRefresh)
+    const rates: Record<string, any> = {}
     
-    // Update cache
-    cachedRates = rates
-    lastFetchTime = now
+    for (const [code, rate] of ratesMap.entries()) {
+      rates[code] = {
+        rateToDZD: rate.rateToDZD,
+        rateToUSD: rate.rateToUSD,
+        source: rate.source,
+        fetchedAt: rate.fetchedAt,
+        expiresAt: rate.expiresAt,
+        metadata: cryptoMetadata[code],
+        networks: getAvailableNetworks(code).map(net => ({
+          name: net,
+          feeEstimate: networkFeeEstimates[code]?.[net],
+          requiredConfirmations: getRequiredConfirmations(code, net),
+          recommended: networkFeeEstimates[code]?.[net]?.recommended || false,
+        })),
+      }
+    }
+
+    // Get cache stats
+    const cacheStats = getRateCacheStats()
 
     return NextResponse.json({
       success: true,
       data: {
         rates,
+        supportedCryptos: cryptoConfig.supportedCryptos,
         baseCurrency: 'DZD',
-        cached: false,
-        fetchedAt: new Date().toISOString(),
-        currencies: Object.entries(CRYPTO_INFO).map(([code, info]) => ({
-          code: code as CryptoCurrency,
-          ...info,
-          rate: rates[code as CryptoCurrency],
-          // Calculate example: 1000 DZD in this crypto
-          exampleConversion: {
-            fromAmount: 1000,
-            toAmount: Math.round((1000 / rates[code as CryptoCurrency]) * 100000000) / 100000000,
-            unit: info.symbol,
-          },
-        })),
+        cacheInfo: {
+          ttlSeconds: cryptoConfig.cacheTTL,
+          entriesCount: cacheStats.size,
+        },
+        lastUpdated: new Date().toISOString(),
       },
     })
   } catch (error) {
     console.error('Error fetching crypto rates:', error)
     
-    // Return cached rates even if expired, if available
-    if (cachedRates) {
-      return NextResponse.json({
-        success: true,
-        data: {
-          rates: cachedRates,
-          baseCurrency: 'DZD',
-          cached: true,
-          stale: true,
-          warning: 'Using stale exchange rates. Real-time rates unavailable.',
-          fetchedAt: new Date(lastFetchTime).toISOString(),
-        },
-      })
-    }
-    
     return NextResponse.json(
       { 
         success: false, 
-        error: 'Failed to fetch exchange rates' 
+        error: error instanceof Error ? error.message : 'Failed to fetch exchange rates' 
       },
       { status: 500 }
     )

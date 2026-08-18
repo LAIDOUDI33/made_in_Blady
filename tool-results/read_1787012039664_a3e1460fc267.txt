@@ -1,0 +1,693 @@
+     1→'use client'
+     2→
+     3→import React, { useState, useCallback, useEffect } from 'react'
+     4→import {
+     5→  Phone,
+     6→  Video,
+     7→  Mic,
+     8→  MicOff,
+     9→  VideoOff,
+    10→  Monitor,
+    11→  PhoneOff,
+    12→  Settings,
+    13→  History,
+    14→  Users,
+    15→  Wifi,
+    16→  Signal,
+    17→  Circle,
+    18→  Volume2,
+    19→  MessageSquare,
+    20→  Check,
+    21→  AlertCircle,
+    22→  Headphones
+    23→} from 'lucide-react'
+    24→import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+    25→import { Button } from '@/components/ui/button'
+    26→import { Badge } from '@/components/ui/badge'
+    27→import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+    28→import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+    29→import { Input } from '@/components/ui/input'
+    30→import { Separator } from '@/components/ui/separator'
+    31→import {
+    32→  Select,
+    33→  SelectContent,
+    34→  SelectItem,
+    35→  SelectTrigger,
+    36→  SelectValue,
+    37→} from '@/components/ui/select'
+    38→import { Switch } from '@/components/ui/switch'
+    39→import { Label } from '@/components/ui/label'
+    40→import { useWebRTC } from '@/hooks/useWebRTC'
+    41→import VideoCallWindow from '@/components/calls/VideoCallWindow'
+    42→import AudioCallWindow from '@/components/calls/AudioCallWindow'
+    43→import IncomingCallModal from '@/components/calls/IncomingCallModal'
+    44→import CallHistory from '@/components/calls/CallHistory'
+    45→import DeviceSettings from '@/components/calls/DeviceSettings'
+    46→import CallQualityIndicator from '@/components/calls/CallQualityIndicator'
+    47→import type { CallType, MediaQuality } from '@/lib/webrtc/signaling-server'
+    48→
+    49→// ============================================
+    50→// Mock Data for Demo
+    51→// ============================================
+    52→
+    53→const mockContacts = [
+    54→  { id: 'user-001', name: 'Ahmed Benali', avatar: null, company: 'AlgeriaTech SARL', online: true },
+    55→  { id: 'user-002', name: 'Fatima Zerhouni', avatar: null, company: 'Oran Commerce', online: true },
+    56→  { id: 'user-003', name: 'Karim Hadjoub', avatar: null, company: 'Constantine Imports', online: false },
+    57→  { id: 'user-004', name: 'Amina Bouazza', avatar: null, company: 'Setif Distribution', online: true },
+    58→  { id: 'user-005', name: 'Youssef Amrani', avatar: null, company: 'Blida Exports', online: false },
+    59→]
+    60→
+    61→const mockCallHistory = [
+    62→  {
+    63→    id: 'call-001',
+    64→    callerId: 'current-user',
+    65→    calleeId: 'user-001',
+    66→    callerName: 'You',
+    67→    calleeName: 'Ahmed Benali',
+    68→    callType: 'VIDEO' as CallType,
+    69→    status: 'ENDED' as const,
+    70→    startedAt: new Date(Date.now() - 3600000),
+    71→    durationSeconds: 452,
+    72→    isRecording: true,
+    73→  },
+    74→  {
+    75→    id: 'call-002',
+    76→    callerId: 'user-002',
+    77→    calleeId: 'current-user',
+    78→    callerName: 'Fatima Zerhouni',
+    79→    calleeName: 'You',
+    80→    callType: 'AUDIO' as CallType,
+    81→    status: 'MISSED' as const,
+    82→    startedAt: new Date(Date.now() - 7200000),
+    83→  },
+    84→  {
+    85→    id: 'call-003',
+    86→    callerId: 'current-user',
+    87→    calleeId: 'user-004',
+    88→    callerName: 'You',
+    89→    calleeName: 'Amina Bouazza',
+    90→    callType: 'VIDEO' as CallType,
+    91→    status: 'ENDED' as const,
+    92→    startedAt: new Date(Date.now() - 86400000),
+    93→    durationSeconds: 1200,
+    94→    hasScreenShare: true,
+    95→  },
+    96→]
+    97→
+    98→// ============================================
+    99→// Main Page Component
+   100→// ============================================
+   101→
+   102→export default function VoiceVideoCallsPage() {
+   103→  // State for demo
+   104→  const [selectedContact, setSelectedContact] = useState<string>('')
+   105→  const [showIncomingCall, setShowIncomingCall] = useState(false)
+   106→  const [activeTab, setActiveTab] = useState('contacts')
+   107→  const [callSettings, setCallSettings] = useState({
+   108→    autoAnswer: false,
+   109→    hdVideo: true,
+   110→    noiseSuppression: true,
+   111→  })
+   112→
+   113→  // WebRTC hook
+   114→  const {
+   115→    localStream,
+   116→    remoteStream,
+   117→    currentCall,
+   118→    callStatus,
+   119→    isMuted,
+   120→    isVideoOff,
+   121→    isScreenSharing,
+   122→    isOnHold,
+   123→    isRecording,
+   124→    callDuration,
+   125→    connectionQuality,
+   126→    chatMessages,
+   127→
+   128→    startCall,
+   129→    acceptCall,
+   130→    declineCall,
+   131→    hangup,
+   132→    toggleMute,
+   133→    toggleVideo,
+   134→    toggleScreenShare,
+   135→    toggleHold,
+   136→    toggleRecording,
+   137→    sendChatMessage,
+   138→    cleanup,
+   139→  } = useWebRTC({
+   140→    enableRecording: true,
+   141→    defaultQuality: 'HD',
+   142→    onIncomingCall: (call) => {
+   143→      console.log('Incoming call:', call)
+   144→      setShowIncomingCall(true)
+   145→    },
+   146→    onCallEnded: (call) => {
+   147→      console.log('Call ended:', call)
+   148→      setActiveTab('history')
+   149→    },
+   150→    onError: (error) => {
+   151→      console.error('Call error:', error)
+   152→    },
+   153→  })
+   154→
+   155→  // Handle starting a call
+   156→  const handleStartCall = async (contactId: string, callType: CallType) => {
+   157→    const contact = mockContacts.find(c => c.id === contactId)
+   158→    if (!contact) return
+   159→
+   160→    try {
+   161→      await startCall(contactId, contact.name, callType)
+   162→    } catch (error) {
+   163→      console.error('Failed to start call:', error)
+   164→    }
+   165→  }
+   166→
+   167→  // Handle accepting incoming call
+   168→  const handleAcceptCall = async () => {
+   169→    if (currentCall) {
+   170→      try {
+   171→        await acceptCall(currentCall.id)
+   172→        setShowIncomingCall(false)
+   173→      } catch (error) {
+   174→        console.error('Failed to accept call:', error)
+   175→      }
+   176→    }
+   177→  }
+   178→
+   179→  // Handle declining incoming call
+   180→  const handleDeclineCall = () => {
+   181→    if (currentCall) {
+   182→      declineCall(currentCall.id)
+   183→      setShowIncomingCall(false)
+   184→    }
+   185→  }
+   186→
+   187→  // Handle recall from history
+   188→  const handleRecall = (calleeId: string, calleeName: string, callType: CallType) => {
+   189→    handleStartCall(calleeId, callType)
+   190→  }
+   191→
+   192→  // Simulate incoming call (for demo purposes)
+   193→  const simulateIncomingCall = () => {
+   194→    setShowIncomingCall(true)
+   195→  }
+   196→
+   197→  // If there's an active call, show the appropriate call window
+   198→  if (currentCall && ['RINGING', 'CONNECTED', 'ON_HOLD'].includes(callStatus || '')) {
+   199→    if (currentCall.callType === 'AUDIO') {
+   200→      return (
+   201→        <AudioCallWindow
+   202→          call={currentCall}
+   203→          localStream={localStream}
+   204→          remoteStream={remoteStream}
+   205→          callStatus={callStatus}
+   206→          isMuted={isMuted}
+   207→          isOnHold={isOnHold}
+   208→          isRecording={isRecording}
+   209→          callDuration={callDuration}
+   210→          connectionQuality={connectionQuality}
+   211→          onHangup={() => hangup()}
+   212→          onToggleMute={toggleMute}
+   213→          onToggleHold={toggleHold}
+   214→          onToggleRecording={toggleRecording}
+   215→        />
+   216→      )
+   217→    }
+   218→
+   219→    return (
+   220→      <VideoCallWindow
+   221→        call={currentCall}
+   222→        localStream={localStream}
+   223→        remoteStream={remoteStream}
+   224→        callStatus={callStatus}
+   225→        isMuted={isMuted}
+   226→        isVideoOff={isVideoOff}
+   227→        isScreenSharing={isScreenSharing}
+   228→        isOnHold={isOnHold}
+   229→        isRecording={isRecording}
+   230→        callDuration={callDuration}
+   231→        connectionQuality={connectionQuality}
+   232→        onHangup={() => hangup()}
+   233→        onToggleMute={toggleMute}
+   234→        onToggleVideo={toggleVideo}
+   235→        onToggleScreenShare={toggleScreenShare}
+   236→        onToggleHold={toggleHold}
+   237→        onToggleRecording={toggleRecording}
+   238→      />
+   239→    )
+   240→  }
+   241→
+   242→  return (
+   243→    <div className="min-h-screen bg-gradient-to-b from-background to-muted/30">
+   244→      {/* Header */}
+   245→      <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-40">
+   246→        <div className="container mx-auto px-4 py-4">
+   247→          <div className="flex items-center justify-between">
+   248→            <div className="flex items-center gap-3">
+   249→              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center">
+   250→                <Phone className="w-5 h-5 text-white" />
+   251→              </div>
+   252→              <div>
+   253→                <h1 className="text-xl font-bold">Voice & Video Calls</h1>
+   254→                <p className="text-sm text-muted-foreground">AlgeriaTrade.dz Communication Hub</p>
+   255→              </div>
+   256→            </div>
+   257→
+   258→            <div className="flex items-center gap-3">
+   259→              {/* Connection quality indicator */}
+   260→              <CallQualityIndicator quality={connectionQuality} showLabel />
+   261→
+   262→              {/* WebRTC Service Status */}
+   263→              <Badge variant="outline" className="gap-1.5 px-3 py-1.5">
+   264→                <Wifi className="w-3.5 h-3.5 text-green-500" />
+   265→                <span className="text-xs">Signaling Server</span>
+   266→                <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+   267→              </Badge>
+   268→
+   269→              {/* Simulate incoming call button (for demo) */}
+   270→              <Button
+   271→                variant="outline"
+   272→                size="sm"
+   273→                onClick={simulateIncomingCall}
+   274→                className="hidden sm:flex"
+   275→              >
+   276→                <Phone className="w-4 h-4 mr-2" />
+   277→                Simulate Incoming Call
+   278→              </Button>
+   279→            </div>
+   280→          </div>
+   281→        </div>
+   282→      </header>
+   283→
+   284→      {/* Main Content */}
+   285→      <main className="container mx-auto px-4 py-6">
+   286→        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+   287→          <TabsList className="grid w-full grid-cols-4 lg:w-[500px] mx-auto">
+   288→            <TabsTrigger value="contacts" className="gap-2">
+   289→              <Users className="w-4 h-4" />
+   290→              Contacts
+   291→            </TabsTrigger>
+   292→            <TabsTrigger value="history" className="gap-2">
+   293→              <History className="w-4 h-4" />
+   294→              History
+   295→            </TabsTrigger>
+   296→            <TabsTrigger value="settings" className="gap-2">
+   297→              <Settings className="w-4 h-4" />
+   298→              Devices
+   299→            </TabsTrigger>
+   300→            <TabsTrigger value="features" className="gap-2">
+   301→              <Headphones className="w-4 h-4" />
+   302→              Features
+   303→            </TabsTrigger>
+   304→          </TabsList>
+   305→
+   306→          {/* Contacts Tab */}
+   307→          <TabsContent value="contacts" className="space-y-6">
+   308→            {/* Quick stats */}
+   309→            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+   310→              <Card>
+   311→                <CardContent className="pt-4 flex items-center gap-3">
+   312→                  <div className="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+   313→                    <Users className="w-5 h-5 text-blue-600" />
+   314→                  </div>
+   315→                  <div>
+   316→                    <p className="text-2xl font-bold">{mockContacts.length}</p>
+   317→                    <p className="text-xs text-muted-foreground">Contacts</p>
+   318→                  </div>
+   319→                </CardContent>
+   320→              </Card>
+   321→              <Card>
+   322→                <CardContent className="pt-4 flex items-center gap-3">
+   323→                  <div className="w-10 h-10 rounded-lg bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+   324→                    <Wifi className="w-5 h-5 text-green-600" />
+   325→                  </div>
+   326→                  <div>
+   327→                    <p className="text-2xl font-bold">{mockContacts.filter(c => c.online).length}</p>
+   328→                    <p className="text-xs text-muted-foreground">Online</p>
+   329→                  </div>
+   330→                </CardContent>
+   331→              </Card>
+   332→              <Card>
+   333→                <CardContent className="pt-4 flex items-center gap-3">
+   334→                  <div className="w-10 h-10 rounded-lg bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
+   335→                    <Phone className="w-5 h-5 text-purple-600" />
+   336→                  </div>
+   337→                  <div>
+   338→                    <p className="text-2xl font-bold">{mockCallHistory.filter(c => c.status === 'ENDED').length}</p>
+   339→                    <p className="text-xs text-muted-foreground">Calls Made</p>
+   340→                  </div>
+   341→                </CardContent>
+   342→              </Card>
+   343→              <Card>
+   344→                <CardContent className="pt-4 flex items-center gap-3">
+   345→                  <div className="w-10 h-10 rounded-lg bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center">
+   346→                    <Volume2 className="w-5 h-5 text-orange-600" />
+   347→                  </div>
+   348→                  <div>
+   349→                    <p className="text-2xl font-bold">{mockCallHistory.filter(c => c.isRecording).length}</p>
+   350→                    <p className="text-xs text-muted-foreground">Recordings</p>
+   351→                  </div>
+   352→                </CardContent>
+   353→              </Card>
+   354→            </div>
+   355→
+   356→            {/* Contact list */}
+   357→            <Card>
+   358→              <CardHeader>
+   359→                <CardTitle>Your Contacts</CardTitle>
+   360→                <CardDescription>Select a contact to start a voice or video call</CardDescription>
+   361→              </CardHeader>
+   362→              <CardContent>
+   363→                <div className="space-y-3">
+   364→                  {mockContacts.map((contact) => (
+   365→                    <div
+   366→                      key={contact.id}
+   367→                      className={`flex items-center gap-4 p-3 rounded-lg border transition-colors hover:bg-accent/50 ${
+   368→                        selectedContact === contact.id ? 'border-primary bg-accent/30' : ''
+   369→                      }`}
+   370→                    >
+   371→                      <div className="relative">
+   372→                        <Avatar className="h-12 w-12">
+   373→                          <AvatarImage src={contact.avatar || undefined} alt={contact.name} />
+   374→                          <AvatarFallback className="bg-gradient-to-br from-emerald-500 to-teal-600 text-white">
+   375→                            {contact.name.split(' ').map(n => n[0]).join('')}
+   376→                          </AvatarFallback>
+   377→                        </Avatar>
+   378→                        <div className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2-background ${
+   379→                          contact.online ? 'bg-green-500' : 'bg-gray-400'
+   380→                        }`} />
+   381→                      </div>
+   382→
+   383→                      <div className="flex-1 min-w-0">
+   384→                        <p className="font-medium truncate">{contact.name}</p>
+   385→                        <p className="text-sm text-muted-foreground truncate">{contact.company}</p>
+   386→                      </div>
+   387→
+   388→                      {/* Call buttons */}
+   389→                      <div className="flex items-center gap-2">
+   390→                        <Button
+   391→                          size="sm"
+   392→                          variant="outline"
+   393→                          onClick={() => handleStartCall(contact.id, 'AUDIO')}
+   394→                          disabled={!contact.online}
+   395→                          className="gap-1.5"
+   396→                        >
+   397→                          <Phone className="w-4 h-4 text-green-600" />
+   398→                          <span className="hidden sm:inline">Voice</span>
+   399→                        </Button>
+   400→                        <Button
+   401→                          size="sm"
+   402→                          onClick={() => handleStartCall(contact.id, 'VIDEO')}
+   403→                          disabled={!contact.online}
+   404→                          className="gap-1.5"
+   405→                        >
+   406→                          <Video className="w-4 h-4" />
+   407→                          <span className="hidden sm:inline">Video</span>
+   408→                        </Button>
+   409→                      </div>
+   410→                    </div>
+   411→                  ))}
+   412→                </div>
+   413→              </CardContent>
+   414→            </Card>
+   415→          </TabsContent>
+   416→
+   417→          {/* Call History Tab */}
+   418→          <TabsContent value="history">
+   419→            <CallHistory
+   420→              userId="current-user"
+   421→              calls={mockCallHistory}
+   422→              onRecall={handleRecall}
+   423→              onDeleteCall={(callId) => console.log('Delete call:', callId)}
+   424→              onDeleteAll={() => console.log('Delete all calls')}
+   425→            />
+   426→          </TabsContent>
+   427→
+   428→          {/* Device Settings Tab */}
+   429→          <TabsContent value="settings">
+   430→            <DeviceSettings
+   431→              onSettingsChange={(settings) => setCallSettings(settings as never)}
+   432→            />
+   433→          </TabsContent>
+   434→
+   435→          {/* Features Overview Tab */}
+   436→          <TabsContent value="features" className="space-y-6">
+   437→            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+   438→              {/* HD Video Calls */}
+   439→              <Card className="overflow-hidden">
+   440→                <div className="h-32 bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
+   441→                  <Video className="w-16 h-16 text-white/80" />
+   442→                </div>
+   443→                <CardHeader>
+   444→                  <CardTitle className="flex items-center gap-2">
+   445→                    HD Video Calls
+   446→                    <Badge variant="secondary">Core</Badge>
+   447→                  </CardTitle>
+   448→                  <CardDescription>
+   449→                    Crystal clear video up to 1080p HD quality with adaptive bitrate
+   450→                  </CardDescription>
+   451→                </CardHeader>
+   452→                <CardContent>
+   453→                  <ul className="space-y-2 text-sm">
+   454→                    <li className="flex items-center gap-2">
+   455→                      <Check className="w-4 h-4 text-green-500" />
+   456→                      Up to 1080p resolution
+   457→                    </li>
+   458→                    <li className="flex items-center gap-2">
+   459→                      <Check className="w-4 h-4 text-green-500" />
+   460→                      Adaptive quality based on network
+   461→                    </li>
+   462→                    <li className="flex items-center gap-2">
+   463→                      <Check className="w-4 h-4 text-green-500" />
+   464→                      Hardware acceleration support
+   465→                    </li>
+   466→                  </ul>
+   467→                </CardContent>
+   468→              </Card>
+   469→
+   470→              {/* Screen Sharing */}
+   471→              <Card className="overflow-hidden">
+   472→                <div className="h-32 bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+   473→                  <Monitor className="w-16 h-16 text-white/80" />
+   474→                </div>
+   475→                <CardHeader>
+   476→                  <CardTitle className="flex items-center gap-2">
+   477→                    Screen Sharing
+   478→                    <Badge variant="secondary">Pro</Badge>
+   479→                  </CardTitle>
+   480→                  <CardDescription>
+   481→                    Share your screen for presentations, demos, or collaboration
+   482→                  </CardDescription>
+   483→                </CardHeader>
+   484→                <CardContent>
+   485→                  <ul className="space-y-2 text-sm">
+   486→                    <li className="flex items-center gap-2">
+   487→                      <Check className="w-4 h-4 text-green-500" />
+   488→                      Full screen or window sharing
+   489→                    </li>
+   490→                    <li className="flex items-center gap-2">
+   491→                      <Check className="w-4 h-4 text-green-500" />
+   492→                      System audio capture
+   493→                    </li>
+   494→                    <li className="flex items-center gap-2">
+   495→                      <Check className="w-4 h-4 text-green-500" />
+   496→                      Annotation tools
+   497→                    </li>
+   498→                  </ul>
+   499→                </CardContent>
+   500→              </Card>
+   501→
+   502→              {/* Call Recording */}
+   503→              <Card className="overflow-hidden">
+   504→                <div className="h-32 bg-gradient-to-br from-red-500 to-orange-500 flex items-center justify-center">
+   505→                  <Circle className="w-16 h-16 text-white/80 fill-current" />
+   506→                </div>
+   507→                <CardHeader>
+   508→                  <CardTitle className="flex items-center gap-2">
+   509→                    Call Recording
+   510→                    <Badge variant="secondary">Pro</Badge>
+   511→                  </CardTitle>
+   512→                  <CardDescription>
+   513→                    Record important calls for future reference or training
+   514→                  </CardDescription>
+   515→                </CardHeader>
+   516→                <CardContent>
+   517→                  <ul className="space-y-2 text-sm">
+   518→                    <li className="flex items-center gap-2">
+   519→                      <Check className="w-4 h-4 text-green-500" />
+   520→                      Video & audio recording
+   521→                    </li>
+   522→                    <li className="flex items-center gap-2">
+   523→                      <Check className="w-4 h-4 text-green-500" />
+   524→                      Cloud storage backup
+   525→                    </li>
+   526→                    <li className="flex items-center gap-2">
+   527→                      <Check className="w-4 h-4 text-green-500" />
+   528→                      AI transcription (coming soon)
+   529→                    </li>
+   530→                  </ul>
+   531→                </CardContent>
+   532→              </Card>
+   533→
+   534→              {/* In-Call Chat */}
+   535→              <Card className="overflow-hidden">
+   536→                <div className="h-32 bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center">
+   537→                  <MessageSquare className="w-16 h-16 text-white/80" />
+   538→                </div>
+   539→                <CardHeader>
+   540→                  <CardTitle className="flex items-center gap-2">
+   541→                    In-Call Chat
+   542→                    <Badge variant="secondary">Core</Badge>
+   543→                  </CardTitle>
+   544→                  <CardDescription>
+   545→                    Send text messages, links, and files during calls
+   546→                  </CardDescription>
+   547→                </CardHeader>
+   548→                <CardContent>
+   549→                  <ul className="space-y-2 text-sm">
+   550→                    <li className="flex items-center gap-2">
+   551→                      <Check className="w-4 h-4 text-green-500" />
+   552→                      Real-time messaging
+   553→                    </li>
+   554→                    <li className="flex items-center gap-2">
+   555→                      <Check className="w-4 h-4 text-green-500" />
+   556→                      File sharing support
+   557→                    </li>
+   558→                    <li className="flex items-center gap-2">
+   559→                      <Check className="w-4 h-4 text-green-500" />
+   560→                      Message history saved
+   561→                    </li>
+   562→                  </ul>
+   563→                </CardContent>
+   564→              </Card>
+   565→
+   566→              {/* Noise Cancellation */}
+   567→              <Card className="overflow-hidden">
+   568→                <div className="h-32 bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center">
+   569→                  <Mic className="w-16 h-16 text-white/80" />
+   570→                </div>
+   571→                <CardHeader>
+   572→                  <CardTitle className="flex items-center gap-2">
+   573→                    Noise Cancellation
+   574→                    <Badge variant="secondary">Core</Badge>
+   575→                  </CardTitle>
+   576→                  <CardDescription>
+   577→                    Advanced audio processing for crystal clear voice
+   578→                  </CardDescription>
+   579→                </CardHeader>
+   580→                <CardContent>
+   581→                  <ul className="space-y-2 text-sm">
+   582→                    <li className="flex items-center gap-2">
+   583→                      <Check className="w-4 h-4 text-green-500" />
+   584→                      AI noise suppression
+   585→                    </li>
+   586→                    <li className="flex items-center gap-2">
+   587→                      <Check className="w-4 h-4 text-green-500" />
+   588→                      Echo cancellation
+   589→                    </li>
+   590→                    <li className="flex items-center gap-2">
+   591→                      <Check className="w-4 h-4 text-green-500" />
+   592→                      Auto gain control
+   593→                    </li>
+   594→                  </ul>
+   595→                </CardContent>
+   596→              </Card>
+   597→
+   598→              {/* NAT Traversal */}
+   599→              <Card className="overflow-hidden">
+   600→                <div className="h-32 bg-gradient-to-br from-amber-500 to-yellow-500 flex items-center justify-center">
+   601→                  <Signal className="w-16 h-16 text-white/80" />
+   602→                </div>
+   603→                <CardHeader>
+   604→                  <CardTitle className="flex items-center gap-2">
+   605→                    NAT Traversal
+   606→                    <Badge variant="secondary">Core</Badge>
+   607→                  </CardTitle>
+   608→                  <CardDescription>
+   609→                    Reliable connections through any network configuration
+   610→                  </CardDescription>
+   611→                </CardHeader>
+   612→                <CardContent>
+   613→                  <ul className="space-y-2 text-sm">
+   614→                    <li className="flex items-center gap-2">
+   615→                      <Check className="w-4 h-4 text-green-500" />
+   616→                      STUN server support
+   617→                    </li>
+   618→                    <li className="flex items-center gap-2">
+   619→                      <Check className="w-4 h-4 text-green-500" />
+   620→                      TURN relay fallback
+   621→                    </li>
+   622→                    <li className="flex items-center gap-2">
+   623→                      <Check className="w-4 h-4 text-green-500" />
+   624→                      ICE candidate optimization
+   625→                    </li>
+   626→                  </ul>
+   627→                </CardContent>
+   628→              </Card>
+   629→            </div>
+   630→
+   631→            {/* Technical Info */}
+   632→            <Card>
+   633→              <CardHeader>
+   634→                <CardTitle>Technical Specifications</CardTitle>
+   635→                <CardDescription>Underlying technologies powering our calling system</CardDescription>
+   636→              </CardHeader>
+   637→              <CardContent>
+   638→                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+   639→                  <div className="space-y-2">
+   640→                    <h4 className="font-semibold text-sm">Signaling Protocol</h4>
+   641→                    <p className="text-sm text-muted-foreground">Socket.io WebSocket signaling for real-time SDP offer/answer exchange</p>
+   642→                  </div>
+   643→                  <div className="space-y-2">
+   644→                    <h4 className="font-semibold text-sm">Media Transport</h4>
+   645→                    <p className="text-sm text-muted-foreground">WebRTC SRTP encryption with DTLS-SRTP for secure media</p>
+   646→                  </div>
+   647→                  <div className="space-y-2">
+   648→                    <h4 className="font-semibold text-sm">Codecs</h4>
+   649→                    <p className="text-sm text-muted-foreground">VP9/H.264 video, Opus audio with adaptive bitrate</p>
+   650→                  </div>
+   651→                  <div className="space-y-2">
+   652→                    <h4 className="font-semibold text-sm">STUN Servers</h4>
+   653→                    <p className="text-sm text-muted-foreground">Google STUN (stun.l.google.com:19302)</p>
+   654→                  </div>
+   655→                  <div className="space-y-2">
+   656→                    <h4 className="font-semibold text-sm">TURN Support</h4>
+   657→                    <p className="text-sm text-muted-foreground">Configurable TURN for NAT traversal (Twilio/Xirsys)</p>
+   658→                  </div>
+   659→                  <div className="space-y-2">
+   660→                    <h4 className="font-semibold text-sm">Recording Format</h4>
+   661→                    <p className="text-sm text-muted-foreground">WebM (VP9/Opus) with optional MP4 transcoding</p>
+   662→                  </div>
+   663→                </div>
+   664→              </CardContent>
+   665→            </Card>
+   666→          </TabsContent>
+   667→        </Tabs>
+   668→      </main>
+   669→
+   670→      {/* Incoming Call Modal */}
+   671→      <IncomingCallModal
+   672→        visible={showIncomingCall}
+   673→        callerId="user-demo"
+   674→        callerName="Fatima Zerhouni"
+   675→        callType="VIDEO"
+   676→        contextType="PRODUCT_QUESTION"
+   677→        contextId="prod-12345"
+   678→        onAccept={handleAcceptCall}
+   679→        onDecline={handleDeclineCall}
+   680→        onSendMessage={(message) => console.log('Quick reply:', message)}
+   681→      />
+   682→
+   683→      {/* Footer */}
+   684→      <footer className="border-t mt-auto py-6 bg-background">
+   685→        <div className="container mx-auto px-4 text-center text-sm text-muted-foreground">
+   686→          <p>AlgeriaTrade.dz B2B Marketplace • Voice & Video Calling System • Phase 3-A Implementation</p>
+   687→          <p className="mt-1">Powered by WebRTC • Socket.io Signaling • Next.js 16</p>
+   688→        </div>
+   689→      </footer>
+   690→    </div>
+   691→  )
+   692→}
+   693→

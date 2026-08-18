@@ -1,0 +1,456 @@
+================================================================================
+   ALGERIATRADE.DZ NEGOTIATION SYSTEM - VIDEO TUTORIAL SCRIPT
+   Duration: ~12 minutes | Target: Buyers & Sellers
+================================================================================
+
+[INTRO - 0:00 to 0:45]
+
+VISUAL: Split screen showing buyer and seller perspectives, then negotiation graphic
+
+NARRATOR:
+"Welcome to the AlgeriaTrade.dz Negotiation System tutorial!
+
+Our advanced negotiation feature allows buyers and sellers to agree on 
+custom pricing for products that don't fit standard listings. Whether 
+you're looking for a bulk discount, special payment terms, or bundled 
+deals, this tool makes professional negotiation simple and fair.
+
+In this video, we'll walk through a complete negotiation scenario from 
+both the buyer's and seller's perspective.
+
+Let's dive in!"
+
+--------------------------------------------------------------------------------
+[SECTION 1: UNDERSTANDING NEGOTIATIONS - 0:45 to 2:30]
+--------------------------------------------------------------------------------
+
+VISUAL: Product listing page with "Negotiate" button highlighted
+
+NARRATOR:
+"Section 1: Understanding Negotiations.
+
+Before we start, let's cover when and why you'd use the negotiation feature."
+
+[ACTION: Show checklist of negotiation scenarios]
+
+NARRATOR:
+"Negotiation is ideal for:
+
+- Bulk orders where quantity discounts apply
+- Repeat customers seeking loyalty pricing
+- Custom delivery or payment term requests
+- Competitive situations requiring price matching
+
+If a product has the Negotiate button enabled by the seller, you're 
+invited to make an offer!"
+
+VISUAL: Show rules infographic]
+
+NARRATOR:
+"All negotiations follow these important rules:
+
+Rule 1: Maximum 10 counter-offers combined between both parties
+Rule 2: Every offer expires in 72 hours if not responded to
+Rule 3: Each new offer must differ by at least 1% from the last
+Rule 4: Discounts cannot exceed 40% off the listed price
+Rule 5: Sellers can set auto-accept thresholds for convenience
+
+These rules keep negotiations fair, efficient, and respectful of 
+everyone's time."
+
+[ACTION: Show countdown timer example]
+
+NARRATOR:
+"Notice the countdown timer? It starts ticking as soon as an offer is 
+made. Both parties can see exactly how much time remains. If time runs 
+out, the offer expires automatically - no exceptions."
+
+--------------------------------------------------------------------------------
+[SECTION 2: BUYER PERSPECTIVE - MAKING AN OFFER - 2:30 to 6:00]
+--------------------------------------------------------------------------------
+
+VISUAL: Logged in as buyer, browsing products]
+
+NARRATOR:
+"Section 2: The Buyer Experience.
+
+Let's follow Sarah, a procurement manager who needs to purchase industrial 
+equipment for her company."
+
+[ACTION: Navigate to product page - Industrial Pump, 150,000 DZD]
+
+NARRATOR:
+"Sarah found this industrial pump listed at 150,000 DZD. She needs 10 units 
+for a project, which makes this a significant purchase worth investigating."
+
+[ACTION: Zoom in on Negotiate button]
+
+NARRATOR:
+"Sarah sees the Negotiate button prominently displayed. She clicks it to 
+begin the negotiation process."
+
+[ACTION: Negotiation modal opens]
+
+NARRATOR:
+"A form appears asking for her offer details. Let's walk through each field."
+
+[ACTION: Enter quantity: 10 units]
+
+NARRATOR:
+"First, she enters the quantity - 10 units. This signals to the seller 
+that this is a substantial order."
+
+[ACTION: Enter offer price: 125,000 DZD per unit]
+
+NARRATOR:
+"Next, the offer price. Sarah did her research and knows similar pumps sell 
+for 130,000-140,000 DZD. She offers 125,000 DZD - about 17% below list price. 
+This is a reasonable starting point."
+
+[ACTION: Show real-time validation - green checkmark]
+
+NARRATOR:
+"The system validates her offer immediately. Green means it's within 
+acceptable range. Yellow would warn her it's extreme. Red means it violates 
+the rules and won't be accepted."
+
+[ACTION: Type message in text area]
+
+NARRATOR:
+"Sarah adds a message: 'Looking to establish a long-term supplier 
+relationship. Will order monthly if pricing works out.'"
+
+NARRATOR:
+"This message is crucial! It tells the seller Sarah is serious, not just 
+a one-time bargain hunter. Always include context with your offer."
+
+[ACTION: Click Submit Offer, show confirmation]
+
+NARRATOR:
+"Sarah submits her offer. She receives confirmation and the seller gets 
+an immediate notification. Now we wait..."
+
+VISUAL: Time transition animation - "24 hours later"]
+
+NARRATOR:
+"The next day, Sarah receives notification that the seller has responded."
+
+[ACTION: Open counter-offer notification]
+
+NARRATOR:
+"Let's see what the seller offered in return."
+
+[ACTION: Show counter-offer details: 140,000 DZD]
+
+NARRATOR:
+"The seller countered at 140,000 DZD per unit - about 7% below their 
+original price. There's still a gap, but they've moved toward Sarah."
+
+[ACTION: Show built-in calculator]
+
+NARRATOR:
+"Sarah uses the built-in calculator to understand her position:
+
+Original price: 150,000 DZD
+Seller's counter: 140,000 DZD
+Her savings if accepted: 10,000 DZD per unit (6.7%)
+
+For 10 units, that's 100,000 DZD total savings - not bad!"
+
+[ACTION: Show decision options]
+
+NARRATOR:
+"Sarah has three options:
+
+Option 1: Accept the counter - lock in 140,000 DZD per unit
+Option 2: Counter again - try to split the difference
+Option 3: End negotiation - walk away from the deal"
+
+[ACTION: Demonstrate making another counter at 132,500 DZD]
+
+NARRATOR:
+"Sarah decides to counter one more time. She meets in the middle at 
+132,500 DZD - exactly halfway between their positions. This shows 
+willingness to compromise while still getting meaningful savings."
+
+[ACTION: Add supporting message, submit]
+
+NARRATOR:
+"Her message: 'Appreciate the counter. Meeting you halfway at 132,500. 
+Ready to pay immediately upon agreement.'
+
+Adding 'ready to pay immediately' creates urgency and shows seriousness."
+
+VISUAL: Time transition - "6 hours later"]
+
+NARRATOR:
+"Just six hours later - great response time! - the seller accepts!"
+
+[ACTION: Show acceptance notification with purchase link]
+
+NARRATOR:
+"Sarah receives the acceptance with a special purchase link. The negotiated 
+price of 132,500 DZD per unit is locked in for 48 hours. She completes 
+her purchase and everyone wins."
+
+--------------------------------------------------------------------------------
+[SECTION 3: SELLER PERSPECTIVE - REVIEWING & RESPONDING - 6:00 to 9:30]
+--------------------------------------------------------------------------------
+
+VISUAL: Switch to seller account, show notifications]
+
+NARRATOR:
+"Section 3: The Seller Experience.
+
+Now let's see the same negotiation from Karim's perspective - he's the 
+seller of those industrial pumps."
+
+[ACTION: Show incoming offer notification]
+
+NARRATOR:
+"Karim receives Sarah's initial offer of 125,000 DZD per unit. Before 
+responding, he should review key information."
+
+[ACTION: Click to view buyer profile]
+
+NARRATOR:
+"First, Karim checks Sarah's profile. He sees:
+
+- Verified business account ✓
+- Member for 18 months ✓
+- 23 previous orders completed ✓
+- 4.8 star rating from other sellers ✓
+- Based in Algiers ✓
+
+This is a quality buyer worth negotiating with!"
+
+[ACTION: Show profit margin calculator]
+
+NARRATOR:
+"Next, Karim uses the profit margin calculator built into the system:
+
+List Price:     150,000 DZD
+Buyer Offer:    125,000 DZD
+His Cost:        85,000 DZD
+─────────────────────────────
+At 125,000: Margin = 40,000 DZD (32%) - ACCEPTABLE
+At 140,000: Margin = 55,000 DZD (39%) - GOOD
+At 150,000: Margin = 65,000 DZD (43%) - GREAT"
+
+NARRATOR:
+"Even at Sarah's initial offer, Karim maintains healthy margins. But he 
+shouldn't accept immediately - that would leave money on the table."
+
+[ACTION: Show response options - Accept / Counter / Reject]
+
+NARRATOR:
+"Karim considers his options:
+
+ACCEPT at 125,000: Quick sale, decent margin, happy customer
+COUNTER at higher price: Better margin, shows professionalism
+REJECT: Not appropriate - offer is reasonable"
+
+[ACTION: Choose to counter, enter 140,000 DZD]
+
+NARRATOR:
+"Karim decides to counter at 140,000 DZD. This is still a good value for 
+Sarah while protecting his margins better."
+
+[ACTION: Add value proposition message]
+
+NARRATOR:
+"His response message is strategic:
+
+'Thank you for your interest, Sarah! At 140,000 DZD per unit, I can 
+include:
+- Extended 2-year warranty (standard is 1 year)
+- Free delivery to Algiers
+- Priority support for all future orders'
+
+He's adding value instead of just dropping price!"
+
+VISUAL: Time transition - receive Sarah's counter]
+
+NARRATOR:
+"Sarah counters at 132,500 DZD - meeting him halfway. Smart negotiator!"
+
+[ACTION: Run final calculation]
+
+NARRATOR:
+"Karim calculates his final position:
+
+At 132,500 DZD:
+Revenue: 1,325,000 DZD (10 units)
+Cost:      850,000 DZD (10 units)
+Profit:     475,000 DZD (35.8% margin)
+
+This exceeds his minimum acceptable margin of 30%. It's a solid deal."
+
+[ACTION: Click Accept, show confirmation]
+
+NARRATOR:
+"Karim accepts! The system generates a purchase link for Sarah at the 
+agreed price. The negotiation is complete successfully."
+
+[ACTION: Show completed negotiation in history]
+
+NARRATOR:
+"This negotiation now appears in Karim's history. He can reference it 
+for future orders from Sarah - building a lasting business relationship."
+
+--------------------------------------------------------------------------------
+[SECTION 4: BEST PRACTICES & COMMON MISTAKES - 9:30 to 11:15]
+--------------------------------------------------------------------------------
+
+VISUAL: Split screen with tips on left, mistakes on right]
+
+NARRATOR:
+"Section 4: Best Practices and Common Mistakes.
+
+Let's cover strategies that lead to successful negotiations and pitfalls 
+to avoid."
+
+[ACTION: Highlight best practices list]
+
+NARRATOR:
+"BEST PRACTICES FOR BUYERS:
+
+1. Research market prices before making an offer
+   - Check competitor listings on AlgeriaTrade.dz
+   - Understand typical discount ranges for your product category
+
+2. Start reasonable - aim for 15-20% below asking price
+   - Extreme lowballs get rejected or ignored
+   - Shows you've done your homework
+
+3. Always include a message with context
+   - Explain your situation
+   - Mention volume or repeat business potential
+   - Be professional and courteous
+
+4. Respond promptly - within 24 hours ideally
+   - Shows you're serious and organized
+   - Keeps momentum in the negotiation
+
+5. Know your maximum price before starting
+   - Set a walk-away point
+   - Don't get caught up in the moment"
+
+[ACTION: Highlight best practices for sellers]
+
+NARRATOR:
+"BEST PRACTICES FOR SELLERS:
+
+1. Review buyer profile before responding
+   - Check verification status and ratings
+   - Consider order history
+
+2. Use the margin calculator every time
+   - Never guess at your profitability
+   - Know your absolute floor price
+
+3. Add value in your counter-offers
+   - Warranty extensions
+   - Free shipping or upgrades
+   - Priority service
+
+4. Consider lifetime value, not just this transaction
+   - A slightly lower price may win a loyal customer
+   - One deal can lead to many more
+
+5. Set appropriate auto-accept thresholds
+   - Saves time on small concessions
+   - Typically 3-5% below asking price"
+
+[ACTION: Highlight common mistakes with X marks]
+
+NARRATOR:
+"COMMON MISTAKES TO AVOID:
+
+❌ LOWBALLING EXCESSIVELY
+Offering 50%+ off insults sellers and damages your reputation.
+Start at 15-20% max reduction.
+
+❌ IGNORING TIME PRESSURE
+Letting offers expire looks unprofessional. Set reminders!
+Respond within 24 hours even if just to acknowledge.
+
+❌ BEING UNPROFESSIONAL
+Aggressive language, threats, or rudeness burns bridges.
+The B2B community remembers negative experiences.
+
+❌ NOT KNOWING YOUR NUMBERS
+Sellers who don't know their costs accept losing deals.
+Buyers who don't know their budget overcommit.
+
+❌ MAKING IT PERSONAL
+This is business, not emotional. Stay objective and focused
+on finding mutual value."
+
+--------------------------------------------------------------------------------
+[CLOSING - 11:15 to 12:00]
+--------------------------------------------------------------------------------
+
+VISUAL: Summary screen with key takeaways]
+
+NARRATOR:
+"Let's wrap up with the key takeaways from this tutorial:
+
+FOR BUYERS:
+✓ Find products with Negotiate enabled
+✓ Make reasonable opening offers (15-20% below list)
+✓ Always add context with your offer
+✓ Respond within 24 hours
+✓ Use the calculator to understand your savings
+
+FOR SELLERS:
+✓ Check buyer profiles before responding
+✓ Use the margin calculator religiously
+✓ Add value propositions to counter-offers
+✓ Consider long-term relationship potential
+✓ Set auto-accept thresholds appropriately
+
+FOR EVERYONE:
+✓ Follow the 10-round, 72-hour rules
+✓ Keep changes at least 1% between offers
+✓ Stay within the 1-40% discount range
+✓ Be professional and respectful always"
+
+VISUAL: Show FAQ and support links]
+
+NARRATOR:
+"If you have questions, check our comprehensive FAQ document or contact 
+support at help.algeriatrade.dz.
+
+Happy negotiating on AlgeriaTrade.dz!"
+
+[END SCREEN - "Start Your First Negotiation Today" CTA]
+
+================================================================================
+                           END OF SCRIPT
+================================================================================
+
+PRODUCTION NOTES:
+-----------------
+- Screen resolution: 1920x1080
+- Use picture-in-picture for narrator during demos
+- Highlight mouse clicks with visual effects
+- Add text overlays for prices and percentages
+- Include timer animations to show urgency
+- Use color coding: green=good, yellow=caution, red=problem
+- Show both buyer and seller UI clearly labeled
+- Estimated editing time: 3-5 hours
+
+DEMO SCENARIO SUMMARY:
+----------------------
+Product: Industrial Pump (10 units)
+List Price: 150,000 DZD/unit
+Buyer Opening: 125,000 DZD/unit (-17%)
+Seller Counter: 140,000 DZD/unit (-7%)
+Buyer Counter: 132,500 DZD/unit (-12%)
+Final Agreement: 132,500 DZD/unit
+Total Savings for Buyer: 175,000 DZD (11.7%)
+Seller Margin Maintained: 35.8%
+Rounds Used: 3 of 10
+Time to Complete: ~30 hours
+Result: WIN-WIN ✅

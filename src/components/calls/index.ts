@@ -7,3 +7,6 @@ export { default as CallNotification, CompactCallNotification } from './CallNoti
 export { default as ChatDuringCall, InlineChatInput } from './ChatDuringCall'
 export { default as CallQualityIndicator, NetworkStatusBar } from './CallQualityIndicator'
 export { default as ScreenShareView } from './ScreenShareView'
+export { default as IncomingCallModal } from './IncomingCallModal'
+export { default as CallHistory } from './CallHistory'
+export { default as DeviceSettings } from './DeviceSettings'

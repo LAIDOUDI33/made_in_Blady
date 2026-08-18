@@ -1,0 +1,1 @@
+{"name": "webrtc-service", "version": "1.0.0", "description": "WebRTC Signaling Service for AlgeriaTrade.dz B2B Platform", "main": "index.ts", "scripts": {"dev": "bun --hot index.ts", "start": "bun run index.ts"}, "dependencies": {"socket.io": "^4.7.5", "uuid": "^9.0.0"}, "devDependencies": {"@types/bun": "^1.1.6", "@types/uuid": "^9.0.7"}}

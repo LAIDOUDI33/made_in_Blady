@@ -1,30 +1,50 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { createContract, listContracts } from '@/lib/contracts';
-import type { CreateContractParams, ContractType, ContractStatus } from '@/lib/contracts';
+// Contract API Routes
+// مسارات API العقود
+// Routes API Contrats
 
-// GET /api/contracts - List contracts
+import { NextRequest, NextResponse } from 'next/server';
+import { db } from '@/lib/db';
+import {
+  listContracts,
+  getContractById,
+  createContract,
+} from '@/lib/contracts';
+import { listAvailableTemplates, getContractTemplate } from '@/lib/contracts/templates';
+import { getAllClauses, searchClauses, getCategorySummary } from '@/lib/contracts/config';
+
+// GET /api/contracts - List user's contracts
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    
-    const filters = {
-      status: searchParams.get('status') as ContractStatus || undefined,
-      type: searchParams.get('type') as ContractType || undefined,
-      createdBy: searchParams.get('createdBy') || undefined,
-      page: parseInt(searchParams.get('page') || '1'),
-      pageSize: parseInt(searchParams.get('pageSize') || '20'),
-    };
+    const page = parseInt(searchParams.get('page') || '1');
+    const pageSize = parseInt(searchParams.get('pageSize') || '20');
+    const status = searchParams.get('status') || undefined;
+    const type = searchParams.get('type') || undefined;
 
-    const result = await listContracts(filters);
+    // In a real app, would filter by authenticated user
+    // For now, return all contracts
+    
+    const result = await listContracts({
+      page,
+      pageSize,
+      status: status as any,
+      type: type as any,
+    });
 
     return NextResponse.json({
       success: true,
-      data: result,
+      data: result.data,
+      pagination: {
+        total: result.total,
+        page: result.page,
+        pageSize: result.pageSize,
+        totalPages: result.totalPages,
+      },
     });
   } catch (error) {
-    console.error('Error fetching contracts:', error);
+    console.error('Error listing contracts:', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to fetch contracts - فشل في جلب العقود' },
+      { success: false, error: 'Failed to list contracts' },
       { status: 500 }
     );
   }
@@ -35,62 +55,34 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     
-    const params: CreateContractParams = {
-      type: body.type || 'SALES_AGREEMENT',
+    const contract = await createContract({
+      type: body.templateType,
       language: body.language || 'BILINGUAL',
-      partyA: body.partyA || {
-        companyId: 'demo-supplier-id',
-        companyName: 'Supplier Company',
-        representativeName: 'Representative',
-        representativeTitle: 'Manager',
-        email: 'supplier@example.com',
-        phone: '+213 XXX XXX XXX',
-        address: 'Algeria',
-        commercialRegister: '',
-        taxId: '',
-      },
-      partyB: body.partyB || {
-        companyId: 'demo-buyer-id',
-        companyName: 'Buyer Company',
-        representativeName: 'Representative',
-        representativeTitle: 'Manager',
-        email: 'buyer@example.com',
-        phone: '+213 XXX XXX XXX',
-        address: 'Algeria',
-        commercialRegister: '',
-        taxId: '',
-      },
-      subject: body.subject || 'Sales Agreement',
-      subjectAr: body.subjectAr || 'اتفاقية البيع',
-      subjectFr: body.subjectFr || 'Contrat de vente',
-      effectiveDate: body.effectiveDate ? new Date(body.effectiveDate) : new Date(),
+      partyA: body.partyA,
+      partyB: body.partyB,
+      subject: body.subject,
+      subjectAr: body.subjectAr,
+      subjectFr: body.subjectFr,
+      effectiveDate: new Date(body.effectiveDate),
       endDate: body.endDate ? new Date(body.endDate) : null,
-      totalValue: body.totalValue || 0,
+      totalValue: parseFloat(body.totalValue) || 0,
       currency: body.currency || 'DZD',
-      paymentTerms: body.paymentTerms || 'Net 30',
+      paymentTerms: body.paymentTerms,
       penaltyClause: body.penaltyClause,
       warrantyTerms: body.warrantyTerms,
       customClauses: body.customClauses,
-      relatedNegotiationId: body.relatedNegotiationId,
-      relatedOrderId: body.relatedOrderId,
-      createdBy: body.createdBy || 'demo-user-id',
-    };
-
-    const contract = await createContract(params);
+      createdBy: body.createdBy || 'system',
+    });
 
     return NextResponse.json({
       success: true,
       data: contract,
-      message: 'Contract created successfully - تم إنشاء العقد بنجاح',
-    }, { status: 201 });
-  } catch (error: any) {
+    });
+  } catch (error) {
     console.error('Error creating contract:', error);
     return NextResponse.json(
-      { 
-        success: false, 
-        error: error.message || 'Failed to create contract - فشل في إنشاء العقد' 
-      },
-      { status: 400 }
+      { success: false, error: 'Failed to create contract' },
+      { status: 500 }
     );
   }
 }

@@ -1,37 +1,28 @@
-import { NextResponse } from 'next/server';
-import { getContractTemplate, getAvailableContractTypes } from '@/lib/contracts/templates';
+// Templates API Route
+// مسار API القوالب
 
-// GET /api/contracts/templates - List available contract templates
-export async function GET(request: Request) {
+import { NextRequest, NextResponse } from 'next/server';
+import { listAvailableTemplates, getContractTemplate } from '@/lib/contracts/templates';
+import { CONTRACT_TYPES } from '@/lib/contracts/config';
+
+// GET /api/contracts/templates - List available templates
+export async function GET() {
   try {
-    const { searchParams } = new URL(request.url);
-    const type = searchParams.get('type');
-    const language = (searchParams.get('language') || 'BILINGUAL') as any;
+    const templates = listAvailableTemplates();
 
-    if (type) {
-      // Return specific template
-      const template = getContractTemplate(type, language);
-      return NextResponse.json({
-        success: true,
-        data: template,
-      });
-    }
-
-    // Return list of all available types
-    const types = getAvailableContractTypes();
-    
     return NextResponse.json({
       success: true,
-      data: types,
-      message: 'Available contract templates - قوالب العقود المتاحة',
+      data: templates,
+      meta: {
+        total: templates.length,
+        categories: [...new Set(templates.map(t => t.category))],
+        supportedLanguages: ['AR', 'FR', 'BILINGUAL'],
+      },
     });
   } catch (error) {
-    console.error('Error fetching templates:', error);
+    console.error('Error listing templates:', error);
     return NextResponse.json(
-      { 
-        success: false, 
-        error: 'Failed to fetch templates - فشل في جلب القوالب' 
-      },
+      { success: false, error: 'Failed to list templates' },
       { status: 500 }
     );
   }

@@ -1,0 +1,743 @@
+     1→     1→'use client'
+     2→     2→
+     3→     3→import { useState, useEffect, useCallback, useRef } from 'react'
+     4→     4→import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+     5→     5→import { Button } from '@/components/ui/button'
+     6→     6→import { Badge } from '@/components/ui/badge'
+     7→     7→import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+     8→     8→import { 
+     9→     9→  Select, 
+    10→    10→  SelectContent, 
+    11→    11→  SelectItem, 
+    12→    12→  SelectTrigger, 
+    13→    13→  SelectValue 
+    14→    14→} from '@/components/ui/select'
+    15→    15→import { Input } from '@/components/ui/input'
+    16→    16→import { Separator } from '@/components/ui/separator'
+    17→    17→import {
+    18→    18→  Tooltip,
+    19→    19→  TooltipContent,
+    20→    20→  TooltipProvider,
+    21→    21→  TooltipTrigger,
+    22→    22→} from '@/components/ui/tooltip'
+    23→    23→import {
+    24→    24→  Dialog,
+    25→    25→  DialogContent,
+    26→    26→  DialogDescription,
+    27→    27→  DialogHeader,
+    28→    28→  DialogTitle,
+    29→    29→  DialogTrigger,
+    30→    30→} from '@/components/ui/dialog'
+    31→    31→import { useToast } from '@/hooks/use-toast'
+    32→    32→import {
+    33→    33→  Bitcoin,
+    34→    34→  Hexagon,
+    35→    35→  DollarSign,
+    36→    36→  Copy,
+    37→    37→  ExternalLink,
+    38→    38→  Clock,
+    39→    39→  AlertCircle,
+    40→    40→  CheckCircle2,
+    41→    41→  Loader2,
+    42→    42→  Info,
+    43→    43→  QrCode,
+    44→    44→  RefreshCw,
+    45→    45→  Shield,
+    46→    46→  Zap,
+    47→    47→  HelpCircle,
+    48→    48→} from 'lucide-react'
+    49→    49→import { CryptoCurrency, CRYPTO_INFO, getNetworkFeeInfo } from '@/lib/payments/crypto'
+    50→    50→
+    51→    51→interface CryptoPaymentFormProps {
+    52→    52→  orderId: string
+    53→    53→  amountDZD: number
+    54→    54→  onPaymentComplete?: (paymentId: string) => void
+    55→    55→  onPaymentError?: (error: string) => void
+    56→    56→}
+    57→    57→
+    58→    58→interface PaymentData {
+    59→    59→  paymentId: string
+    60→    60→  depositAddress: string
+    61→    61→  expectedAmount: number
+    62→    62→  cryptoCurrency: CryptoCurrency
+    63→    63→  exchangeRate: number
+    64→    64→  expiresAt: string
+    65→    65→  qrCodeData: string
+    66→    66→}
+    67→    67→
+    68→    68→interface PaymentStatus {
+    69→    69→  status: 'PENDING' | 'PARTIAL' | 'CONFIRMED' | 'EXPIRED' | 'OVERPAID'
+    70→    70→  confirmations: number
+    71→    71→  requiredConfirmations: number
+    72→    72→  actualAmount?: number
+    73→    73→  txHash?: string
+    74→    74→}
+    75→    75→
+    76→    76→// Crypto currency icons mapping
+    77→    77→const CRYPTO_ICONS: Record<CryptoCurrency, typeof Bitcoin> = {
+    78→    78→  BTC: Bitcoin,
+    79→    79→  ETH: Hexagon,
+    80→    80→  USDT: DollarSign,
+    81→    81→  USDC: DollarSign,
+    82→    82→}
+    83→    83→
+    84→    84→export default function CryptoPaymentForm({
+    85→    85→  orderId,
+    86→    86→  amountDZD,
+    87→    87→  onPaymentComplete,
+    88→    88→  onPaymentError,
+    89→    89→}: CryptoPaymentFormProps) {
+    90→    90→  const [selectedCrypto, setSelectedCrypto] = useState<CryptoCurrency>('USDT')
+    91→    91→  const [paymentData, setPaymentData] = useState<PaymentData | null>(null)
+    92→    92→  const [paymentStatus, setPaymentStatus] = useState<PaymentStatus | null>(null)
+    93→    93→  const [exchangeRate, setExchangeRate] = useState<number | null>(null)
+    94→    94→  const [isLoading, setIsLoading] = useState(false)
+    95→    95→  const [isCreating, setIsCreating] = useState(false)
+    96→    96→  const [timeRemaining, setTimeRemaining] = useState<number>(0)
+    97→    97→  const [copied, setCopied] = useState(false)
+    98→    98→  const [walletAddress, setWalletAddress] = useState('')
+    99→    99→  const [showQRCode, setShowQRCode] = useState(true)
+   100→   100→  
+   101→   101→  const intervalRef = useRef<NodeJS.Timeout | null>(null)
+   102→   102→  const { toast } = useToast()
+   103→   103→
+   104→   104→  // Fetch exchange rate when crypto selection changes
+   105→   105→  const fetchExchangeRate = useCallback(async (crypto: CryptoCurrency) => {
+   106→   106→    setIsLoading(true)
+   107→   107→    try {
+   108→   108→      const response = await fetch('/api/payments/crypto/rates')
+   109→   109→      const data = await response.json()
+   110→   110→      
+   111→   111→      if (data.success && data.data.rates[crypto]) {
+   112→   112→        setExchangeRate(data.data.rates[crypto])
+   113→   113→      }
+   114→   114→    } catch (error) {
+   115→   115→      console.error('Failed to fetch exchange rate:', error)
+   116→   116→    } finally {
+   117→   117→      setIsLoading(false)
+   118→   118→    }
+   119→   119→  }, [])
+   120→   120→
+   121→   121→  useEffect(() => {
+   122→   122→    fetchExchangeRate(selectedCrypto)
+   123→   123→  }, [selectedCrypto, fetchExchangeRate])
+   124→   124→
+   125→   125→  // Create crypto payment
+   126→   126→  const handleCreatePayment = async () => {
+   127→   127→    setIsCreating(true)
+   128→   128→    try {
+   129→   129→      const response = await fetch('/api/payments/crypto', {
+   130→   130→        method: 'POST',
+   131→   131→        headers: { 'Content-Type': 'application/json' },
+   132→   132→        body: JSON.stringify({
+   133→   133→          orderId,
+   134→   134→          amount: amountDZD,
+   135→   135→          currency: selectedCrypto,
+   136→   136→          buyerWalletAddress: walletAddress || undefined,
+   137→   137→        }),
+   138→   138→      })
+   139→   139→
+   140→   140→      const data = await response.json()
+   141→   141→
+   142→   142→      if (data.success) {
+   143→   143→        setPaymentData(data.data)
+   144→   144→        startCountdown(new Date(data.data.expiresAt))
+   145→   145→        startStatusMonitoring(data.data.paymentId)
+   146→   146→        
+   147→   147→        toast({
+   148→   148→          title: 'Payment Created',
+   149→   149→          description: `Send ${data.data.expectedAmount} ${selectedCrypto} to the address below.`,
+   150→   150→        })
+   151→   151→      } else {
+   152→   152→        throw new Error(data.error || 'Failed to create payment')
+   153→   153→      }
+   154→   154→    } catch (error) {
+   155→   155→      console.error('Error creating payment:', error)
+   156→   156→      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+   157→   157→      onPaymentError?.(errorMessage)
+   158→   158→      toast({
+   159→   159→        title: 'Error',
+   160→   160→        description: errorMessage,
+   161→   161→        variant: 'destructive',
+   162→   162→      })
+   163→   163→    } finally {
+   164→   164→      setIsCreating(false)
+   165→   165→    }
+   166→   166→  }
+   167→   167→
+   168→   168→  // Countdown timer
+   169→   169→  const startCountdown = (expiresAt: Date) => {
+   170→   170→    const updateTimer = () => {
+   171→   171→      const remaining = expiresAt.getTime() - Date.now()
+   172→   172→      setTimeRemaining(Math.max(0, remaining))
+   173→   173→      
+   174→   174→      if (remaining <= 0) {
+   175→   175→        if (intervalRef.current) clearInterval(intervalRef.current)
+   176→   176→        setPaymentStatus(prev => prev ? { ...prev, status: 'EXPIRED' } : null)
+   177→   177→      }
+   178→   178→    }
+   179→   179→
+   180→   180→    updateTimer()
+   181→   181→    intervalRef.current = setInterval(updateTimer, 1000)
+   182→   182→  }
+   183→   183→
+   184→   184→  // Monitor payment status
+   185→   185→  const startStatusMonitoring = async (paymentId: string) => {
+   186→   186→    const checkStatus = async () => {
+   187→   187→      try {
+   188→   188→        const response = await fetch(`/api/payments/crypto/${paymentId}/status`)
+   189→   189→        const data = await response.json()
+   190→   190→
+   191→   191→        if (data.success) {
+   192→   192→          setPaymentStatus({
+   193→   193→            status: data.data.status,
+   194→   194→            confirmations: data.data.confirmations,
+   195→   195→            requiredConfirmations: data.data.requiredConfirmations,
+   196→   196→            actualAmount: data.data.actualAmount,
+   197→   197→            txHash: data.data.txHash,
+   198→   198→          })
+   199→   199→
+   200→   200→          // Notify on confirmation
+   201→   201→          if (data.data.status === 'CONFIRMED') {
+   202→   202→            onPaymentComplete?.(paymentId)
+   203→   203→            toast({
+   204→   204→              title: 'Payment Confirmed! 🎉',
+   205→   205→              description: 'Your cryptocurrency payment has been confirmed.',
+   206→   206→            })
+   207→   207→            if (intervalRef.current) clearInterval(intervalRef.current)
+   208→   208→          }
+   209→   209→
+   210→   210→          // Stop if expired or final state
+   211→   211→          if (['CONFIRMED', 'EXPIRED'].includes(data.data.status)) {
+   212→   212→            if (intervalRef.current) clearInterval(intervalRef.current)
+   213→   213→          }
+   214→   214→        }
+   215→   215→      } catch (error) {
+   216→   216→        console.error('Error checking status:', error)
+   217→   217→      }
+   218→   218→    }
+   219→   219→
+   220→   220→    // Initial check
+   221→   221→    await checkStatus()
+   222→   222→    
+   223→   223→    // Poll every 10 seconds
+   224→   224→    const statusInterval = setInterval(checkStatus, 10000)
+   225→   225→    
+   226→   226→    // Store reference for cleanup
+   227→   227→    intervalRef.current = statusInterval
+   228→   228→  }
+   229→   229→
+   230→   230→  // Copy address to clipboard
+   231→   231→  const copyAddress = async () => {
+   232→   232→    if (!paymentData) return
+   233→   233→    
+   234→   234→    try {
+   235→   235→      await navigator.clipboard.writeText(paymentData.depositAddress)
+   236→   236→      setCopied(true)
+   237→   237→      toast({
+   238→   238→        title: 'Copied!',
+   239→   239→        description: 'Address copied to clipboard.',
+   240→   240→      })
+   241→   241→      setTimeout(() => setCopied(false), 2000)
+   242→   242→    } catch (error) {
+   243→   243→      console.error('Failed to copy:', error)
+   244→   244→    }
+   245→   245→  }
+   246→   246→
+   247→   247→  // Format time remaining
+   248→   248→  const formatTime = (ms: number): string => {
+   249→   249→    const minutes = Math.floor(ms / 60000)
+   250→   250→    const seconds = Math.floor((ms % 60000) / 1000)
+   251→   251→    return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+   252→   252→  }
+   253→   253→
+   254→   254→  // Get status color
+   255→   255→  const getStatusColor = (status: string) => {
+   256→   256→    switch (status) {
+   257→   257→      case 'PENDING': return 'bg-yellow-500'
+   258→   258→      case 'CONFIRMED': return 'bg-green-500'
+   259→   259→      case 'EXPIRED': return 'bg-red-500'
+   260→   260→      case 'PARTIAL': return 'bg-orange-500'
+   261→   261→      case 'OVERPAID': return 'bg-blue-500'
+   262→   262→      default: return 'bg-gray-500'
+   263→   263→    }
+   264→   264→  }
+   265→   265→
+   266→   266→  // Cleanup on unmount
+   267→   267→  useEffect(() => {
+   268→   268→    return () => {
+   269→   269→      if (intervalRef.current) clearInterval(intervalRef.current)
+   270→   270→    }
+   271→   271→  }, [])
+   272→   272→
+   273→   273→  const currentCryptoInfo = CRYPTO_INFO[selectedCrypto]
+   274→   274→  const CryptoIcon = CRYPTO_ICONS[selectedCrypto]
+   275→   275→  const networkFee = getNetworkFeeInfo(selectedCrypto)
+   276→   276→
+   277→   277→  return (
+   278→   278→    <TooltipProvider>
+   279→   279→      <div className="space-y-6">
+   280→   280→        {/* Header */}
+   281→   281→        <Card>
+   282→   282→          <CardHeader>
+   283→   283→            <CardTitle className="flex items-center gap-2">
+   284→   284→              <Zap className="h-5 w-5 text-yellow-500" />
+   285→   285→              Cryptocurrency Payment
+   286→   286→            </CardTitle>
+   287→   287→            <CardDescription>
+   288→   288→              Pay with Bitcoin, Ethereum, Tether, or USD Coin
+   289→   289→            </CardDescription>
+   290→   290→          </CardHeader>
+   291→   291→        </Card>
+   292→   292→
+   293→   293→        {!paymentData ? (
+   294→   294→          /* Step 1: Select Currency & Create Payment */
+   295→   295→          <Card>
+   296→   296→            <CardContent className="pt-6 space-y-6">
+   297→   297→              {/* Amount Display */}
+   298→   298→              <div className="text-center p-4 bg-muted rounded-lg">
+   299→   299→                <p className="text-sm text-muted-foreground">Amount to Pay</p>
+   300→   300→                <p className="text-3xl font-bold">{amountDZD.toLocaleString('fr-DZ')} DZD</p>
+   301→   301→              </div>
+   302→   302→
+   303→   303→              {/* Crypto Selector */}
+   304→   304→              <div className="space-y-3">
+   305→   305→                <label className="text-sm font-medium flex items-center gap-2">
+   306→   306→                  Select Cryptocurrency
+   307→   307→                  <Tooltip>
+   308→   308→                    <TooltipTrigger asChild>
+   309→   309→                      <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
+   310→   310→                    </TooltipTrigger>
+   311→   311→                    <TooltipContent side="right" className="max-w-xs">
+   312→   312→                      <p>{currentCryptoInfo.description.en}</p>
+   313→   313→                    </TooltipContent>
+   314→   314→                  </Tooltip>
+   315→   315→                </label>
+   316→   316→
+   317→   317→                <Select value={selectedCrypto} onValueChange={(v) => setSelectedCrypto(v as CryptoCurrency)}>
+   318→   318→                  <SelectTrigger>
+   319→   319→                    <SelectValue placeholder="Select cryptocurrency" />
+   320→   320→                  </SelectTrigger>
+   321→   321→                  <SelectContent>
+   322→   322→                    {(Object.keys(CRYPTO_INFO) as CryptoCurrency[]).map((crypto) => {
+   323→   323→                      const info = CRYPTO_INFO[crypto]
+   324→   324→                      const Icon = CRYPTO_ICONS[crypto]
+   325→   325→                      return (
+   326→   326→                        <SelectItem key={crypto} value={crypto}>
+   327→   327→                          <div className="flex items-center gap-2">
+   328→   328→                            <Icon className="h-4 w-4" style={{ color: info.color }} />
+   329→   329→                            <span>{info.fullName}</span>
+   330→   330→                          </div>
+   331→   331→                        </SelectItem>
+   332→   332→                      )
+   333→   333→                    })}
+   334→   334→                  </SelectContent>
+   335→   335→                </Select>
+   336→   336→
+   337→   337→                {/* Selected Crypto Info */}
+   338→   338→                <div className="flex items-center gap-3 p-3 rounded-lg border" style={{ borderColor: currentCryptoInfo.color + '40' }}>
+   339→   339→                  <div 
+   340→   340→                    className="p-2 rounded-full"
+   341→   341→                    style={{ backgroundColor: currentCryptoInfo.color + '20' }}
+   342→   342→                  >
+   343→   343→                    <CryptoIcon className="h-6 w-6" style={{ color: currentCryptoInfo.color }} />
+   344→   344→                  </div>
+   345→   345→                  <div className="flex-1">
+   346→   346→                    <p className="font-medium">{currentCryptoInfo.name}</p>
+   347→   347→                    <p className="text-sm text-muted-foreground line-clamp-1">
+   348→   348→                      {currentCryptoInfo.description.en}
+   349→   349→                    </p>
+   350→   350→                  </div>
+   351→   351→                </div>
+   352→   352→              </div>
+   353→   353→
+   354→   354→              {/* Exchange Rate Display */}
+   355→   355→              {exchangeRate && (
+   356→   356→                <div className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-950 rounded-lg">
+   357→   357→                  <span className="text-sm text-muted-foreground">Exchange Rate</span>
+   358→   358→                  <div className="flex items-center gap-2">
+   359→   359→                    <span className="font-mono font-medium">
+   360→   360→                      1 {selectedCrypto} = {Math.round(exchangeRate).toLocaleString()} DZD
+   361→   361→                    </span>
+   362→   362→                    <Button
+   363→   363→                      variant="ghost"
+   364→   364→                      size="icon"
+   365→   365→                      className="h-6 w-6"
+   366→   366→                      onClick={() => fetchExchangeRate(selectedCrypto)}
+   367→   367→                    >
+   368→   368→                      <RefreshCw className={`h-3 w-3 ${isLoading ? 'animate-spin' : ''}`} />
+   369→   369→                    </Button>
+   370→   370→                  </div>
+   371→   371→                </div>
+   372→   372→              )}
+   373→   373→
+   374→   374→              {/* Estimated Amount */}
+   375→   375→              {exchangeRate && (
+   376→   376→                <div className="text-center p-4 rounded-lg border-2 border-dashed" style={{ borderColor: currentCryptoInfo.color }}>
+   377→   377→                  <p className="text-sm text-muted-foreground">You'll send approximately</p>
+   378→   378→                  <p className="text-2xl font-bold" style={{ color: currentCryptoInfo.color }}>
+   379→   379→                    {(amountDZD / exchangeRate).toFixed(8)} {selectedCrypto}
+   380→   380→                  </p>
+   381→   381→                </div>
+   382→   382→              )}
+   383→   383→
+   384→   384→              {/* Optional Wallet Address for Refund */}
+   385→   385→              <div className="space-y-2">
+   386→   386→                <label className="text-sm font-medium flex items-center gap-2">
+   387→   387→                  Your Wallet Address (Optional)
+   388→   388→                  <Tooltip>
+   389→   389→                    <TooltipTrigger asChild>
+   390→   390→                      <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
+   391→   391→                    </TooltipTrigger>
+   392→   392→                    <TooltipContent side="right">
+   393→   393→                      <p>Provide your wallet address for potential refunds.</p>
+   394→   394→                    </TooltipContent>
+   395→   395→                  </Tooltip>
+   396→   396→                </label>
+   397→   397→                <Input
+   398→   398→                  placeholder="0x... or bc1..."
+   399→   399→                  value={walletAddress}
+   400→   400→                  onChange={(e) => setWalletAddress(e.target.value)}
+   401→   401→                />
+   402→   402→              </div>
+   403→   403→
+   404→   404→              {/* Network Fee Disclosure */}
+   405→   405→              <div className="p-3 bg-amber-50 dark:bg-amber-950 rounded-lg space- y-2">
+   406→   406→                <div className="flex items-start gap-2">
+   407→   407→                  <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+   408→   408→                  <div className="text-sm text-amber-800 dark:text-amber-200">
+   409→   409→                    <p className="font-medium">Network Fee Notice</p>
+   410→   410→                    <p>
+   411→   411→                      Additional network fees apply (~{networkFee.estimate} {networkFee.currency}). 
+   412→   412→                      This is paid to miners/validators, not AlgeriaTrade.
+   413→   413→                    </p>
+   414→   414→                  </div>
+   415→   415→                </div>
+   416→   416→              </div>
+   417→   417→
+   418→   418→              {/* Create Payment Button */}
+   419→   419→              <Button
+   420→   420→                onClick={handleCreatePayment}
+   421→   421→                disabled={isCreating || !exchangeRate}
+   422→   422→                className="w-full"
+   423→   423→                size="lg"
+   424→   424→              >
+   425→   425→                {isCreating ? (
+   426→   426→                  <>
+   427→   427→                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+   428→   428→                    Creating Payment...
+   429→   429→                  </>
+   430→   430→                ) : (
+   431→   431→                  <>
+   432→   432→                    <Shield className="mr-2 h-4 w-4" />
+   433→   433→                    Create Payment Address
+   434→   434→                  </>
+   435→   435→                )}
+   436→   436→              </Button>
+   437→   437→            </CardContent>
+   438→   438→          </Card>
+   439→   439→        ) : (
+   440→   440→          /* Step 2: Payment Details & QR Code */
+   441→   441→          <div className="space-y-6">
+   442→   442→            {/* Status Badge */}
+   443→   443→            <Card>
+   444→   444→              <CardContent className="pt-6">
+   445→   445→                <div className="flex items-center justify-between">
+   446→   446→                  <div className="flex items-center gap-3">
+   447→   447→                    <Badge 
+   448→   448→                      variant="secondary" 
+   449→   449→                      className={`${getStatusColor(paymentStatus?.status || 'PENDING')} text-white`}
+   450→   450→                    >
+   451→   451→                      {paymentStatus?.status || 'PENDING'}
+   452→   452→                    </Badge>
+   453→   453→                    {paymentStatus?.status === 'PENDING' && (
+   454→   454→                      <div className="flex items-center gap-1 text-orange-600">
+   455→   455→                        <Clock className="h-4 w-4" />
+   456→   456→                        <span className="font-mono font-bold">
+   457→   457→                          {formatTime(timeRemaining)}
+   458→   458→                        </span>
+   459→   459→                      </div>
+   460→   460→                    )}
+   461→   461→                  </div>
+   462→   462→                  
+   463→   463→                  {paymentStatus?.txHash && (
+   464→   464→                    <a
+   465→   465→                      href={`${CRYPTO_INFO[paymentData.cryptoCurrency].explorerUrl}${paymentStatus.txHash}`}
+   466→   466→                      target="_blank"
+   467→   467→                      rel="noopener noreferrer"
+   468→   468→                      className="flex items-center gap-1 text-sm text-blue-600 hover:underline"
+   469→   469→                    >
+   470→   470→                      View Transaction
+   471→   471→                      <ExternalLink className="h-3 w-3" />
+   472→   472→                    </a>
+   473→   473→                  )}
+   474→   474→                </div>
+   475→   475→
+   476→   476→                {/* Confirmations Progress */}
+   477→   477→                {paymentStatus && paymentStatus.confirmations > 0 && (
+   478→   478→                  <div className="mt-4 space-y-2">
+   479→   479→                    <div className="flex justify-between text-sm">
+   480→   480→                      <span>Confirmations</span>
+   481→   481→                      <span>
+   482→   482→                        {paymentStatus.confirmations} / {paymentStatus.requiredConfirmations}
+   483→   483→                      </span>
+   484→   484→                    </div>
+   485→   485→                    <div className="w-full bg-gray-200 rounded-full h-2">
+   486→   486→                      <div 
+   487→   487→                        className="bg-green-500 h-2 rounded-full transition-all duration-500"
+   488→   488→                        style={{ 
+   489→   489→                          width: `${Math.min(100, (paymentStatus.confirmations / paymentStatus.requiredConfirmations) * 100)}%` 
+   490→   490→                        }}
+   491→   491→                      />
+   492→   492→                    </div>
+   493→   493→                  </div>
+   494→   494→                )}
+   495→   495→              </CardContent>
+   496→   496→            </Card>
+   497→   497→
+   498→   498→            {/* QR Code and Address */}
+   499→   499→            <Tabs defaultValue="qrcode" className="w-full">
+   500→   500→              <TabsList className="grid w-full grid-cols-2">
+   501→   501→                <TabsTrigger value="qrcode" className="flex items-center gap-2">
+   502→   502→                  <QrCode className="h-4 w-4" />
+   503→   503→                  QR Code
+   504→   504→                </TabsTrigger>
+   505→   505→                <TabsTrigger value="address" className="flex items-center gap-2">
+   506→   506→                  <Copy className="h-4 w-4" />
+   507→   507→                  Address
+   508→   508→                </TabsTrigger>
+   509→   509→              </TabsList>
+   510→   510→
+   511→   511→              <TabsContent value="qrcode" className="space-y-4">
+   512→   512→                <Card>
+   513→   513→                  <CardContent className="pt-6 flex flex-col items-center">
+   514→   514→                    {/* QR Code Placeholder - In production, generate real QR code */}
+   515→   515→                    <div className="w-64 h-64 bg-white border-2 rounded-lg p-4 flex items-center justify-center mb-4">
+   516→   516→                      <div className="text-center space-y-2">
+   517→   517→                        <QrCode className="h-32 w-32 mx-auto text-gray-400" />
+   518→   518→                        <p className="text-xs text-gray-500">Scan with your wallet</p>
+   519→   519→                      </div>
+   520→   520→                    </div>
+   521→   521→                    
+   522→   522→                    <p className="text-center text-sm text-muted-foreground mb-4">
+   523→   523→                      Scan this QR code with your cryptocurrency wallet app
+   524→   524→                    </p>
+   525→   525→
+   526→   526→                    <Button
+   527→   527→                      variant="outline"
+   528→   528→                      onClick={() => setShowQRCode(!showQRCode)}
+   529→   529→                    >
+   530→   530→                      {showQRCode ? 'Hide' : 'Show'} QR Code
+   531→   531→                    </Button>
+   532→   532→                  </CardContent>
+   533→   533→                </Card>
+   534→   534→              </TabsContent>
+   535→   535→
+   536→   536→              <TabsContent value="address" className="space-y-4">
+   537→   537→                <Card>
+   538→   538→                  <CardContent className="pt-6 space-y-4">
+   539→   539→                    <div>
+   540→   540→                      <label className="text-sm font-medium">Deposit Address</label>
+   541→   541→                      <div className="flex gap-2 mt-1">
+   542→   542→                        <Input
+   543→   543→                          value={paymentData.depositAddress}
+   544→   544→                          readOnly
+   545→   545→                          className="font-mono text-sm"
+   546→   546→                        />
+   547→   547→                        <Button
+   548→   548→                          variant="outline"
+   549→   549→                          size="icon"
+   550→   550→                          onClick={copyAddress}
+   551→   551→                        >
+   552→   552→                          {copied ? (
+   553→   553→                            <CheckCircle2 className="h-4 w-4 text-green-600" />
+   554→   554→                          ) : (
+   555→   555→                            <Copy className="h-4 w-4" />
+   556→   556→                          )}
+   557→   557→                        </Button>
+   558→   558→                      </div>
+   559→   559→                    </div>
+   560→   560→
+   561→   561→                    <Separator />
+   562→   562→
+   563→   563→                    <div className="grid grid-cols-2 gap-4 text-sm">
+   564→   564→                      <div>
+   565→   565→                        <p className="text-muted-foreground">Amount</p>
+   566→   566→                        <p className="font-semibold font-mono">
+   567→   567→                          {paymentData.expectedAmount} {paymentData.cryptoCurrency}
+   568→   568→                        </p>
+   569→   569→                      </div>
+   570→   570→                      <div>
+   571→   571→                        <p className="text-muted-foreground">Currency</p>
+   572→   572→                        <p className="font-semibold">{CRYPTO_INFO[paymentData.cryptoCurrency].name}</p>
+   573→   573→                      </div>
+   574→   574→                    </div>
+   575→   575→                  </CardContent>
+   576→   576→                </Card>
+   577→   577→              </TabsContent>
+   578→   578→            </Tabs>
+   579→   579→
+   580→   580→            {/* Important Information */}
+   581→   581→            <Card className="border-yellow-200 bg-yellow-50 dark:bg-yellow-950">
+   582→   582→              <CardContent className="pt-6 space-y-3">
+   583→   583→                <h4 className="font-medium flex items-center gap-2">
+   584→   584→                  <AlertCircle className="h-4 w-4 text-yellow-600" />
+   585→   585→                  Important
+   586→   586→                </h4>
+   587→   587→                <ul className="text-sm text-yellow-800 dark:text-yellow-200 space-y-1 list-disc list-inside">
+   588→   588→                  <li>Send only <strong>{paymentData.cryptoCurrency}</strong> to this address</li>
+   589→   589→                  <li>Minimum confirmations required: {CRYPTO_INFO[paymentData.cryptoCurrency].name === 'Bitcoin' ? '3' : '12'}</li>
+   590→   590→                  <li>Payment expires in <strong>{formatTime(timeRemaining)}</strong></li>
+   591→   591→                  <li>Do not send from an exchange wallet unless it supports refunds</li>
+   592→   592→                </ul>
+   593→   593→              </CardContent>
+   594→   594→            </Card>
+   595→   595→
+   596→   596→            {/* Educational Tooltips */}
+   597→   597→            <Card>
+   598→   598→              <CardHeader>
+   599→   599→                <CardTitle className="text-base flex items-center gap-2">
+   600→   600→                  <Info className="h-4 w-4" />
+   601→   601→                  Learn More
+   602→   602→                </CardTitle>
+   603→   603→              </CardHeader>
+   604→   604→              <CardContent className="space-y-3">
+   605→   605→                <Dialog>
+   606→   606→                  <DialogTrigger asChild>
+   607→   607→                    <Button variant="outline" className="w-full justify-start" size="sm">
+   608→   608→                      <HelpCircle className="mr-2 h-4 w-4" />
+   609→   609→                      What is {CRYPTO_INFO[selectedCrypto].name}?
+   610→   610→                    </Button>
+   611→   611→                  </DialogTrigger>
+   612→   612→                  <DialogContent>
+   613→   613→                    <DialogHeader>
+   614→   614→                      <DialogTitle className="flex items-center gap-2">
+   615→   615→                        <CryptoIcon style={{ color: currentCryptoInfo.color }} />
+   616→   616→                        About {currentCryptoInfo.name}
+   617→   617→                      </DialogTitle>
+   618→   618→                      <DialogDescription className="space-y-3 pt-2">
+   619→   619→                        <p>{currentCryptoInfo.description.en}</p>
+   620→   620→                        
+   621→   621→                        <Separator />
+   622→   622→                        
+   623→   623→                        <div className="space-y-2">
+   624→   624→                          <h5 className="font-medium">Key Facts:</h5>
+   625→   625→                          <ul className="list-disc list-inside text-sm space-y-1">
+   626→   626→                            <li>Symbol: {currentCryptoInfo.symbol}</li>
+   627→   627→                            <li>Network: {selectedCrypto === 'BTC' ? 'Bitcoin Network' : 'Ethereum (ERC-20)'}</li>
+   628→   628→                            <li>Confirmation Time: ~{selectedCrypto === 'BTC' ? '10-60 minutes' : '2-10 minutes'}</li>
+   629→   629→                            <li>Network Fee: ~{networkFee.estimate} {networkFee.currency}</li>
+   630→   630→                          </ul>
+   631→   631→                        </div>
+   632→   632→
+   633→   633→                        <Separator />
+   634→   634→
+   635→   635→                        <p className="text-xs text-muted-foreground">
+   636→   636→                          AlgeriaTrade.dz supports cryptocurrency payments for international trade convenience.
+   637→   637→                          All payments are converted to DZD at the current market rate.
+   638→   638→                        </p>
+   639→   639→                      </DialogDescription>
+   640→   640→                    </DialogHeader>
+   641→   641→                  </DialogContent>
+   642→   642→                </Dialog>
+   643→   643→
+   644→   644→                <Dialog>
+   645→   645→                  <DialogTrigger asChild>
+   646→   646→                    <Button variant="outline" className="w-full justify-start" size="sm">
+   647→   647→                      <Shield className="mr-2 h-4 w-4" />
+   648→   648→                      How are payments secured?
+   649→   649→                    </Button>
+   650→   650→                  </DialogTrigger>
+   651→   651→                  <DialogContent>
+   652→   652→                    <DialogHeader>
+   653→   653→                      <DialogTitle>Payment Security</DialogTitle>
+   654→   654→                      <DialogDescription className="space-y-3 pt-2">
+   655→   655→                        <div className="space-y-3">
+   656→   656→                          <div className="flex gap-3">
+   657→   657→                            <Shield className="h-5 w-5 text-green-600 shrink-0 mt-0.5" />
+   658→   658→                            <div>
+   659→   659→                              <h5 className="font-medium">Blockchain Confirmation</h5>
+   660→   660→                              <p className="text-sm">
+   661→   661→                                Payments are only confirmed after sufficient blockchain confirmations.
+   662→   662→                              </p>
+   663→   663→                            </div>
+   664→   664→                          </div>
+   665→   665→                          
+   666→   666→                          <div className="flex gap-3">
+   667→   667→                            <Clock className="h-5 w-5 text-blue-600 shrink-0 mt-0.5" />
+   668→   668→                            <div>
+   669→   669→                              <h5 className="font-medium">Time-Limited Window</h5>
+   670→   670→                              <p className="text-sm">
+   671→   671→                                Each payment has a 15-minute window to prevent price volatility issues.
+   672→   672→                              </p>
+   673→   673→                            </div>
+   674→   674→                          </div>
+   675→   675→                          
+   676→   676→                          <div className="flex gap-3">
+   677→   677→                            <Zap className="h-5 w-5 text-yellow-600 shrink-0 mt-0.5" />
+   678→   678→                            <div>
+   679→   679→                              <h5 className="font-medium">Real-Time Monitoring</h5>
+   680→   680→                              <p className="text-sm">
+   681→   681→                                We monitor the blockchain in real-time for instant confirmation.
+   682→   682→                              </p>
+   683→   683→                            </div>
+   684→   684→                          </div>
+   685→   685→                        </div>
+   686→   686→                      </DialogDescription>
+   687→   687→                    </DialogHeader>
+   688→   688→                  </DialogContent>
+   689→   689→                </Dialog>
+   690→   690→              </CardContent>
+   691→   691→            </Card>
+   692→   692→
+   693→   693→            {/* Success State */}
+   694→   694→            {paymentStatus?.status === 'CONFIRMED' && (
+   695→   695→              <Card className="border-green-200 bg-green-50 dark:bg-green-950">
+   696→   696→                <CardContent className="pt-6 text-center space-y-3">
+   697→   697→                  <CheckCircle2 className="h-12 w-12 mx-auto text-green-600" />
+   698→   698→                  <h3 className="text-xl font-semibold text-green-800 dark:text-green-200">
+   699→   699→                    Payment Confirmed!
+   700→   700→                  </h3>
+   701→   701→                  <p className="text-green-700 dark:text-green-300">
+   702→   702→                    Your cryptocurrency payment has been received and confirmed.
+   703→   703→                  </p>
+   704→   704→                  {paymentStatus.txHash && (
+   705→   705→                    <p className="text-sm font-mono text-green-600 break-all">
+   706→   706→                      TX: {paymentStatus.txHash}
+   707→   707→                    </p>
+   708→   708→                  )}
+   709→   709→                </CardContent>
+   710→   710→              </Card>
+   711→   711→            )}
+   712→   712→
+   713→   713→            {/* Expired State */}
+   714→   714→            {paymentStatus?.status === 'EXPIRED' && (
+   715→   715→              <Card className="border-red-200 bg-red-50 dark:bg-red-950">
+   716→   716→                <CardContent className="pt-6 text-center space-y-3">
+   717→   717→                  <AlertCircle className="h-12 w-12 mx-auto text-red-600" />
+   718→   718→                  <h3 className="text-xl font-semibold text-red-800 dark:text-red-200">
+   719→   719→                    Payment Expired
+   720→   720→                  </h3>
+   721→   721→                  <p className="text-red-700 dark:text-red-300">
+   722→   722→                    The payment window has expired. Please create a new payment.
+   723→   723→                  </p>
+   724→   724→                  <Button
+   725→   725→                    variant="outline"
+   726→   726→                    onClick={() => {
+   727→   727→                      setPaymentData(null)
+   728→   728→                      setPaymentStatus(null)
+   729→   729→                      if (intervalRef.current) clearInterval(intervalRef.current)
+   730→   730→                    }}
+   731→   731→                  >
+   732→   732→                    Create New Payment
+   733→   733→                  </Button>
+   734→   734→                </CardContent>
+   735→   735→              </Card>
+   736→   736→            )}
+   737→   737→          </div>
+   738→   738→        )}
+   739→   739→      </div>
+   740→   740→    </TooltipProvider>
+   741→   741→  )
+   742→   742→}
+   743→   743→

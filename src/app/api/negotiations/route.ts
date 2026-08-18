@@ -1,88 +1,136 @@
+// Negotiation API Routes
+// مسارات API للمفاوضات
+
 import { NextRequest, NextResponse } from 'next/server';
-import {
-  createNegotiation,
+import { 
+  createOffer, 
   getNegotiationHistory,
-  checkExpiringNegotiations,
-} from '@/lib/negotiation';
-import type { CreateNegotiationParams } from '@/lib/negotiation';
+  calculateBestDeal,
+  type NegotiationType,
+  type NegotiationStatus,
+} from '@/lib/negotiation/engine';
 
-// GET /api/negotiations - List user's negotiations
-export async function GET(request: NextRequest) {
+/**
+ * POST /api/negotiations - Create new negotiation
+ */
+export async function POST(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
+    const body = await request.json();
     
-    // For demo purposes, using a mock user ID
-    // In production, get from auth session
-    const userId = searchParams.get('userId') || 'demo-user-id';
-    
-    const filters = {
-      status: searchParams.get('status') as any || undefined,
-      type: searchParams.get('type') as any || undefined,
-      productId: searchParams.get('productId') || undefined,
-      page: parseInt(searchParams.get('page') || '1'),
-      pageSize: parseInt(searchParams.get('pageSize') || '20'),
-    };
+    const {
+      productId,
+      sellerId,
+      buyerId,
+      type,
+      originalPrice,
+      proposedPrice,
+      quantity,
+      deliveryDate,
+      paymentTerms,
+      message,
+      orderId,
+    } = body;
 
-    const result = await getNegotiationHistory(userId, filters);
+    // Validate required fields
+    if (!productId || !sellerId || !buyerId || !type || !originalPrice || !proposedPrice) {
+      return NextResponse.json(
+        { success: false, errors: ['Missing required fields'] },
+        { status: 400 }
+      );
+    }
+
+    const result = await createOffer({
+      productId,
+      sellerId,
+      buyerId,
+      type: type as NegotiationType,
+      originalPrice: Number(originalPrice),
+      proposedPrice: Number(proposedPrice),
+      quantity: quantity ? Number(quantity) : undefined,
+      deliveryDate,
+      paymentTerms,
+      message,
+      orderId,
+    });
+
+    if (!result.success) {
+      return NextResponse.json(
+        { 
+          success: false, 
+          errors: result.errors,
+          warnings: result.warnings,
+        },
+        { status: 400 }
+      );
+    }
 
     return NextResponse.json({
       success: true,
-      data: result,
-    });
+      data: {
+        negotiation: result.negotiation,
+        offer: result.offer,
+        autoAccepted: result.autoAccepted,
+      },
+      warnings: result.warnings,
+    }, { status: 201 });
   } catch (error) {
-    console.error('Error fetching negotiations:', error);
+    console.error('Error creating negotiation:', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to fetch negotiations' },
+      { success: false, errors: ['Internal server error'] },
       { status: 500 }
     );
   }
 }
 
-// POST /api/negotiations - Start new negotiation
-export async function POST(request: NextRequest) {
+/**
+ * GET /api/negotiations - List negotiations with filters
+ */
+export async function GET(request: NextRequest) {
   try {
-    const body = await request.json();
+    const { searchParams } = new URL(request.url);
     
-    const params: CreateNegotiationParams = {
-      productId: body.productId,
-      orderId: body.orderId,
-      rfqId: body.rfqId,
-      buyerId: body.buyerId || 'demo-buyer-id',
-      sellerId: body.sellerId || 'demo-seller-id',
-      initiatorId: body.initiatorId || 'demo-user-id',
-      type: body.type || 'PRICE',
-      initialOffer: body.initialOffer ? {
-        originalPrice: body.initialOffer.originalPrice,
-        offeredPrice: body.initialOffer.offeredPrice,
-        quantity: body.initialOffer.quantity,
-        deliveryDays: body.initialOffer.deliveryDays,
-        paymentTerms: body.initialOffer.paymentTerms,
-        specifications: body.initialOffer.specifications,
-        notes: body.initialOffer.notes,
-      } : undefined,
-      settings: body.settings ? {
-        maxDuration: body.settings.maxDuration,
-        autoAcceptThreshold: body.settings.autoAcceptThreshold,
-        isPrivate: body.settings.isPrivate,
-        allowCounterOffer: body.settings.allowCounterOffer,
-      } : undefined,
-    };
+    const userId = searchParams.get('userId');
+    const status = searchParams.get('status') as NegotiationStatus | null;
+    const type = searchParams.get('type') as NegotiationType | null;
+    const page = parseInt(searchParams.get('page') ?? '1');
+    const pageSize = parseInt(searchParams.get('pageSize') ?? '20');
 
-    const negotiation = await createNegotiation(params);
+    if (!userId) {
+      return NextResponse.json(
+        { success: false, errors: ['userId is required'] },
+        { status: 400 }
+      );
+    }
+
+    const result = await getNegotiationHistory(userId, {
+      status: status ?? undefined,
+      type: type ?? undefined,
+      page,
+      pageSize,
+    });
+
+    // Calculate best deal from active negotiations
+    const activeNegotiations = result.data.filter(n => 
+      n.status === 'PENDING' || n.status === 'COUNTERED'
+    );
+    const bestDeal = calculateBestDeal(activeNegotiations);
 
     return NextResponse.json({
       success: true,
-      data: negotiation,
-      message: 'Negotiation created successfully - تم إنشاء المفاوضات بنجاح',
-    }, { status: 201 });
-  } catch (error: any) {
-    console.error('Error creating negotiation:', error);
-    return NextResponse.json(
-      { 
-        success: false, 
-        error: error.message || 'Failed to create negotiation - فشل في إنشاء المفاوضات' 
+      data: result,
+      meta: {
+        bestDeal: bestDeal.bestNegotiation ? {
+          negotiationId: bestDeal.bestNegotiation.id,
+          savings: bestDeal.savings,
+          savingsPercent: bestDeal.savingsPercent,
+        } : null,
       },
-      { status: 400 }
+    });
+  } catch (error) {
+    console.error('Error fetching negotiations:', error);
+    return NextResponse.json(
+      { success: false, errors: ['Internal server error'] },
+      { status: 500 }
     );
   }
 }

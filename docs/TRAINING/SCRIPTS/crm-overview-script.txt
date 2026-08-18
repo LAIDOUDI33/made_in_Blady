@@ -1,0 +1,421 @@
+================================================================================
+   ALGERIATRADE.DZ CRM SYSTEM - VIDEO TUTORIAL SCRIPT
+   Duration: ~15 minutes | Target: New Users & Sales Teams
+================================================================================
+
+[INTRO - 0:00 to 0:45]
+
+VISUAL: AlgeriaTrade.dz logo animation, then screen recording of CRM dashboard
+
+NARRATOR:
+"Welcome to the AlgeriaTrade.dz CRM training video! In this comprehensive 
+tutorial, we'll walk you through everything you need to know to master our 
+Customer Relationship Management system.
+
+Whether you're a sales representative, account manager, or team lead, this 
+guide will help you manage contacts, track deals, and close more business 
+on Algeria's premier B2B marketplace.
+
+Let's get started!"
+
+--------------------------------------------------------------------------------
+[SECTION 1: DASHBOARD OVERVIEW - 0:45 to 3:30]
+--------------------------------------------------------------------------------
+
+VISUAL: Full dashboard view with mouse hovering over each KPI card
+
+NARRATOR:
+"Chapter 1: The Dashboard Overview.
+
+When you first log into the CRM, you'll see your personalized dashboard. 
+This is your command center - everything you need at a glance."
+
+[ACTION: Click on "Total Contacts" KPI card]
+
+NARRATOR:
+"At the top, you'll see six key performance indicator cards:
+
+First, Total Contacts - this shows everyone in your database. As you can see, 
+I have 1,247 contacts. This number updates in real-time as you add new ones."
+
+[ACTION: Move to "Active Deals" card]
+
+NARRATOR:
+"Active Deals shows how many opportunities you're currently working on. 
+Right now, I have 23 active deals in various stages of the sales process."
+
+[ACTION: Move to "Pipeline Value" card]
+
+NARRATOR:
+"Pipeline Value is one of the most important metrics - it shows the total 
+value of all your active opportunities. Here we see 4.5 million DZD in 
+potential revenue."
+
+[ACTION: Move to remaining cards - Win Rate, Tasks Due, New Leads]
+
+NARRATOR:
+"Your Win Rate tracks your closing percentage. Aim for at least 25%.
+
+Tasks Due Today keeps you organized - I can see I have 5 tasks that need 
+attention.
+
+And New Leads shows how many prospects were added in the past week - great 
+for tracking marketing effectiveness."
+
+VISUAL: Show navigation bar and highlight each item
+
+NARRATOR:
+"Now let's look at the main navigation. You have five main sections:
+
+Dashboard - where we are now
+Contacts - your complete database
+Deals - your sales pipeline
+Analytics - reports and insights
+Settings - preferences and configuration"
+
+[ACTION: Show Quick Actions bar]
+
+NARRATOR:
+"Below the navigation, you'll find the Quick Actions Bar. These are your 
+one-click shortcuts for common tasks. Let me demonstrate..."
+
+[ACTION: Click "+ New Contact"]
+
+NARRATOR:
+"Clicking 'New Contact' opens the contact creation form instantly. We'll 
+explore this in detail in Chapter 2."
+
+[ACTION: Close modal, hover over other quick actions]
+
+NARRATOR:
+"You also have shortcuts for creating deals, logging activities, importing 
+contacts, and adding tasks. These save you valuable time throughout the day."
+
+--------------------------------------------------------------------------------
+[SECTION 2: CONTACT MANAGEMENT - 3:30 to 7:00]
+--------------------------------------------------------------------------------
+
+VISUAL: Navigate to Contacts page, show list view
+
+NARRATOR:
+"Chapter 2: Contact Management.
+
+Your contacts are the heart of your CRM. Let's explore how to add, organize, 
+and segment them effectively."
+
+[ACTION: Click "+ New Contact", show empty form]
+
+NARRATOR:
+"To add a new contact manually, click the 'New Contact' button. You'll see 
+this form with several fields."
+
+[ACTION: Fill in sample data - Ahmed Benali from TechAlgeria]
+
+NARRATOR:
+"The required fields are marked with an asterisk: First Name, Last Name, 
+and Email Address. Email is important because it serves as the unique 
+identifier for each contact."
+
+[ACTION: Fill in optional fields - phone, company, job title]
+
+NARRATOR:
+"I highly recommend filling in Phone Number, Company, and Job Title when 
+available. This information helps with personalization and segmentation later."
+
+[ACTION: Scroll down to Tags field, add tags]
+
+NARRATOR:
+"Tags are powerful organizational tools. I'm going to add 'prospect', 'b2b', 
+and 'algiers' to categorize this contact. We'll talk more about tags in a moment."
+
+[ACTION: Click Save Contact, show success message]
+
+NARRATOR:
+"Clicking Save adds the contact to your database. Simple as that!"
+
+VISUAL: Navigate to Contacts → Import
+
+NARRATOR:
+"But what if you have hundreds of contacts to add? That's where bulk import 
+comes in handy."
+
+[ACTION: Show import page, highlight Download Template button]
+
+NARRATOR:
+"First, download our CSV template. This ensures your data format matches 
+our system requirements exactly."
+
+[ACTION: Show template in Excel/Sheets]
+
+NARRATOR:
+"The template includes columns for name, email, phone, company, and more. 
+Fill in your data, save as CSV, and you're ready to upload."
+
+[ACTION: Show file upload, mapping preview]
+
+NARRATOR:
+"When you upload your file, we'll show you a preview and let you map your 
+columns to our database fields. Review carefully, then click Import."
+
+[ACTION: Show success message with summary]
+
+NARRATOR:
+"In just moments, hundreds of contacts are added! The system automatically 
+skips duplicates and flags any issues for review."
+
+VISUAL: Go back to Contacts list, show tags filter]
+
+NARRATOR:
+"Now let's talk about segmentation using tags."
+
+[ACTION: Click on tag filter, select "b2b"]
+
+NARRATOR:
+"By clicking on any tag, you instantly filter your contacts. Here I'm 
+viewing only my B2B contacts - perfect for targeted outreach."
+
+[ACTION: Navigate to Segments page]
+
+NARRATOR:
+"For more complex filtering, use Segments. Segments are saved searches that 
+update dynamically."
+
+[ACTION: Create new segment called "Hot Export Prospects"]
+
+NARRATOR:
+"Let me create a segment for hot export prospects. I'll set criteria: tag 
+contains 'hot', industry equals export, created within last 30 days."
+
+[ACTION: Show segment results]
+
+NARRATOR:
+"This gives me a target list of high-potential leads for my next campaign. 
+Segments are incredibly powerful for focused selling."
+
+--------------------------------------------------------------------------------
+[SECTION 3: SALES PIPELINE - 7:00 to 10:30]
+--------------------------------------------------------------------------------
+
+VISUAL: Navigate to Deals/Pipeline view, show Kanban board
+
+NARRATOR:
+"Chapter 3: The Sales Pipeline.
+
+The pipeline view is where deals come to life. Let me show you around."
+
+[ACTION: Show pipeline stages from left to right]
+
+NARRATOR:
+"Our pipeline has five stages, moving from left to right:
+
+Stage 1: LEAD (blue) - Initial inquiry captured
+Stage 2: QUALIFIED (yellow) - Needs verified, budget confirmed  
+Stage 3: PROPOSAL (orange) - Quote sent to prospect
+Stage 4: NEGOTIATION (red) - Active price/terms discussion
+Stage 5: CLOSED (green or dark) - Won or Lost"
+
+[ACTION: Hover over stage headers to show probabilities]
+
+NARRATOR:
+"Each stage has a default win probability. Lead starts at 10%, increasing 
+as deals progress. Closed Won is 100%, Closed Lost is 0%."
+
+[ACTION: Click "+ New Deal" in Lead column]
+
+NARRATOR:
+"Creating a new deal is straightforward. Let's add one now."
+
+[ACTION: Fill in deal details - "TechAlgeria Software License"]
+
+NARRATOR:
+"I'll enter a deal name, link it to Ahmed Benali who we just added, set 
+the value at 500,000 DZD, and assign it to myself."
+
+[ACTION: Show probability slider, set expected close date]
+
+NARRATOR:
+"I can adjust the default probability if I have inside information. For 
+this warm referral, I'll bump it up to 25%. And I expect to close by 
+end of month."
+
+[ACTION: Save deal, show it appearing in Lead column]
+
+NARRATOR:
+"The deal appears in the Lead column. Now watch this..."
+
+[ACTION: Drag deal from Lead to Qualified]
+
+NARRATOR:
+"After qualifying Ahmed - confirming his budget, authority, need, and 
+timeline - I simply drag the card to the Qualified stage."
+
+[ACTION: Show activity note popup]
+
+NARRATOR:
+"The system prompts me to log why I moved the deal. This creates an audit 
+trail and helps analyze patterns later."
+
+[ACTION: Continue dragging through stages quickly]
+
+NARRATOR:
+"As the deal progresses, I continue dragging it through Proposal and 
+Negotiation stages until finally..."
+
+[ACTION: Drag to Closed Won, show celebration animation]
+
+NARRATOR:
+"...Closed Won! The system records the win date and credits it to my 
+performance metrics."
+
+VISUAL: Show Analytics → Forecasts page]
+
+NARRATOR:
+"All these deals feed into your forecast. The system calculates weighted 
+pipeline value by multiplying each deal's value by its probability."
+
+[ACTION: Point to forecast number]
+
+NARRATOR:
+"This forecast number helps leadership predict revenue and plan resources. 
+It's updated in real-time as you work your pipeline."
+
+--------------------------------------------------------------------------------
+[SECTION 4: ACTIVITIES & TASKS - 10:30 to 13:00]
+--------------------------------------------------------------------------------
+
+VISUAL: Open a contact record, scroll to Activity Timeline]
+
+NARRATOR:
+"Chapter 4: Activities and Tasks.
+
+Every interaction with a contact should be logged. This builds a complete 
+history and helps the entire team stay informed."
+
+[ACTION: Click "+ Log Activity", select "Call"]
+
+NARRATOR:
+"To log an activity, go to the contact's Activity Timeline and click 
+'Log Activity'. Choose the type - Call, Email, Meeting, or Note."
+
+[ACTION: Fill in call details - duration, notes about discussion]
+
+NARRATOR:
+"I just got off the phone with Ahmed. I'll log the call, note that we 
+discussed pricing, and record that he seemed interested but concerned 
+about budget."
+
+[ACTION: Check "Schedule Follow-up", set date 3 days out]
+
+NARRATOR:
+"Crucially, I always schedule a follow-up before finishing. The system 
+will remind me in 3 days to reach out again with a proposal."
+
+[ACTION: Save activity, show it appearing in timeline]
+
+NARRATOR:
+"The activity now appears in the timeline, visible to anyone on my team 
+who views this contact."
+
+VISUAL: Navigate to Tasks page]
+
+NARRATOR:
+"Tasks help you manage your daily workload. Let's look at the Tasks view."
+
+[ACTION: Show task list with priorities]
+
+NARRATOR:
+"Tasks are color-coded by priority: Critical (red), High (orange), 
+Medium (yellow), and Low (green)."
+
+[ACTION: Create new task, assign to team member]
+
+NARRATOR:
+"I can create tasks for myself or delegate to team members. When assigning, 
+add context so they know exactly what's needed."
+
+[ACTION: Show task completion checkbox]
+
+NARRATOR:
+"When complete, check the box. Completed tasks move to your history for 
+reference but don't clutter your active list."
+
+--------------------------------------------------------------------------------
+[SECTION 5: ANALYTICS & REPORTS - 13:00 to 14:30]
+--------------------------------------------------------------------------------
+
+VISUAL: Navigate to Analytics section]
+
+NARRATOR:
+"Chapter 5: Analytics and Reports.
+
+Data-driven decisions start here. The Analytics section provides insights 
+into your sales performance."
+
+[ACTION: Show Conversion Rates report]
+
+NARRATOR:
+"The Conversion Report shows how effectively you're moving deals through 
+stages. If your Lead-to-Qualified rate is below 30%, you may need to 
+improve lead quality or qualification skills."
+
+[ACTION: Show Win/Loss Analysis chart]
+
+NARRATOR:
+"The Win/Loss Analysis reveals why you're winning or losing deals. 
+Common loss reasons include price, competition, or timing. Use this 
+to improve your approach."
+
+[ACTION: Show Sales Performance leaderboard]
+
+NARRATOR:
+"For managers, the Performance Report compares team members. This helps 
+identify top performers who can share best practices, and those who may 
+need additional coaching."
+
+[ACTION: Export demonstration]
+
+NARRATOR:
+"Any report can be exported to PDF or Excel for sharing with leadership 
+or further analysis."
+
+--------------------------------------------------------------------------------
+[CLOSING - 14:30 to 15:00]
+--------------------------------------------------------------------------------
+
+VISUAL: Return to Dashboard, show summary overlay]
+
+NARRATOR:
+"And that's the complete CRM overview! Let's recap what we covered:
+
+- Dashboard navigation and KPIs
+- Adding and organizing contacts
+- Managing your sales pipeline
+- Logging activities and tasks
+- Understanding your analytics
+
+Remember, practice makes perfect. Spend time exploring each feature, 
+and don't hesitate to reach out to support if you have questions."
+
+VISUAL: Show support resources - email, help center URL]
+
+NARRATOR:
+"For additional help, visit our Help Center at help.algeriatrade.dz, 
+email support@algeriatrade.dz, or use the live chat during business hours.
+
+Thank you for watching, and happy selling on AlgeriaTrade.dz!"
+
+[END SCREEN - Logo + "Subscribe for More Tutorials"]
+
+================================================================================
+                           END OF SCRIPT
+================================================================================
+
+PRODUCTION NOTES:
+-----------------
+- Screen resolution: 1920x1080
+- Mouse cursor should be visible and highlighted
+- Use zoom feature to emphasize important areas
+- Add text overlays for key terms
+- Include chapter markers for navigation
+- Provide closed captions for accessibility
+- Estimated editing time: 4-6 hours

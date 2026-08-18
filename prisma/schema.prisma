@@ -144,6 +144,24 @@ model User {
   // Payment Methods (Phase 8B)
   savedPaymentMethods SavedPaymentMethod[]
   
+  // Phase 1-B: Stripe International Cards
+  stripeCustomer      StripeCustomer?
+  stripeTransactions   StripeTransaction[]
+  
+  // Phase 8C: Crypto Payments
+  cryptoPayments      CryptoPayment[]
+  
+  // SATIM/CIB Payment Gateway (Algeria)
+  satimTransactions   SatimTransaction[]
+  
+  // Multi-Currency Support (Phase 1-F)
+  currencyPreference  CurrencyPreference?
+  conversionLogs      ConversionLog[] @relation("UserConversionLogs")
+  
+  // DPA Relations (Phase 1-D)
+  dpAgreementsAsBuyer  DPAgreement[] @relation("DPABuyer")
+  dpAgreementsAsSeller DPAgreement[] @relation("DPASeller")
+  
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -511,6 +529,9 @@ model Order {
   items           OrderItem[]
   payment         Payment?
   
+  // Phase 8C: Crypto Payment
+  cryptoPayment   CryptoPayment?
+  
   // Phase 6B: Trade Assurance
   escrow           EscrowAccount?
   
@@ -519,6 +540,15 @@ model Order {
   
   // Phase 8I: Negotiations
   negotiations     Negotiation[] @relation("OrderNegotiations")
+  
+  // Phase 1-D: DPA Agreements
+  dpaAgreement     DPAgreement?
+  
+  // Phase 1-B: Stripe International Cards
+  stripeTransaction StripeTransaction?
+  
+  // SATIM/CIB Payment Gateway (Algeria)
+  satimTransactions  SatimTransaction[] @relation("OrderSatimTransactions")
   
   status          OrderStatus @default(PENDING)
 
@@ -912,6 +942,79 @@ model TransactionLog {
 
   @@index([paymentId])
   @@map("transaction_logs")
+}
+
+// ============================================
+// SATIM TRANSACTION LOGS (CIB Payment Gateway)
+// ============================================
+
+/// SATIM (Système Algérien de Télécompensation Interbancaire et Monétique)
+/// Official CIB payment gateway transaction records for Algeria
+/// Tracks all SATIM payment sessions, status changes, and responses
+model SatimTransaction {
+  /// Unique internal ID
+  id              String   @id @default(cuid())
+  
+  /// SATIM transaction reference (unique from gateway)
+  transactionId   String   @unique
+  
+  /// Internal order ID
+  orderId         String?
+  
+  /// User who initiated the payment
+  userId          String
+  
+  /// Payment amount in DZD
+  amount          Float
+  
+  /// Currency code (always DZD for SATIM)
+  currency        String   @default("DZD")
+  
+  /// Current transaction status
+  status          String   @default("PENDING") // PENDING, PROCESSING, COMPLETED, FAILED, CANCELLED, REFUNDED
+  
+  /// Detected card type (VISA, MASTERCARD, CIB)
+  cardType        String?
+  
+  /// Last 4 digits of card number
+  cardLast4       String?
+  
+  /// Authorization code from bank
+  authCode        String?
+  
+  /// Retrieval Reference Number for bank reconciliation
+  rrn            String?
+  
+  /// Whether 3D Secure was used
+  threeDSecure    Boolean  @default(false)
+  
+  /// DPA installment plan identifier (if applicable)
+  installmentPlan String?
+  
+  /// Full SATIM response as JSON
+  rawResponse     Json?
+  
+  /// Error message if failed
+  errorMessage    String?
+  
+  /// Creation timestamp
+  createdAt       DateTime @default(now())
+  
+  /// Last update timestamp
+  updatedAt       DateTime @updatedAt
+  
+  /// Relations
+  user            User     @relation(fields: [userId], references: [id])
+  orders          Order[]  @relation("OrderSatimTransactions")
+  
+  /// Indexes for efficient queries
+  @@index([userId])
+  @@index([orderId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([transactionId])
+  
+  @@map("satim_transactions")
 }
 
 // ============================================
@@ -2895,6 +2998,104 @@ model InventorySyncRule {
   @@map("inventory_sync_rules")
 }
 
+// Extended ERP Connector Model for Multi-tenant Support
+model ErpConnector {
+  id                      String    @id @default(cuid())
+  userId                  String    // Owner user ID
+  name                    String    // Display name
+  type                    String    // SAP, ODOO, DYNAMICS, CUSTOM, REST
+  displayName             String?   // Optional display name
+  
+  // Connection Settings (Encrypted)
+  credentials             String    @default("{}") // Encrypted connection credentials as JSON string
+  
+  // Status
+  status                  String    @default("DISCONNECTED") // CONNECTED, DISCONNECTED, ERROR, SYNCING
+  
+  // Sync Tracking
+  lastSyncAt              DateTime?
+  nextSyncAt              DateTime?
+  errorCount              Int       @default(0)
+  errorMessage            String?
+  
+  // Configuration
+  fieldMappings           String    @default("[]") // Array of field mappings as JSON string
+  syncConfig              String    @default("{}") // Sync schedule, direction, etc. as JSON string
+  
+  // Metadata
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+  
+  // Relations
+  syncLogs                ErpSyncLogNew[]
+  inventoryRecords        InventorySyncRecord[]
+  
+  @@index([userId])
+  @@index([type])
+  @@index([status])
+  @@map("erp_connectors")
+}
+
+// Enhanced Sync Log for Connectors
+model ErpSyncLogNew {
+  id                      String    @id @default(cuid())
+  connectorId             String
+  
+  // Sync Details
+  direction               String    // PUSH, PULL, BIDIRECTIONAL
+  entityType              String    // PRODUCTS, INVENTORY, ORDERS, etc.
+  
+  // Results
+  recordsProcessed        Int       @default(0)
+  recordsSuccess          Int       @default(0)
+  recordsFailed           Int       @default(0)
+  
+  // Timing
+  startedAt               DateTime  @default(now())
+  completedAt             DateTime?
+  durationSeconds         Int?
+  
+  // Status & Errors
+  status                  String    @default("PENDING") // SUCCESS, FAILED, PARTIAL, PENDING
+  errorMessage           String?
+  details                 String    @default("{}") // JSON string
+  
+  // Relation
+  connector               ErpConnector @relation(fields: [connectorId], references: [id], onDelete: Cascade)
+  
+  @@index([connectorId])
+  @@index([status])
+  @@index([startedAt])
+  @@map("erp_sync_logs_new")
+}
+
+// Inventory Sync Record for tracking synced products
+model InventorySyncRecord {
+  id                      String    @id @default(cuid())
+  connectorId             String
+  
+  // Product Mapping
+  externalProductId       String?   // ERP product ID
+  internalProductId       String    // Local product ID
+  externalSku             String?
+  internalSku             String?
+  
+  // Stock Info
+  quantity                Float     @default(0)
+  
+  // Sync Status
+  lastSyncedAt            DateTime?
+  syncStatus              String    @default("PENDING") // SYNCED, PENDING, ERROR, CONFLICT
+  
+  // Relation
+  connector               ErpConnector @relation(fields: [connectorId], references: [id], onDelete: Cascade)
+  
+  @@unique([connectorId, externalProductId])
+  @@unique([connectorId, internalProductId])
+  @@index([internalSku])
+  @@map("inventory_sync_records")
+}
+
 // ============================================
 // NEGOTIATION SYSTEM - Advanced Offer/Counter-Offer
 // ============================================
@@ -3149,7 +3350,188 @@ model Installment {
 }
 
 // ============================================
-// PHASE 8E: INVOICE SYSTEM
+// PHASE 1-D: ADVANCED DPA (DEFERRED PAYMENT AGREEMENT) SYSTEM
+// Enhanced installment plans for large B2B orders
+// Compliant with Bank of Algeria regulations
+// ============================================
+
+/// DPA Agreement Status - Full lifecycle management
+enum DPAStatus {
+  DRAFT               // Initial application draft
+  PENDING_APPROVAL    // Awaiting seller approval
+  PENDING_DOCUMENTS   // Additional documents required
+  UNDER_REVIEW        // Credit assessment in progress
+  APPROVED            // Seller approved, awaiting activation
+  ACTIVE              // Payments in progress
+  PAID                // All installments paid successfully
+  DEFAULTED           // Buyer failed to pay
+  CANCELLED           // Cancelled by buyer or seller
+  EARLY_SETTLED       // Paid off early with discount
+}
+
+/// Individual Installment Status for DPA
+enum DPAInstallmentStatus {
+  PENDING             // Not yet due
+  PAID                // Fully paid
+  PARTIAL             // Partial payment received
+  OVERDUE             // Past due date
+  WAIVED              // Waived by seller/admin
+}
+
+/// Document types for DPA verification
+enum DPADocumentType {
+  ID_CARD             // National ID card
+  PASSPORT            // Passport
+  BUSINESS_REG        // Business registration (RC)
+  BANK_STATEMENT      // Bank statement (last 3 months)
+  TAX_RETURN          // Tax return document
+  FINANCIAL_STATEMENT // Audited financial statements
+  BANK_GUARANTEE      // Bank guarantee letter
+  COMMERCIAL_REGISTER // Registre de Commerce
+  NIF_CERTIFICATE     // NIF certificate
+  OTHER               // Other supporting documents
+}
+
+/// Document verification status
+enum DPADocumentStatus {
+  PENDING             // Awaiting review
+  VERIFIED            // Document verified
+  REJECTED            // Document rejected
+}
+
+model DPAgreement {
+  id                    String           @id @default(cuid())
+  agreementNumber       String           @unique // Format: DPA-YYYYMMDD-XXXXX
+  
+  // Related entities
+  orderId               String           @unique // One DPA per order
+  buyerId               String
+  sellerId               String
+  
+  // Financial terms (using Float for SQLite compatibility)
+  principalAmount       Float // Original order amount
+  interestRate          Float // Total interest percentage
+  adminFee              Float @default(0) // Administrative fee
+  insurancePremium      Float? // Optional insurance premium
+  totalAmount           Float // Principal + interest + fees
+  
+  // Schedule configuration
+  planId                String                            // dpa-3m, dpa-6m, dpa-12m, dpa-24m
+  totalInstallments     Int                               // Number of installments
+  installmentAmount     Float // Fixed monthly amount
+  firstDueDate          DateTime                          // First payment due date
+  frequency             String           @default("MONTHLY") // MONTHLY, BI_MONTHLY
+  
+  // Status tracking
+  status                DPAStatus        @default(DRAFT)
+  downPaymentReceived   Boolean          @default(false)
+  downPaymentAmount     Float?
+  
+  // Insurance/Guarantee
+  insuranceEnabled      Boolean          @default(false)
+  bankPartnerId         String?                          // Partner bank ID if using bank DPA
+  guaranteeReference    String?                          // Bank guarantee reference
+  
+  // Credit assessment
+  creditScore           Int?                              // Calculated credit score
+  riskLevel             String?                           // LOW, MEDIUM, HIGH, VERY_HIGH
+  
+  // Key dates
+  appliedAt             DateTime        @default(now())
+  approvedAt            DateTime?
+  activatedAt           DateTime?
+  completedAt           DateTime?
+  
+  // Audit trail
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+  
+  // Relations
+  installments          DPAInstallment[]
+  payments              DPPayment[]
+  documents             DPADocument[]
+  order                 Order?            @relation(fields: [orderId], references: [id])
+  buyer                User             @relation("DPABuyer", fields: [buyerId], references: [id])
+  seller               User             @relation("DPASeller", fields: [sellerId], references: [id])
+  
+  @@index([buyerId])
+  @@index([sellerId])
+  @@index([orderId])
+  @@index([status])
+  @@index([appliedAt])
+  @@map("dp_agreements")
+}
+
+/// Individual installment within a DPA agreement
+model DPAInstallment {
+  id                    String              @id @default(cuid())
+  agreementId           String
+  installmentNumber     Int                 // 1, 2, 3...N
+  dueDate               DateTime
+  amount                Float
+  principalPortion      Float
+  interestPortion       Float
+  status                DPAInstallmentStatus @default(PENDING)
+  paidAmount            Float               @default(0)
+  paidAt                DateTime?
+  lateFeeApplied        Float               @default(0)
+  lateFeePaid           Float               @default(0)
+  notes                 String?
+  
+  agreement             DPAgreement         @relation(fields: [agreementId], references: [id], onDelete: Cascade)
+  payments              DPPayment[]
+  
+  @@index([agreementId])
+  @@index([dueDate])
+  @@index([status])
+  @@map("dpa_installments")
+}
+
+/// Payment records for DPA agreements
+model DPPayment {
+  id                    String    @id @default(cuid())
+  agreementId           String
+  installmentId         String?
+  amount                Float
+  paymentMethod         String    // SATIM, BARIDIMOB, BANK_TRANSFER, CHECK, etc.
+  paymentReference      String?  // Transaction reference number
+  notes                 String?
+  createdAt             DateTime @default(now())
+  
+  agreement             DPAgreement @relation(fields: [agreementId], references: [id], onDelete: Cascade)
+  installment           DPAInstallment? @relation(fields: [installmentId], references: [id])
+  
+  @@index([agreementId])
+  @@index([createdAt])
+  @@map("dpa_payments")
+}
+
+/// Supporting documents for DPA applications
+model DPADocument {
+  id                    String           @id @default(cuid())
+  agreementId           String
+  documentType          DPADocumentType
+  fileName              String
+  fileUrl               String           // Storage URL or path
+  fileSize              Int              // File size in bytes
+  mimeType              String
+  uploadedAt            DateTime         @default(now())
+  verifiedAt            DateTime?
+  verifiedBy            String?          // Admin user ID who verified
+  status                DPADocumentStatus @default(PENDING)
+  rejectionReason       String?
+  
+  agreement             DPAgreement      @relation(fields: [agreementId], references: [id], onDelete: Cascade)
+  
+  @@index([agreementId])
+  @@index([documentType])
+  @@index([status])
+  @@map("dpa_documents")
+}
+
+// ============================================
+// PHASE 8E: PROFESSIONAL INVOICE SYSTEM WITH TVA
+// Compliant with Algerian Tax Regulations
 // ============================================
 
 enum InvoiceStatus {
@@ -3163,7 +3545,7 @@ enum InvoiceStatus {
 }
 
 enum InvoiceType {
-  COMMERCIAL
+  STANDARD        // Renamed from COMMERCIAL for clarity
   PROFORMA
   CREDIT_NOTE
   DEBIT_NOTE
@@ -3172,82 +3554,121 @@ enum InvoiceType {
 }
 
 model Invoice {
-  id              String        @id @default(cuid())
-  invoiceNumber   String        @unique
-  invoiceType     InvoiceType
-  status          InvoiceStatus @default(DRAFT)
+  id                  String        @id @default(cuid())
+  invoiceNumber       String        @unique
+  invoiceType         InvoiceType   @default(STANDARD)
   
-  sellerId        String
-  buyerId         String
-  orderId         String
+  // Entities
+  orderId             String?
+  sellerId            String
+  buyerId             String
   
-  issueDate       DateTime
-  dueDate         DateTime
-  paidDate        DateTime?
+  // Status
+  status              InvoiceStatus @default(DRAFT)
   
-  subtotal        Float
-  discountTotal   Float         @default(0)
-  tvaAmount       Float         @default(0)
-  tssAmount       Float         @default(0)
-  totalAmount     Float
-  amountPaid      Float         @default(0)
-  balanceDue      Float
+  // Dates
+  issueDate           DateTime
+  dueDate             DateTime?
+  paidAt              DateTime?
+  cancelledAt         DateTime?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
   
-  currency        String         @default("DZD")
-  paymentTerms    String         @default("Net 30") // e.g., "Net 30", "Net 60"
-  notes           String?
-  termsConditions String?
-  pdfPath         String?
+  // Financials (using Float for SQLite compatibility with decimals)
+  subtotal            Float         @default(0)
+  discountAmount      Float         @default(0)
+  discountPercent     Float         @default(0)
+  taxableBase         Float         @default(0)
+  tvaAmount           Float         @default(0)
+  totalAmount         Float         @default(0)
+  amountPaid          Float         @default(0)
+  amountDue           Float         @default(0)
+  currency            String        @default("DZD")
   
-  quotationId      String?
-  relatedInvoiceId String?       // For credit/debit notes
+  // Payment terms (standardized codes)
+  paymentTerms        String        @default("NET30") // IMMEDIATE, NET30, NET60, NET90, EOM
+  notes               String?
+  internalNotes       String?      // Only visible to seller
   
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
+  // References
+  parentInvoiceId     String?      // For credit/debit notes referencing original
+  quotedInvoiceId     String?      // Proforma this fulfills
+  pdfPath             String?
   
-  items            InvoiceItem[]
-  payments         InvoicePayment[]
+  // Relations
+  items               InvoiceItem[]
+  tvaBreakdown        TVABreakdown[]
+  payments            InvoicePayment[]
+  
+  // Self-referencing for credit/debit notes
+  parentInvoice       Invoice?      @relation("CreditNotes", fields: [parentInvoiceId], references: [id])
+  creditNotes         Invoice[]     @relation("CreditNotes")
+  
+  // User relations (optional - can be derived from sellerId/buyerId)
+  // seller              User         @relation(fields: [sellerId], references: [id], name: "InvoiceSeller")
+  // buyer               User         @relation(fields: [buyerId], references: [id], name: "InvoiceBuyer")
+  // order               Order?       @relation(fields: [orderId], references: [id])
   
   @@index([sellerId])
   @@index([buyerId])
   @@index([orderId])
   @@index([status])
+  @@index([issueDate])
   @@index([invoiceNumber])
+  @@index([parentInvoiceId])
   @@map("invoices")
 }
 
 model InvoiceItem {
-  id          String  @id @default(cuid())
-  invoiceId   String
-  description String
-  quantity    Float
-  unitPrice   Float
-  discount    Int     @default(0) // Percentage
-  taxRate     Int     @default(19) // TVA percentage (9%, 19%, or 0%)
-  taxAmount   Float
-  lineTotal   Float
+  id                  String        @id @default(cuid())
+  invoiceId           String
+  productId           String?
+  description         String        // Product/service description
+  quantity            Float         @default(1)
+  unitPrice           Float         @default(0)
+  discount            Float         @default(0)  // Percentage (0-100)
+  lineTotal           Float         @default(0)
+  tvaRate             Float         @default(19) // TVA percentage (-1=exempt, 0, 9, 19)
+  tvaAmount           Float         @default(0)
+  lineTotalWithTax    Float         @default(0)
+  productSku          String?
+  unitOfMeasure       String?       // kg, units, m², etc.
+  sortOrder           Int           @default(0)
   
-  sortOrder   Int     @default(0)
-  
-  invoice     Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  invoice             Invoice       @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
   
   @@index([invoiceId])
+  @@index([productId])
   @@map("invoice_items")
 }
 
-model InvoicePayment {
-  id              String    @id @default(cuid())
-  invoiceId       String
-  amount          Float
-  paymentMethod   String    // CIB, CCP, BARIDIMOB, BANK_TRANSFER, etc.
-  transactionId   String?
-  referenceNumber String?
-  notes           String?
-  paidAt          DateTime  @default(now())
+model TVABreakdown {
+  id                  String        @id @default(cuid())
+  invoiceId           String
+  tvaRate             Float         // 19, 9, 0, or -1 for exempt
+  taxableBase         Float         @default(0)
+  tvaAmount           Float         @default(0)
   
-  invoice         Invoice   @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  invoice             Invoice       @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  
+  @@unique([invoiceId, tvaRate])
+  @@index([invoiceId])
+  @@map("tva_breakdowns")
+}
+
+model InvoicePayment {
+  id                  String        @id @default(cuid())
+  invoiceId           String
+  amount              Float         @default(0)
+  paymentMethod       String        // CIB, CCP, BARIDIMOB, BANK_TRANSFER, CRYPTO, etc.
+  paymentReference    String?
+  notes               String?
+  paidAt              DateTime      @default(now())
+  
+  invoice             Invoice       @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
   
   @@index([invoiceId])
+  @@index([paidAt])
   @@map("invoice_payments")
 }
 
@@ -3259,47 +3680,113 @@ model InvoicePayment {
 model ExchangeRate {
   id            String   @id @default(cuid())
   fromCurrency  String   // DZD (base currency)
-  toCurrency    String   // USD, EUR, GBP, CAD, TND, MAD
+  toCurrency    String   // USD, EUR, GBP, CAD, TND, MAD, CHF
   rate          String   // Stored as string for precision (Decimal equivalent)
-  source        String   // 'european_central_bank', 'open_exchange_rates', 'bank_of_algeria'
+  source        String   @default("ecb") // 'fixer', 'ecb', 'openexchangerates', 'manual', 'fallback'
   fetchedAt     DateTime @default(now())
+  validUntil    DateTime? // When this rate expires
   
-  @@unique([fromCurrency, toCurrency])
+  @@unique([fromCurrency, toCurrency, source])
+  @@index([toCurrency])
+  @@index([validUntil])
   @@index([fetchedAt])
   @@map("exchange_rates")
 }
 
-/// Cryptocurrency payments tracking
+/// User's preferred currency for display
+model CurrencyPreference {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  currency      String   @default("DZD") // DZD, EUR, USD, etc.
+  autoDetect    Boolean  @default(true) // Auto-detect from location/IP
+  lastUpdated   DateTime @default(now())
+  
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@map("currency_preferences")
+}
+
+/// Log of all currency conversions for analytics and auditing
+model ConversionLog {
+  id              String   @id @default(cuid())
+  userId          String?
+  fromAmount      String   // Stored as string for precision
+  fromCurrency    String
+  toAmount        String   // Converted amount
+  toCurrency      String
+  rateUsed        String   // Rate at time of conversion
+  context         String?  // product_view, cart, checkout, converter_widget, etc.
+  ipAddress       String?
+  userAgent       String?
+  createdAt       DateTime @default(now())
+  
+  user            User?    @relation("UserConversionLogs", fields: [userId], references: [id], onDelete: SetNull)
+  
+  @@index([userId])
+  @@index([fromCurrency, toCurrency])
+  @@index([createdAt])
+  @@map("conversion_logs")
+}
+
+/// Cryptocurrency payments tracking - Enhanced for multi-network support
 model CryptoPayment {
-  id                String         @id @default(cuid())
-  orderId           String         @unique
+  id                      String   @id @default(cuid())
+  paymentId               String   @unique // Public payment identifier (e.g., CPABC123...)
+  orderId                 String   @unique // One crypto payment per order
+  userId                  String
   
-  // Payment Details
-  cryptoCurrency    String         // BTC, ETH, USDT, USDC
-  depositAddress    String         // Platform's wallet address
-  expectedAmount    String         // Expected amount in crypto (string for precision)
-  actualAmount      String?        // Actual received amount (string for precision)
-  txHash            String?        @unique // Blockchain transaction hash
+  // Crypto details
+  cryptocurrency          String   // USDT, BTC, ETH, USDC
+  network                 String?  // TRC20, ERC20, BEP20, mainnet
+  amount                  String   // Crypto amount (string for precision)
+  amountInDZD             String   // Original order amount in DZD
+  exchangeRate            String   // Rate at time of payment
+  networkFee              String?  // Estimated/paid fee
   
-  // Confirmation Tracking
-  confirmations     Int            @default(0)
-  requiredConfirms  Int            @default(3) // BTC: 3, ETH: 12, USDT/USDC: 6
-  status            String         @default("PENDING") // PENDING, PARTIAL, CONFIRMED, EXPIRED, OVERPAID
+  // Wallet details
+  receivingAddress        String   // Platform wallet address
+  txHash                  String?  // Blockchain transaction hash
+  senderAddress           String?  // From address (for tracking/refunds)
   
-  // Timing
-  expiresAt         DateTime       // 15-minute payment window
-  confirmedAt       DateTime?
+  // Status tracking
+  status                  String   @default("PENDING") // PENDING, AWAITING_CONFIRMATION, CONFIRMING, COMPLETED, EXPIRED, FAILED
+  confirmations           Int      @default(0)
+  requiredConfirmations   Int      @default(3)
   
-  // Refund Info
-  buyerWalletAddress String?      // For potential refunds
+  // Timestamps
+  expiresAt               DateTime // When quote expires
+  confirmedAt             DateTime?
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
   
-  createdAt         DateTime       @default(now())
-  updatedAt         DateTime       @updatedAt
+  // Raw data from blockchain APIs
+  blockchainResponse      Json?
   
+  // Relations
+  user                    User     @relation(fields: [userId], references: [id])
+  order                   Order?   @relation(fields: [orderId], references: [id])
+  
+  @@index([userId])
   @@index([status])
-  @@index([expiresAt])
+  @@index([cryptocurrency])
   @@index([txHash])
+  @@index([expiresAt])
   @@map("crypto_payments")
+}
+
+/// Exchange rate cache for cryptocurrency conversions
+model CryptoRateCache {
+  id              String   @id @default(cuid())
+  cryptocurrency  String
+  rateToDZD       String   // Stored as string for precision
+  source          String   // coingecko, binance, fallback
+  fetchedAt       DateTime @default(now())
+  expiresAt       DateTime
+  
+  @@unique([cryptocurrency, source])
+  @@index([expiresAt])
+  @@map("crypto_rate_cache")
 }
 
 // ============================================
@@ -3401,6 +3888,7 @@ model ARProductModel {
   updatedAt           DateTime  @updatedAt
   
   viewEvents          ARViewEvent[]
+  snapshots           ARSnapshot[]
   
   @@index([productId])
   @@index([isEnabled])
@@ -3437,4 +3925,338 @@ model ARViewEvent {
   @@index([createdAt])
   @@index([userId])
   @@map("ar_view_events")
+}
+
+/// AR Snapshots - Captured AR view images
+model ARSnapshot {
+  id                  String    @id @default(cuid())
+  modelId             String
+  userId              String
+  
+  // Image data
+  imageUrl            String    // URL to full-size image
+  thumbnailUrl        String?   // URL to thumbnail version
+  
+  // Timestamps
+  capturedAt           DateTime  @default(now())
+  
+  // Sharing
+  shared               Boolean   @default(false)
+  shareToken           String?   @unique // Token for public sharing
+  
+  // Metadata (JSON string for flexibility)
+  metadata            String?   @default("{}") // { productName, productId, deviceInfo, etc }
+  
+  createdAt           DateTime  @default(now())
+  
+  model               ARProductModel @relation(fields: [modelId], references: [id], onDelete: Cascade)
+  
+  @@index([modelId])
+  @@index([userId])
+  @@index([shared])
+  @@index([capturedAt])
+  @@map("ar_snapshots")
+}
+
+// ============================================
+// STRIPE INTERNATIONAL CARDS INTEGRATION (Phase 1-B)
+// For Export Orders - Multi-Currency Support
+// ============================================
+
+/// Stripe Transaction records for international card payments
+model StripeTransaction {
+  id                String    @id @default(cuid())
+  
+  // Stripe identifiers
+  paymentIntentId   String    @unique
+  chargeId          String?
+  
+  // Order references
+  orderId           String   @unique
+  userId            String
+  
+  // Amount details (using Float for SQLite compatibility)
+  amount            Float     // Original amount in DZD
+  originalCurrency  String    @default("DZD")
+  targetCurrency    String                       // EUR, USD, GBP, etc.
+  convertedAmount   Float                         // Converted amount in target currency (cents)
+  exchangeRate      Float                         // Rate used for conversion
+  
+  // Fee breakdown
+  stripeFee         Float     @default(0)
+  netAmount         Float     @default(0)
+  
+  // Status (Stripe statuses)
+  status            String    @default("REQUIRES_PAYMENT_METHOD")
+  // REQUIRES_PAYMENT_METHOD | REQUIRES_CONFIRMATION | REQUIRES_ACTION 
+  // PROCESSING | REQUIRES_CAPTURE | CANCELED | SUCCEEDED
+  
+  // Payment method info
+  paymentMethodId   String?
+  paymentMethodType String?   // card, ideal, sepa_debit, bancontact, etc.
+  cardLast4         String?
+  cardBrand         String?   // visa, mastercard, amex, etc.
+  
+  // Receipt & verification
+  receiptUrl        String?
+  failureReason     String?
+  
+  // Refund tracking
+  refundedAt        DateTime?
+  refundAmount      Float?
+  refundId          String?
+  refundReason      String?
+  
+  // Raw event data for audit
+  rawEvent          Json?
+  
+  // Timestamps
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  
+  // Relations
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  order             Order     @relation(fields: [orderId], references: [id])
+  
+  // Indexes for queries
+  @@index([userId])
+  @@index([orderId])
+  @@index([status])
+  @@index([paymentIntentId])
+  @@index([targetCurrency])
+  @@index([createdAt])
+  @@map("stripe_transactions")
+}
+
+/// Stripe Customer records - links local users to Stripe customers
+model StripeCustomer {
+  id                      String   @id @default(cuid())
+  userId                  String   @unique
+  stripeCustomerId        String   @unique
+  
+  // Customer preferences
+  defaultPaymentMethodId String?
+  email                   String
+  name                    String?
+  phone                   String?
+  
+  // Currency preference for this customer
+  currency                String   @default("EUR")
+  
+  // Metadata
+  metadata                String?  // JSON string for additional data
+  
+  // Timestamps
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+  
+  // Relations
+  paymentMethods          StripePaymentMethod[]
+  user                    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([stripeCustomerId])
+  @@map("stripe_customers")
+}
+
+/// Saved Stripe Payment Methods for returning customers
+model StripePaymentMethod {
+  id                      String   @id @default(cuid())
+  stripeCustomerId        String
+  stripePaymentMethodId   String   @unique
+  userId                  String
+  
+  // Payment method details
+  type                    String   // card, sepa_debit, ideal, bancontact, etc.
+  brand                   String?  // visa, mastercard, etc. (for cards)
+  last4                   String?
+  expMonth                Int?
+  expYear                 Int?
+  
+  // Billing details (optional)
+  billingName             String?
+  billingEmail            String?
+  billingCountry          String?
+  
+  // Status
+  isDefault               Boolean  @default(false)
+  isActive                Boolean  @default(true)
+  
+  // Timestamps
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+  
+  // Relations
+  customer                StripeCustomer @relation(fields: [stripeCustomerId], references: [stripeCustomerId], onDelete: Cascade)
+  
+  @@index([stripeCustomerId])
+  @@index([userId])
+  @@index([type])
+  @@map("stripe_payment_methods")
+}
+
+// ============================================
+// WEBRTC VOICE/VIDEO CALLS (Phase 3-A)
+// ============================================
+
+enum CallType {
+  AUDIO
+  VIDEO
+  SCREEN_SHARE
+}
+
+enum CallSessionStatus {
+  INITIATING
+  RINGING
+  IN_PROGRESS
+  ON_HOLD
+  ENDED
+  MISSED
+  DECLINED
+  FAILED
+}
+
+enum CallContextType {
+  DIRECT
+  ORDER_RELATED
+  PRODUCT_QUESTION
+  SUPPORT
+}
+
+/// Voice/Video call sessions for in-platform communication
+model CallSession {
+  id              String            @id @default(cuid())
+  
+  // Participants
+  callerId        String
+  calleeId        String
+  callerName      String
+  calleeName      String
+  callerAvatar    String?
+  calleeAvatar    String?
+  
+  // Room identifier for WebRTC signaling
+  roomId          String            @unique
+  
+  // Call configuration
+  callType        CallType
+  status          CallSessionStatus @default(INITIATING)
+  contextType     CallContextType   @default(DIRECT)
+  contextId       String?           // Order ID, Product ID, etc.
+  
+  // Media quality settings
+  mediaQuality    String            @default("HD") // SD, HD, FHD, UHD
+  
+  // Timestamps
+  startedAt       DateTime          @default(now())
+  connectedAt     DateTime?
+  endedAt         DateTime?
+  durationSeconds Int?              @default(0)
+  
+  // Recording
+  isRecording     Boolean           @default(false)
+  recordingUrl    String?
+  hasScreenShare  Boolean           @default(false)
+  
+  // ICE servers configuration (JSON)
+  iceServers      String?           // JSON string of ICE server configs
+  
+  // Transcription (AI)
+  transcriptionEnabled Boolean     @default(false)
+  transcriptionUrl      String?
+  
+  // Cost tracking (for premium features)
+  isPremiumCall   Boolean           @default(false)
+  costPerMinute   Float?
+  totalCost       Float?            @default(0)
+  
+  // End reason
+  endReason       String?           // User hung up, timeout, declined, etc.
+  endedBy         String?           // User ID of who ended the call
+  
+  // Metadata (JSON for extensibility)
+  metadata        String?           // JSON string
+  
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  
+  // Relations
+  events          CallEvent[]
+  
+  // Indexes for efficient queries
+  @@index([callerId])
+  @@index([calleeId])
+  @@index([status])
+  @@index([callType])
+  @@index([startedAt])
+  @@index([roomId])
+  @@map("call_sessions")
+}
+
+/// Events during a call session (for analytics and debugging)
+model CallEvent {
+  id              String   @id @default(cuid())
+  callSessionId   String
+  
+  // Event type
+  eventType       String   // ICE_CONNECTED, ICE_FAILED, QUALITY_CHANGE, 
+                           // MUTED_TOGGLED, RECORDING_STARTED, SCREEN_SHARE_STARTED, etc.
+  
+  // Event data
+  timestamp       DateTime @default(now())
+  metadata        String?  // JSON string with event-specific data
+  
+  // Source
+  userId          String?  // Which user triggered this event
+  
+  createdAt       DateTime @default(now())
+  
+  // Relations
+  callSession     CallSession @relation(fields: [callSessionId], references: [id], onDelete: Cascade)
+  
+  // Indexes
+  @@index([callSessionId])
+  @@index([eventType])
+  @@index([timestamp])
+  @@map("call_events")
+}
+
+/// User call preferences and settings
+model CallSettings {
+  id                  String   @id @default(cuid())
+  userId              String   @unique
+  
+  // Default call settings
+  defaultCallType     String   @default("VIDEO") // AUDIO or VIDEO
+  defaultMediaQuality String   @default("HD")    // SD, HD, FHD, UHD
+  enableAutoAnswer    Boolean  @default(false)
+  autoAnswerDelay     Int?                      // Seconds before auto-answer
+  
+  // Device preferences
+  preferredCamera     String?  // Device ID
+  preferredMicrophone String?  // Device ID
+  preferredSpeaker    String?  // Device ID
+  
+  // Privacy settings
+  allowCallsFrom      String   @default("EVERYONE") // EVERYONE, CONTACTS, NOBODY
+  showOnlineStatus    Boolean  @default(true)
+  enableNotifications Boolean  @default(true)
+  
+  // Recording preferences
+  autoRecordCalls     Boolean  @default(false)
+  recordVideo         Boolean  @default(true)
+  storeRecordings     Boolean  @default(true)
+  
+  // Quality preferences
+  enableHDVideo       Boolean  @default(true)
+  enableNoiseSuppression Boolean @default(true)
+  enableEchoCancellation Boolean @default(true)
+  
+  // Metadata
+  metadata            String?  // JSON string for additional settings
+  
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  
+  @@map("call_settings")
 }

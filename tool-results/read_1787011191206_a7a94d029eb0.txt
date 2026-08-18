@@ -1,0 +1,846 @@
+     1→// PDF Export for Invoices
+     2→// Generates professional PDF invoices compliant with Algerian regulations
+     3→
+     4→import { type InvoiceData, type TVARate, formatCurrency } from '../config';
+     5→import { roundTVA } from '../calculator';
+     6→
+     7→// PDF generation options
+     8→export interface PDFExportOptions {
+     9→  pageSize?: 'A4' | 'Letter';
+    10→  orientation?: 'portrait' | 'landscape';
+    11→  includeQRCode?: boolean;
+    12→  includeWatermark?: boolean;
+    13→  language?: 'fr' | 'ar' | 'en';
+    14→  colorScheme?: 'standard' | 'professional' | 'minimal';
+    15→}
+    16→
+    17→// PDF colors (AlgeriaTrade branding)
+    18→const colors = {
+    19→  primary: '#006233', // Algerian green
+    20→  secondary: '#D52B1E', // Red accent
+    21→  text: '#1a1a1a',
+    22→  textLight: '#666666',
+    23→  border: '#e0e0e0',
+    24→  background: '#f8f9fa',
+    25→  white: '#ffffff',
+    26→  headerBg: '#006233',
+    27→  headerText: '#ffffff',
+    28→  success: '#28a745',
+    29→  warning: '#ffc107',
+    30→  danger: '#dc3545',
+    31→};
+    32→
+    33→/**
+    34→ * Generate HTML content for invoice PDF
+    35→ */
+    36→export function generateInvoicePDFContent(
+    37→  invoice: InvoiceData,
+    38→  options: PDFExportOptions = {}
+    39→): string {
+    40→  const {
+    41→    includeQRCode = true,
+    42→    language = 'fr',
+    43→    colorScheme = 'standard',
+    44→  } = options;
+    45→
+    46→  // Get localized labels
+    47→  const labels = getLabels(language);
+    48→
+    49→  return `
+    50→<!DOCTYPE html>
+    51→<html lang="${language}" dir="${language === 'ar' ? 'rtl' : 'ltr'}">
+    52→<head>
+    53→  <meta charset="UTF-8">
+    54→  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    55→  <title>${labels.invoice} - ${invoice.invoiceNumber}</title>
+    56→  <style>
+    57→    * {
+    58→      margin: 0;
+    59→      padding: 0;
+    60→      box-sizing: border-box;
+    61→    }
+    62→    
+    63→    body {
+    64→      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    65→      font-size: 12px;
+    66→      line-height: 1.5;
+    67→      color: ${colors.text};
+    68→      background: ${colors.white};
+    69→    }
+    70→    
+    71→    .page {
+    72→      max-width: 210mm;
+    73→      min-height: 297mm;
+    74→      margin: 0 auto;
+    75→      padding: 20mm;
+    76→    }
+    77→    
+    78→    /* Header */
+    79→    .header {
+    80→      display: flex;
+    81→      justify-content: space-between;
+    82→      align-items: flex-start;
+    83→      margin-bottom: 30px;
+    84→      padding-bottom: 20px;
+    85→      border-bottom: 3px solid ${colors.primary};
+    86→    }
+    87→    
+    88→    .company-logo {
+    89→      display: flex;
+    90→      align-items: center;
+    91→      gap: 15px;
+    92→    }
+    93→    
+    94→    .logo-placeholder {
+    95→      width: 60px;
+    96→      height: 60px;
+    97→      background: ${colors.primary};
+    98→      border-radius: 8px;
+    99→      display: flex;
+   100→      align-items: center;
+   101→      justify-content: center;
+   102→      color: white;
+   103→      font-weight: bold;
+   104→      font-size: 18px;
+   105→    }
+   106→    
+   107→    .company-info h1 {
+   108→      font-size: 22px;
+   109→      color: ${colors.primary};
+   110→      margin-bottom: 3px;
+   111→    }
+   112→    
+   113→    .company-info p {
+   114→      font-size: 11px;
+   115→      color: ${colors.textLight};
+   116→    }
+   117→    
+   118→    .invoice-title-box {
+   119→      text-align: right;
+   120→      background: ${colors.primary};
+   121→      color: white;
+   122→      padding: 15px 25px;
+   123→      border-radius: 8px;
+   124→    }
+   125→    
+   126→    .invoice-title-box h2 {
+   127→      font-size: 24px;
+   128→      margin-bottom: 3px;
+   129→    }
+   130→    
+   131→    .invoice-number {
+   132→      font-size: 14px;
+   133→      opacity: 0.9;
+   134→    }
+   135→    
+   136→    /* Parties Section */
+   137→    .parties {
+   138→      display: grid;
+   139→      grid-template-columns: 1fr 1fr;
+   140→      gap: 30px;
+   141→      margin-bottom: 25px;
+   142→    }
+   143→    
+   144→    .party-card {
+   145→      padding: 15px;
+   146→      border: 1px solid ${colors.border};
+   147→      border-radius: 6px;
+   148→      background: ${colors.background};
+   149→    }
+   150→    
+   151→    .party-label {
+   152→      font-weight: bold;
+   153→      color: ${colors.primary};
+   154→      margin-bottom: 10px;
+   155→      font-size: 13px;
+   156→      text-transform: uppercase;
+   157→      letter-spacing: 0.5px;
+   158→    }
+   159→    
+   160→    .party-name {
+   161→      font-size: 15px;
+   162→      font-weight: 600;
+   163→      margin-bottom: 8px;
+   164→    }
+   165→    
+   166→    .party-details p {
+   167→      font-size: 11px;
+   168→      color: ${colors.textLight};
+   169→      margin-bottom: 3px;
+   170→    }
+   171→    
+   172→    .tax-ids {
+   173→      margin-top: 10px;
+   174→      padding-top: 10px;
+   175→      border-top: 1px dashed ${colors.border};
+   176→    }
+   177→    
+   178→    .tax-id-item {
+   179→      display: inline-block;
+   180→      background: white;
+   181→      padding: 3px 8px;
+   182→      border-radius: 4px;
+   183→      font-size: 10px;
+   184→      margin-right: 8px;
+   185→      margin-top: 4px;
+   186→      border: 1px solid ${colors.border};
+   187→    }
+   188→    
+   189→    /* Invoice Details */
+   190→    .invoice-details {
+   191→      display: grid;
+   192→      grid-template-columns: repeat(4, 1fr);
+   193→      gap: 15px;
+   194→      margin-bottom: 25px;
+   195→      padding: 15px;
+   196→      background: ${colors.background};
+   197→      border-radius: 6px;
+   198→    }
+   199→    
+   200→    .detail-item label {
+   201→      display: block;
+   202→      font-size: 10px;
+   203→      color: ${colors.textLight};
+   204→      text-transform: uppercase;
+   205→      margin-bottom: 3px;
+   206→    }
+   207→    
+   208→    .detail-item value {
+   209→      font-weight: 600;
+   210→      font-size: 13px;
+   211→    }
+   212→    
+   213→    /* Items Table */
+   214→    .items-table {
+   215→      width: 100%;
+   216→      border-collapse: collapse;
+   217→      margin-bottom: 20px;
+   218→    }
+   219→    
+   220→    .items-table th {
+   221→      background: ${colors.primary};
+   222→      color: white;
+   223→      padding: 12px 10px;
+   224→      text-align: left;
+   225→      font-size: 11px;
+   226→      text-transform: uppercase;
+   227→      letter-spacing: 0.5px;
+   228→    }
+   229→    
+   230→    .items-table th:last-child,
+   231→    .items-table td:last-child {
+   232→      text-align: right;
+   233→    }
+   234→    
+   235→    .items-table td {
+   236→      padding: 12px 10px;
+   237→      border-bottom: 1px solid ${colors.border};
+   238→      font-size: 11px;
+   239→    }
+   240→    
+   241→    .items-table tbody tr:hover {
+   242→      background: ${colors.background};
+   243→    }
+   244→    
+   245→    .items-table .description {
+   246→      font-weight: 500;
+   247→    }
+   248→    
+   249→    .items-table .amount {
+   250→      font-family: 'Consolas', monospace;
+   251→      text-align: right;
+   252→    }
+   253→    
+   254→    /* Totals Section */
+   255→    .totals-section {
+   256→      display: flex;
+   257→      justify-content: flex-end;
+   258→      margin-bottom: 25px;
+   259→    }
+   260→    
+   261→    .totals-box {
+   262→      width: 280px;
+   263→    }
+   264→    
+   265→    .total-row {
+   266→      display: flex;
+   267→      justify-content: space-between;
+   268→      padding: 8px 15px;
+   269→      border-bottom: 1px solid ${colors.border};
+   270→    }
+   271→    
+   272→    .total-row.grand-total {
+   273→      background: ${colors.primary};
+   274→      color: white;
+   275→      font-weight: bold;
+   276→      font-size: 16px;
+   277→      border: none;
+   278→      border-radius: 0 6px 6px 0;
+   279→    }
+   280→    
+   281→    .total-row.discount {
+   282→      color: ${colors.success};
+   283→    }
+   284→    
+   285→    .total-row.tax {
+   286→      color: #0066cc;
+   287→    }
+   288→    
+   289→    /* TVA Breakdown */
+   290→    .tva-breakdown {
+   291→      margin-bottom: 25px;
+   292→      padding: 15px;
+   293→      background: #f0f7ff;
+   294→      border: 1px solid #cce5ff;
+   295→      border-radius: 6px;
+   296→    }
+   297→    
+   298→    .tva-breakdown h4 {
+   299→      color: #0066cc;
+   300→      margin-bottom: 10px;
+   301→      font-size: 13px;
+   302→    }
+   303→    
+   304→    .tva-items {
+   305→      display: grid;
+   306→      grid-template-columns: repeat(3, 1fr);
+   307→      gap: 15px;
+   308→    }
+   309→    
+   310→    .tva-item {
+   311→      background: white;
+   312→      padding: 12px;
+   313→      border-radius: 4px;
+   314→      text-align: center;
+   315→    }
+   316→    
+   317→    .tva-rate {
+   318→      font-size: 18px;
+   319→      font-weight: bold;
+   320→      color: #0066cc;
+   321→    }
+   322→    
+   323→    .tva-base, .tva-amount {
+   324→      font-size: 11px;
+   325→      color: ${colors.textLight};
+   326→    }
+   327→    
+   328→    /* Notes Section */
+   329→    .notes-section {
+   330→      margin-bottom: 25px;
+   331→      padding: 15px;
+   332→      background: ${colors.background};
+   333→      border-left: 4px solid ${colors.primary};
+   334→      border-radius: 0 6px 6px 0;
+   335→    }
+   336→    
+   337→    .notes-section h4 {
+   338→      font-size: 12px;
+   339→      color: ${colors.textLight};
+   340→      margin-bottom: 8px;
+   341→      text-transform: uppercase;
+   342→    }
+   343→    
+   344→    .notes-section p {
+   345→      font-size: 11px;
+   346→    }
+   347→    
+   348→    /* Payment Terms */
+   349→    .payment-terms {
+   350→      margin-bottom: 25px;
+   351→      padding: 15px;
+   352→      background: #fff8e1;
+   353→      border: 1px solid #ffe082;
+   354→      border-radius: 6px;
+   355→    }
+   356→    
+   357→    .payment-terms h4 {
+   358→      color: #f57c00;
+   359→      margin-bottom: 8px;
+   360→      font-size: 13px;
+   361→    }
+   362→    
+   363→    /* QR Code Section */
+   364→    .qr-section {
+   365→      display: flex;
+   366→      justify-content: space-between;
+   367→      align-items: flex-end;
+   368→      margin-top: 30px;
+   369→      padding-top: 20px;
+   370→      border-top: 1px solid ${colors.border};
+   371→    }
+   372→    
+   373→    .qr-code {
+   374→      text-align: center;
+   375→    }
+   376→    
+   377→    .qr-code img {
+   378→      width: 80px;
+   379→      height: 80px;
+   380→      border: 1px solid ${colors.border};
+   381→      border-radius: 4px;
+   382→    }
+   383→    
+   384→    .qr-code p {
+   385→      font-size: 9px;
+   386→      color: ${colors.textLight};
+   387→      margin-top: 5px;
+   388→    }
+   389→    
+   390→    /* Footer */
+   391→    .footer {
+   392→      margin-top: 40px;
+   393→      padding-top: 15px;
+   394→      border-top: 2px solid ${colors.primary};
+   395→      text-align: center;
+   396→      font-size: 10px;
+   397→      color: ${colors.textLight};
+   398→    }
+   399→    
+   400→    .footer-legal {
+   401→      margin-top: 10px;
+   402→      font-size: 9px;
+   403→    }
+   404→    
+   405→    /* Status Badge */
+   406→    .status-badge {
+   407→      display: inline-block;
+   408→      padding: 4px 12px;
+   409→      border-radius: 20px;
+   410→      font-size: 11px;
+   411→      font-weight: 600;
+   412→      text-transform: uppercase;
+   413→    }
+   414→    
+   415→    .status-draft { background: #e0e0e0; color: #666; }
+   416→    .status-issued { background: #cce5ff; color: #0066cc; }
+   417→    .status-paid { background: #d4edda; color: #155724; }
+   418→    .status-partial { background: #fff3cd; color: #856404; }
+   419→    .status-overdue { background: #f8d7da; color: #721c24; }
+   420→    .status-cancelled { background: #e0e0e0; color: #999; }
+   421→    
+   422→    @media print {
+   423→      body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+   424→      .page { padding: 15mm; }
+   425→    }
+   426→  </style>
+   427→</head>
+   428→<body>
+   429→  <div class="page">
+   430→    <!-- Header -->
+   431→    <div class="header">
+   432→      <div class="company-logo">
+   433→        <div class="logo-placeholder">AT</div>
+   434→        <div class="company-info">
+   435→          <h1>${invoice.sellerInfo?.name || 'AlgeriaTrade.dz'}</h1>
+   436→          <p>${invoice.sellerInfo?.legalName || invoice.sellerInfo?.name}</p>
+   437→          <p>${invoice.sellerInfo?.address}</p>
+   438→          <p>Tél: ${invoice.sellerInfo?.phone || ''} | Email: ${invoice.sellerInfo?.email || ''}</p>
+   439→        </div>
+   440→      </div>
+   441→      
+   442→      <div class="invoice-title-box">
+   443→        <h2>${getInvoiceTypeLabel(invoice.invoiceType, language)}</h2>
+   444→        <div class="invoice-number">${invoice.invoiceNumber}</div>
+   445→        <div style="margin-top: 8px;">
+   446→          <span class="status-badge status-${invoice.status.toLowerCase()}">
+   447→            ${getStatusLabel(invoice.status, language)}
+   448→          </span>
+   449→        </div>
+   450→      </div>
+   451→    </div>
+   452→
+   453→    <!-- Parties -->
+   454→    <div class="parties">
+   455→      <div class="party-card">
+   456→        <div class="party-label">${labels.seller}</div>
+   457→        <div class="party-name">${invoice.sellerInfo?.name || ''}</div>
+   458→        <div class="party-details">
+   459→          <p>${invoice.sellerInfo?.address || ''}</p>
+   460→          <p>Tél: ${invoice.sellerInfo?.phone || ''}</p>
+   461→          <p>Email: ${invoice.sellerInfo?.email || ''}</p>
+   462→        </div>
+   463→        <div class="tax-ids">
+   464→          <span class="tax-id-item"><strong>NIF:</strong> ${invoice.sellerInfo?.nif || '-'}</span>
+   465→          <span class="tax-id-item"><strong>RC:</strong> ${invoice.sellerInfo?.rc || '-'}</span>
+   466→          ${invoice.sellerInfo?.ai ? `<span class="tax-id-item"><strong>AI:</strong> ${invoice.sellerInfo.ai}</span>` : ''}
+   467→        </div>
+   468→      </div>
+   469→      
+   470→      <div class="party-card">
+   471→        <div class="party-label">${labels.buyer}</div>
+   472→        <div class="party-name">${invoice.buyerInfo?.name || ''}</div>
+   473→        <div class="party-details">
+   474→          <p>${invoice.buyerInfo?.address || ''}</p>
+   475→          <p>Tél: ${invoice.buyerInfo?.phone || ''}</p>
+   476→          <p>Email: ${invoice.buyerInfo?.email || ''}</p>
+   477→        </div>
+   478→        <div class="tax-ids">
+   479→          <span class="tax-id-item"><strong>NIF:</strong> ${invoice.buyerInfo?.nif || '-'}</span>
+   480→          ${invoice.buyerInfo?.rc ? `<span class="tax-id-item"><strong>RC:</strong> ${invoice.buyerInfo.rc}</span>` : ''}
+   481→        </div>
+   482→      </div>
+   483→    </div>
+   484→
+   485→    <!-- Invoice Details -->
+   486→    <div class="invoice-details">
+   487→      <div class="detail-item">
+   488→        <label>${labels.issueDate}</label>
+   489→        <value>${new Date(invoice.issueDate).toLocaleDateString(language === 'fr' ? 'fr-DZ' : language === 'ar' ? 'ar-DZ' : 'en-US')}</value>
+   490→      </div>
+   491→      <div class="detail-item">
+   492→        <label>${labels.dueDate}</label>
+   493→        <value>${invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString(language === 'fr' ? 'fr-DZ' : language === 'ar' ? 'ar-DZ' : 'en-US') : '-'}</value>
+   494→      </div>
+   495→      <div class="detail-item">
+   496→        <label>${labels.paymentTerms}</label>
+   497→        <value>${getPaymentTermLabel(invoice.paymentTerms as any, language)}</value>
+   498→      </div>
+   499→      <div class="detail-item">
+   500→        <label>${labels.currency}</label>
+   501→        <value>${invoice.currency}</value>
+   502→      </div>
+   503→    </div>
+   504→
+   505→    <!-- Items Table -->
+   506→    <table class="items-table">
+   507→      <thead>
+   508→        <tr>
+   509→          <th style="width: 5%">#</th>
+   510→          <th style="width: 35%">${labels.description}</th>
+   511→          <th style="width: 10%; text-align: center;">${labels.quantity}</th>
+   512→          <th style="width: 12%; text-align: right;">${labels.unitPrice}</th>
+   513→          <th style="width: 8%; text-align: center;">${labels.discount}</th>
+   514→          <th style="width: 10%; text-align: center;">TVA</th>
+   515→          <th style="width: 20%; text-align: right;">${labels.total}</th>
+   516→        </tr>
+   517→      </thead>
+   518→      <tbody>
+   519→        ${invoice.items.map((item, index) => `
+   520→          <tr>
+   521→            <td>${index + 1}</td>
+   522→            <td class="description">${escapeHtml(item.description)}</td>
+   523→            <td style="text-align: center;">${formatNumber(item.quantity)}</td>
+   524→            <td class="amount">${formatCurrency(item.unitPrice, invoice.currency as any)}</td>
+   525→            <td style="text-align: center;">${item.discount > 0 ? `${item.discount}%` : '-'}</td>
+   526→            <td style="text-align: center;">
+   527→              <span style="
+   528→                background: ${item.tvaRate === 19 ? '#e3f2fd' : item.tvaRate === 9 ? '#e8f5e9' : item.tvaRate === 0 ? '#fff3e0' : '#fce4ec'};
+   529→                padding: 2px 8px;
+   530→                border-radius: 10px;
+   531→                font-size: 10px;
+   532→                font-weight: 600;
+   533→              ">
+   534→                ${item.tvaRate === -1 ? 'Exon.' : `${item.tvaRate}%`}
+   535→              </span>
+   536→            </td>
+   537→            <td class="amount"><strong>${formatCurrency(item.lineTotalWithTax, invoice.currency as any)}</strong></td>
+   538→          </tr>
+   539→        `).join('')}
+   540→      </tbody>
+   541→    </table>
+   542→
+   543→    <!-- Totals -->
+   544→    <div class="totals-section">
+   545→      <div class="totals-box">
+   546→        <div class="total-row">
+   547→          <span>${labels.subtotal}</span>
+   548→          <span>${formatCurrency(invoice.totals.subtotal, invoice.currency as any)}</span>
+   549→        </div>
+   550→        ${invoice.totals.discountAmount > 0 ? `
+   551→        <div class="total-row discount">
+   552→          <span>${labels.discount}</span>
+   553→          <span>-${formatCurrency(invoice.totals.discountAmount, invoice.currency as any)}</span>
+   554→        </div>
+   555→        ` : ''}
+   556→        <div class="total-row tax">
+   557→          <span>${labels.totalTVA}</span>
+   558→          <span>${formatCurrency(invoice.totals.totalTVA, invoice.currency as any)}</span>
+   559→        </div>
+   560→        <div class="total-row grand-total">
+   561→          <span>${labels.totalTTC}</span>
+   562→          <span>${formatCurrency(invoice.totals.totalWithTax, invoice.currency as any)}</span>
+   563→        </div>
+   564→        
+   565→        ${invoice.totals.amountPaid > 0 ? `
+   566→        <div class="total-row" style="background: #d4edda;">
+   567→          <span>${labels.amountPaid}</span>
+   568→          <span style="color: #155724;">${formatCurrency(invoice.totals.amountPaid, invoice.currency as any)}</span>
+   569→        </div>
+   570→        <div class="total-row" style="${invoice.totals.amountDue > 0 ? 'background: #fff3cd;' : 'background: #d4edda;'}">
+   571→          <span>${labels.amountDue}</span>
+   572→          <span style="color: ${invoice.totals.amountDue > 0 ? '#856404' : '#155724'}; font-weight: bold;">
+   573→            ${formatCurrency(Math.max(0, invoice.totals.amountDue), invoice.currency as any)}
+   574→          </span>
+   575→        </div>
+   576→        ` : ''}
+   577→      </div>
+   578→    </div>
+   579→
+   580→    <!-- TVA Breakdown -->
+   581→    ${invoice.totals.tvaBreakdown.length > 0 ? `
+   582→    <div class="tva-breakdown">
+   583→      <h4>${labels.tvaDetails}</h4>
+   584→      <div class="tva-items">
+   585→        ${invoice.totals.tvaBreakdown.map(entry => `
+   586→          <div class="tva-item">
+   587→            <div class="tva-rate">${entry.rate === -1 ? 'Exon.' : `${entry.rate}%`}</div>
+   588→            <div class="tva-base">${labels.base}: ${formatCurrency(entry.taxableBase, invoice.currency as any)}</div>
+   589→            <div class="tva-amount">${labels.tva}: ${formatCurrency(entry.tvaAmount, invoice.currency as any)}</div>
+   590→          </div>
+   591→        `).join('')}
+   592→      </div>
+   593→    </div>
+   594→    ` : ''}
+   595→
+   596→    <!-- Notes -->
+   597→    ${invoice.notes ? `
+   598→    <div class="notes-section">
+   599→      <h4>${labels.notes}</h4>
+   600→      <p>${escapeHtml(invoice.notes)}</p>
+   601→    </div>
+   602→    ` : ''}
+   603→
+   604→    <!-- Payment Terms Info -->
+   605→    <div class="payment-terms">
+   606→      <h4>${labels.paymentConditions}</h4>
+   607→      <p>${getPaymentTermsDescription(invoice.paymentTerms as any, language)}</p>
+   608→    </div>
+   609→
+   610→    <!-- QR Code & Footer -->
+   611→    <div class="qr-section">
+   612→      <div>
+   613→        <p><strong>Document généré par AlgeriaTrade.dz</strong></p>
+   614→        <p>Date de génération: ${new Date().toLocaleString(language === 'fr' ? 'fr-DZ' : 'en-US')}</p>
+   615→        <p>Référence: ${invoice.id || invoice.invoiceNumber}</p>
+   616→      </div>
+   617→      ${includeQRCode ? `
+   618→      <div class="qr-code">
+   619→        <div style="
+   620→          width: 80px;
+   621→          height: 80px;
+   622→          background: linear-gradient(135deg, ${colors.primary}, #008040);
+   623→          border-radius: 4px;
+   624→          display: flex;
+   625→          align-items: center;
+   626→          justify-content: center;
+   627→          color: white;
+   628→          font-size: 10px;
+   629→          text-align: center;
+   630→          padding: 5px;
+   631→        ">
+   632→          QR<br/>CODE
+   633→        </div>
+   634→        <p>Vérification numérique</p>
+   635→      </div>
+   636→      ` : ''}
+   637→    </div>
+   638→
+   639→    <!-- Footer -->
+   640→    <div class="footer">
+   641→      <p><strong>AlgeriaTrade.dz SARL</strong> | ${invoiceConfig.company.address}</p>
+   642→      <p>NIF: ${invoiceConfig.company.nif} | RC: ${invoiceConfig.company.rc} | AI: ${invoiceConfig.company.ai}</p>
+   643→      <div class="footer-legal">
+   644→        <p>Document fiscal conforme à la réglementation algérienne (Code des Impôts Directs et Taxes)</p>
+   645→        <p>Période de conservation légale: ${invoiceConfig.legalRequirements.retentionPeriodYears} ans</p>
+   646→      </div>
+   647→    </div>
+   648→  </div>
+   649→</body>
+   650→</html>`;
+   651→}
+   652→
+   653→// Helper functions
+   654→function getLabels(lang: 'fr' | 'ar' | 'en'): Record<string, string> {
+   655→  const labels = {
+   656→    fr: {
+   657→      invoice: 'FACTURE',
+   658→      seller: 'Émetteur / البائع',
+   659→      buyer: 'Client / المشتري',
+   660→      issueDate: "Date d'émission",
+   661→      dueDate: "Date d'échéance",
+   662→      paymentTerms: 'Conditions de paiement',
+   663→      currency: 'Devise',
+   664→      description: 'Description',
+   665→      quantity: 'Quantité',
+   666→      unitPrice: 'Prix Unit.',
+   667→      discount: 'Remise',
+   668→      total: 'Total',
+   669→      subtotal: 'Sous-total HT',
+   670→      totalTVA: 'Total TVA',
+   671→      totalTTC: 'Total TTC',
+   672→      amountPaid: 'Montant payé',
+   673→      amountDue: 'Solde dû',
+   674→      tvaDetails: 'Détail TVA (Taxe sur la Valeur Ajoutée)',
+   675→      base: 'Base imposable',
+   676→      tva: 'Montant TVA',
+   677→      notes: 'Notes',
+   678→      paymentConditions: 'Conditions de paiement',
+   679→    },
+   680→    ar: {
+   681→      invoice: 'فاتورة',
+   682→      seller: 'البائع',
+   683→      buyer: 'المشتري',
+   684→      issueDate: 'تاريخ الإصدار',
+   685→      dueDate: 'تاريخ الاستحقاق',
+   686→      paymentTerms: 'شروط الدفع',
+   687→      currency: 'العملة',
+   688→      description: 'الوصف',
+   689→      quantity: 'الكمية',
+   690→      unitPrice: 'سعر الوحدة',
+   691→      discount: 'خصم',
+   692→      total: 'المجموع',
+   693→      subtotal: 'المجموع الفرعي',
+   694→      totalTVA: 'إجمالي الضريبة',
+   695→      totalTTC: 'المجموع شامل الضريبة',
+   696→      amountPaid: 'المبلغ المدفوع',
+   697→      amountDue: 'الرصيد المستحق',
+   698→      tvaDetails: 'تفاصيل ضريبة القيمة المضافة',
+   699→      base: 'القاعدة الخاضعة للضريبة',
+   700→      tva: 'مبلغ الضريبة',
+   701→      notes: 'ملاحظات',
+   702→      paymentConditions: 'شروط الدفع',
+   703→    },
+   704→    en: {
+   705→      invoice: 'INVOICE',
+   706→      seller: 'Seller',
+   707→      buyer: 'Buyer',
+   708→      issueDate: 'Issue Date',
+   709→      dueDate: 'Due Date',
+   710→      paymentTerms: 'Payment Terms',
+   711→      currency: 'Currency',
+   712→      description: 'Description',
+   713→      quantity: 'Qty',
+   714→      unitPrice: 'Unit Price',
+   715→      discount: 'Discount',
+   716→      total: 'Total',
+   717→      subtotal: 'Subtotal',
+   718→      totalTVA: 'Total VAT',
+   719→      totalTTC: 'Total incl. VAT',
+   720→      amountPaid: 'Amount Paid',
+   721→      amountDue: 'Amount Due',
+   722→      tvaDetails: 'VAT Details',
+   723→      base: 'Taxable Base',
+   724→      tva: 'VAT Amount',
+   725→      notes: 'Notes',
+   726→      paymentConditions: 'Payment Conditions',
+   727→    },
+   728→  };
+   729→  
+   730→  return labels[lang];
+   731→}
+   732→
+   733→function getInvoiceTypeLabel(type: string, lang: 'fr' | 'ar' | 'en'): string {
+   734→  const labels: Record<string, Record<string, string>> = {
+   735→    STANDARD: { fr: 'FACTURE', ar: 'فاتورة', en: 'INVOICE' },
+   736→    PROFORMA: { fr: 'FACTURE PROFORMA', ar: 'فاتورة أولية', en: 'PROFORMA INVOICE' },
+   737→    CREDIT_NOTE: { fr: "NOTE DE CRÉDIT (AVOIR)", ar: 'إشعار دائن', en: 'CREDIT NOTE' },
+   738→    DEBIT_NOTE: { fr: 'NOTE DE DÉBIT', ar: 'إشعار مدين', en: 'DEBIT NOTE' },
+   739→  };
+   740→  
+   741→  return labels[type]?.[lang] || type;
+   742→}
+   743→
+   744→function getStatusLabel(status: string, lang: 'fr' | 'ar' | 'en'): string {
+   745→  const labels: Record<string, Record<string, string>> = {
+   746→    DRAFT: { fr: 'Brouillon', ar: 'مسودة', en: 'Draft' },
+   747→    ISSUED: { fr: 'Émise', ar: 'صادرة', en: 'Issued' },
+   748→    PAID: { fr: 'Payée', ar: 'مدفوعة', en: 'Paid' },
+   749→    PARTIAL: { fr: 'Partielle', ar: 'جزئية', en: 'Partial' },
+   750→    OVERDUE: { fr: 'En retard', ar: 'متأخرة', en: 'Overdue' },
+   751→    CANCELLED: { fr: 'Annulée', ar: 'ملغاة', en: 'Cancelled' },
+   752→  };
+   753→  
+   754→  return labels[status]?.[lang] || status;
+   755→}
+   756→
+   757→function getPaymentTermLabel(term: string, lang: 'fr' | 'ar' | 'en'): string {
+   758→  const labels: Record<string, Record<string, string>> = {
+   759→    immediate: { fr: 'Paiement immédiat', ar: 'دفعة فورية', en: 'Immediate' },
+   760→    net30: { fr: 'Net 30 jours', ar: '30 يوم', en: 'Net 30 days' },
+   761→    net60: { fr: 'Net 60 jours', ar: '60 يوم', en: 'Net 60 days' },
+   762→    net90: { fr: 'Net 90 jours', ar: '90 يوم', en: 'Net 90 days' },
+   763→    endOfMonth: { fr: 'Fin de mois', ar: 'نهاية الشهر', en: 'End of month' },
+   764→  };
+   765→  
+   766→  return labels[term]?.[lang] || term;
+   767→}
+   768→
+   769→function getPaymentTermsDescription(term: string, lang: 'fr' | 'ar' | 'en'): string {
+   770→  const descriptions: Record<string, Record<string, string>> = {
+   771→    immediate: { 
+   772→      fr: 'Le paiement est dû dès réception de la facture.', 
+   773→      ar: 'يستحق الدفع فور استلام الفاتورة.', 
+   774→      en: 'Payment is due upon receipt of invoice.' 
+   775→    },
+   776→    net30: { 
+   777→      fr: 'Le paiement est dû dans les 30 jours suivant la date de facturation.', 
+   778→      ar: 'يستحق الدفع خلال 30 يوماً من تاريخ الفاتورة.', 
+   779→      en: 'Payment is due within 30 days from invoice date.' 
+   780→    },
+   781→    net60: { 
+   782→      fr: 'Le paiement est dû dans les 60 jours suivant la date de facturation.', 
+   783→      ar: 'يستحق الدفع خلال 60 يوماً من تاريخ الفاتورة.', 
+   784→      en: 'Payment is due within 60 days from invoice date.' 
+   785→    },
+   786→    net90: { 
+   787→      fr: 'Le paiement est dû dans les 90 jours suivant la date de facturation.', 
+   788→      ar: 'يستحق الدفع خلال 90 يوماً من تاريخ الفاتورة.', 
+   789→      en: 'Payment is due within 90 days from invoice date.' 
+   790→    },
+   791→    endOfMonth: { 
+   792→      fr: 'Le paiement est dû à la fin du mois de facturation.', 
+   793→      ar: 'يستحق الدفع في نهاية شهر الفوترة.', 
+   794→      en: 'Payment is due at the end of the billing month.' 
+   795→    },
+   796→  };
+   797→  
+   798→  return descriptions[term]?.[lang] || '';
+   799→}
+   800→
+   801→function escapeHtml(text: string): string {
+   802→  return text
+   803→    .replace(/&/g, '&amp;')
+   804→    .replace(/</g, '&lt;')
+   805→    .replace(/>/g, '&gt;')
+   806→    .replace(/"/g, '&quot;')
+   807→    .replace(/'/g, '&#039;');
+   808→}
+   809→
+   810→function formatNumber(num: number): string {
+   811→  return new Intl.NumberFormat('fr-DZ').format(num);
+   812→}
+   813→
+   814→/**
+   815→ * Generate PDF as buffer (for server-side use)
+   816→ * This would typically use a library like puppeteer or @react-pdf/renderer
+   817→ */
+   818→export async function generatePDFBuffer(
+   819→  invoice: InvoiceData,
+   820→  options: PDFExportOptions = {}
+   821→): Promise<Buffer> {
+   822→  // In a real implementation, this would use puppeteer or similar to render HTML to PDF
+   823→  // For now, we return the HTML content which can be converted to PDF
+   824→  
+   825→  const htmlContent = generateInvoicePDFContent(invoice, options);
+   826→  
+   827→  // This is a placeholder - in production you'd use:
+   828→  // - puppeteer with html-to-pdf
+   829→  // - @react-pdf/renderer
+   830→  // - pdfkit
+   831→  // - jsPDF
+   832→  
+   833→  return Buffer.from(htmlContent, 'utf-8');
+   834→}
+   835→
+   836→/**
+   837→ * Generate PDF and return as base64 for download
+   838→ */
+   839→export async function generatePDFBase64(
+   840→  invoice: InvoiceData,
+   841→  options: PDFExportOptions = {}
+   842→): Promise<string> {
+   843→  const buffer = await generatePDFBuffer(invoice, options);
+   844→  return buffer.toString('base64');
+   845→}
+   846→

@@ -1,70 +1,141 @@
+// Sign Contract API Route
+// مسار API توقيع العقد
+
 import { NextRequest, NextResponse } from 'next/server';
-import { signContract, requestSignature } from '@/lib/contracts';
+import { getContractById, signContract } from '@/lib/contracts';
+import {
+  createSignature,
+  verifySignature,
+  generateCertificateOfAuthenticity,
+} from '@/lib/contracts/e-signature';
 
-// POST /api/contracts/[id]/sign - Sign contract
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+interface RouteParams {
+  params: Promise<{ id: string }>;
+}
+
+// POST /api/contracts/[id]/sign - Sign a contract
+export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
-    const { id: contractId } = await params;
+    const { id } = await params;
     const body = await request.json();
-    const action = body.action; // 'sign' or 'request'
+    const { signerId, signerName, signerEmail, signerRole, signatureContent, signatureType } = body;
 
-    switch (action) {
-      case 'sign': {
-        if (!body.signatureImage) {
-          return NextResponse.json(
-            { success: false, error: 'Signature image is required - صورة التوقيع مطلوبة' },
-            { status: 400 }
-          );
-        }
-
-        const partyId = body.partyId || (body.userId === 'partyA' ? 'A' : 'B');
-        
-        const contract = await signContract(
-          contractId,
-          body.userId || 'demo-user-id',
-          body.signatureImage,
-          partyId
-        );
-
-        return NextResponse.json({
-          success: true,
-          data: contract,
-          message: 'Contract signed successfully - تم توقيع العقد بنجاح',
-        });
-      }
-
-      case 'request': {
-        const signatureRequest = await requestSignature(
-          contractId,
-          body.partyId || 'B', // Default to requesting Party B signature
-          body.requestedToUserId || 'demo-user-id',
-          body.expiresInDays || 7
-        );
-
-        return NextResponse.json({
-          success: true,
-          data: signatureRequest,
-          message: 'Signature request sent - تم إرسال طلب التوقيع',
-        });
-      }
-
-      default:
-        return NextResponse.json(
-          { success: false, error: 'Invalid action. Use "sign" or "request"' },
-          { status: 400 }
-        );
+    // Validate required fields
+    if (!signerId || !signerName || !signerEmail || !signerRole || !signatureContent) {
+      return NextResponse.json(
+        { success: false, error: 'Missing required fields: signerId, signerName, signerEmail, signerRole, signatureContent' },
+        { status: 400 }
+      );
     }
-  } catch (error: any) {
-    console.error('Error in sign operation:', error);
-    return NextResponse.json(
-      { 
-        success: false, 
-        error: error.message || 'Sign operation failed - فشلت عملية التوقيع' 
+
+    // Get the contract
+    const contract = await getContractById(id);
+    if (!contract) {
+      return NextResponse.json(
+        { success: false, error: 'Contract not found' },
+        { status: 404 }
+      );
+    }
+
+    // Check if contract can be signed
+    if (!['DRAFT', 'REVIEW', 'PENDING_SIGNATURE'].includes(contract.status)) {
+      return NextResponse.json(
+        { success: false, error: `Cannot sign contract in ${contract.status} status` },
+        { status: 400 }
+      );
+    }
+
+    // Determine party ID based on role
+    const partyId = signerRole === 'PARTY_A' ? 'A' : 'B';
+
+    // Create digital signature record
+    const signature = createSignature({
+      contractId: id,
+      signerId,
+      signerName,
+      signerEmail,
+      signerRole,
+      signatureType: signatureType || 'DRAWN',
+      signatureContent,
+      ipAddress: request.headers.get('x-forwarded-for') || undefined,
+      userAgent: request.headers.get('user-agent') || undefined,
+    });
+
+    // Update contract with signature
+    const updatedContract = await signContract(id, signerId, signatureContent, partyId);
+
+    // Check if fully signed now
+    const isFullySigned = !!updatedContract.partyASignedAt && !!updatedContract.partyBSignedAt;
+
+    let certificate = null;
+    if (isFullySigned) {
+      // Generate certificate of authenticity
+      certificate = generateCertificateOfAuthenticity({
+        contractId: id,
+        contractNumber: contract.contractNumber,
+        signatures: [signature], // Would include all signatures in production
+      });
+    }
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        contract: updatedContract,
+        signature: {
+          id: signature.id,
+          signedAt: signature.signedAt,
+          hash: signature.hash,
+        },
+        isFullySigned,
+        certificate,
       },
-      { status: 400 }
+    });
+  } catch (error) {
+    console.error('Error signing contract:', error);
+    return NextResponse.json(
+      { success: false, error: 'Failed to sign contract' },
+      { status: 500 }
+    );
+  }
+}
+
+// GET /api/contracts/[id]/sign - Get signing status
+export async function GET(request: NextRequest, { params }: RouteParams) {
+  try {
+    const { id } = await params;
+
+    const contract = await getContractById(id);
+    if (!contract) {
+      return NextResponse.json(
+        { success: false, error: 'Contract not found' },
+        { status: 404 }
+      );
+    }
+
+    // Return current signing status
+    return NextResponse.json({
+      success: true,
+      data: {
+        contractId: id,
+        status: contract.status,
+        partyA: {
+          name: contract.partyA?.representativeName,
+          signedAt: contract.partyASignedAt,
+          hasSignature: !!contract.partyASignatureUrl,
+        },
+        partyB: {
+          name: contract.partyB?.representativeName,
+          signedAt: contract.partyBSignedAt,
+          hasSignature: !!contract.partyBSignatureUrl,
+        },
+        isFullySigned: !!contract.partyASignedAt && !!contract.partyBSignedAt,
+      },
+    });
+  } catch (error) {
+    console.error('Error getting signing status:', error);
+    return NextResponse.json(
+      { success: false, error: 'Failed to get signing status' },
+      { status: 500 }
     );
   }
 }

@@ -1,0 +1,773 @@
+     1→// Contract Templates for AlgeriaTrade.dz
+     2→// قوالب العقود لمنصة الجزائر تريد
+     3→// Modèles de contrats pour AlgeriaTrade.dz
+     4→
+     5→import type { ContractType, ContractLanguage } from '../contracts';
+     6→
+     7→// ============================================
+     8→// TYPES
+     9→// ============================================
+    10→
+    11→export interface ContractClause {
+    12→  id: string;
+    13→  clauseType: string;
+    14→  title: string;
+    15→  titleAr: string;
+    16→  titleFr: string;
+    17→  content: string;
+    18→  contentAr: string;
+    19→  contentFr: string;
+    20→  isRequired: boolean;
+    21→  isEditable: boolean;
+    22→  order: number;
+    23→}
+    24→
+    25→export interface ContractTemplate {
+    26→  type: ContractType;
+    27→  name: string;
+    28→  nameAr: string;
+    29→  nameFr: string;
+    30→  description: string;
+    31→  descriptionAr: string;
+    32→  descriptionFr: string;
+    33→  language: ContractLanguage;
+    34→  clauses: ContractClause[];
+    35→  defaultPenaltyClause: string;
+    36→  defaultWarrantyTerms: string;
+    37→}
+    38→
+    39→// ============================================
+    40→// TEMPLATE GENERATOR
+    41→// ============================================
+    42→
+    43→function createSalesAgreementTemplate(language: ContractLanguage): ContractTemplate {
+    44→  return {
+    45→    type: 'SALES_AGREEMENT',
+    46→    name: 'Sales Agreement',
+    47→    nameAr: 'اتفاقية البيع',
+    48→    nameFr: 'Contrat de vente',
+    49→    description: 'Standard sales agreement for product transactions',
+    50→    descriptionAr: 'اتفاقية بيع قياسية للمعاملات التجارية',
+    51→    descriptionFr: "Contrat de vente standard pour les transactions commerciales",
+    52→    language,
+    53→    clauses: [
+    54→      {
+    55→        id: 'sales-01',
+    56→        clauseType: 'PARTIES',
+    57→        title: 'Identified Parties',
+    58→        titleAr: 'الأطراف المعرفة',
+    59→        titleFr: 'Parties identifiées',
+    60→        content: 'This Sales Agreement ("Agreement") is entered into between {{partyA_name}} ("Seller") and {{partyB_name}} ("Buyer").',
+    61→        contentAr: 'تم إبرام هذه اتفاقية البيع ("الاتفاقية") بين {{partyA_name}} ("البائع") و{{partyB_name}} ("المشتري").',
+    62→        contentFr: `Le présent Contrat de Vente ("Contrat") est conclu entre {{partyA_name}} ("Vendeur") et {{partyB_name}} ("Acheteur").`,
+    63→        isRequired: true,
+    64→        isEditable: false,
+    65→        order: 1,
+    66→      },
+    67→      {
+    68→        id: 'sales-02',
+    69→        clauseType: 'SUBJECT',
+    70→        title: 'Subject Matter',
+    71→        titleAr: 'موضوع العقد',
+    72→        titleFr: 'Objet du contrat',
+    73→        content: 'The Seller agrees to sell and the Buyer agrees to purchase the goods described in Schedule A, in accordance with the terms and conditions of this Agreement.',
+    74→        contentAr: 'يوافق البائع على بيع والمشتري على شراء السلع الموضحة في الملحق A، وفقاً للشروط والأحكام هذه الاتفاقية.',
+    75→        contentFr: 'Le Vendeur convient de vendre et l\'Acheteur d\'acheter les biens décrits à l\'Annexe A, conformément aux termes et conditions du présent Contrat.',
+    76→        isRequired: true,
+    77→        isEditable: true,
+    78→        order: 2,
+    79→      },
+    80→      {
+    81→        id: 'sales-03',
+    82→        clauseType: 'PRICE',
+    83→        title: 'Price and Payment',
+    84→        titleAr: 'السعر والدفع',
+    85→        titleFr: 'Prix et paiement',
+    86→        content: 'The total price for the Goods shall be {{total_value}} {{currency}}, payable according to the payment terms specified herein.',
+    87→        contentAr: 'يكون السعر الإجمالي للسلع {{total_value}} {{currency}}، قابلة للدفع وفقاً لشروط الدفع المحددة هنا.',
+    88→        contentFr: `Le prix total des Biens s'élève à {{total_value}} {{currency}}, payable selon les conditions de paiement spécifiées ci-après.`,
+    89→        isRequired: true,
+    90→        isEditable: true,
+    91→        order: 3,
+    92→      },
+    93→      {
+    94→        id: 'sales-04',
+    95→        clauseType: 'DELIVERY',
+    96→        title: 'Delivery Terms',
+    97→        titleAr: 'شروط التسليم',
+    98→        titleFr: 'Conditions de livraison',
+    99→        content: 'Delivery shall be made within {{delivery_days}} days of the order confirmation, at the location specified by the Buyer. Risk of loss transfers upon delivery.',
+   100→        contentAr: 'يتم التسليم خلال {{delivery_days}} يوماً من تأكيد الطلب، في الموقع المحدد من المشتري. ينتقل خطر الفقدان عند التسليم.',
+   101→        contentFr: 'La livraison sera effectuée dans un délai de {{delivery_days} jours après la confirmation de la commande, au lieu désigné par l\'Acheteur. Le risque de perte est transféré à la livraison.',
+   102→        isRequired: true,
+   103→        isEditable: true,
+   104→        order: 4,
+   105→      },
+   106→      {
+   107→        id: 'sales-05',
+   108→        clauseType: 'TRANSFER',
+   109→        title: 'Transfer of Ownership',
+   110→        titleAr: 'نقل الملكية',
+   111→        titleFr: 'Transfert de propriété',
+   112→        content: 'Title and ownership of the Goods shall pass to the Buyer upon full payment of the purchase price.',
+   113→        contentAr: 'ينتقل عنوان وملكية السلع إلى المشتري عند الدفع الكامل لسعر الشراء.',
+   114→        contentFr: 'Le titre et la propriété des Biens seront transférés à l\'Acheteur après paiement intégral du prix d\'achat.',
+   115→        isRequired: true,
+   116→        isEditable: false,
+   117→        order: 5,
+   118→      },
+   119→      {
+   120→        id: 'sales-06',
+   121→        clauseType: 'WARRANTY',
+   122→        title: 'Warranty Terms',
+   123→        titleAr: 'شروط الضمان',
+   124→        titleFr: 'Conditions de garantie',
+   125→        content: 'The Seller warrants that the Goods shall be free from defects in materials and workmanship for a period of {{warranty_period}} months from delivery.',
+   126→        contentAr: 'يضمن البائع أن السلع خالية من عيوب المواد والتصنيع لمدة {{warranty_period}} شهراً من التسليم.',
+   127→        contentFr: 'Le Vendeur garantit que les Biens sont exempts de défauts de matériaux et de fabrication pour une période de {{warranty_period}} mois à compter de la livraison.',
+   128→        isRequired: true,
+   129→        isEditable: true,
+   130→        order: 6,
+   131→      },
+   132→      {
+   133→        id: 'sales-07',
+   134→        clauseType: 'PENALTY',
+   135→        title: 'Late Payment Penalty',
+   136→        titleAr: 'جزاء التأخير في الدفع',
+   137→        titleFr: 'Pénalité de retard de paiement',
+   138→        content: 'Late payments shall incur a penalty of {{penalty_rate}}% per month on the outstanding amount, in accordance with Algerian commercial law.',
+   139→        contentAr: 'تستوجب المدفوعات المتأخرة جزاء بنسبة {{penalty_rate}}% شهرياً على المبلغ المستحق، وفقاً للقانون التجاري الجزائري.',
+   140→        contentFr: 'Les retards de paiement entraîneront une pénalité de {{penalty_rate}}% par mois sur le montant dû, conformément à la loi commerciale algérienne.',
+   141→        isRequired: false,
+   142→        isEditable: true,
+   143→        order: 7,
+   144→      },
+   145→      {
+   146→        id: 'sales-08',
+   147→        clauseType: 'FORCE_MAJEURE',
+   148→        title: 'Force Majeure',
+   149→        titleAr: 'قوة قاهرة',
+   150→        titleFr: 'Force majeure',
+   151→        content: 'Neither party shall be liable for failure to perform due to events beyond their reasonable control, including natural disasters, war, or government actions.',
+   152→        contentAr: 'لا يتحمل أي طرف مسؤولية عدم الأداء بسبب أحداث خارج عن سيطرتهم المعقولة، بما في ذلك الكوارث الطبيعية أو الحرب أو الإجراءات الحكومية.',
+   153→        contentFr: 'Aucune partie ne sera responsable de l\'inexécution due à des événements échappant à leur contrôle raisonnable, y compris les catastrophes naturelles, la guerre ou les actions gouvernementales.',
+   154→        isRequired: true,
+   155→        isEditable: false,
+   156→        order: 8,
+   157→      },
+   158→      {
+   159→        id: 'sales-09',
+   160→        clauseType: 'DISPUTE',
+   161→        title: 'Dispute Resolution',
+   162→        titleAr: 'حل النزاعات',
+   163→        titleFr: 'Règlement des litiges',
+   164→        content: 'Any disputes arising from this Agreement shall be resolved through amicable negotiation, and if unsuccessful, through the competent Algerian courts.',
+   165→        contentAr: 'يتم حل أي نزاعات تنشأ عن هذه الاتفاقية عبر التفاود الودي، وإذا فشلت، عبر المحاكم الجزائرية المختصة.',
+   166→        contentFr: 'Tout litige découlant du présent Contrat sera réglé par négociation amiable, et en cas d\'échec, par les tribunaux algériens compétents.',
+   167→        isRequired: true,
+   168→        isEditable: false,
+   169→        order: 9,
+   170→      },
+   171→      {
+   172→        id: 'sales-10',
+   173→        clauseType: 'GOVERNING_LAW',
+   174→        title: 'Governing Law',
+   175→        titleAr: 'القانون الحاكم',
+   176→        titleFr: 'Droit applicable',
+   177→        content: 'This Agreement shall be governed by and construed in accordance with the laws of the People\'s Democratic Republic of Algeria.',
+   178→        contentAr: 'تخضع هذه الاتفاقية وتفسر وفقاً لقوانين الجمهورية الديمقراطية الشعبية الجزائرية.',
+   179→        contentFr: 'Le présent Contrat est régi et interprété conformément aux lois de la République Algérienne Démocratique et Populaire.',
+   180→        isRequired: true,
+   181→        isEditable: false,
+   182→        order: 10,
+   183→      },
+   184→    ],
+   185→    defaultPenaltyClause: '1.5% per month on overdue amounts - 1.5% شهرياً على المبالغ المتأخرة',
+   186→    defaultWarrantyTerms: '12 months from delivery - 12 شهراً من التسليم',
+   187→  };
+   188→}
+   189→
+   190→function createSupplyContractTemplate(language: ContractLanguage): ContractTemplate {
+   191→  return {
+   192→    type: 'SUPPLY_CONTRACT',
+   193→    name: 'Supply Contract',
+   194→    nameAr: 'عقد التوريد',
+   195→    nameFr: 'Contrat de fourniture',
+   196→    description: 'Ongoing supply agreement with quantity commitments and quality standards',
+   197→    descriptionAr: 'اتفاقية توريد مستمرة مع التزامات بالكمية ومعايير الجودة',
+   198→    descriptionFr: "Accord de fourniture continu avec des engagements quantitatifs et des normes de qualité",
+   199→    language,
+   200→    clauses: [
+   201→      {
+   202→        id: 'supply-01',
+   203→        clauseType: 'PARTIES',
+   204→        title: 'Supply Parties',
+   205→        titleAr: 'أطراف التوريد',
+   206→        titleFr: 'Parties fournisseur',
+   207→        content: 'This Supply Agreement is between {{partyA_name}} (Supplier) and {{partyB_name}} (Buyer) for ongoing supply of products.',
+   208→        contentAr: 'هذه اتفاقية التوريد بين {{partyA_name}} (المورد) و{{partyB_name}} (المشتري) لتوريد مستمر للمنتجات.',
+   209→        contentFr: 'Le présent Accord de Fourniture est conclu entre {{partyA_name}} (Fournisseur) et {{partyB_name}} (Acheteur) pour la fourniture continue de produits.',
+   210→        isRequired: true,
+   211→        isEditable: false,
+   212→        order: 1,
+   213→      },
+   214→      {
+   215→        id: 'supply-02',
+   216→        clauseType: 'SCOPE',
+   217→        title: 'Products and Quantities',
+   218→        titleAr: 'المنتجات والكميات',
+   219→        titleFr: 'Produits et quantités',
+   220→        content: 'Supplier agrees to supply Buyer with products as specified in Schedule B, with minimum order quantities (MOQ) of {{moq}} units per order.',
+   221→        contentAr: 'يوافق المورد على توريد المشتري بالمنتجات كما هو محدد في الملحق B، مع كميات أدنى للطلب (MOQ) تبلغ {{moq}} وحدة لكل طلب.',
+   222→        contentFr: 'Le Fournisseur s\'engage à fournir à l\'Acheteur les produits spécifiés à l\'Annexe B, avec des quantités minimales de commande (QMC) de {{moq}} unités par commande.',
+   223→        isRequired: true,
+   224→        isEditable: true,
+   225→        order: 2,
+   226→      },
+   227→      {
+   228→        id: 'supply-03',
+   229→        clauseType: 'PRICING',
+   230→        title: 'Pricing Structure',
+   231→        titleAr: 'هيكل التسعير',
+   232→        titleFr: 'Structure tarifaire',
+   233→        content: 'Prices are fixed for {{price_validity}} months, subject to revision based on raw material cost variations exceeding 10%.',
+   234→        contentAr: 'الأسعار ثابتة لمدة {{price_validity}} شهراً، خاضعة للمراجعة بناءً على تغيرات تكلفة المواد الخام التي تتجاوز 10%.',
+   235→        contentFr: 'Les prix sont fixes pour une durée de {{price_validity}} mois, sous révision en fonction des variations de coût des matières premières excédant 10%.',
+   236→        isRequired: true,
+   237→        isEditable: true,
+   238→        order: 3,
+   239→      },
+   240→      {
+   241→        id: 'supply-04',
+   242→        clauseType: 'LEAD_TIME',
+   243→        title: 'Lead Time',
+   244→        titleAr: 'وقت التنفيذ',
+   245→        titleFr: 'Délai d\'exécution',
+   246→        content: 'Standard lead time is {{lead_time}} days from order confirmation. Express delivery available at additional cost.',
+   247→        contentAr: 'وقت التنفيذ القياسي هو {{lead_time}} يوماً من تأكيد الطلب. التوصيل السريع متاح بتكلفة إضافية.',
+   248→        contentFr: 'Le délai d\'exécution standard est de {{lead_time}} jours après confirmation de commande. La livraison express disponible moyennant supplément.',
+   249→        isRequired: true,
+   250→        isEditable: true,
+   251→        order: 4,
+   252→      },
+   253→      {
+   254→        id: 'supply-05',
+   255→        clauseType: 'QUALITY',
+   256→        title: 'Quality Standards',
+   257→        titleAr: 'معايير الجودة',
+   258→        titleFr: 'Normes de qualité',
+   259→        content: 'All products must meet specifications defined in Schedule C and comply with applicable Algerian quality standards (INAPI certification where required).',
+   260→        contentAr: 'يجب أن تلبي جميع المنتجات المواصفات المحددة في الملحق C وأن تتوافق مع معايير الجودة الجزائرية المطبقة (شهادة INAPI حيث مطلوب).',
+   261→        contentFr: 'Tous les produits doivent répondre aux spécifications définies à l\'Annexe C et se conformer aux normes de qualité algériennes applicables (certification INAPI si requise).',
+   262→        isRequired: true,
+   263→        isEditable: true,
+   264→        order: 5,
+   265→      },
+   266→      {
+   267→        id: 'supply-06',
+   268→        clauseType: 'TERM',
+   269→        title: 'Contract Duration',
+   270→        titleAr: 'مدة العقد',
+   271→        titleFr: 'Durée du contrat',
+   272→        content: 'This Agreement is valid for an initial term of {{contract_term}} months, renewable automatically unless terminated with {{notice_period}} days notice.',
+   273→        contentAr: 'هذه الاتفاقية صالحة لمدة أولية تبلغ {{contract_term}} شهراً، قابلة للتجديد التلقائي ما لم يتم إنهاؤها بإشعار {{notice_period}} يوماً.',
+   274→        contentFr: 'Le présent Accord est valable pour une durée initiale de {{contract_term}} mois, renouvelable automatiquement sauf résiliation avec un préavis de {{notice_period}} jours.',
+   275→        isRequired: true,
+   276→        isEditable: true,
+   277→        order: 6,
+   278→      },
+   279→    ],
+   280→    defaultPenaltyClause: '1% per week on delayed deliveries - 1% أسبوعياً على التسليمات المتأخرة',
+   281→    defaultWarrantyTerms: 'As per product specifications - وفقاً لمواصفات المنتج',
+   282→  };
+   283→}
+   284→
+   285→function createServiceAgreementTemplate(language: ContractLanguage): ContractTemplate {
+   286→  return {
+   287→    type: 'SERVICE_AGREEMENT',
+   288→    name: 'Service Agreement',
+   289→    nameAr: 'اتفاقية الخدمات',
+   290→    nameFr: 'Contrat de prestation',
+   291→    description: 'Professional services agreement with scope, deliverables, and SLAs',
+   292→    descriptionAr: 'اتفاقية خدمات مهنية مع النطاق والتسليمات ومستويات الخدمة',
+   293→    descriptionFr: 'Contrat de services professionnels avec périmètre, livrables et SLA',
+   294→    language,
+   295→    clauses: [
+   296→      {
+   297→        id: 'service-01',
+   298→        clauseType: 'SCOPE',
+   299→        title: 'Scope of Services',
+   300→        titleAr: 'نطاق الخدمات',
+   301→        titleFr: 'Périmètre des services',
+   302→        content: 'Service Provider agrees to provide the services described in Schedule D to the Client, in a professional and workmanlike manner.',
+   303→        contentAr: 'يوافق مقدم الخدمة على تقديم الخدمات الموصفة في الملخص D للعميل، بطريقة احترافية وماهرة.',
+   304→        contentFr: 'Le Prestataire de Services s\'engage à fournir les services décrits à l\'Annexe D au Client, de manière professionnelle et soignée.',
+   305→        isRequired: true,
+   306→        isEditable: true,
+   307→        order: 1,
+   308→      },
+   309→      {
+   310→        id: 'service-02',
+   311→        clauseType: 'DELIVERABLES',
+   312→        title: 'Deliverables',
+   313→        titleAr: 'التسليمات',
+   314→        titleFr: 'Livrables',
+   315→        content: 'Deliverables and acceptance criteria are defined in Schedule E. Client has {{review_period}} business days to review each deliverable.',
+   316→        contentAr: 'التسليمات ومعايير القبول محددة في الملخص E. لديه العميل {{review_period}} أيام عمل لمراجعة كل تسليم.',
+   317→        contentFr: 'Les livrables et critères d\'acceptation sont définis à l\'Annexe E. Le Client dispose de {{review_period}} jours ouvrés pour examiner chaque livrable.',
+   318→        isRequired: true,
+   319→        isEditable: true,
+   320→        order: 2,
+   321→      },
+   322→      {
+   323→        id: 'service-03',
+   324→        clauseType: 'SLA',
+   325→        title: 'Service Level Agreement',
+   326→        titleAr: 'اتفاقية مستوى الخدمة',
+   327→        titleFr: 'Accord de niveau de service (SLA)',
+   328→        content: 'Service Provider shall maintain minimum uptime of {{uptime_percent}}% and respond to support requests within {{response_time}} hours during business hours.',
+   329→        contentAr: 'يجب على مقدم الخدمة الحفاظ على حد أدنى لتوفر {{uptime_percent}}% والرد على طلبات الدعم خلال {{response_time}} ساعة خلال ساعات العمل.',
+   330→        contentFr: 'Le Prestataire doit maintenir une disponibilité minimale de {{uptime_percent}}% et répondre aux demandes d\'assistance dans les {{response_time}} heures pendant les heures ouvrées.',
+   331→        isRequired: true,
+   332→        isEditable: true,
+   333→        order: 3,
+   334→      },
+   335→      {
+   336→        id: 'service-04',
+   337→        clauseType: 'CONFIDENTIALITY',
+   338→        title: 'Confidentiality',
+   339→        titleAr: 'السرية',
+   340→        titleFr: 'Confidentialité',
+   341→        content: 'Both parties agree to maintain confidentiality of proprietary information received during the engagement for a period of {{confidentiality_period}} years.',
+   342→        contentAr: 'يوافق الطرفان على الحفاظ على سرية المعلومات الخاصة المستلمة خلال التعيين لفترة تبلغ {{confidentiality_period}} سنة.',
+   343→        contentFr: 'Les deux parties conviennent de maintenir la confidentialité des informations propriétaires reçues durant la mission pour une période de {{confidentiality_period}} années.',
+   344→        isRequired: true,
+   345→        isEditable: false,
+   346→        order: 4,
+   347→      },
+   348→      {
+   349→        id: 'service-05',
+   350→        clauseType: 'IP',
+   351→        title: 'Intellectual Property',
+   352→        titleAr: 'الملكية الفكرية',
+   353→        titleFr: 'Propriété intellectuelle',
+   354→        content: 'IP created specifically for the Client belongs to the Client. Pre-existing IP remains with Service Provider.',
+   355→        contentAr: 'الملكية الفكرية المُنشأة خصيصاً للعميل تخص العميل. الملكية الفكرية الموجودة مسبقاً تبقى مع مقدم الخدمة.',
+   356→        contentFr: 'La PI créée spécifiquement pour le Client appartient au Client. La PI préexistante reste au Prestataire.',
+   357→        isRequired: true,
+   358→        isEditable: false,
+   359→        order: 5,
+   360→      },
+   361→    ],
+   362→    defaultPenaltyClause: '0.5% per day delay on critical milestones - 0.5% يومياً تأخر في المعالم الحرجة',
+   363→    defaultWarrantyTerms: '90-day defect correction warranty - ضمان تصحيح العيوب لمدة 90 يوماً',
+   364→  };
+   365→}
+   366→
+   367→function createNDATemplate(language: ContractLanguage): ContractTemplate {
+   368→  return {
+   369→    type: 'NON_DISCLOSURE',
+   370→    name: 'Non-Disclosure Agreement',
+   371→    nameAr: 'اتفاقية عدم الإفشاء',
+   372→    nameFr: 'Accord de confidentialité (NDA)',
+   373→    description: 'Standard NDA for protecting confidential business information',
+   374→    descriptionAr: 'اتفاقية عدم إفشاء قياسية لحماية معلومات العمل السرية',
+   375→    descriptionFr: 'NDA standard pour protéger les informations commerciales confidentielles',
+   376→    language,
+   377→    clauses: [
+   378→      {
+   379→        id: 'nda-01',
+   380→        clauseType: 'DEFINITION',
+   381→        title: 'Definition of Confidential Information',
+   382→        titleAr: 'تعريف المعلومات السرية',
+   383→        titleFr: 'Définition des informations confidentielles',
+   384→        content: '"Confidential Information" includes all non-public business, technical, financial information disclosed by either party.',
+   385→        contentAr: '"المعلومات السرية" تشمل جميع المعلومات التجارية والمالية والتقنية غير العامة المفصحة من أي طرف.',
+   386→        contentFr: '"Informations Confidentielles" inclut toutes les informations commerciales, techniques, financières non publiques divulguées par l\'une des parties.',
+   387→        isRequired: true,
+   388→        isEditable: false,
+   389→        order: 1,
+   390→      },
+   391→      {
+   392→        id: 'nda-02',
+   393→        clauseType: 'OBLIGATIONS',
+   394→        title: 'Confidentiality Obligations',
+   395→        titleAr: 'التزامات السرية',
+   396→        titleFr: 'Obligations de confidentialité',
+   397→        content: 'Receiving Party must: (a) use same care as its own confidential info; (b) disclose only to need-to-know personnel; (c) return/destroy upon termination.',
+   398→        contentAr: 'يجب على الطرف المستلم: (أ) استخدام نفس العناية بمعلوماته السرية؛ (ب) الإفصاح فقط للموظفين الذين يحتاجون المعرفة؛ (ج) الإعادة/التدمير عند الإنتهاء.',
+   399→        contentFr: 'Le Partie Réceptrice doit : (a) utiliser les mêmes soins que ses propres informations confidentielles ; (b) divulguer uniquement au personnel besoin de savoir ; (c) retourner/détruire à la résiliation.',
+   400→        isRequired: true,
+   401→        isEditable: false,
+   402→        order: 2,
+   403→      },
+   404→      {
+   405→        id: 'nda-03',
+   406→        clauseType: 'EXCEPTIONS',
+   407→        title: 'Exceptions',
+   408→        titleAr: 'استثناءات',
+   409→        titleFr: 'Exceptions',
+   410→        content: 'Obligations do not apply to: publicly available info; independently developed; required by law or court order.',
+   411→        contentAr: 'لا تنطبق الالتزامات على: المعلومات المتاحة للجمهور؛ المطورة بشكل مستقل؛ المطلوبة قانوناً أو بأمر محكمة.',
+   412→        contentFr: 'Les obligations ne s\'appliquent pas aux : informations publiquement disponibles ; développées indépendamment ; requises par la loi ou ordonnance judiciaire.',
+   413→        isRequired: true,
+   414→        isEditable: false,
+   415→        order: 3,
+   416→      },
+   417→      {
+   418→        id: 'nda-04',
+   419→        clauseType: 'DURATION',
+   420→        title: 'Duration',
+   421→        titleAr: 'المدة',
+   422→        titleFr: 'Durée',
+   423→        content: 'This NDA remains in effect for {{nda_duration}} years from the effective date, or until the information becomes public knowledge.',
+   424→        contentAr: 'تبقى هذه الاتفاقية سارية المفعول لمدة {{nda_duration}} سنة من تاريخ السريان، أو حتى تصبح المعلومات علنية.',
+   425→        contentFr: 'Le présent NDA reste en vigueur pour une durée de {{nda_duration}} ans à compter de la date d\'effet, ou jusqu\'à ce que l\'information devienne publique.',
+   426→        isRequired: true,
+   427→        isEditable: true,
+   428→        order: 4,
+   429→      },
+   430→      {
+   431→        id: 'nda-05',
+   432→        clauseType: 'PENALTY',
+   433→        title: 'Breach Consequences',
+   434→        titleAr: 'عواقب الاخلال',
+   435→        titleFr: 'Conséquences de la violation',
+   436→        content: 'Unauthorized disclosure may result in injunctive relief and damages, without prejudice to other legal remedies available.',
+   437→        contentAr: 'قد يؤدي الإفصاح غير المصرح به إلى إنصاف قضائي وأضرار، دون المساس بالعلاج القانوني الآخر المتاح.',
+   438→        contentFr: 'La divulgation non autorisée peut entraîner des mesures conservatoires et dommages, sans préjudice des autres recours juridiques disponibles.',
+   439→        isRequired: true,
+   440→        isEditable: false,
+   441→        order: 5,
+   442→      },
+   443→    ],
+   444→    defaultPenaltyClause: 'Liquidated damages as determined by court - أضرار تحديدية حسب ما تحدده المحكمة',
+   445→    defaultWarrantyTerms: 'N/A - غير متوفر',
+   446→  };
+   447→}
+   448→
+   449→function createDistributionAgreementTemplate(language: ContractLanguage): ContractTemplate {
+   450→  return {
+   451→    type: 'DISTRIBUTION_AGREEMENT',
+   452→    name: 'Distribution Agreement',
+   453→    nameAr: 'اتفاقية التوزيع',
+   454→    nameFr: 'Contrat de distribution',
+   455→    description: 'Exclusive/non-exclusive distribution rights for products in defined territory',
+   456→    descriptionAr: 'حقوق توزيع حصرية/غير حصرية للمنتجات في منطقة محددة',
+   457→    descriptionFr: 'Droits de distribution exclusifs/non exclusifs pour produits sur un territoire défini',
+   458→    language,
+   459→    clauses: [
+   460→      {
+   461→        id: 'dist-01',
+   462→        clauseType: 'TERRITORY',
+   463→        title: 'Territory',
+   464→        titleAr: 'المنطقة',
+   465→        titleFr: 'Territoire',
+   466→        content: 'Distributor is granted {{exclusive_text}} distribution rights for the Products within {{territory}} territory.',
+   467→        contentAr: 'يمنح الموزع حقوق توزيع {{exclusive_text}} للمنتجات داخل منطقة {{territory}}.',
+   468→        contentFr: 'Le Distributeur se voit accorder des droits de distribution {{exclusive_text}} pour les Produits sur le territoire {{territory}}.',
+   469→        isRequired: true,
+   470→        isEditable: true,
+   471→        order: 1,
+   472→      },
+   473→      {
+   474→        id: 'dist-02',
+   475→        clauseType: 'MARGIN',
+   476→        title: 'Profit Margin',
+   477→        titleAr: 'هامش الربح',
+   478→        titleFr: 'Marge bénéficiaire',
+   479→        content: 'Distributor receives a discount of {{discount_percent}}% off list price, enabling resale margin.',
+   480→        contentAr: 'يحصل الموزع على خصم {{discount_percent}}% من سعر القائمة، مما يتيح هامش إعادة البيع.',
+   481→        contentFr: 'Le Distributeur reçoit une remise de {{discount_percent}% sur le prix catalogue, permettant une marge de revente.',
+   482→        isRequired: true,
+   483→        isEditable: true,
+   484→        order: 2,
+   485→      },
+   486→      {
+   487→        id: 'dist-03',
+   488→        clauseType: 'TARGETS',
+   489→        title: 'Sales Targets',
+   490→        titleAr: 'أهداف المبيعات',
+   491→        titleFr: 'Objectifs de vente',
+   492→        content: 'Minimum annual sales target of {{annual_target}} {{currency}}, subject to review and adjustment annually.',
+   493→        contentAr: 'هدف مبيعات سنوي أدنى يبلغ {{annual_target}} {{currency}}، خاضع للمراجعة والتعديل سنوياً.',
+   494→        contentFr: 'Objectif de ventes annuel minimum de {{annual_target}} {{currency}}, soumis à révision et ajustement annuel.',
+   495→        isRequired: true,
+   496→        isEditable: true,
+   497→        order: 3,
+   498→      },
+   499→      {
+   500→        id: 'dist-04',
+   501→        clauseType: 'MARKETING',
+   502→        title: 'Marketing Support',
+   503→        titleAr: 'الدعم التسويقي',
+   504→        titleFr: 'Support marketing',
+   505→        content: 'Supplier will provide marketing materials worth up to {{marketing_budget}} {{currency}} per year and co-branding approval.',
+   506→        contentAr: 'سيوفر المورد مواد تسويقية تصل قيمتها إلى {{marketing_budget}} {{currency}} سنوياً والموافقة على العلامة التجارية المشتركة.',
+   507→        contentFr: 'Le Fournisseur fournira des matériaux marketing d\'une valeur allant jusqu\'à {{marketing_budget}} {{currency}} par an et approbation de co-marque.',
+   508→        isRequired: false,
+   509→        isEditable: true,
+   510→        order: 4,
+   511→      },
+   512→      {
+   513→        id: 'dist-05',
+   514→        clauseType: 'TERMINATION',
+   515→        title: 'Termination Rights',
+   516→        titleAr: 'حقوق الإنهاء',
+   517→        titleFr: 'Droits de résiliation',
+   518→        content: 'Either party may terminate with {{termination_notice}} days written notice. Immediate termination for material breach after cure period.',
+   519→        contentAr: 'يمكن لأي طرف إنهاء الاتفاقية بإشعار كتابي {{termination_notice}} يوماً. إنهاء فوري للاخلال الجوهري بعد فترة التصحيح.',
+   520→        contentFr: 'Chaque partie peut résilier avec un préavis écrit de {{termination_notice}} jours. Résiliation immédiate pour violation matérielle après période de guérison.',
+   521→        isRequired: true,
+   522→        isEditable: true,
+   523→        order: 5,
+   524→      },
+   525→    ],
+   526→    defaultPenaltyClause: 'Forfeiture of unsold inventory discount - مصادرة خصم المخزون غير المباع',
+   527→    defaultWarrantyTerms: 'Pass-through manufacturer warranty - ضمان الصانع المنقول',
+   528→  };
+   529→}
+   530→
+   531→function createExclusivityTemplate(language: ContractLanguage): ContractTemplate {
+   532→  return {
+   533→    type: 'EXCLUSIVITY',
+   534→    name: 'Exclusivity Agreement',
+   535→    nameAr: 'اتفاقية الحصرية',
+   536→    nameFr: "Clause d'exclusivité",
+   537→    description: 'Exclusive dealing arrangement for specific products or territories',
+   538→    descriptionAr: 'ترتيب تعامل حصري لمنتجات أو مناطق محددة',
+   539→    descriptionFr: "Arrangement d'exclusivité pour des produits ou territoires spécifiques",
+   540→    language,
+   541→    clauses: [
+   542→      {
+   543→        id: 'excl-01',
+   544→        clauseType: 'SCOPE',
+   545→        title: 'Exclusivity Scope',
+   546→        titleAr: 'نطاق الحصرية',
+   547→        titleFr: "Périmètre de l'exclusivité",
+   548→        content: '{{partyA}} grants {{partyB}} exclusive rights to sell/purchase {{product_scope}} within {{territory_scope}}.',
+   549→        contentAr: 'يمنح {{partyA}} {{partyB}} حقوقاً حصرية للبيع/شراء {{product_scope}} ضمن {{territory_scope}}.',
+   550→        contentFr: '{{partyA}} accorde à {{partyB}} les droits exclusifs de vendre/acheter {{product_scope}} dans {{territory_scope}}.',
+   551→        isRequired: true,
+   552→        isEditable: true,
+   553→        order: 1,
+   554→      },
+   555→      {
+   556→        id: 'excl-02',
+   557→        clauseType: 'COMMITMENT',
+   558→        title: 'Volume Commitment',
+   559→        titleAr: 'التزام بالحجم',
+   560→        titleFr: 'Engagement de volume',
+   561→        content: 'Buyer commits to minimum purchases of {{min_volume}} units/value per {{period}} during exclusivity period.',
+   562→        contentAr: 'يلتزم المشتري بشراء أدنى يبلغ {{min_volume}} وحدة/قيمة لكل {{period}} خلال فترة الحصرية.',
+   563→        contentFr: "L'Acheteur s'engage à des achats minimums de {{min_volume}} unités/valeur par {{période}} pendant la période d'exclusivité.",
+   564→        isRequired: true,
+   565→        isEditable: true,
+   566→        order: 2,
+   567→      },
+   568→      {
+   569→        id: 'excl-03',
+   570→        clauseType: 'PROTECTION',
+   571→        title: 'Exclusivity Protection',
+   572→        titleAr: 'حماية الحصرية',
+   573→        titleFr: 'Protection de l\'exclusivité',
+   574→        content: 'Supplier will not appoint other distributors/buyers for covered products in the agreed territory.',
+   575→        contentAr: 'لن يعين المورد موزعين/مشترين آخرين للمنتجات المغطاة في المنطقة المتفق عليها.',
+   576→        contentFr: 'Le Fournisseur ne nommera pas d\'autres distributeurs/acheteurs pour les produits couverts dans le territoire convenu.',
+   577→        isRequired: true,
+   578→        isEditable: false,
+   579→        order: 3,
+   580→      },
+   581→      {
+   582→        id: 'excl-04',
+   583→        clauseType: 'PERFORMANCE',
+   584→        title: 'Performance Review',
+   585→        titleAr: 'مراجعة الأداء',
+   586→        titleFr: 'Revue de performance',
+   587→        content: 'Performance reviewed quarterly. Exclusivity may be terminated if targets missed for {{consecutive_periods}} consecutive periods.',
+   588→        contentAr: 'مراجعة الأداء ربع سنوية. يمكن إنهاء الحصرية إذا تم تفويت الأهداف لـ {{consecutive_periods}} فترات متتالية.',
+   589→        contentFr: 'Revue de performance trimestrielle. L\'exclusivité peut être résiliée si les objectifs manqués pendant {{consecutive_periods}} périodes consécutives.',
+   590→        isRequired: true,
+   591→        isEditable: true,
+   592→        order: 4,
+   593→      },
+   594→    ],
+   595→    defaultPenaltyClause: 'Damages for breach equal to estimated lost profits - أضرار الاخلال تساوي الأرباح المفقودة المقدرة',
+   596→    defaultWarrantyTerms: 'As per underlying agreement - وفقاً للاتفاقية الأساسية',
+   597→  };
+   598→}
+   599→
+   600→function createFrameworkAgreementTemplate(language: ContractLanguage): ContractTemplate {
+   601→  return {
+   602→    type: 'FRAMEWORK_AGREEMENT',
+   603→    name: 'Framework Agreement',
+   604→    nameAr: 'اتفاقية إطار',
+   605→    nameFr: 'Accord-cadre',
+   606→    description: 'Master framework for multiple future transactions under agreed terms',
+   607→    descriptionAr: 'إطار رئيسي لمعاملات مستقبلية متعددة بشروط متفق عليها',
+   608→    descriptionFr: 'Cadre principal pour multiples transactions futures selon termes convenus',
+   609→    language,
+   610→    clauses: [
+   611→      {
+   612→        id: 'fw-01',
+   613→        clauseType: 'PURPOSE',
+   614→        title: 'Framework Purpose',
+   615→        titleAr: 'غرض الإطار',
+   616→        titleFr: "Objet du cadre",
+   617→        content: 'This Framework Agreement establishes general terms for future orders between the parties without requiring separate contract negotiations.',
+   618→        contentAr: 'تنشئ هذه اتفاقية الإطار شروطاً عامة لأوامر مستقبلية بين الأطراف دون الحاجة إلى مفاوضات عقود منفصلة.',
+   619→        contentFr: 'Le présent Accord-cadre établit les termes généraux pour les commandes futures entre les parties sans nécessiter de négociations contractuelles séparées.',
+   620→        isRequired: true,
+   621→        isEditable: false,
+   622→        order: 1,
+   623→      },
+   624→      {
+   625→        id: 'fw-02',
+   626→        clauseType: 'ORDERS',
+   627→        title: 'Order Process',
+   628→        titleAr: 'عملية الطلب',
+   629→        titleFr: "Processus de commande",
+   630→        content: 'Orders placed via platform with automatic confirmation. Each order forms a separate binding contract incorporating these framework terms.',
+   631→        contentAr: 'الطلبات الموضوعة عبر المنصة مع تأكيد تلقائي. كل طلب يشكل عقداً منفصلاً ملزماً يتضمن شروط الإطار هذه.',
+   632→        contentFr: 'Les commandes passées via plateforme avec confirmation automatique. Chaque commande forme un contrat séparé liant intégrant ces termes-cadres.',
+   633→        isRequired: true,
+   634→        isEditable: false,
+   635→        order: 2,
+   636→      },
+   637→      {
+   638→        id: 'fw-03',
+   639→        clauseType: 'PRICING',
+   640→        title: 'Pricing Mechanism',
+   641→        titleAr: 'آلية التسعير',
+   642→        titleFr: 'Mécanisme de tarification',
+   643→        content: 'Prices based on published price list or negotiated rates as specified in Schedule F, valid for {{pricing_validity}} months.',
+   644→        contentAr: 'الأسعار بناءً على قائمة أسعار منشورة أو أسعار مفاوض عليها كما هو محدد في الملخص F، صالحة لمدة {{pricing_validity}} شهراً.',
+   645→        contentFr: 'Les prix basés sur liste de prix publiée ou tarifs négociés comme spécifié à l\'Annexe F, valables pour {{pricing_validity}} mois.',
+   646→        isRequired: true,
+   647→        isEditable: true,
+   648→        order: 3,
+   649→      },
+   650→      {
+   651→        id: 'fw-04',
+   652→        clauseType: 'VOLUME',
+   653→        title: 'Volume Tiers',
+   654→        titleAr: 'مستويات الحجم',
+   655→        titleFr: 'Paliers de volume',
+   656→        content: 'Tiered pricing applies: Tier 1 ({{tier1_min}}+ units), Tier 2 ({{tier2_min}}+), Tier 3 ({{tier3_min}}+) with progressive discounts.',
+   657→        contentAr: 'تسعير متدرج ينطبق: المستوى 1 ({{tier1_min}}+ وحدة)، المستوى 2 ({{tier2_min}}+)، المستوى 3 ({{tier3_min}}+) مع خصومات تدريجية.',
+   658→        contentFr: 'Tarification par paliers appliquée : Palier 1 ({{tier1_min}}+ unités), Palier 2 ({{tier2_min}}+), Palier 3 ({{tier3_min}}+) avec remises progressives.',
+   659→        isRequired: false,
+   660→        isEditable: true,
+   661→        order: 4,
+   662→      },
+   663→      {
+   664→        id: 'fw-05',
+   665→        clauseType: 'DURATION',
+   666→        title: 'Framework Validity',
+   667→        titleAr: 'صلاحية الإطار',
+   668→        titleFr: 'Validité du cadre',
+   669→        content: 'This Framework Agreement is valid for {{framework_duration}} years, automatically renewable unless terminated with {{notice_period}} months notice.',
+   670→        contentAr: 'هذه اتفاقية الإطار صالحة لمدة {{framework_duration}} سنة، قابلة للتجديد التلقائي ما لم يتم إنهاؤها بإشعار {{notice_period}} شهراً.',
+   671→        contentFr: 'Le présent Accord-cadre est valable pour une durée de {{framework_duration}} ans, renouvelable automatiquement sauf résiliation avec un préavis de {{notice_period}} mois.',
+   672→        isRequired: true,
+   673→        isEditable: true,
+   674→        order: 5,
+   675→      },
+   676→    ],
+   677→    defaultPenaltyClause: 'As per individual order terms - وفقاً لشروط كل طلب',
+   678→    defaultWarrantyTerms: 'As per product specification - وفقاً لمواصفات المنتج',
+   679→  };
+   680→}
+   681→
+   682→// ============================================
+   683→// MAIN EXPORT FUNCTION
+   684→// ============================================
+   685→
+   686→export function getContractTemplate(
+   687→  type: ContractType,
+   688→  language: ContractLanguage = 'BILINGUAL'
+   689→): ContractTemplate {
+   690→  switch (type) {
+   691→    case 'SALES_AGREEMENT':
+   692→      return createSalesAgreementTemplate(language);
+   693→    case 'SUPPLY_CONTRACT':
+   694→      return createSupplyContractTemplate(language);
+   695→    case 'SERVICE_AGREEMENT':
+   696→      return createServiceAgreementTemplate(language);
+   697→    case 'NON_DISCLOSURE':
+   698→      return createNDATemplate(language);
+   699→    case 'DISTRIBUTION_AGREEMENT':
+   700→      return createDistributionAgreementTemplate(language);
+   701→    case 'EXCLUSIVITY':
+   702→      return createExclusivityTemplate(language);
+   703→    case 'FRAMEWORK_AGREEMENT':
+   704→      return createFrameworkAgreementTemplate(language);
+   705→    default:
+   706→      return createSalesAgreementTemplate(language);
+   707→  }
+   708→}
+   709→
+   710→/**
+   711→ * Get all available contract types
+   712→ * الحصول على جميع أنواع العقود المتاحة
+   713→ */
+   714→export function getAvailableContractTypes(): { 
+   715→  value: ContractType; 
+   716→  label: string; 
+   717→  ar: string; 
+   718→  fr: string;
+   719→  description: string;
+   720→}[] {
+   721→  return [
+   722→    {
+   723→      value: 'SALES_AGREEMENT',
+   724→      label: 'Sales Agreement',
+   725→      ar: 'اتفاقية البيع',
+   726→      fr: 'Contrat de vente',
+   727→      description: 'Standard product sale contract',
+   728→    },
+   729→    {
+   730→      value: 'SUPPLY_CONTRACT',
+   731→      label: 'Supply Contract',
+   732→      ar: 'عقد التوريد',
+   733→      fr: 'Contrat de fourniture',
+   734→      description: 'Ongoing supply arrangement',
+   735→    },
+   736→    {
+   737→      value: 'SERVICE_AGREEMENT',
+   738→      label: 'Service Agreement',
+   739→      ar: 'اتفاقية الخدمات',
+   740→      fr: 'Contrat de prestation',
+   741→      description: 'Professional services contract',
+   742→    },
+   743→    {
+   744→      value: 'DISTRIBUTION_AGREEMENT',
+   745→      label: 'Distribution Agreement',
+   746→      ar: 'اتفاقية التوزيع',
+   747→      fr: 'Contrat de distribution',
+   748→      description: 'Distribution rights contract',
+   749→    },
+   750→    {
+   751→      value: 'NON_DISCLOSURE',
+   752→      label: 'NDA / Confidentiality',
+   753→      ar: 'اتفاقية عدم الإفشاء',
+   754→      fr: 'NDA / Confidentialité',
+   755→      description: 'Protect confidential information',
+   756→    },
+   757→    {
+   758→      value: 'EXCLUSIVITY',
+   759→      label: 'Exclusivity Agreement',
+   760→      ar: 'اتفاقية الحصرية',
+   761→      fr: "Clause d'exclusivité",
+   762→      description: 'Exclusive dealing rights',
+   763→    },
+   764→    {
+   765→      value: 'FRAMEWORK_AGREEMENT',
+   766→      label: 'Framework Agreement',
+   767→      ar: 'اتفاقية إطار',
+   768→      fr: 'Accord-cadre',
+   769→      description: 'Master terms for multiple orders',
+   770→    },
+   771→  ];
+   772→}
+   773→

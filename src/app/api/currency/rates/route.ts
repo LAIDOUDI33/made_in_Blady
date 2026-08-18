@@ -4,30 +4,66 @@
 import { NextRequest, NextResponse } from 'next/server'
 import {
   getExchangeRates,
-  updateRates,
-  getSupportedCurrencies,
-  SupportedCurrency,
-} from '@/lib/currency'
+  invalidateCache,
+  healthCheck,
+  getCurrentRateSource,
+} from '@/lib/currency/rate-provider'
+import {
+  getSortedCurrencies,
+  getCurrencyCodes,
+  CurrencyCode,
+  isSupportedCurrency,
+} from '@/lib/currency/config'
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const rates = await getExchangeRates()
-    const currencies = getSupportedCurrencies()
+    const { searchParams } = new URL(request.url)
+    const baseParam = searchParams.get('base') as CurrencyCode | null
+    const currenciesParam = searchParams.get('currencies') // Comma-separated list
+
+    let rates = await getExchangeRates()
+    
+    // If a different base currency is requested, convert rates
+    if (baseParam && baseParam !== 'DZD' && isSupportedCurrency(baseParam)) {
+      const baseRate = rates.get(baseParam)
+      if (baseRate) {
+        const convertedRates = new Map<CurrencyCode, number>()
+        for (const [code, rate] of rates.entries()) {
+          convertedRates.set(code as CurrencyCode, Number((rate / baseRate).toFixed(6)))
+        }
+        rates = convertedRates
+      }
+    }
+
+    // Filter currencies if specified
+    let currencyList = getSortedCurrencies()
+    if (currenciesParam) {
+      const requestedCurrencies = currenciesParam.split(',').map(c => c.trim().toUpperCase())
+      currencyList = currencyList.filter(c => requestedCurrencies.includes(c.code))
+    }
+
+    // Get rate source info
+    const sourceInfo = getCurrentRateSource()
 
     return NextResponse.json({
       success: true,
       data: {
-        baseCurrency: 'DZD',
+        baseCurrency: baseParam || 'DZD',
         rates: Object.fromEntries(rates),
-        currencies: currencies.map(c => ({
+        currencies: currencyList.map(c => ({
           code: c.code,
           name: c.name,
-          nameLocalized: c.nameLocalized,
+          nameAr: c.nameAr,
+          nameFr: c.nameFr,
           symbol: c.symbol,
-          flagEmoji: c.flagEmoji,
+          flag: c.flag,
+          locale: c.locale,
+          decimalDigits: c.decimalDigits,
           rate: rates.get(c.code) || 1,
         })),
-        lastUpdated: new Date().toISOString(),
+        source: sourceInfo.source,
+        lastUpdated: sourceInfo.fetchedAt?.toISOString() || null,
+        validUntil: sourceInfo.validUntil?.toISOString() || null,
         cacheTTLMinutes: 5,
       },
     })
@@ -46,7 +82,9 @@ export async function GET() {
 export async function POST() {
   try {
     // Force refresh rates
-    const rates = await updateRates()
+    invalidateCache()
+    const rates = await getExchangeRates()
+    const currencies = getSortedCurrencies()
     
     return NextResponse.json({
       success: true,
@@ -55,6 +93,7 @@ export async function POST() {
         rates: Object.fromEntries(rates),
         message: 'Exchange rates refreshed successfully',
         refreshedAt: new Date().toISOString(),
+        currencyCount: rates.size,
       },
     })
   } catch (error) {

@@ -1,0 +1,853 @@
+     1→// CRM Leads Module
+     2→// Lead management, scoring algorithm, qualification, source tracking, conversion tracking
+     3→// AlgeriaTrade.dz B2B Marketplace - CRM Integration Suite
+     4→
+     5→import { db } from '@/lib/db'
+     6→import { v4 as uuidv4 } from 'uuid'
+     7→import { LEAD_SOURCES, LeadSource } from './config'
+     8→
+     9→// ============================================
+    10→// TYPES
+    11→// ============================================
+    12→
+    13→export type LeadStatus = 'NEW' | 'CONTACTED' | 'QUALIFIED' | 'PROPOSAL' | 'NEGOTIATION' | 'WON' | 'LOST'
+    14→
+    15→export interface LeadData {
+    16→  ownerId: string
+    17→  contactId?: string
+    18→  
+    19→  // Source info
+    20→  source: LeadSource
+    21→  sourceDetails?: string
+    22→  campaignId?: string
+    23→  
+    24→  // Company info
+    25→  companyName: string
+    26→  industry?: string
+    27→  companySize?: string
+    28→  website?: string
+    29→  wilaya?: string
+    30→  city?: string
+    31→  
+    32→  // Pipeline
+    33→  status?: LeadStatus
+    34→  estimatedValue: number
+    35→  currency?: string
+    36→  expectedCloseDate: Date
+    37→  
+    38→  // Assignment
+    39→  assignedTo: string
+    40→  teamId?: string
+    41→  
+    42→  // Products/Services interest
+    43→  interestedCategories?: string[]
+    44→  interestedProducts?: string[]
+    45→  specificRequirements?: string
+    46→  
+    47→  // Notes
+    48→  notes?: string
+    49→}
+    50→
+    51→export interface Lead extends LeadData {
+    52→  id: string
+    53→  leadNumber: string
+    54→  score: number
+    55→  engagementScore: number
+    56→  probability: number
+    57→  pipelineStage: string
+    58→  
+    59→  // Conversion tracking
+    60→  convertedToDealId?: string
+    61→  convertedAt?: Date
+    62→  
+    63→  // Loss analysis
+    64→  lossReason?: string
+    65→  lostToCompetitor?: string
+    66→  
+    67→  createdAt: Date
+    68→  updatedAt: Date
+    69→}
+    70→
+    71→export interface LeadFilter {
+    72→  ownerId?: string
+    73→  search?: string
+    74→  status?: LeadStatus
+    75→  pipelineStage?: string
+    76→  source?: LeadSource
+    77→  assignedTo?: string
+    78→  scoreMin?: number
+    79→  scoreMax?: number
+    80→  valueMin?: number
+    81→  valueMax?: number
+    82→  expectedCloseFrom?: Date
+    83→  expectedCloseTo?: Date
+    84→  createdFrom?: Date
+    85→  createdTo?: Date
+    86→  isConverted?: boolean
+    87→}
+    88→
+    89→export interface LeadPaginationOptions {
+    90→  page?: number
+    91→  pageSize?: number
+    92→  sortBy?: 'createdAt' | 'updatedAt' | 'expectedCloseDate' | 'estimatedValue' | 'score' | 'companyName'
+    93→  sortOrder?: 'asc' | 'desc'
+    94→}
+    95→
+    96→export interface PaginatedLeads {
+    97→  data: Lead[]
+    98→  total: number
+    99→  page: number
+   100→  pageSize: number
+   101→  totalPages: number
+   102→}
+   103→
+   104→export interface LeadScoreFactors {
+   105→  engagement: number
+   106→  fit: number
+   107→  behavior: number
+   108→  urgency: number
+   109→  authority: number
+   110→  total: number
+   111→}
+   112→
+   113→export interface ConversionMetrics {
+   114→  totalLeads: number
+   115→  convertedLeads: number
+   116→  conversionRate: number
+   117→  avgConversionDays: number
+   118→  avgDealValue: number
+   119→  bySource: Record<string, { total: number; converted: number; rate: number }>
+   120→  byMonth: { month: string; total: number; converted: number }[]
+   121→}
+   122→
+   123→// ============================================
+   124→// LEAD CRUD OPERATIONS
+   125→// ============================================
+   126→
+   127→/**
+   128→ * Create a new lead with automatic scoring
+   129→ */
+   130→export async function createLead(data: LeadData): Promise<Lead> {
+   131→  // Generate unique lead number
+   132→  const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '')
+   133→  const count = await db.cRMLead.count({
+   134→    where: { leadNumber: { startsWith: `LED-${dateStr}` } },
+   135→  })
+   136→  const leadNumber = `LED-${dateStr}-${String(count + 1).padStart(4, '0')}`
+   137→  
+   138→  // Determine initial pipeline stage and probability
+   139→  const initialStage = getInitialPipelineStage(data.status || 'NEW')
+   140→  const probability = getProbabilityForStage(initialStage)
+   141→  
+   142→  // Calculate initial score
+   143→  const score = calculateInitialLeadScore(data)
+   144→  
+   145→  const lead = await db.cRMLead.create({
+   146→    data: {
+   147→      id: uuidv4(),
+   148→      leadNumber,
+   149→      source: data.source,
+   150→      sourceDetails: data.sourceDetails,
+   151→      campaignId: data.campaignId,
+   152→      companyName: data.companyName,
+   153→      industry: data.industry,
+   154→      companySize: data.companySize,
+   155→      website: data.website,
+   156→      wilaya: data.wilaya,
+   157→      city: data.city,
+   158→      primaryContactId: data.contactId || '',
+   159→      status: data.status || 'NEW',
+   160→      pipelineStage: initialStage,
+   161→      estimatedValue: data.estimatedValue,
+   162→      currency: data.currency || 'DZD',
+   163→      probability,
+   164→      expectedCloseDate: data.expectedCloseDate,
+   165→      assignedTo: data.assignedTo,
+   166→      teamId: data.teamId,
+   167→      interestedCategories: JSON.stringify(data.interestedCategories || []),
+   168→      interestedProducts: JSON.stringify(data.interestedProducts || []),
+   169→      specificRequirements: data.specificRequirements,
+   170→      notes: data.notes,
+   171→      leadScore: score,
+   172→      engagementScore: 0,
+   173→    },
+   174→  })
+   175→  
+   176→  return mapLeadFromDB(lead)
+   177→}
+   178→
+   179→/**
+   180→ * Get a single lead by ID
+   181→ */
+   182→export async function getLead(id: string): Promise<Lead | null> {
+   183→  const lead = await db.cRMLead.findUnique({
+   184→    where: { id },
+   185→    include: {
+   186→      interactions: {
+   187→        orderBy: { createdAt: 'desc' },
+   188→        take: 20,
+   189→      },
+   190→      tasks: {
+   191→        orderBy: { dueDate: 'asc' },
+   192→        take: 10,
+   193→      },
+   194→    },
+   195→  })
+   196→  
+   197→  return lead ? mapLeadFromDB(lead) : null
+   198→}
+   199→
+   200→/**
+   201→ * Update a lead
+   202→ */
+   203→export async function updateLead(
+   204→  id: string,
+   205→  data: Partial<Omit<LeadData, 'ownerId'>>
+   206→): Promise<Lead> {
+   207→  const existing = await db.cRMLead.findUnique({ where: { id } })
+   208→  if (!existing) throw new Error('Lead not found')
+   209→  
+   210→  const updateData: any = {}
+   211→  
+   212→  if (data.source !== undefined) updateData.source = data.source
+   213→  if (data.sourceDetails !== undefined) updateData.sourceDetails = data.sourceDetails
+   214→  if (data.companyName !== undefined) updateData.companyName = data.companyName
+   215→  if (data.industry !== undefined) updateData.industry = data.industry
+   216→  if (data.companySize !== undefined) updateData.companySize = data.companySize
+   217→  if (data.website !== undefined) updateData.website = data.website
+   218→  if (data.wilaya !== undefined) updateData.wilaya = data.wilaya
+   219→  if (data.city !== undefined) updateData.city = data.city
+   220→  if (data.status !== undefined) {
+   221→    updateData.status = data.status
+   222→    updateData.pipelineStage = getInitialPipelineStage(data.status)
+   223→    updateData.probability = getProbabilityForStage(updateData.pipelineStage)
+   224→  }
+   225→  if (data.estimatedValue !== undefined) updateData.estimatedValue = data.estimatedValue
+   226→  if (data.currency !== undefined) updateData.currency = data.currency
+   227→  if (data.expectedCloseDate !== undefined) updateData.expectedCloseDate = data.expectedCloseDate
+   228→  if (data.assignedTo !== undefined) updateData.assignedTo = data.assignedTo
+   229→  if (data.teamId !== undefined) updateData.teamId = data.teamId
+   230→  if (data.specificRequirements !== undefined) updateData.specificRequirements = data.specificRequirements
+   231→  if (data.notes !== undefined) updateData.notes = data.notes
+   232→  if (data.interestedCategories !== undefined) updateData.interestedCategories = JSON.stringify(data.interestedCategories)
+   233→  if (data.interestedProducts !== undefined) updateData.interestedProducts = JSON.stringify(data.interestedProducts)
+   234→  
+   235→  const updated = await db.cRMLead.update({
+   236→    where: { id },
+   237→    data: updateData,
+   238→  })
+   239→  
+   240→  return mapLeadFromDB(updated)
+   241→}
+   242→
+   243→/**
+   244→ * Delete a lead
+   245→ */
+   246→export async function deleteLead(id: string): Promise<void> {
+   247→  await db.cRMLead.delete({ where: { id } })
+   248→}
+   249→
+   250→// ============================================
+   251→// LEAD SEARCH & FILTERING
+   252→// ============================================
+   253→
+   254→/**
+   255→ * Search leads with filters and pagination
+   256→ */
+   257→export async function searchLeads(
+   258→  filter: LeadFilter = {},
+   259→  options: LeadPaginationOptions = {}
+   260→): Promise<PaginatedLeads> {
+   261→  const page = options.page || 1
+   262→  const pageSize = Math.min(options.pageSize || 20, 100)
+   263→  const skip = (page - 1) * pageSize
+   264→  
+   265→  const where: any = {}
+   266→  
+   267→  // Owner filter
+   268→  if (filter.ownerId) {
+   269→    where.assignedTo = filter.ownerId // Using assignedTo as owner filter for now
+   270→  }
+   271→  
+   272→  // Search query
+   273→  if (filter.search) {
+   274→    where.OR = [
+   275→      { companyName: { contains: filter.search, mode: 'insensitive' } },
+   276→      { leadNumber: { contains: filter.search } },
+   277→      { industry: { contains: filter.search, mode: 'insensitive' } },
+   278→      { website: { contains: filter.search } },
+   279→      { notes: { contains: filter.search, mode: 'insensitive' } },
+   280→    ]
+   281→  }
+   282→  
+   283→  // Status filter
+   284→  if (filter.status) {
+   285→    where.status = filter.status
+   286→  }
+   287→  
+   288→  // Pipeline stage filter
+   289→  if (filter.pipelineStage) {
+   290→    where.pipelineStage = filter.pipelineStage
+   291→  }
+   292→  
+   293→  // Source filter
+   294→  if (filter.source) {
+   295→    where.source = filter.source
+   296→  }
+   297→  
+   298→  // Assignment filter
+   299→  if (filter.assignedTo) {
+   300→    where.assignedTo = filter.assignedTo
+   301→  }
+   302→  
+   303→  // Score range filters
+   304→  if (filter.scoreMin !== undefined || filter.scoreMax !== undefined) {
+   305→    where.leadScore = {}
+   306→    if (filter.scoreMin !== undefined) where.leadScore.gte = filter.scoreMin
+   307→    if (filter.scoreMax !== undefined) where.leadScore.lte = filter.scoreMax
+   308→  }
+   309→  
+   310→  // Value range filters
+   311→  if (filter.valueMin !== undefined || filter.valueMax !== undefined) {
+   312→    where.estimatedValue = {}
+   313→    if (filter.valueMin !== undefined) where.estimatedValue.gte = filter.valueMin
+   314→    if (filter.valueMax !== undefined) where.estimatedValue.lte = filter.valueMax
+   315→  }
+   316→  
+   317→  // Expected close date filters
+   318→  if (filter.expectedCloseFrom || filter.expectedCloseTo) {
+   319→    where.expectedCloseDate = {}
+   320→    if (filter.expectedCloseFrom) where.expectedCloseDate.gte = filter.expectedCloseFrom
+   321→    if (filter.expectedCloseTo) where.expectedCloseDate.lte = filter.expectedCloseTo
+   322→  }
+   323→  
+   324→  // Created date filters
+   325→  if (filter.createdFrom || filter.createdTo) {
+   326→    where.createdAt = {}
+   327→    if (filter.createdFrom) where.createdAt.gte = filter.createdFrom
+   328→    if (filter.createdTo) where.createdAt.lte = filter.createdTo
+   329→  }
+   330→  
+   331→  // Converted filter
+   332→  if (filter.isConverted === true) {
+   333→    where.convertedToCompanyId = { not: null }
+   334→  } else if (filter.isConverted === false) {
+   335→    where.convertedToCompanyId = null
+   336→  }
+   337→  
+   338→  const [leads, total] = await Promise.all([
+   339→    db.cRMLead.findMany({
+   340→      where,
+   341→      skip,
+   342→      take: pageSize,
+   343→      orderBy: {
+   344→        [(options.sortBy || 'createdAt')]: options.sortOrder || 'desc',
+   345→      },
+   346→    }),
+   347→    db.cRMLead.count({ where }),
+   348→  ])
+   349→  
+   350→  return {
+   351→    data: leads.map(mapLeadFromDB),
+   352→    total,
+   353→    page,
+   354→    pageSize,
+   355→    totalPages: Math.ceil(total / pageSize),
+   356→  }
+   357→}
+   358→
+   359→/**
+   360→ * Get leads by pipeline stage
+   361→ */
+   362→export async function getLeadsByStage(stage: string, limit?: number): Promise<Lead[]> {
+   363→  const leads = await db.cRMLead.findMany({
+   364→    where: { pipelineStage: stage },
+   365→    orderBy: { probability: 'desc' },
+   366→    take: limit || 50,
+   367→  })
+   368→  
+   369→  return leads.map(mapLeadFromDB)
+   370→}
+   371→
+   372→// ============================================
+   373→// LEAD SCORING ALGORITHM
+   374→// ============================================
+   375→
+   376→/**
+   377→ * Calculate initial lead score based on source and attributes
+   378→ */
+   379→function calculateInitialLeadScore(data: LeadData): number {
+   380→  let score = 10 // Base score
+   381→  
+   382→  // Source scoring
+   383→  const sourceConfig = LEAD_SOURCES.find(s => s.source === data.source)
+   384→  score += sourceConfig?.defaultScore || 5
+   385→  
+   386→  // Company size scoring
+   387→  const sizeScores: Record<string, number> = {
+   388→    '500+': 20,
+   389→    '201-500': 18,
+   390→    '51-200': 15,
+   391→    '11-50': 10,
+   392→    '1-10': 5,
+   393→    'solo': 3,
+   394→  }
+   395→  score += sizeScores[data.companySize || ''] || 5
+   396→  
+   397→  // Value scoring
+   398→  const value = data.estimatedValue
+   399→  if (value >= 10000000) score += 25 // 10M+
+   400→  else if (value >= 5000000) score += 20 // 5M+
+   401→  else if (value >= 1000000) score += 15 // 1M+
+   402→  else if (value >= 500000) score += 10 // 500K+
+   403→  else if (value >= 100000) score += 5 // 100K+
+   404→  
+   405→  // Industry bonus (certain industries are more valuable)
+   406→  const highValueIndustries = ['oil_gas', 'mining', 'construction', 'manufacturing', 'telecommunications']
+   407→  if (data.industry && highValueIndustries.some(i => data.industry!.toLowerCase().includes(i))) {
+   408→    score += 10
+   409→  }
+   410→  
+   411→  return Math.min(Math.max(score, 0), 100)
+   412→}
+   413→
+   414→/**
+   415→ * Recalculate lead score based on all factors
+   416→ */
+   417→export async function recalculateLeadScore(leadId: string): Promise<{ score: number; factors: LeadScoreFactors }> {
+   418→  const lead = await db.cRMLead.findUnique({
+   419→    where: { id: leadId },
+   420→    include: {
+   421→      interactions: true,
+   422→      tasks: true,
+   423→    },
+   424→  })
+   425→  
+   426→  if (!lead) throw new Error('Lead not found')
+   427→  
+   428→  const factors: LeadScoreFactors = {
+   429→    engagement: 0,
+   430→    fit: 0,
+   431→    behavior: 0,
+   432→    urgency: 0,
+   433→    authority: 0,
+   434→    total: 0,
+   435→  }
+   436→  
+   437→  // Engagement scoring (max 30 points)
+   438→  const interactionCount = lead.interactions.length
+   439→  factors.engagement = Math.min(interactionCount * 3, 25)
+   440→  
+   441→  // Recent interactions boost
+   442→  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+   443→  const recentInteractions = lead.interactions.filter(i => 
+   444→    new Date(i.createdAt) > thirtyDaysAgo
+   445→  )
+   446→  factors.engagement += Math.min(recentInteractions.length * 1.5, 5)
+   447→  
+   448→  // Fit scoring (max 25 points)
+   449→  const sourceConfig = LEAD_SOURCES.find(s => s.source === lead.source)
+   450→  factors.fit = Math.min((sourceConfig?.defaultScore || 5) * 0.8, 20)
+   451→  
+   452→  // Company size fit
+   453→  const sizeFit: Record<string, number> = {
+   454→    '500+': 5, '201-500': 4, '51-200': 3, '11-50': 2, '1-10': 1,
+   455→  }
+   456→  factors.fit += sizeFit[lead.companySize || ''] || 1
+   457→  
+   458→  // Behavior scoring (max 20 points)
+   459→  const completedTasks = lead.tasks.filter(t => t.status === 'COMPLETED')
+   460→  factors.behavior = Math.min(completedTasks.length * 5, 15)
+   461→  
+   462→  // Meeting/booked demo indicators
+   463→  const hasMeeting = lead.interactions.some(i => i.type === 'MEETING')
+   464→  if (hasMeeting) factors.behavior += 5
+   465→  
+   466→  // Urgency scoring (max 15 points)
+   467→  const daysUntilClose = Math.ceil(
+   468→    (new Date(lead.expectedCloseDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+   469→  )
+   470→  
+   471→  if (daysUntilClose <= 7 && daysUntilClose > 0) {
+   472→    factors.urgency = 15 // Very urgent
+   473→  } else if (daysUntilClose <= 30) {
+   474→    factors.urgency = 10 // Somewhat urgent
+   475→  } else if (daysUntilClose <= 90) {
+   476→    factors.urgency = 5 // Normal timeline
+   477→  }
+   478→  
+   479→  // Authority scoring (max 10 points)
+   480→  // This would typically come from contact role information
+   481→  factors.authority = 5 // Default assumption
+   482→  
+   483→  // Calculate total
+   484→  factors.total = Math.min(
+   485→    factors.engagement + factors.fit + factors.behavior + factors.urgency + factors.authority,
+   486→    100
+   487→  )
+   488→  
+   489→  // Update the lead
+   490→  await db.cRMLead.update({
+   491→    where: { id: leadId },
+   492→    data: {
+   493→      leadScore: factors.total,
+   494→      engagementScore: Math.min(factors.engagement + factors.behavior, 100),
+   495→    },
+   496→  })
+   497→  
+   498→  return { score: factors.total, factors }
+   499→}
+   500→
+   501→/**
+   502→ * Get leads that need attention (high score but stalled)
+   503→ */
+   504→export async function getStalledLeads(ownerId: string, daysThreshold: number = 14): Promise<Lead[]> {
+   505→  const thresholdDate = new Date()
+   506→  thresholdDate.setDate(thresholdDate.getDate() - daysThreshold)
+   507→  
+   508→  const leads = await db.cRMLead.findMany({
+   509→    where: {
+   510→      assignedTo: ownerId,
+   511→      status: { in: ['NEW', 'CONTACTED', 'QUALIFIED', 'PROPOSAL'] },
+   512→      OR: [
+   513→        { updatedAt: { lt: thresholdDate } },
+   514→        { lastInteractionAt: { lt: thresholdDate } },
+   515→      ],
+   516→      leadScore: { gte: 50 },
+   517→    },
+   518→    orderBy: { leadScore: 'desc' },
+   519→  })
+   520→  
+   521→  return leads.map(mapLeadFromDB)
+   522→}
+   523→
+   524→// ============================================
+   525→// LEAD QUALIFICATION
+   526→// ============================================
+   527→
+   528→/**
+   529→ * Qualify a lead (move to qualified stage)
+   530→ */
+   531→export async function qualifyLead(
+   532→  leadId: string,
+   533→  qualificationNotes?: string
+   534→): Promise<Lead> {
+   535→  const lead = await db.cRMLead.findUnique({ where: { id: leadId } })
+   536→  if (!lead) throw new Error('Lead not found')
+   537→  
+   538→  // Boost score when qualifying
+   539→  const newScore = Math.min(lead.leadScore + 15, 100)
+   540→  
+   541→  const updated = await db.cRMLead.update({
+   542→    where: { id: leadId },
+   543→    data: {
+   544→      status: 'QUALIFIED',
+   545→      pipelineStage: 'qualified',
+   546→      probability: 35,
+   547→      leadScore: newScore,
+   548→      notes: qualificationNotes 
+   549→        ? `${lead.notes || ''}\n\n[Qualification] ${qualificationNotes}` 
+   550→        : lead.notes,
+   551→    },
+   552→  })
+   553→  
+   554→  return mapLeadFromDB(updated)
+   555→}
+   556→
+   557→/**
+   558→ * Disqualify a lead (move to lost with reason)
+   559→ */
+   560→export async function disqualifyLead(
+   561→  leadId: string,
+   562→  reason: string,
+   563→  competitor?: string
+   564→): Promise<Lead> {
+   565→  const updated = await db.cRMLead.update({
+   566→    where: { id: leadId },
+   567→    data: {
+   568→      status: 'LOST',
+   569→      pipelineStage: 'closed_lost',
+   570→      probability: 0,
+   571→      lostReason: reason,
+   572→      lostToCompetitor: competitor,
+   573→    },
+   574→  })
+   575→  
+   576→  return mapLeadFromDB(updated)
+   577→}
+   578→
+   579→// ============================================
+   580→// STAGE TRANSITIONS
+   581→// ============================================
+   582→
+   583→/**
+   584→ * Move lead to a new pipeline stage
+   585→ */
+   586→export async function moveLeadToStage(
+   587→  leadId: string,
+   588→  newStage: string,
+   589→  notes?: string
+   590→): Promise<Lead> {
+   591→  const validStages = ['lead', 'qualified', 'proposal', 'negotiation', 'closed_won', 'closed_lost']
+   592→  if (!validStages.includes(newStage)) {
+   593→    throw new Error(`Invalid stage: ${newStage}`)
+   594→  }
+   595→  
+   596→  const probability = getProbabilityForStage(newStage)
+   597→  const status = getStatusFromStage(newStage)
+   598→  
+   599→  const updated = await db.cRMLead.update({
+   600→    where: { id: leadId },
+   601→    data: {
+   602→      pipelineStage: newStage,
+   603→      probability,
+   604→      status,
+   605→      ...(notes && { notes }),
+   606→    },
+   607→  })
+   608→  
+   609→  return mapLeadFromDB(updated)
+   610→}
+   611→
+   612→function getInitialPipelineStage(status: LeadStatus): string {
+   613→  const stageMap: Record<LeadStatus, string> = {
+   614→    NEW: 'lead',
+   615→    CONTACTED: 'lead',
+   616→    QUALIFIED: 'qualified',
+   617→    PROPOSAL: 'proposal',
+   618→    NEGOTIATION: 'negotiation',
+   619→    WON: 'closed_won',
+   620→    LOST: 'closed_lost',
+   621→  }
+   622→  return stageMap[status] || 'lead'
+   623→}
+   624→
+   625→function getProbabilityForStage(stage: string): number {
+   626→  const probabilities: Record<string, number> = {
+   627→    lead: 5,
+   628→    qualified: 20,
+   629→    proposal: 40,
+   630→    negotiation: 65,
+   631→    closed_won: 100,
+   632→    closed_lost: 0,
+   633→  }
+   634→  return probabilities[stage] || 5
+   635→}
+   636→
+   637→function getStatusFromStage(stage: string): LeadStatus {
+   638→  const statusMap: Record<string, LeadStatus> = {
+   639→    lead: 'NEW',
+   640→    qualified: 'QUALIFIED',
+   641→    proposal: 'PROPOSAL',
+   642→    negotiation: 'NEGOTIATION',
+   643→    closed_won: 'WON',
+   644→    closed_lost: 'LOST',
+   645→  }
+   646→  return statusMap[stage] || 'NEW'
+   647→}
+   648→
+   649→// ============================================
+   650→// CONVERSION TRACKING
+   651→// ============================================
+   652→
+   653→/**
+   654→ * Convert a lead to a deal/opportunity
+   655→ */
+   656→export async function convertLeadToDeal(
+   657→  leadId: string,
+   658→  dealData?: {
+   659→    title?: string
+   660→    value?: number
+   661→    expectedCloseDate?: Date
+   662→  }
+   663→): Promise<Lead> {
+   664→  const lead = await db.cRMLead.findUnique({ where: { id: leadId } })
+   665→  if (!lead) throw new Error('Lead not found')
+   666→  if (lead.convertedToCompanyId) throw new Error('Lead already converted')
+   667→  
+   668→  // Generate deal ID reference
+   669→  const dealId = uuidv4()
+   670→  
+   671→  const updated = await db.cRMLead.update({
+   672→    where: { id: leadId },
+   673→    data: {
+   674→      status: 'WON',
+   675→      pipelineStage: 'closed_won',
+   676→      probability: 100,
+   677→      convertedToDealId: dealId,
+   678→      convertedAt: new Date(),
+   679→      ...(dealData?.value && { estimatedValue: dealData.value }),
+   680→      ...(dealData?.expectedCloseDate && { expectedCloseDate: dealData.expectedCloseDate }),
+   681→    },
+   682→  })
+   683→  
+   684→  return mapLeadFromDB(updated)
+   685→}
+   686→
+   687→/**
+   688→ * Get conversion metrics
+   689→ */
+   690→export async function getConversionMetrics(
+   691→  ownerId: string,
+   692→  dateFrom?: Date,
+   693→  dateTo?: Date
+   694→): Promise<ConversionMetrics> {
+   695→  const where: any = { assignedTo: ownerId }
+   696→  
+   697→  if (dateFrom || dateTo) {
+   698→    where.createdAt = {}
+   699→    if (dateFrom) where.createdAt.gte = dateFrom
+   700→    if (dateTo) where.createdAt.lte = dateTo
+   701→  }
+   702→  
+   703→  const [allLeads, convertedLeads] = await Promise.all([
+   704→    db.cRMLead.findMany({ where }),
+   705→    db.cRMLead.findMany({
+   706→      where: { ...where, convertedToCompanyId: { not: null } },
+   707→    }),
+   708→  ])
+   709→  
+   710→  // Calculate average conversion time
+   711→  let totalConversionDays = 0
+   712→  for (const lead of convertedLeads) {
+   713→    if (lead.convertedAt) {
+   714→      const days = Math.ceil(
+   715→        (new Date(lead.convertedAt).getTime() - new Date(lead.createdAt).getTime()) 
+   716→        / (1000 * 60 * 60 * 24)
+   717→      )
+   718→      totalConversionDays += days
+   719→    }
+   720→  }
+   721→  
+   722→  // Group by source
+   723→  const bySource: Record<string, { total: number; converted: number; rate: number }> = {}
+   724→  for (const source of LEAD_SOURCES.map(s => s.source)) {
+   725→    const sourceLeads = allLeads.filter(l => l.source === source)
+   726→    const sourceConverted = convertedLeads.filter(l => l.source === source)
+   727→    bySource[source] = {
+   728→      total: sourceLeads.length,
+   729→      converted: sourceConverted.length,
+   730→      rate: sourceLeads.length > 0 ? (sourceConverted.length / sourceLeads.length) * 100 : 0,
+   731→    }
+   732→  }
+   733→  
+   734→  // Group by month
+   735→  const byMonth: { month: string; total: number; converted: number }[] = []
+   736→  const monthGroups: Record<string, { total: number; converted: number }> = {}
+   737→  
+   738→  for (const lead of allLeads) {
+   739→    const month = new Date(lead.createdAt).toISOString().slice(0, 7) // YYYY-MM
+   740→    if (!monthGroups[month]) {
+   741→      monthGroups[month] = { total: 0, converted: 0 }
+   742→    }
+   743→    monthGroups[month].total++
+   744→  }
+   745→  
+   746→  for (const lead of convertedLeads) {
+   747→    const month = new Date(lead.createdAt).toISOString().slice(0, 7)
+   748→    if (monthGroups[month]) {
+   749→      monthGroups[month].converted++
+   750→    }
+   751→  }
+   752→  
+   753→  for (const [month, counts] of Object.entries(monthGroups)) {
+   754→    byMonth.push({ month, ...counts })
+   755→  }
+   756→  byMonth.sort((a, b) => a.month.localeCompare(b.month))
+   757→  
+   758→  return {
+   759→    totalLeads: allLeads.length,
+   760→    convertedLeads: convertedLeads.length,
+   761→    conversionRate: allLeads.length > 0 ? (convertedLeads.length / allLeads.length) * 100 : 0,
+   762→    avgConversionDays: convertedLeads.length > 0 ? totalConversionDays / convertedLeads.length : 0,
+   763→    avgDealValue: convertedLeads.reduce((sum, l) => sum + l.estimatedValue, 0) / (convertedLeads.length || 1),
+   764→    bySource,
+   765→    byMonth,
+   766→  }
+   767→}
+   768→
+   769→// ============================================
+   770→// ASSIGNMENT
+   771→// ============================================
+   772→
+   773→/**
+   774→ * Assign lead to a user
+   775→ */
+   776→export async function assignLead(leadId: string, userId: string): Promise<Lead> {
+   777→  const updated = await db.cRMLead.update({
+   778→    where: { id: leadId },
+   779→    data: { assignedTo: userId },
+   780→  })
+   781→  
+   782→  return mapLeadFromDB(updated)
+   783→}
+   784→
+   785→/**
+   786→ * Auto-assign leads using round-robin
+   787→ */
+   788→export async function autoAssignLead(
+   789→  leadId: string,
+   790→  teamMembers: string[]
+   791→): Promise<Lead> {
+   792→  // Find who has the least leads
+   793→  const leadCounts: Record<string, number> = {}
+   794→  
+   795→  for (const memberId of teamMembers) {
+   796→    const count = await db.cRMLead.count({
+   797→      where: {
+   798→        assignedTo: memberId,
+   799→        status: { in: ['NEW', 'CONTACTED', 'QUALIFIED', 'PROPOSAL', 'NEGOTIATION'] },
+   800→      },
+   801→    })
+   802→    leadCounts[memberId] = count
+   803→  }
+   804→  
+   805→  // Sort by count and pick the one with least leads
+   806→  const sortedMembers = teamMembers.sort((a, b) => (leadCounts[a] || 0) - (leadCounts[b] || 0))
+   807→  const assignee = sortedMembers[0]
+   808→  
+   809→  return assignLead(leadId, assignee)
+   810→}
+   811→
+   812→// ============================================
+   813→// HELPERS
+   814→// ============================================
+   815→
+   816→function mapLeadFromDB(dbLead: any): Lead {
+   817→  return {
+   818→    id: dbLead.id,
+   819→    ownerId: dbLead.assignedTo, // Using assignedTo as owner reference
+   820→    contactId: dbLead.primaryContactId || undefined,
+   821→    source: dbLead.source as LeadSource,
+   822→    sourceDetails: dbLead.sourceDetails || undefined,
+   823→    campaignId: dbLead.campaignId || undefined,
+   824→    companyName: dbLead.companyName,
+   825→    industry: dbLead.industry || undefined,
+   826→    companySize: dbLead.companySize || undefined,
+   827→    website: dbLead.website || undefined,
+   828→    wilaya: dbLead.wilaya || undefined,
+   829→    city: dbLead.city || undefined,
+   830→    status: dbLead.status as LeadStatus,
+   831→    estimatedValue: dbLead.estimatedValue,
+   832→    currency: dbLead.currency || 'DZD',
+   833→    expectedCloseDate: dbLead.expectedCloseDate,
+   834→    assignedTo: dbLead.assignedTo,
+   835→    teamId: dbLead.teamId || undefined,
+   836→    interestedCategories: JSON.parse(dbLead.interestedCategories || '[]'),
+   837→    interestedProducts: JSON.parse(dbLead.interestedProducts || '[]'),
+   838→    specificRequirements: dbLead.specificRequirements || undefined,
+   839→    notes: dbLead.notes || undefined,
+   840→    leadNumber: dbLead.leadNumber,
+   841→    score: dbLead.leadScore,
+   842→    engagementScore: dbLead.engagementScore,
+   843→    probability: dbLead.probability,
+   844→    pipelineStage: dbLead.pipelineStage,
+   845→    convertedToDealId: dbLead.convertedToDealId || undefined,
+   846→    convertedAt: dbLead.convertedAt || undefined,
+   847→    lossReason: dbLead.lostReason || undefined,
+   848→    lostToCompetitor: dbLead.lostToCompetitor || undefined,
+   849→    createdAt: dbLead.createdAt,
+   850→    updatedAt: dbLead.updatedAt,
+   851→  }
+   852→}
+   853→

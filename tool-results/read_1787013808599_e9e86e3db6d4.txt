@@ -1,0 +1,706 @@
+     1→'use client'
+     2→
+     3→import React, { useState, useEffect, useCallback } from 'react'
+     4→import {
+     5→  Search,
+     6→  Filter,
+     7→  Download,
+     8→  Eye,
+     9→  CheckCircle2,
+    10→  XCircle,
+    11→  Clock,
+    12→  RefreshCw,
+    13→  ArrowUpDown,
+    14→  MoreVertical,
+    15→  CreditCard,
+    16→  Building2,
+    17→  Smartphone,
+    18→  Landmark,
+    19→  Banknote,
+    20→} from 'lucide-react'
+    21→import { Button } from '@/components/ui/button'
+    22→import { Input } from '@/components/ui/input'
+    23→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+    24→import {
+    25→  Select,
+    26→  SelectContent,
+    27→  SelectItem,
+    28→  SelectTrigger,
+    29→  SelectValue,
+    30→} from '@/components/ui/select'
+    31→import {
+    32→  Table,
+    33→  TableBody,
+    34→  TableCell,
+    35→  TableHead,
+    36→  TableHeader,
+    37→  TableRow,
+    38→} from '@/components/ui/table'
+    39→import {
+    40→  DropdownMenu,
+    41→  DropdownMenuContent,
+    42→  DropdownMenuItem,
+    43→  DropdownMenuSeparator,
+    44→  DropdownMenuTrigger,
+    45→} from '@/components/ui/dropdown-menu'
+    46→import { Badge } from '@/components/ui/badge'
+    47→import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+    48→import { Textarea } from '@/components/ui/textarea'
+    49→import { Label } from '@/components/ui/label'
+    50→import { cn, formatDZD } from '@/lib/utils'
+    51→import type { PaymentStatus } from '@/components/payments/PaymentStatusTracker'
+    52→
+    53→// Types
+    54→interface PaymentRecord {
+    55→  id: string
+    56→  orderId: string
+    57→  orderNumber: string
+    58→  amount: number
+    59→  currency: string
+    60→  method: string
+    61→  status: PaymentStatus
+    62→  referenceNumber: string | null
+    63→  paidAt: Date | null
+    64→  failureReason: string | null
+    65→  createdAt: Date
+    66→  buyerName: string | null
+    67→  buyerEmail: string | null
+    68→  companyName: string | null
+    69→  needsVerification: boolean
+    70→}
+    71→
+    72→interface PaymentsStats {
+    73→  total: number
+    74→  byStatus: Record<string, number>
+    75→  amounts: {
+    76→    total: number
+    77→    completed: number
+    78→  }
+    79→}
+    80→
+    81→// Mock data for demo
+    82→const mockPayments: PaymentRecord[] = [
+    83→  {
+    84→    id: 'pay_1',
+    85→    orderId: 'order_1',
+    86→    orderNumber: 'ORD-2024-001234',
+    87→    amount: 125000,
+    88→    currency: 'DZD',
+    89→    method: 'CIB',
+    90→    status: 'COMPLETED',
+    91→    referenceNumber: 'CIB-20240115-A3F7K',
+    92→    paidAt: new Date('2024-01-15T10:30:00'),
+    93→    createdAt: new Date('2024-01-15T10:28:00'),
+    94→    buyerName: 'Ahmed Benali',
+    95→    buyerEmail: 'ahmed@entreprise.dz',
+    96→    companyName: 'Algeria Foods Export',
+    97→    needsVerification: false,
+    98→  },
+    99→  {
+   100→    id: 'pay_2',
+   101→    orderId: 'order_2',
+   102→    orderNumber: 'ORD-2024-001235',
+   103→    amount: 85000,
+   104→    currency: 'DZD',
+   105→    method: 'CCP',
+   106→    status: 'PENDING_VERIFICATION',
+   107→    referenceNumber: 'CCP-20240114-B8M2N',
+   108→    paidAt: null,
+   109→    createdAt: new Date('2024-01-14T14:20:00'),
+   110→    buyerName: 'Fatima Zerhouni',
+   111→    buyerEmail: 'fatima@company.dz',
+   112→    companyName: 'TechSupply Algérie',
+   113→    needsVerification: true,
+   114→  },
+   115→  {
+   116→    id: 'pay_3',
+   117→    orderId: 'order_3',
+   118→    orderNumber: 'ORD-2024-001236',
+   119→    amount: 250000,
+   120→    currency: 'DZD',
+   121→    method: 'BARIDIMOB',
+   122→    status: 'COMPLETED',
+   123→    referenceNumber: 'BM-20240114-X9P4Q',
+   124→    paidAt: new Date('2024-01-14T09:15:00'),
+   125→    createdAt: new Date('2024-01-14T09:12:00'),
+   126→    buyerName: 'Karim Hadj',
+   127→    buyerEmail: 'karim@business.dz',
+   128→    companyName: 'Industrial Parts SA',
+   129→    needsVerification: false,
+   130→  },
+   131→  {
+   132→    id: 'pay_4',
+   133→    orderId: 'order_4',
+   134→    orderNumber: 'ORD-2024-001237',
+   135→    amount: 45000,
+   136→    currency: 'DZD',
+   137→    method: 'BANK_TRANSFER',
+   138→    status: 'PENDING_VERIFICATION',
+   139→    referenceNumber: 'VB-20240113-K5L8M',
+   140→    paidAt: null,
+   141→    createdAt: new Date('2024-01-13T16:45:00'),
+   142→    buyerName: 'Sara Amrani',
+   143→    buyerEmail: 'sara@commerce.dz',
+   144→    companyName: 'Algeria Foods Export',
+   145→    needsVerification: true,
+   146→  },
+   147→  {
+   148→    id: 'pay_5',
+   149→    orderId: 'order_5',
+   150→    orderNumber: 'ORD-2024-001238',
+   151→    amount: 175000,
+   152→    currency: 'DZD',
+   153→    method: 'CIB',
+   154→    status: 'FAILED',
+   155→    referenceNumber: 'CIB-20240113-R7T2W',
+   156→    paidAt: null,
+   157→    failureReason: 'Fonds insuffisants',
+   158→    createdAt: new Date('2024-01-13T11:30:00'),
+   159→    buyerName: 'Youssef Mansouri',
+   160→    buyerEmail: 'youssef@group.dz',
+   161→    companyName: 'Bâtiment Plus',
+   162→    needsVerification: false,
+   163→  },
+   164→  {
+   165→    id: 'pay_6',
+   166→    orderId: 'order_6',
+   167→    orderNumber: 'ORD-2024-001239',
+   168→    amount: 95000,
+   169→    currency: 'DZD',
+   170→    method: 'COD',
+   171→    status: 'PROCESSING',
+   172→    referenceNumber: 'COD-20240112-P3H6J',
+   173→    paidAt: null,
+   174→    createdAt: new Date('2024-01-12T08:20:00'),
+   175→    buyerName: 'Lila Bouazza',
+   176→    buyerEmail: 'lila@retail.dz',
+   177→    companyName: 'TechSupply Algérie',
+   178→    needsVerification: false,
+   179→  },
+   180→]
+   181→
+   182→export default function AdminPaymentsPage() {
+   183→  // State
+   184→  const [payments, setPayments] = useState<PaymentRecord[]>(mockPayments)
+   185→  const [filteredPayments, setFilteredPayments] = useState<PaymentRecord[]>(mockPayments)
+   186→  const [stats, setStats] = useState<PaymentsStats>({
+   187→    total: mockPayments.length,
+   188→    byStatus: {
+   189→      PENDING: 0,
+   190→      PROCESSING: 1,
+   191→      COMPLETED: 2,
+   192→      FAILED: 1,
+   193→      PENDING_VERIFICATION: 2,
+   194→    },
+   195→    amounts: {
+   196→      total: 775000,
+   197→      completed: 375000,
+   198→    },
+   199→  })
+   200→  
+   201→  const [searchQuery, setSearchQuery] = useState('')
+   202→  const [statusFilter, setStatusFilter] = useState<string>('all')
+   203→  const [methodFilter, setMethodFilter] = useState<string>('all')
+   204→  const [isLoading, setIsLoading] = useState(false)
+   205→  
+   206→  // Dialog state
+   207→  const [selectedPayment, setSelectedPayment] = useState<PaymentRecord | null>(null)
+   208→  const [dialogOpen, setDialogOpen] = useState(false)
+   209→  const [dialogAction, setDialogAction] = useState<'verify' | 'reject' | 'refund' | null>(null)
+   210→  const [rejectionReason, setRejectionReason] = useState('')
+   211→  const [notes, setNotes] = useState('')
+   212→
+   213→  // Filter payments
+   214→  useEffect(() => {
+   215→    let filtered = [...payments]
+   216→
+   217→    if (statusFilter !== 'all') {
+   218→      filtered = filtered.filter(p => p.status === statusFilter)
+   219→    }
+   220→
+   221→    if (methodFilter !== 'all') {
+   222→      filtered = filtered.filter(p => p.method === methodFilter)
+   223→    }
+   224→
+   225→    if (searchQuery) {
+   226→      const query = searchQuery.toLowerCase()
+   227→      filtered = filtered.filter(p =>
+   228→        p.orderNumber.toLowerCase().includes(query) ||
+   229→        p.referenceNumber?.toLowerCase().includes(query) ||
+   230→        p.buyerName?.toLowerCase().includes(query) ||
+   231→        p.companyName?.toLowerCase().includes(query)
+   232→      )
+   233→    }
+   234→
+   235→    setFilteredPayments(filtered)
+   236→  }, [payments, statusFilter, methodFilter, searchQuery])
+   237→
+   238→  // Handle action dialog open
+   239→  const handleOpenActionDialog = (payment: PaymentRecord, action: 'verify' | 'reject' | 'refund') => {
+   240→    setSelectedPayment(payment)
+   241→    setDialogAction(action)
+   242→    setRejectionReason('')
+   243→    setNotes('')
+   244→    setDialogOpen(true)
+   245→  }
+   246→
+   247→  // Handle action submit
+   248→  const handleSubmitAction = async () => {
+   249→    if (!selectedPayment || !dialogAction) return
+   250→
+   251→    setIsLoading(true)
+   252→
+   253→    try {
+   254→      // Simulate API call
+   255→      await new Promise(resolve => setTimeout(resolve, 1000))
+   256→
+   257→      // Update local state
+   258→      const updatedPayments = payments.map(p => {
+   259→        if (p.id === selectedPayment.id) {
+   260→          switch (dialogAction) {
+   261→            case 'verify':
+   262→              return { ...p, status: 'COMPLETED' as PaymentStatus, paidAt: new Date(), needsVerification: false }
+   263→            case 'reject':
+   264→              return { ...p, status: 'FAILED' as PaymentStatus, failureReason: rejectionReason || 'Rejeté par l\'administrateur', needsVerification: false }
+   265→            case 'refund':
+   266→              return { ...p, status: 'REFUNDED' as PaymentStatus }
+   267→            default:
+   268→              return p
+   269→          }
+   270→        }
+   271→        return p
+   272→      })
+   273→
+   274→      setPayments(updatedPayments)
+   275→      setDialogOpen(false)
+   276→    } catch (error) {
+   277→      console.error('Action error:', error)
+   278→    } finally {
+   279→      setIsLoading(false)
+   280→    }
+   281→  }
+   282→
+   283→  // Get method icon
+   284→  const getMethodIcon = (method: string) => {
+   285→    switch (method) {
+   286→      case 'CIB': return <CreditCard className="h-4 w-4" />
+   287→      case 'CCP': return <Building2 className="h-4 w-4" />
+   288→      case 'BARIDIMOB': return <Smartphone className="h-4 w-4" />
+   289→      case 'BANK_TRANSFER': return <Landmark className="h-4 w-4" />
+   290→      case 'COD': return <Banknote className="h-4 w-4" />
+   291→      default: return <CreditCard className="h-4 w-4" />
+   292→    }
+   293→  }
+   294→
+   295→  // Get method name
+   296→  const getMethodName = (method: string): string => {
+   297→    const names: Record<string, string> = {
+   298→      CIB: 'Carte Bancaire',
+   299→      CCP: 'Chèque Postale',
+   300→      BARIDIMOB: 'BaridiMob',
+   301→      BANK_TRANSFER: 'Virement Bancaire',
+   302→      COD: 'Paiement à la Livraison',
+   303→    }
+   304→    return names[method] || method
+   305→  }
+   306→
+   307→  // Status badge config
+   308→  const getStatusBadge = (status: PaymentStatus) => {
+   309→    const configs: Record<PaymentStatus, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; className: string }> = {
+   310→      PENDING: { label: 'En attente', variant: 'outline', className: 'bg-gray-100 text-gray-700 border-gray-300' },
+   311→      PROCESSING: { label: 'En cours', variant: 'secondary', className: 'bg-blue-100 text-blue-700' },
+   312→      COMPLETED: { label: 'Complété', variant: 'default', className: 'bg-green-100 text-green-700 border-green-200' },
+   313→      FAILED: { label: 'Échoué', variant: 'destructive', className: 'bg-red-100 text-red-700' },
+   314→      REFUNDED: { label: 'Remboursé', variant: 'outline', className: 'bg-purple-100 text-purple-700' },
+   315→      PENDING_VERIFICATION: { label: 'À vérifier', variant: 'secondary', className: 'bg-yellow-100 text-yellow-700' },
+   316→      CANCELLED: { label: 'Annulé', variant: 'outline', className: 'bg-gray-100 text-gray-500' },
+   317→    }
+   318→    
+   319→    const config = configs[status]
+   320→    return (
+   321→      <span className={cn("inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium", config.className)}>
+   322→        {config.label}
+   323→      </span>
+   324→    )
+   325→  }
+   326→
+   327→  return (
+   328→    <div className="min-h-screen bg-gray-50">
+   329→      {/* Header */}
+   330→      <header className="bg-white border-b">
+   331→        <div className="max-w-7xl mx-auto px-4 py-6">
+   332→          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+   333→            <div>
+   334→              <h1 className="text-2xl font-bold text-gray-900">Gestion des Paiements</h1>
+   335→              <p className="text-sm text-gray-500 mt-1">Gérez et vérifiez les transactions de paiement</p>
+   336→            </div>
+   337→            
+   338→            <div className="flex gap-3">
+   339→              <Button variant="outline" size="sm">
+   340→                <Download className="h-4 w-4 mr-2" />
+   341→                Exporter
+   342→              </Button>
+   343→              <Button 
+   344→                size="sm" 
+   345→                onClick={() => window.location.reload()}
+   346→                className="bg-[#006233] hover:bg-[#004d28]"
+   347→              >
+   348→                <RefreshCw className={cn("h-4 w-4 mr-2", isLoading && "animate-spin")} />
+   349→                Actualiser
+   350→              </Button>
+   351→            </div>
+   352→          </div>
+   353→        </div>
+   354→      </header>
+   355→
+   356→      <main className="max-w-7xl mx-auto px-4 py-6 space-y-6">
+   357→        {/* Stats Cards */}
+   358→        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+   359→          <StatCard 
+   360→            title="Total" 
+   361→            value={stats.total.toString()} 
+   362→            subtitle={`${formatDZD(stats.amounts.total)}`}
+   363→            icon={<CreditCard className="h-5 w-5" />}
+   364→          />
+   365→          <StatCard 
+   366→            title="Complétés" 
+   367→            value={stats.byStatus.COMPLETED?.toString() || '0'} 
+   368→            subtitle={`${formatDZD(stats.amounts.completed)}`}
+   369→            icon={<CheckCircle2 className="h-5 w-5 text-green-600" />}
+   370→            color="green"
+   371→          />
+   372→          <StatCard 
+   373→            title="En attente" 
+   374→            value={(stats.byStatus.PENDING + stats.byStatus.PROCESSING).toString()} 
+   375→            subtitle="Traitement"
+   376→            icon={<Clock className="h-5 w-5 text-yellow-600" />}
+   377→            color="yellow"
+   378→          />
+   379→          <StatCard 
+   380→            title="À vérifier" 
+   381→            value={stats.byStatus.PENDING_VERIFICATION?.toString() || '0'} 
+   382→            subtitle="Preuves reçues"
+   383→            icon={<Eye className="h-5 w-5 text-blue-600" />}
+   384→            color="blue"
+   385→          />
+   386→          <StatCard 
+   387→            title="Échoués" 
+   388→            value={stats.byStatus.FAILED?.toString() || '0'} 
+   389→            subtitle="À traiter"
+   390→            icon={<XCircle className="h-5 w-5 text-red-600" />}
+   391→            color="red"
+   392→          />
+   393→        </div>
+   394→
+   395→        {/* Filters */}
+   396→        <Card>
+   397→          <CardContent className="py-4">
+   398→            <div className="flex flex-col sm:flex-row gap-4">
+   399→              {/* Search */}
+   400→              <div className="relative flex-1">
+   401→                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+   402→                <Input
+   403→                  placeholder="Rechercher par N° commande, référence, client..."
+   404→                  value={searchQuery}
+   405→                  onChange={(e) => setSearchQuery(e.target.value)}
+   406→                  className="pl-10"
+   407→                />
+   408→              </div>
+   409→
+   410→              {/* Status Filter */}
+   411→              <Select value={statusFilter} onValueChange={setStatusFilter}>
+   412→                <SelectTrigger className="w-full sm:w-48">
+   413→                  <Filter className="h-4 w-4 mr-2 text-gray-400" />
+   414→                  <SelectValue placeholder="Statut" />
+   415→                </SelectTrigger>
+   416→                <SelectContent>
+   417→                  <SelectItem value="all">Tous les statuts</SelectItem>
+   418→                  <SelectItem value="PENDING">En attente</SelectItem>
+   419→                  <SelectItem value="PROCESSING">En cours</SelectItem>
+   420→                  <SelectItem value="COMPLETED">Complété</SelectItem>
+   421→                  <SelectItem value="FAILED">Échoué</SelectItem>
+   422→                  <SelectItem value="PENDING_VERIFICATION">À vérifier</SelectItem>
+   423→                  <SelectItem value="REFUNDED">Remboursé</SelectItem>
+   424→                </SelectContent>
+   425→              </Select>
+   426→
+   427→              {/* Method Filter */}
+   428→              <Select value={methodFilter} onValueChange={setMethodFilter}>
+   429→                <SelectTrigger className="w-full sm:w-48">
+   430→                  <SelectValue placeholder="Méthode" />
+   431→                </SelectTrigger>
+   432→                <SelectContent>
+   433→                  <SelectItem value="all">Toutes les méthodes</SelectItem>
+   434→                  <SelectItem value="CIB">Carte Bancaire</SelectItem>
+   435→                  <SelectItem value="CCP">Chèque Postale</SelectItem>
+   436→                  <SelectItem value="BARIDIMOB">BaridiMob</SelectItem>
+   437→                  <SelectItem value="BANK_TRANSFER">Virement</SelectItem>
+   438→                  <SelectItem value="COD">Paiement à la livraison</SelectItem>
+   439→                </SelectContent>
+   440→              </Select>
+   441→            </div>
+   442→          </CardContent>
+   443→        </Card>
+   444→
+   445→        {/* Payments Table */}
+   446→        <Card>
+   447→          <CardHeader className="pb-3">
+   448→            <div className="flex items-center justify-between">
+   449→              <CardTitle className="text-base">
+   450→                Transactions ({filteredPayments.length})
+   451→              </CardTitle>
+   452→              <Button variant="ghost" size="sm">
+   453→                <ArrowUpDown className="h-4 w-4 mr-2" />
+   454→                Trier
+   455→              </Button>
+   456→            </div>
+   457→          </CardHeader>
+   458→          <CardContent>
+   459→            <div className="overflow-x-auto">
+   460→              <Table>
+   461→                <TableHeader>
+   462→                  <TableRow>
+   463→                    <TableHead>N° Commande</TableHead>
+   464→                    <TableHead>Client</TableHead>
+   465→                    <TableHead>Méthode</TableHead>
+   466→                    <TableHead className="text-right">Montant</TableHead>
+   467→                    <TableHead>Statut</TableHead>
+   468→                    <TableHead>Date</TableHead>
+   469→                    <TableHead className="w-12"></TableHead>
+   470→                  </TableRow>
+   471→                </TableHeader>
+   472→                <TableBody>
+   473→                  {filteredPayments.map((payment) => (
+   474→                    <TableRow key={payment.id} className={payment.needsVerification ? "bg-yellow-50" : ""}>
+   475→                      <TableCell>
+   476→                        <div>
+   477→                          <p className="font-mono font-medium text-sm">{payment.orderNumber}</p>
+   478→                          {payment.referenceNumber && (
+   479→                            <p className="text-xs text-gray-500">{payment.referenceNumber}</p>
+   480→                          )}
+   481→                        </div>
+   482→                      </TableCell>
+   483→                      <TableCell>
+   484→                        <div>
+   485→                          <p className="font-medium text-sm">{payment.buyerName || '-'}</p>
+   486→                          <p className="text-xs text-gray-500">{payment.companyName || ''}</p>
+   487→                        </div>
+   488→                      </TableCell>
+   489→                      <TableCell>
+   490→                        <div className="flex items-center gap-2">
+   491→                          {getMethodIcon(payment.method)}
+   492→                          <span className="text-sm">{getMethodName(payment.method)}</span>
+   493→                        </div>
+   494→                      </TableCell>
+   495→                      <TableCell className="text-right">
+   496→                        <span className="font-semibold">{formatDZD(payment.amount)}</span>
+   497→                      </TableCell>
+   498→                      <TableCell>
+   499→                        {getStatusBadge(payment.status)}
+   500→                        {payment.failureReason && (
+   501→                          <p className="text-xs text-red-500 mt-1 max-w-32 truncate">
+   502→                            {payment.failureReason}
+   503→                          </p>
+   504→                        )}
+   505→                      </TableCell>
+   506→                      <TableCell>
+   507→                        <span className="text-sm text-gray-500">
+   508→                          {new Date(payment.createdAt).toLocaleDateString('fr-FR')}
+   509→                        </span>
+   510→                      </TableCell>
+   511→                      <TableCell>
+   512→                        <DropdownMenu>
+   513→                          <DropdownMenuTrigger asChild>
+   514→                            <Button variant="ghost" size="icon" className="h-8 w-8">
+   515→                              <MoreVertical className="h-4 w-4" />
+   516→                            </Button>
+   517→                          </DropdownMenuTrigger>
+   518→                          <DropdownMenuContent align="end">
+   519→                            <DropdownMenuItem onClick={() => console.log('View details:', payment.id)}>
+   520→                              <Eye className="h-4 w-4 mr-2" />
+   521→                              Voir détails
+   522→                            </DropdownMenuItem>
+   523→                            
+   524→                            {payment.needsVerification && (
+   525→                              <>
+   526→                                <DropdownMenuSeparator />
+   527→                                <DropdownMenuItem 
+   528→                                  onClick={() => handleOpenActionDialog(payment, 'verify')}
+   529→                                  className="text-green-600"
+   530→                                >
+   531→                                  <CheckCircle2 className="h-4 w-4 mr-2" />
+   532→                                  Approuver
+   533→                                </DropdownMenuItem>
+   534→                                <DropdownMenuItem 
+   535→                                  onClick={() => handleOpenActionDialog(payment, 'reject')}
+   536→                                  className="text-red-600"
+   537→                                >
+   538→                                  <XCircle className="h-4 w-4 mr-2" />
+   539→                                  Rejeter
+   540→                                </DropdownMenuItem>
+   541→                              </>
+   542→                            )}
+   543→                            
+   544→                            {payment.status === 'COMPLETED' && (
+   545→                              <>
+   546→                                <DropdownMenuSeparator />
+   547→                                <DropdownMenuItem 
+   548→                                  onClick={() => handleOpenActionDialog(payment, 'refund')}
+   549→                                  className="text-purple-600"
+   550→                                >
+   551→                                  <RefreshCw className="h-4 w-4 mr-2" />
+   552→                                  Rembourser
+   553→                                </DropdownMenuItem>
+   554→                              </>
+   555→                            )}
+   556→                          </DropdownMenuContent>
+   557→                        </DropdownMenu>
+   558→                      </TableCell>
+   559→                    </TableRow>
+   560→                  ))}
+   561→                  
+   562→                  {filteredPayments.length === 0 && (
+   563→                    <TableRow>
+   564→                      <TableCell colSpan={7} className="text-center py-12">
+   565→                        <div className="text-gray-400">
+   566→                          <Search className="h-8 w-8 mx-auto mb-2 opacity-50" />
+   567→                          <p>Aucun paiement trouvé</p>
+   568→                        </div>
+   569→                      </TableCell>
+   570→                    </TableRow>
+   571→                  )}
+   572→                </TableBody>
+   573→              </Table>
+   574→            </div>
+   575→          </CardContent>
+   576→        </Card>
+   577→      </main>
+   578→
+   579→      {/* Action Dialog */}
+   580→      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+   581→        <DialogContent className="sm:max-w-md">
+   582→          <DialogHeader>
+   583→            <DialogTitle>
+   584→              {dialogAction === 'verify' && 'Approuver le paiement'}
+   585→              {dialogAction === 'reject' && 'Rejeter le paiement'}
+   586→              {dialogAction === 'refund' && 'Rembourser le paiement'}
+   587→            </DialogTitle>
+   588→          </DialogHeader>
+   589→          
+   590→          {selectedPayment && (
+   591→            <div className="space-y-4 py-4">
+   592→              {/* Payment Info */}
+   593→              <div className="p-3 bg-gray-50 rounded-lg space-y-2">
+   594→                <div className="flex justify-between text-sm">
+   595→                  <span className="text-gray-500">Commande:</span>
+   596→                  <span className="font-mono font-medium">{selectedPayment.orderNumber}</span>
+   597→                </div>
+   598→                <div className="flex justify-between text-sm">
+   599→                  <span className="text-gray-500">Montant:</span>
+   600→                  <span className="font-semibold">{formatDZD(selectedPayment.amount)}</span>
+   601→                </div>
+   602→                <div className="flex justify-between text-sm">
+   603→                  <span className="text-gray-500">Client:</span>
+   604→                  <span>{selectedPayment.buyerName}</span>
+   605→                </div>
+   606→              </div>
+   607→
+   608→              {/* Rejection Reason (only for reject) */}
+   609→              {dialogAction === 'reject' && (
+   610→                <div className="space-y-2">
+   611→                  <Label htmlFor="reason">Motif du rejet *</Label>
+   612→                  <Textarea
+   613→                    id="reason"
+   614→                    placeholder="Expliquez pourquoi ce paiement est rejeté..."
+   615→                    value={rejectionReason}
+   616→                    onChange={(e) => setRejectionReason(e.target.value)}
+   617→                    rows={3}
+   618→                  />
+   619→                </div>
+   620→              )}
+   621→
+   622→              {/* Notes */}
+   623→              <div className="space-y-2">
+   624→                <Label htmlFor="notes">Notes internes (optionnel)</Label>
+   625→                <Textarea
+   626→                  id="notes"
+   627→                  placeholder="Ajoutez des notes pour référence interne..."
+   628→                  value={notes}
+   629→                  onChange={(e) => setNotes(e.target.value)}
+   630→                  rows={2}
+   631→                />
+   632→              </div>
+   633→            </div>
+   634→          )}
+   635→
+   636→          <DialogFooter>
+   637→            <Button variant="outline" onClick={() => setDialogOpen(false)}>
+   638→              Annuler
+   639→            </Button>
+   640→            <Button
+   641→              onClick={handleSubmitAction}
+   642→              disabled={isLoading || (dialogAction === 'reject' && !rejectionReason)}
+   643→              className={cn(
+   644→                dialogAction === 'verify' && "bg-green-600 hover:bg-green-700",
+   645→                dialogAction === 'reject' && "bg-red-600 hover:bg-red-700",
+   646→                dialogAction === 'refund' && "bg-purple-600 hover:bg-purple-700"
+   647→              )}
+   648→            >
+   649→              {isLoading ? 'Traitement...' : 
+   650→               dialogAction === 'verify' ? 'Approuver' :
+   651→               dialogAction === 'reject' ? 'Rejeter' : 'Rembourser'}
+   652→            </Button>
+   653→          </DialogFooter>
+   654→        </DialogContent>
+   655→      </Dialog>
+   656→    </div>
+   657→  )
+   658→}
+   659→
+   660→// Sub-components
+   661→function StatCard({ 
+   662→  title, 
+   663→  value, 
+   664→  subtitle, 
+   665→  icon, 
+   666→  color = 'gray' 
+   667→}: { 
+   668→  title: string; 
+   669→  value: string; 
+   670→  subtitle: string; 
+   671→  icon: React.ReactNode;
+   672→  color?: 'gray' | 'green' | 'yellow' | 'blue' | 'red';
+   673→}) {
+   674→  const colorClasses = {
+   675→    gray: 'bg-gray-50 border-gray-200',
+   676→    green: 'bg-green-50 border-green-200',
+   677→    yellow: 'bg-yellow-50 border-yellow-200',
+   678→    blue: 'bg-blue-50 border-blue-200',
+   679→    red: 'bg-red-50 border-red-200',
+   680→  }
+   681→
+   682→  return (
+   683→    <Card className={colorClasses[color]}>
+   684→      <CardContent className="pt-4 pb-4">
+   685→        <div className="flex items-start justify-between">
+   686→          <div>
+   687→            <p className="text-sm text-gray-500">{title}</p>
+   688→            <p className="text-2xl font-bold mt-1">{value}</p>
+   689→            <p className="text-xs text-gray-400 mt-1">{subtitle}</p>
+   690→          </div>
+   691→          <div className={cn(
+   692→            "p-2 rounded-lg",
+   693→            color === 'green' && "bg-green-100",
+   694→            color === 'yellow' && "bg-yellow-100",
+   695→            color === 'blue' && "bg-blue-100",
+   696→            color === 'red' && "bg-red-100",
+   697→            color === 'gray' && "bg-gray-100"
+   698→          )}>
+   699→            {icon}
+   700→          </div>
+   701→        </div>
+   702→      </CardContent>
+   703→    </Card>
+   704→  )
+   705→}
+   706→

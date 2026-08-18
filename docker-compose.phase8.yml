@@ -1,0 +1,481 @@
+# =============================================================================
+# Docker Compose - Phase 8 Services Overlay
+# =============================================================================
+# AlgeriaTrade.dz B2B Platform - Phase 8 Additional Services
+#
+# This file extends docker-compose.production.yml with new Phase 8 services:
+#   - webrtc-signaling: WebRTC signaling server for video calls
+#   - crypto-monitor: Cryptocurrency payment monitoring
+#   - erp-sync-scheduler: ERP system synchronization
+#   - currency-refresher: Exchange rate updates
+#
+# Usage:
+#   docker compose -f docker-compose.production.yml -f docker-compose.phase8.yml up -d
+#   docker compose -f docker-compose.production.yml -f docker-compose.phase8.yml down
+# =============================================================================
+
+version: '3.8'
+
+# =============================================================================
+# Services Definition (Phase 8 Additions)
+# =============================================================================
+services:
+
+  # ---------------------------------------------------------------------------
+  # WebRTC Signaling Server
+  # ---------------------------------------------------------------------------
+  # Handles WebRTC signaling for peer-to-peer audio/video calls
+  # between buyers and sellers on the platform.
+  # ---------------------------------------------------------------------------
+  webrtc-signaling:
+    build:
+      context: ./mini-services/webrtc-service
+      dockerfile: Dockerfile
+      args:
+        NODE_VERSION: '20'
+    container_name: algeriatrade-webrtc-prod
+    restart: unless-stopped
+    
+    # Expose signaling server on port 3002
+    ports:
+      - "3002:3002"
+    
+    environment:
+      # Server Configuration
+      - NODE_ENV=production
+      - PORT=3002
+      
+      # Redis for signaling state management
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-changeme}@redis:6379/0
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      
+      # WebSocket configuration
+      - WS_HEARTBEAT_INTERVAL=30000
+      - WS_HEARTBEAT_TIMEOUT=60000
+      
+      # TURN/STUN servers for NAT traversal
+      - STUN_SERVER=stun:stun.l.google.com:19302
+      - TURN_SERVER=${TURN_SERVER_URL}
+      - TURN_USERNAME=${TURN_USERNAME}
+      - TURN_CREDENTIAL=${TURN_CREDENTIAL}
+      
+      # Logging
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - LOG_FORMAT=json
+    
+    # Volume mounts
+    volumes:
+      - webrtc-logs:/app/logs
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3002/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+    
+    # Network and dependencies
+    networks:
+      - algeriatrade-network
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  # ---------------------------------------------------------------------------
+  # Cryptocurrency Payment Monitor
+  # ---------------------------------------------------------------------------
+  # Monitors blockchain transactions for crypto payments,
+  # confirms payments, and triggers order fulfillment.
+  # ---------------------------------------------------------------------------
+  crypto-monitor:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runner
+    container_name: algeriatrade-crypto-monitor-prod
+    restart: unless-stopped
+    
+    # Override entrypoint to run crypto monitoring job
+    entrypoint: ["tini", "--"]
+    command: ["node", "src/lib/jobs/crypto-monitor-job.js"]
+    
+    environment:
+      # Application Settings
+      - NODE_ENV=production
+      
+      # Database Connection
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-algeriatrade}:${POSTGRES_PASSWORD:-changeme}@db:5432/${POSTGRES_DB:-algeriatrade}?schema=public
+      
+      # Redis Configuration
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-changeme}@redis:6379/0
+      
+      # Blockchain RPC endpoints
+      - BITCOIN_RPC_URL=${BITCOIN_RPC_URL}
+      - ETHEREUM_RPC_URL=${ETHEREUM_RPC_URL}
+      - TRON_RPC_URL=${TRON_RPC_URL}
+      
+      # Wallet addresses to monitor
+      - BTC_WALLET_ADDRESS=${BTC_WALLET_ADDRESS}
+      - ETH_WALLET_ADDRESS=${ETH_WALLET_ADDRESS}
+      - USDT_TRC20_ADDRESS=${USDT_TRC20_ADDRESS}
+      - USDT_ERC20_ADDRESS=${USDT_ERC20_ADDRESS}
+      
+      # Confirmation thresholds
+      - BTC_CONFIRMATIONS_REQUIRED=3
+      - ETH_CONFIRMATIONS_REQUIRED=12
+      - USDT_CONFIRMATIONS_REQUIRED=12
+      
+      # Monitoring interval (seconds)
+      - MONITOR_INTERVAL=60
+      
+      # API keys for exchange rates
+      - COINGECKO_API_KEY=${COINGECKO_API_KEY:-''}
+      
+      # Logging
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+    
+    # Resource limits (low priority background job)
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 128M
+        reservations:
+          cpus: '0.05'
+          memory: 32M
+    
+    # Network and dependencies
+    networks:
+      - algeriatrade-network
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ---------------------------------------------------------------------------
+  # ERP Sync Scheduler
+  # ---------------------------------------------------------------------------
+  # Handles scheduled synchronization tasks with external ERP systems
+  # (SAP, Odoo, etc.) for inventory, orders, and product data.
+  # ---------------------------------------------------------------------------
+  erp-sync-scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runner
+    container_name: algeriatrade-erp-scheduler-prod
+    restart: unless-stopped
+    
+    # Override entrypoint to run ERP sync job
+    entrypoint: ["tini", "--"]
+    command: ["node", "src/lib/jobs/erp-jobs.js"]
+    
+    environment:
+      # Application Settings
+      - NODE_ENV=production
+      
+      # Database Connection
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-algeriatrade}:${POSTGRES_PASSWORD:-changeme}@db:5432/${POSTGRES_DB:-algeriatrade}?schema=public
+      
+      # Redis Configuration
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-changeme}@redis:6379/0
+      
+      # SAP Configuration (if enabled)
+      - SAP_ENABLED=${SAP_ENABLED:-false}
+      - SAP_HOST=${SAP_HOST:-''}
+      - SAP_PORT=${SAP_PORT:-443}
+      - SAP_USER=${SAP_USER:-''}
+      - SAP_PASSWORD=${SAP_PASSWORD:-''}
+      - SAP_CLIENT_ID=${SAP_CLIENT_ID:-''}
+      - SAP_CLIENT_SECRET=${SAP_CLIENT_SECRET:-''}
+      - SAP_ODATA_SERVICE_PATH=/sap/opu/odata/sap/
+      
+      # Odoo Configuration (if enabled)
+      - ODOO_ENABLED=${ODOO_ENABLED:-false}
+      - ODOO_URL=${ODOO_URL:-''}
+      - ODOO_DATABASE=${ODOO_DATABASE:-''}
+      - ODOO_USERNAME=${ODOO_USERNAME:-''}
+      - ODOO_API_KEY=${ODOO_API_KEY:-''}
+      
+      # Sync Configuration
+      - SYNC_INTERVAL_INVENTORY=${SYNC_INTERVAL_INVENTORY:-300}       # 5 minutes
+      - SYNC_INTERVAL_ORDERS=${SYNC_INTERVAL_ORDERS:-60}               # 1 minute
+      - SYNC_INTERVAL_PRODUCTS=${SYNC_INTERVAL_PRODUCTS:-900}         # 15 minutes
+      - MAX_RETRY_ATTEMPTS=3
+      - RETRY_DELAY_MS=5000
+      
+      # Error notification
+      - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL:-''}
+      
+      # Logging
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+    
+    # Network and dependencies
+    networks:
+      - algeriatrade-network
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ---------------------------------------------------------------------------
+  # Currency Exchange Rate Refresher
+  # ---------------------------------------------------------------------------
+  # Periodically fetches exchange rates from external APIs
+  # and caches them in Redis for fast access.
+  # ---------------------------------------------------------------------------
+  currency-refresher:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runner
+    container_name: algeriatrade-currency-refresher-prod
+    restart: unless-stopped
+    
+    # Override entrypoint to run currency refresh job
+    entrypoint: ["tini", "--"]
+    command: ["node", "src/lib/jobs/currency-jobs.js"]
+    
+    environment:
+      # Application Settings
+      - NODE_ENV=production
+      
+      # Redis Configuration
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-changeme}@redis:6379/0
+      
+      # Database Connection (for persisting historical rates)
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-algeriatrade}:${POSTGRES_PASSWORD:-changeme}@db:5432/${POSTGRES_DB:-algeriatrade}?schema=public
+      
+      # Primary exchange rate API (Fixer.io)
+      - FIXER_API_KEY=${FIXER_API_KEY}
+      - FIXER_BASE_URL=https://api.fixer.io/latest
+      
+      # Fallback APIs
+      - EXCHANGERATE_API_KEY=${EXCHANGERATE_API_KEY:-''}
+      - OPEN_EXCHANGE_RATES_APP_ID=${OPEN_EXCHANGE_RATES_APP_ID:-''}
+      
+      # Base currency (Algerian Dinar)
+      - BASE_CURRENCY=DZD
+      
+      # Target currencies to track
+      - TARGET_CURRENCIES=USD,EUR,GBP,TND,MAD,XOF,XAF
+      
+      # Cache settings
+      - CACHE_TTL_SECONDS=300           # 5 minutes
+      - REFRESH_INTERVAL_SECONDS=300     # 5 minutes
+      
+      # Historical data retention
+      - KEEP_HISTORY_DAYS=90
+      
+      # Logging
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+    
+    # Resource limits (lightweight job)
+    deploy:
+      resources:
+        limits:
+          cpus: '0.15'
+          memory: 64M
+        reservations:
+          cpus: '0.05'
+          memory: 16M
+    
+    # Network and dependencies
+    networks:
+      - algeriatrade-network
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  # ---------------------------------------------------------------------------
+  # Invoice Generation Worker
+  # ---------------------------------------------------------------------------
+  # Generates PDF invoices and handles invoicing workflows.
+  # ---------------------------------------------------------------------------
+  invoice-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runner
+    container_name: algeriatrade-invoice-worker-prod
+    restart: unless-stopped
+    
+    # Override entrypoint to run invoice generation job
+    entrypoint: ["tini", "--"]
+    command: ["node", "src/lib/jobs/invoice-jobs.js"]
+    
+    environment:
+      # Application Settings
+      - NODE_ENV=production
+      
+      # Database Connection
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-algeriatrade}:${POSTGRES_PASSWORD:-changeme}@db:5432/${POSTGRES_DB:-algeriatrade}?schema=public
+      
+      # Redis Configuration
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-changeme}@redis:6379/0
+      
+      # Invoice settings
+      - INVOICE_PREFIX=INV-
+      - INVOICE_NUMBER_PADDING=8
+      - DEFAULT_TVA_RATE=19
+      
+      # PDF generation
+      - PDF_OUTPUT_PATH=/app/data/invoices
+      
+      # Email notifications
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASS=${SMTP_PASS}
+      - EMAIL_FROM=${EMAIL_FROM:-invoices@algeriatrade.dz}
+      
+      # Logging
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+    
+    # Volumes for invoice storage
+    volumes:
+      - invoice-data:/app/data/invoices
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 128M
+        reservations:
+          cpus: '0.05'
+          memory: 32M
+    
+    # Network and dependencies
+    networks:
+      - algeriatrade-network
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ---------------------------------------------------------------------------
+  # AR Model Optimization Service (Optional - runs on-demand)
+  # ---------------------------------------------------------------------------
+  # Processes uploaded GLB models to generate optimized versions,
+  # USDZ variants, and thumbnails.
+  # ---------------------------------------------------------------------------
+  ar-model-processor:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runner
+    container_name: algeriatrade-ar-processor-prod
+    restart: "no"  # Manual/start only trigger
+    
+    # Override entrypoint to run AR processing
+    entrypoint: ["tini", "--"]
+    command: ["node", "scripts/ar-process-queue.js"]
+    
+    environment:
+      # Application Settings
+      - NODE_ENV=production
+      
+      # Database Connection
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-algeriatrade}:${POSTGRES_PASSWORD:-changeme}@db:5432/${POSTGRES_DB:-algeriatrade}?schema=public
+      
+      # Redis for job queue
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-changeme}@redis:6379/0
+      
+      # Storage configuration
+      - MODEL_STORAGE_PATH=/app/public/models
+      - THUMBNAIL_STORAGE_PATH=/app/public/models/thumbnails
+      - USDZ_STORAGE_PATH=/app/public/models/usdz
+      
+      # Processing options
+      - MAX_POLYGON_COUNT=100000
+      - ENABLE_DRACO_COMPRESSION=true
+      - TEXTURE_FORMAT=webp
+      - TEXTURE_QUALITY=85
+      - GENERATE_USDZ=true
+      - THUMBNAIL_SIZES=256,512,1024
+      
+      # CDN URL for processed models
+      - CDN_BASE_URL=${CDN_BASE_URL:-https://cdn.algeriatrade.dz}
+      
+      # Logging
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+    
+    # Volumes for model storage
+    volumes:
+      - uploads-data:/app/public/models
+      - ar-processing-logs:/app/logs
+    
+    # Resource limits (CPU intensive when processing)
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+    
+    # Network and dependencies
+    networks:
+      - algeriatrade-network
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    profiles:
+      - ar-processing  # Only start with: --profile ar-processing
+
+# =============================================================================
+# Volumes - Phase 8 Additional Storage
+# =============================================================================
+volumes:
+  # WebRTC logs
+  webrtc-logs:
+    driver: local
+  
+  # Invoice storage
+  invoice-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${VOLUME_PATH:-./data}/invoices
+  
+  # AR model processing logs
+  ar-processing-logs:
+    driver: local
+
+# =============================================================================
+# Networks (uses existing network from base compose)
+# =============================================================================
+networks:
+  algeriatrade-network:
+    external: true
+    name: algeriatrade_algeriatrade-network

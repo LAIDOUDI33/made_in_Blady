@@ -36,7 +36,7 @@ export default function ARControls({
 }: ARControlsProps) {
   const ControlButton = ({
     onClick,
-    icon: React.ReactNode,
+    icon,
     tooltip,
     variant = 'default',
     isActive = false,

@@ -1,0 +1,795 @@
+     1→// Webhook Handler - Receive webhooks from ERP systems
+     2→// Verify signatures, route to handlers, process updates
+     3→// AlgeriaTrade.dz B2B Platform - Inventory/ERP Sync System
+     4→
+     5→import { db } from '@/lib/db'
+     6→import { ERPSystemType } from './config'
+     7→import { syncEngine } from './sync-engine'
+     8→
+     9→// ============================================
+    10→// TYPES
+    11→// ============================================
+    12→
+    13→export interface WebhookEvent {
+    14→  id: string
+    15→  eventType: string
+    16→  connectorType: ERPSystemType
+    17→  connectorId?: string
+    18→  payload: any
+    19→  headers: Record<string, string>
+    20→  receivedAt: Date
+    21→  processed: boolean
+    22→  processingResult?: WebhookProcessingResult
+    23→}
+    24→
+    25→export interface WebhookProcessingResult {
+    26→  success: boolean
+    27→  actionTaken?: string
+    28→  syncTriggered?: boolean
+    29→  error?: string
+    30→  details?: Record<string, any>
+    31→}
+    32→
+    33→export interface WebhookHandlerConfig {
+    34→  secret: string
+    35→  signatureAlgorithm: 'hmac-sha256' | 'hmac-sha1'
+    36→  signatureHeader: string
+    37→  timestampHeader?: string
+    38→  timestampToleranceMs: number
+    39→  ipAllowlist?: string[]
+    40→}
+    41→
+    42→export type WebhookEventType = 
+    43→  | 'product.created'
+    44→  | 'product.updated'
+    45→  | 'product.deleted'
+    46→  | 'inventory.updated'
+    47→  | 'order.created'
+    48→  | 'order.updated'
+    49→  | 'order.cancelled'
+    50→  | 'customer.created'
+    51→  | 'customer.updated'
+    52→  | 'sync.completed'
+    53→  | 'sync.failed'
+    54→  | 'custom'
+    55→
+    56→// ============================================
+    57→// DEFAULT CONFIGURATIONS
+    58→// ============================================
+    59→
+    60→const DEFAULT_WEBHOOK_CONFIG: Record<ERPSystemType, Partial<WebhookHandlerConfig>> = {
+    61→  SAP: {
+    62→    signatureAlgorithm: 'hmac-sha256',
+    63→    signatureHeader: 'x-sap-signature',
+    64→    timestampToleranceMs: 5 * 60 * 1000,
+    65→  },
+    66→  Odoo: {
+    67→    signatureAlgorithm: 'hmac-sha256',
+    68→    signatureHeader: 'x-odoo-signature',
+    69→    timestampToleranceMs: 5 * 60 * 1000,
+    70→  },
+    71→  MicrosoftDynamics: {
+    72→    signatureAlgorithm: 'hmac-sha256',
+    73→    signatureHeader: 'authorization', // Uses OAuth token validation
+    74→    timestampToleranceMs: 5 * 60 * 1000,
+    75→  },
+    76→  Custom: {
+    77→    signatureAlgorithm: 'hmac-sha256',
+    78→    signatureHeader: 'x-signature',
+    79→    timestampToleranceMs: 5 * 60 * 1000,
+    80→  },
+    81→  REST: {
+    82→    signatureAlgorithm: 'hmac-sha256',
+    83→    signatureHeader: 'x-signature',
+    84→    timestampToleranceMs: 5 * 60 * 1000,
+    85→  },
+    86→}
+    87→
+    88→// ============================================
+    89→// WEBHOOK HANDLER CLASS
+    90→// ============================================
+    91→
+    92→class WebhookHandler {
+    93→  private static instance: WebhookHandler
+    94→  
+    95→  private configs: Map<ERPSystemType, WebhookHandlerConfig> = new Map()
+    96→  private handlers: Map<string, (event: WebhookEvent) => Promise<WebhookProcessingResult>> = new Map()
+    97→  
+    98→  // Rate limiting per IP
+    99→  private rateLimitMap: Map<string, { count: number; resetAt: Date }> = new Map()
+   100→  private readonly maxRequestsPerMinute = 60
+   101→  
+   102→  private constructor() {
+   103→    this.initializeDefaultHandlers()
+   104→  }
+   105→  
+   106→  static getInstance(): WebhookHandler {
+   107→    if (!WebhookHandler.instance) {
+   108→      WebhookHandler.instance = new WebhookHandler()
+   109→    }
+   110→    return WebhookHandler.instance
+   111→  }
+   112→  
+   113→  // ============================================
+   114→  // CONFIGURATION
+   115→  // ============================================
+   116→  
+   117→  setConfig(connectorType: ERPSystemType, config: WebhookHandlerConfig): void {
+   118→    this.configs.set(connectorType, config)
+   119→  }
+   120→  
+   121→  getConfig(connectorType: ERPSystemType): WebhookHandlerConfig {
+   122→    const config = this.configs.get(connectorType)
+   123→    
+   124→    if (!config) {
+   125→      throw new Error(`No webhook configuration for connector type: ${connectorType}`)
+   126→    }
+   127→    
+   128→    return {
+   129→      ...DEFAULT_WEBHOOK_CONFIG[connectorType],
+   130→      ...config,
+   131→    } as WebhookHandlerConfig
+   132→  }
+   133→  
+   134→  // ============================================
+   135→  // WEBHOOK REGISTRATION
+   136→  // ============================================
+   137→  
+   138→  registerHandler(eventType: string, handler: (event: WebhookEvent) => Promise<WebhookProcessingResult>): void {
+   139→    this.handlers.set(eventType, handler)
+   140→  }
+   141→  
+   142→  unregisterHandler(eventType: string): void {
+   143→    this.handlers.delete(eventType)
+   144→  }
+   145→  
+   146→  // ============================================
+   147→  // WEBHOOK PROCESSING (Main Entry Point)
+   148→  // ============================================
+   149→  
+   150→  async processWebhook(
+   151→    connectorType: ERPSystemType,
+   152→    request: Request
+   153→  ): Promise<{ success: boolean; result?: WebhookProcessingResult; error?: string; status: number }> {
+   154→    try {
+   155→      // Get configuration
+   156→      const config = this.getConfig(connectorType)
+   157→      
+   158→      // Parse request
+   159→      const headers = Object.fromEntries(request.headers.entries())
+   160→      const payload = await request.json()
+   161→      
+   162→      // Create event object
+   163→      const event: WebhookEvent = {
+   164→        id: `wh_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+   165→        eventType: this.determineEventType(payload, headers),
+   166→        connectorType,
+   167→        connectorId: this.extractConnectorId(headers),
+   168→        payload,
+   169→        headers,
+   170→        receivedAt: new Date(),
+   171→        processed: false,
+   172→      }
+   173→      
+   174→      // Validate and verify
+   175→      const validationError = await this.validateWebhook(event, config)
+   176→      if (validationError) {
+   177→        return { success: false, error: validationError, status: 401 }
+   178→      }
+   179→      
+   180→      // Check rate limiting
+   181→      const clientIp = headers['x-forwarded-for'] || headers['x-real-ip'] || 'unknown'
+   182→      if (!this.checkRateLimit(clientIp)) {
+   183→        return { success: false, error: 'Rate limit exceeded', status: 429 }
+   184→      }
+   185→      
+   186→      // Process event
+   187→      const handler = this.getHandlerForEvent(event.eventType)
+   188→      if (handler) {
+   189→        const result = await handler(event)
+   190→        event.processed = true
+   191→        event.processingResult = result
+   192→        
+   193→        // Log webhook to database
+   194→        await this.logWebhook(event)
+   195→        
+   196→        return { success: result.success, result, status: result.success ? 200 : 500 }
+   197→      }
+   198→      
+   199→      // Default handling based on event type
+   200→      const defaultResult = await this.handleDefaultEvent(event)
+   201→      event.processingResult = defaultResult
+   202→      
+   203→      await this.logWebhook(event)
+   204→      
+   205→      return { success: defaultResult.success, result: defaultResult, status: 200 }
+   206→      
+   207→    } catch (error) {
+   208→      console.error('Webhook processing error:', error)
+   209→      return {
+   210→        success: false,
+   211→        error: error instanceof Error ? error.message : 'Internal server error',
+   212→        status: 500,
+   213→      }
+   214→    }
+   215→  }
+   216→  
+   217→  // ============================================
+   218→  // VALIDATION & VERIFICATION
+   219→  // ============================================
+   220→  
+   221→  private async validateWebhook(event: WebhookEvent, config: WebhookHandlerConfig): Promise<string | null> {
+   222→    // Verify signature
+   223→    const signatureValid = await this.verifySignature(event, config)
+   224→    if (!signatureValid) {
+   225→      return 'Invalid signature'
+   226→    }
+   227→    
+   228→    // Check timestamp if configured
+   229→    if (config.timestampHeader && config.timestampToleranceMs > 0) {
+   230→      const timestampStr = event.headers[config.timestampHeader.toLowerCase()]
+   231→      if (timestampStr) {
+   232→        const timestamp = new Date(timestampStr)
+   233→        const now = new Date()
+   234→        const diff = Math.abs(now.getTime() - timestamp.getTime())
+   235→        
+   236→        if (diff > config.timestampToleranceMs) {
+   237→          return `Timestamp too old: ${diff}ms tolerance is ${config.timestampToleranceMs}ms`
+   238→        }
+   239→      }
+   240→    }
+   241→    
+   242→    // Check IP allowlist if configured
+   243→    if (config.ipAllowlist?.length) {
+   244→      const clientIp = event.headers['x-forwarded-for'] || event.headers['x-real-ip']
+   245→      if (clientIp && !config.ipAllowlist.includes(clientIp)) {
+   246→        return `IP not in allowlist: ${clientIp}`
+   247→      }
+   248→    }
+   249→    
+   250→    return null
+   251→  }
+   252→  
+   253→  private async verifySignature(event: WebhookEvent, config: WebhookHandlerConfig): Promise<boolean> {
+   254→    try {
+   255→      const signature = event.headers[config.signatureHeader.toLowerCase()]
+   256→      if (!signature) {
+   257→        console.warn('No signature header found')
+   258→        return true // Allow without signature for development
+   259→      }
+   260→      
+   261→      const payloadString = JSON.stringify(event.payload)
+   262→      const expectedSignature = await this.computeSignature(payloadString, config.secret, config.signatureAlgorithm)
+   263→      
+   264→      // Use timing-safe comparison
+   265→      return this.timingSafeEqual(signature, expectedSignature)
+   266→    } catch (error) {
+   267→      console.error('Signature verification error:', error)
+   268→      return false
+   269→    }
+   270→  }
+   271→  
+   272→  private async computeSignature(payload: string, secret: string, algorithm: string): Promise<string> {
+   273→    const encoder = new TextEncoder()
+   274→    const keyData = encoder.encode(secret)
+   275→    const payloadData = encoder.encode(payload)
+   276→    
+   277→    const cryptoKey = await crypto.subtle.importKey(
+   278→      'raw',
+   279→      keyData,
+   280→      { name: 'HMAC', hash: algorithm === 'hmac-sha1' ? 'SHA-1' : 'SHA-256' },
+   281→      false,
+   282→      ['sign']
+   283→    )
+   284→    
+   285→    const signature = await crypto.subtle.sign('HMAC', cryptoKey, payloadData)
+   286→    return Array.from(new Uint8Array(signature))
+   287→      .map(b => b.toString(16).padStart(2, '0'))
+   288→      .join('')
+   289→  }
+   290→  
+   291→  private timingSafeEqual(a: string, b: string): boolean {
+   292→    if (a.length !== b.length) return false
+   293→    
+   294→    let result = 0
+   295→    for (let i = 0; i < a.length; i++) {
+   296→      result |= a.charCodeAt(i) ^ b.charCodeAt(i)
+   297→    }
+   298→    
+   299→    return result === 0
+   300→  }
+   301→  
+   302→  // ============================================
+   303→  // EVENT TYPE DETERMINATION
+   304→  // ============================================
+   305→  
+   306→  private determineEventType(payload: any, headers: Record<string, string>): string {
+   307→    // Try to get event type from header
+   308→    const headerEvent = headers['x-event-type'] || headers['x-github-event'] || headers['x-event']
+   309→    if (headerEvent) return headerEvent
+   310→    
+   311→    // Try to determine from payload structure
+   312→    if (payload.model) {
+   313→      // Odoo-style webhook
+   314→      return `${payload.model}.${payload.event || 'updated'}`
+   315→    }
+   316→    
+   317→    if (payload.entity || payload.resource) {
+   318→      const entity = payload.entity || payload.resource
+   319→      const action = payload.action || payload.operation || 'updated'
+   320→      return `${entity}.${action}`
+   321→    }
+   322→    
+   323→    // Default
+   324→    return 'custom'
+   325→  }
+   326→  
+   327→  private extractConnectorId(headers: Record<string, string>): string | undefined {
+   328→    return headers['x-connector-id'] || headers['x-webhook-id']
+   329→  }
+   330→  
+   331→  // ============================================
+   332→  // DEFAULT EVENT HANDLERS
+   333→  // ============================================
+   334→  
+   335→  private initializeDefaultHandlers(): void {
+   336→    // Product events
+   337→    this.registerHandler('product.created', this.handleProductCreated.bind(this))
+   338→    this.registerHandler('product.updated', this.handleProductUpdated.bind(this))
+   339→    this.registerHandler('product.deleted', this.handleProductDeleted.bind(this))
+   340→    
+   341→    // Inventory events
+   342→    this.registerHandler('inventory.updated', this.handleInventoryUpdated.bind(this))
+   343→    
+   344→    // Order events
+   345→    this.registerHandler('order.created', this.handleOrderCreated.bind(this))
+   346→    this.registerHandler('order.updated', this.handleOrderUpdated.bind(this))
+   347→    
+   348→    // Customer events
+   349→    this.registerHandler('customer.created', this.handleCustomerCreated.bind(this))
+   350→    this.registerHandler('customer.updated', this.handleCustomerUpdated.bind(this))
+   351→    
+   352→    // Sync events
+   353→    this.registerHandler('sync.completed', this.handleSyncCompleted.bind(this))
+   354→    this.registerHandler('sync.failed', this.handleSyncFailed.bind(this))
+   355→    
+   356→    // Generic Odoo model events
+   357→    this.registerHandler('product.product.create', this.handleProductCreated.bind(this))
+   358→    this.registerHandler('product.product.write', this.handleProductUpdated.bind(this))
+   359→    this.registerHandler('stock.quant.update', this.handleInventoryUpdated.bind(this))
+   360→    this.registerHandler('sale.order.create', this.handleOrderCreated.bind(this))
+   361→  }
+   362→  
+   363→  private getHandlerForEvent(eventType: string): ((event: WebhookEvent) => Promise<WebhookProcessingResult>) | undefined {
+   364→    // Exact match first
+   365→    if (this.handlers.has(eventType)) {
+   366→      return this.handlers.get(eventType)!
+   367→    }
+   368→    
+   369→    // Wildcard match (e.g., "product.*" or "*.created")
+   370→    for (const [pattern, handler] of this.handlers.entries()) {
+   371→      if (pattern.endsWith('*')) {
+   372→        const prefix = pattern.slice(0, -1)
+   373→        if (eventType.startsWith(prefix)) {
+   374→          return handler
+   375→        }
+   376→      }
+   377→      
+   378→      if (pattern.startsWith('*')) {
+   379→        const suffix = pattern.slice(1)
+   380→        if (eventType.endsWith(suffix)) {
+   381→          return handler
+   382→        }
+   383→      }
+   384→    }
+   385→    
+   386→    return undefined
+   387→  }
+   388→  
+   389→  // ============================================
+   390→  // SPECIFIC EVENT HANDLERS
+   391→  // ============================================
+   392→  
+   393→  private async handleProductCreated(event: WebhookEvent): Promise<WebhookProcessingResult> {
+   394→    try {
+   395→      const productData = event.payload.data || event.payload
+   396→      
+   397→      // Create or update local product
+   398→      await db.product.upsert({
+   399→        where: { id: productData.id || `erp_${event.connectorType}_${Date.now()}` },
+   400→        update: {
+   401→          name: productData.name,
+   402→          sku: productData.sku || productData.default_code,
+   403→          price: parseFloat(productData.price || productData.list_price) || undefined,
+   404→          status: 'published',
+   405→          updatedAt: new Date(),
+   406→        },
+   407→        create: {
+   408→          id: productData.id || `erp_${event.connectorType}_${Date.now()}`,
+   409→          name: productData.name || 'Unknown Product',
+   410→          slug: (productData.name || 'unknown').toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+   411→          sku: productData.sku || productData.default_code,
+   412→          price: parseFloat(productData.price || productData.list_price) || undefined,
+   413→          status: 'published',
+   414→          userId: 'system_webhook',
+   415→          tenantId: 'default',
+   416→        },
+   417→      })
+   418→      
+   419→      return {
+   420→        success: true,
+   421→        actionTaken: 'Product created/updated',
+   422→        syncTriggered: false,
+   423→        details: { productId: productData.id },
+   424→      }
+   425→    } catch (error) {
+   426→      return {
+   427→        success: false,
+   428→        error: error instanceof Error ? error.message : String(error),
+   429→      }
+   430→    }
+   431→  }
+   432→  
+   433→  private async handleProductUpdated(event: WebhookEvent): Promise<WebhookProcessingResult> {
+   434→    try {
+   435→      const productData = event.payload.data || event.payload
+   436→      
+   437→      // Find existing product by SKU or external ID
+   438→      const existingProduct = await db.product.findFirst({
+   439→        where: {
+   440→          OR: [
+   441→            { sku: productData.sku || productData.default_code },
+   442→            { name: productData.name },
+   443→          ],
+   444→        },
+   445→      })
+   446→      
+   447→      if (existingProduct) {
+   448→        await db.product.update({
+   449→          where: { id: existingProduct.id },
+   450→          data: {
+   451→            name: productData.name,
+   452→            price: parseFloat(productData.price || productData.list_price) || existingProduct.price,
+   453→            updatedAt: new Date(),
+   454→          },
+   455→        })
+   456→        
+   457→        return {
+   458→          success: true,
+   459→          actionTaken: 'Product updated',
+   460→          details: { productId: existingProduct.id },
+   461→        }
+   462→      } else {
+   463→        // Product doesn't exist locally, create it
+   464→        return this.handleProductCreated(event)
+   465→      }
+   466→    } catch (error) {
+   467→      return {
+   468→        success: false,
+   469→        error: error instanceof Error ? error.message : String(error),
+   470→      }
+   471→    }
+   472→  }
+   473→  
+   474→  private async handleProductDeleted(event: WebhookEvent): Promise<WebhookProcessingResult> {
+   475→    try {
+   476→      const productData = event.payload.data || event.payload
+   477→      
+   478→      // Soft delete by setting status
+   479→      const deleted = await db.product.updateMany({
+   480→        where: {
+   481→          OR: [
+   482→            { sku: productData.sku },
+   483→            { id: productData.id },
+   484→          ],
+   485→        },
+   486→        data: { status: 'archived' },
+   487→      })
+   488→      
+   489→      return {
+   490→        success: true,
+   491→        actionTaken: `Archived ${deleted.count} products`,
+   492→        details: { archivedCount: deleted.count },
+   493→      }
+   494→    } catch (error) {
+   495→      return {
+   496→        success: false,
+   497→        error: error instanceof Error ? error.message : String(error),
+   498→      }
+   499→    }
+   500→  }
+   501→  
+   502→  private async handleInventoryUpdated(event: WebhookEvent): Promise<WebhookProcessingResult> {
+   503→    try {
+   504→      const inventoryData = event.payload.data || event.payload
+   505→      const productId = inventoryData.product_id || inventoryData.productId || inventoryData.MATNR
+   506→      const quantity = parseFloat(inventoryData.quantity || inventoryData.qty_available || inventoryData.LABST || 0)
+   507→      
+   508→      if (!productId) {
+   509→        return { success: false, error: 'Missing product ID in inventory update' }
+   510→      }
+   511→      
+   512→      // Update product availability based on quantity
+   513→      const availability = quantity <= 0 ? 'out_of_stock' :
+   514→                            quantity <= 10 ? 'low_stock' : 'in_stock'
+   515→      
+   516→      await db.product.updateMany({
+   517→        where: {
+   518→          OR: [
+   519→            { sku: productId },
+   520→            { id: productId },
+   521→          ],
+   522→        },
+   523→        data: { availability, updatedAt: new Date() },
+   524→      })
+   525→      
+   526→      // Also update inventory sync record if exists
+   527→      await db.inventorySyncRecord.updateMany({
+   528→        where: { externalProductId: productId },
+   529→        data: {
+   530→          quantity,
+   531→          lastSyncedAt: new Date(),
+   532→          syncStatus: 'SYNCED',
+   533→        },
+   534→      })
+   535→      
+   536→      return {
+   537→        success: true,
+   538→        actionTaken: 'Inventory updated',
+   539→        details: { productId, quantity, availability },
+   540→      }
+   541→    } catch (error) {
+   542→      return {
+   543→        success: false,
+   544→        error: error instanceof Error ? error.message : String(error),
+   545→      }
+   546→    }
+   547→  }
+   548→  
+   549→  private async handleOrderCreated(event: WebhookEvent): Promise<WebhookProcessingResult> {
+   550→    try {
+   551→      const orderData = event.payload.data || event.payload
+   552→      
+   553→      // Log the order creation (full order sync would be handled separately)
+   554→      console.log('Order created in ERP:', orderData.id || orderData.orderNumber || orderData.VBELN)
+   555→      
+   556→      return {
+   557→        success: true,
+   558→        actionTaken: 'Order logged',
+   559→        details: { orderId: orderData.id || orderData.orderNumber },
+   560→      }
+   561→    } catch (error) {
+   562→      return {
+   563→        success: false,
+   564→        error: error instanceof Error ? error.message : String(error),
+   565→      }
+   566→    }
+   567→  }
+   568→  
+   569→  private async handleOrderUpdated(event: WebhookEvent): Promise<WebhookProcessingResult> {
+   570→    try {
+   571→      const orderData = event.payload.data || event.payload
+   572→      
+   573→      // Update local order status if it exists
+   574→      const orderId = orderData.id || orderData.orderNumber || orderData.VBELN
+   575→      if (orderId) {
+   576→        const existingOrder = await db.order.findFirst({
+   577→          where: { orderNumber: orderId },
+   578→        })
+   579→        
+   580→        if (existingOrder) {
+   581→          await db.order.update({
+   582→            where: { id: existingOrder.id },
+   583→            data: {
+   584→              status: this.mapERPStatus(orderData.state || orderData.status || orderData.AUART),
+   585→              updatedAt: new Date(),
+   586→            },
+   587→          })
+   588→          
+   589→          return {
+   590→            success: true,
+   591→            actionTaken: 'Order status updated',
+   592→            details: { orderId },
+   593→          }
+   594→        }
+   595→      }
+   596→      
+   597→      return {
+   598→        success: true,
+   599→        actionTaken: 'Order update received (not found locally)',
+   600→      }
+   601→    } catch (error) {
+   602→      return {
+   603→        success: false,
+   604→        error: error instanceof Error ? error.message : String(error),
+   605→      }
+   606→    }
+   607→  }
+   608→  
+   609→  private async handleCustomerCreated(event: WebhookEvent): Promise<WebhookProcessingResult> {
+   610→    try {
+   611→      const customerData = event.payload.data || event.payload
+   612→      
+   613→      // Create company record from customer data
+   614→      await db.company.upsert({
+   615→        where: { id: `erp_customer_${customerData.id || Date.now()}` },
+   616→        update: {
+   617→          name: customerData.name || customerData.companyName || customerData.ORG_NAME1,
+   618→          contactEmail: customerData.email || customerData.SMTP_ADDR,
+   619→          contactPhone: customerData.phone || customerData.TELEPHONE1,
+   620→          nif: customerData.vat || customerData.TAXNUMXL,
+   621→          updatedAt: new Date(),
+   622→        },
+   623→        create: {
+   624→          id: `erp_customer_${customerData.id || Date.now()}`,
+   625→          name: customerData.name || customerData.companyName || 'Unknown Company',
+   626→          slug: (customerData.name || 'unknown').toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+   627→          legalForm: 'SARL',
+   628→          nif: customerData.vat || customerData.TAXNUMXL,
+   629→          contactEmail: customerData.email || customerData.SMTP_ADDR,
+   630→          contactPhone: customerData.phone || customerData.TELEPHONE1,
+   631→          verificationStatus: 'PENDING',
+   632→          userId: 'system_webhook',
+   633→          tenantId: 'default',
+   634→        },
+   635→      })
+   636→      
+   637→      return {
+   638→        success: true,
+   639→        actionTaken: 'Customer created/updated',
+   640→      }
+   641→    } catch (error) {
+   642→      return {
+   643→        success: false,
+   644→        error: error instanceof Error ? error.message : String(error),
+   645→      }
+   646→    }
+   647→  }
+   648→  
+   649→  private async handleCustomerUpdated(event: WebhookEvent): Promise<WebhookProcessingResult> {
+   650→    // Similar to created but with update logic
+   651→    return this.handleCustomerCreated(event)
+   652→  }
+   653→  
+   654→  private async handleSyncCompleted(event: WebhookEvent): Promise<WebhookProcessingResult> {
+   655→    try {
+   656→      const syncData = event.payload.data || event.payload
+   657→      
+   658→      // Update connector last sync time
+   659→      if (event.connectorId) {
+   660→        await db.erpConnector.update({
+   661→          where: { id: event.connectorId },
+   662→          data: {
+   663→            lastSyncAt: new Date(),
+   664→            status: 'CONNECTED',
+   665→            errorCount: 0,
+   666→            errorMessage: null,
+   667→          },
+   668→        })
+   669→      }
+   670→      
+   671→      // Log successful sync
+   672→      console.log('Sync completed:', syncData)
+   673→      
+   674→      return {
+   675→        success: true,
+   676→        actionTaken: 'Sync completion logged',
+   677→        details: syncData,
+   678→      }
+   679→    } catch (error) {
+   680→      return {
+   681→        success: false,
+   682→        error: error instanceof Error ? error.message : String(error),
+   683→      }
+   684→    }
+   685→  }
+   686→  
+   687→  private async handleSyncFailed(event: WebhookEvent): Promise<WebhookProcessingResult> {
+   688→    try {
+   689→      const syncData = event.payload.data || event.payload
+   690→      
+   691→      // Update connector error state
+   692→      if (event.connectorId) {
+   693→        await db.erpConnector.update({
+   694→          where: { id: event.connectorId },
+   695→          data: {
+   696→            status: 'ERROR',
+   697→            errorCount: { increment: 1 },
+   698→            errorMessage: syncData.error || syncData.message || 'Unknown sync error',
+   699→          },
+   700→        })
+   701→      }
+   702→      
+   703→      console.error('Sync failed:', syncData)
+   704→      
+   705→      return {
+   706→        success: true,
+   707→        actionTaken: 'Sync failure logged',
+   708→        details: syncData,
+   709→      }
+   710→    } catch (error) {
+   711→      return {
+   712→        success: false,
+   713→        error: error instanceof Error ? error.message : String(error),
+   714→      }
+   715→    }
+   716→  }
+   717→  
+   718→  private async handleDefaultEvent(event: WebhookEvent): Promise<WebhookProcessingResult> {
+   719→    console.log(`Unhandled webhook event: ${event.eventType}`, event.payload)
+   720→    
+   721→    return {
+   722→      success: true,
+   723→      actionTaken: 'Event acknowledged but not processed',
+   724→      details: { eventType: event.eventType },
+   725→    }
+   726→  }
+   727→  
+   728→  // ============================================
+   729→  // RATE LIMITING
+   730→  // ============================================
+   731→  
+   732→  private checkRateLimit(clientIp: string): boolean {
+   733→    const now = new Date()
+   734→    const entry = this.rateLimitMap.get(clientIp)
+   735→    
+   736→    if (!entry || entry.resetAt < now) {
+   737→      this.rateLimitMap.set(clientIp, { count: 1, resetAt: new Date(now.getTime() + 60000) })
+   738→      return true
+   739→    }
+   740→    
+   741→    if (entry.count >= this.maxRequestsPerMinute) {
+   742→      return false
+   743→    }
+   744→    
+   745→    entry.count++
+   746→    return true
+   747→  }
+   748→  
+   749→  // ============================================
+   750→  // LOGGING
+   751→  // ============================================
+   752→  
+   753→  private async logWebhook(event: WebhookEvent): Promise<void> {
+   754→    try {
+   755→      // In production, you'd save to a dedicated webhooks table
+   756→      console.log(`Webhook [${event.id}] ${event.eventType}:`, {
+   757→        connectorType: event.connectorType,
+   758→        processed: event.processed,
+   759→        result: event.processingResult,
+   760→      })
+   761→    } catch (error) {
+   762→      console.error('Failed to log webhook:', error)
+   763→    }
+   764→  }
+   765→  
+   766→  // ============================================
+   767→  // UTILITY METHODS
+   768→  // ============================================
+   769→  
+   770→  private mapERPStatus(erpStatus: string): string {
+   771→    const statusMap: Record<string, string> = {
+   772→      // Odoo statuses
+   773→      draft: 'PENDING',
+   774→      sent: 'CONFIRMED',
+   775→      sale: 'PROCESSING',
+   776→      done: 'COMPLETED',
+   777→      cancel: 'CANCELLED',
+   778→      
+   779→      // SAP statuses
+   780→      TA: 'PENDING',
+   781→      ZQU: 'CONFIRMED',
+   782→      DLV: 'SHIPPED',
+   783→      ZBIL: 'COMPLETED',
+   784→      CAN: 'CANCELLED',
+   785→    }
+   786→    
+   787→    return statusMap[erpStatus] || erpStatus.toUpperCase()
+   788→  }
+   789→}
+   790→
+   791→// Export singleton instance
+   792→export const webhookHandler = WebhookHandler.getInstance()
+   793→
+   794→export default WebhookHandler
+   795→

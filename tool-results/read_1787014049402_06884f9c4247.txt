@@ -1,0 +1,1503 @@
+  2700→### Invoice Engine (`src/lib/invoicing/`)
+  2701→- **config.ts** - Complete configuration for Algerian invoicing:
+  2702→  - Company info (AlgeriaTrade.dz SARL with NIF, NIS, RC, AI)
+  2703→  - TVA rates: 19% standard, 9% reduced, 0% exports, -1 exempt
+  2704→  - Product category to TVA rate mapping
+  2705→  - Invoice numbering format: FAC-{YYYY}-{MM}-{SEQ}
+  2706→  - Payment terms (IMMEDIATE, NET30/60/90, EOM)
+  2707→  - Currency support (DZD, EUR, USD) with proper formatting
+  2708→  - Legal requirements per Algerian regulations (10-year retention)
+  2709→
+  2710→- **calculator.ts** - Comprehensive TVA calculation engine:
+  2711→  - `calculateLineItemTax()` - Per-item tax calculation
+  2712→  - `calculateSubtotal()` - Sum of all line items
+  2713→  - `calculateTVAByRate()` - Group taxes by rate (19%, 9%, 0%)
+  2714→  - `calculateTotalWithTax()` - Grand total with tax
+  2715→  - `applyDiscount()` - Pre/post-tax discount handling
+  2716→  - `calculateAdvancePayment()` - Partial payment calculations
+  2717→  - `validateTVA()` - Validation against Algerian rules
+  2718→  - `roundTVA()` - Proper rounding to nearest centime
+  2719→  - `determineTVARate()` - Auto-detect applicable rate based on category/export/exempt status
+  2720→
+  2721→- **generator.ts** - Invoice generation logic:
+  2722→  - `generateInvoice()` - Create from order data
+  2723→  - `generateProformaInvoice()` - Proforma (no accounting impact)
+  2724→  - `generateCreditNote()` - Credit notes (avoir) for returns/refunds
+  2725→  - `generateDebitNote()` - Debit notes for price adjustments
+  2726→  - `duplicateInvoice()` - Copy with new number
+  2727→  - `cancelInvoice()` - Void with reason and audit trail
+  2728→  - `validateInvoice()` - Completeness check before issuing
+  2729→  - `issueInvoice()` - Change DRAFT → ISSUED
+  2730→  - `recordPayment()` - Update status (DRAFT→PARTIAL→PAID)
+  2731→  - `getInvoiceStatistics()` - Aggregated reporting data
+  2732→
+  2733→### Exporters (`src/lib/invoicing/exporters/`)
+  2734→- **pdf.ts** - Professional PDF generation:
+  2735→  - HTML template with AlgeriaTrade branding
+  2736→  - Bilingual header (French/Arabic)
+  2737→  - Complete invoice layout with seller/buyer sections
+  2738→  - Itemized table with quantities, prices, amounts
+  2739→  - TVA breakdown section by rate
+  2740→  - Payment details and terms
+  2741→  - QR code placeholder for digital verification
+  2742→  - Legal footer with NIF/NIS/RC/AI numbers
+  2743→  - Support for A4 and letter sizes
+  2744→  - Configurable language (fr/ar/en)
+  2745→
+  2746→- **excel.ts** - Excel export functionality:
+  2747→  - Structured spreadsheet format
+  2748→  - Separate sheets for items, taxes, totals
+  2749→  - Formula support for recalculations
+  2750→  - Compatible with accounting software import
+  2751→  - Multiple invoice export capability
+  2752→  - Summary statistics sheet
+  2753→
+  2754→### Database Schema Updates (`prisma/schema.prisma`)
+  2755→- Enhanced Invoice model with fields:
+  2756→  - New fields: cancelledAt, discountPercent, taxableBase, amountDue
+  2757→  - Payment terms as standardized codes (IMMEDIATE, NET30, NET60, NET90, EOM)
+  2758→  - Internal notes (hidden from buyer)
+  2759→  - Parent/child relationships for credit/debit notes
+  2760→  - Self-referencing relation for credit notes
+  2761→  
+  2762→- **New TVABreakdown model**:
+  2763→  - Rate, taxableBase, tvaAmount per invoice
+  2764→  - Unique constraint on [invoiceId, tvaRate]
+  2765→  
+  2766→- **Enhanced InvoiceItem model**:
+  2767→  - Added: productId, productSku, unitOfMeasure
+  2768→  - lineTotalWithTax field
+  2769→  - Flexible tvaRate (-1=exempt, 0, 9, 19)
+  2770→
+  2771→- **New InvoicePayment model**:
+  2772→  - paymentReference field for bank references
+  2773→  - Index on paidAt for chronological queries
+  2774→
+  2775→### API Routes (`src/app/api/invoices/`)
+  2776→- **route.ts** (GET/POST):
+  2777→  - List with filtering (status, type, date range, search)
+  2778→  - Pagination support
+  2779→  - Create new invoice with full validation
+  2780→  - Automatic invoice number generation
+  2781→  - TVA breakdown calculation on creation
+  2782→
+  2783→- **[id]/route.ts** (GET/PUT/DELETE):
+  2784→  - Get single invoice with all relations
+  2785→  - Update draft invoices only
+  2786→  - Delete with validation (drafts only)
+  2787→  - Recalculates totals on update
+  2788→
+  2789→- **[id]/issue/route.ts** (POST):
+  2790→  - Issue draft → ISSUED transition
+  2791→  - Required fields validation
+  2792→  - Audit trail creation
+  2793→
+  2794→- **[id]/pay/route.ts** (POST):
+  2795→  - Record payment against invoice
+  2796→  - Transaction-based updates (amountPaid, amountDue)
+  2797→  - Status auto-update (ISSUED→PARTIAL→PAID)
+  2798→  - Payment method tracking
+  2799→
+  2800→- **[id]/cancel/route.ts** (POST):
+  2801→  - Cancel/void invoices with mandatory reason
+  2802→  - Prevents cancellation of paid invoices
+  2803→  - Checks for related credit notes
+  2804→
+  2805→- **[id]/pdf/route.ts** (GET):
+  2806→  - Generate HTML preview for PDF conversion
+  2807→  - Language selection (fr/ar/en)
+  2808→  - QR code placeholder
+  2809→
+  2810→- **[id]/email/route.ts** (POST):
+  2811→  - Send invoice via email
+  2812→  - Recipient detection (buyer email or custom)
+  2813→  - Delivery simulation ready
+  2814→
+  2815→- **credit-notes/route.ts** (GET/POST):
+  2816→  - List/create credit notes
+  2817→  - Full/partial credit generation
+  2818→  - Reverses seller/buyer for credit notes
+  2819→
+  2820→- **tax-report/route.ts** (GET):
+  2821→  - TVA report for configurable periods
+  2822→  - By-rate breakdown
+  2823→  - Period-over-period comparison
+  2824→  - Accountant-ready summary export
+  2825→
+  2826→- **proforma/route.ts** (POST):
+  2827→  - Generate proforma invoices
+  2828→  - Validity period configuration
+  2829→  - Auto-conversion option
+  2830→
+  2831→### React Components (`src/components/invoicing/`)
+  2832→- **InvoiceGenerator.tsx** - Full-featured invoice creator:
+  2833→  - Type selector (Standard, Proforma, Credit Note, Debit, etc.)
+  2834→  - Order/seller/buyer ID inputs
+  2835→  - Dynamic line item management (add/remove/edit)
+  2836→  - Real-time TVA calculation display
+  2837→  - Global discount application
+  2838→  - TVA rate selector per item (19%, 9%, Exonéré, Exempt)
+  2839→  - Notes fields (client-visible and internal)
+  2840→  - Preview dialog before creation
+  2841→  - Form validation with error display
+  2842→
+  2843→- **InvoiceViewer.tsx** - Professional invoice display:
+  2844→  - Complete invoice document layout
+  2845→  - Status badges with color coding
+  2846→  - Seller/buyer information panels
+  2847→  - Itemized table with all columns
+  2848→  - Totals section with HT/TVA/TTC breakdown
+  2849→  - Payment history table
+  2850→  - Action buttons (PDF, Print, Email, Pay)
+  2851→  - Issue action for drafts
+  2852→  - Cancel action with confirmation dialog
+  2853→  - Payment dialog with amount input
+  2854→  - Related invoices (credit notes) display
+  2855→  - Overdue highlighting
+  2856→
+  2857→- **TaxSummaryPanel.tsx** - TVA analysis dashboard:
+  2858→  - Period selector (current month, last month, quarter, year)
+  2859→  - Summary cards (total, issued, paid, overdue)
+  2860→  - Total CA and TVA collected displays
+  2861→  - Detailed TVA breakdown by rate
+  2862→  - Period-over-period comparison with trend indicator
+  2863→  - Accountant-ready summary for tax filing
+  2864→  - Export functionality
+  2865→  - Compact mode for embedding in dashboards
+  2866→
+  2867→- **ClientInvoicePortal.tsx** - Buyer-facing portal:
+  2868→  - Personal invoice list view
+  2869→  - Search and filter capabilities
+  2870→  - Sort options (date, amount, due date)
+  2871→  - Expandable invoice details
+  2872→  - Quick payment button
+  2873→  - Dispute submission dialog
+  2874→  - Download PDF button
+  2875→  - Status indicators and badges
+  2876→  - Outstanding balance display
+  2877→
+  2878→### Scheduled Tasks (`src/lib/jobs/invoice-jobs.ts`)
+  2879→- **autoGenerateInvoicesForCompletedOrders()**: Daily job to create invoices for completed orders without invoices
+  2880→- **detectOverdueInvoices()**: Daily job to detect and mark overdue invoices, send alerts
+  2881→- **sendPaymentReminders()**: Configurable reminders at 7, 3, 1 days before due date
+  2882→- **prepareMonthlyTVAReport()**: Monthly TVA report preparation for accountant/tax filing
+  2883→- **archiveOldInvoices()**: Annual archival of invoices beyond 10-year retention period
+  2884→- **runAllInvoiceJobs()**: Master runner that executes all scheduled jobs with logging
+  2885→
+  2886→### Email Templates (`src/lib/email/templates/invoices/`)
+  2887→- **getInvoiceCreatedTemplate()**: Draft notification
+  2888→- **getInvoiceIssuedTemplate()**: Official issuance with legal warnings
+  2889→- **getOverdueReminderTemplate()**: Urgent/Important/Standard reminders
+  2890→- **getPaymentReceivedTemplate()**: Payment confirmation with receipt info
+  2891→- **getInvoiceCancelledTemplate()**: Cancellation notice
+  2892→- All templates include:
+  2893→  - Professional AlgeriaTrade branding
+  2894→  - Bilingual French/Arabic headers where appropriate
+  2895→  - Complete financial details
+  2896→  - Legal compliance notices
+  2897→  - Responsive HTML design
+  2898→
+  2899→### Main Dashboard (`src/app/page.tsx`)
+  2900→- Full invoice management dashboard with tabs:
+  2901→  - Overview: Statistics cards, quick actions, recent activity
+  2902→  - Invoices: Filterable/searchable list with status/type filters
+  2903→  - Create: Integrated InvoiceGenerator component
+  2904→  - Detail: Selected invoice viewer with all actions
+  2905→  - TVA: TaxSummaryPanel with reporting features
+  2906→  - Portal: ClientInvoicePortal for buyers
+  2907→- Mock data demonstrating all invoice types and statuses
+  2908→- Responsive design for mobile/desktop
+  2909→
+  2910→Stage Summary:
+  2911→- Complete professional invoicing system implemented
+  2912→- Fully compliant with Algerian TVA regulations (19%/9%/0% rates)
+  2913→- Multi-currency support (DZD primary, EUR/USD secondary)
+  2914→- Bilingual support (French/Arabic/English)
+  2915→- Complete CRUD API with validation
+  2916→- Automated workflows (generation, reminders, archiving)
+  2917→- Professional PDF/Excel export capabilities
+  2918→- Client and seller portals
+  2919→- Email notification system ready
+  2920→
+  2921→Files Created/Modified:
+  2922→- src/lib/invoicing/config.ts (NEW)
+  2923→- src/lib/invoicing/calculator.ts (NEW)
+  2924→- src/lib/invoicing/generator.ts (NEW)
+  2925→- src/lib/invoicing/exporters/pdf.ts (NEW)
+  2926→- src/lib/invoicing/exporters/excel.ts (NEW)
+  2927→- src/components/invoicing/InvoiceGenerator.tsx (NEW)
+  2928→- src/components/invoicing/InvoiceViewer.tsx (NEW)
+  2929→- src/components/invoicing/TaxSummaryPanel.tsx (NEW)
+  2930→- src/components/invoicing/ClientInvoicePortal.tsx (NEW)
+  2931→- src/lib/jobs/invoice-jobs.ts (NEW)
+  2932→- src/lib/email/templates/invoices/index.ts (NEW)
+  2933→- src/app/api/invoices/route.ts (NEW)
+  2934→- src/app/api/invoices/[id]/route.ts (NEW)
+  2935→- src/app/api/invoices/[id]/issue/route.ts (NEW)
+  2936→- src/app/api/invoices/[id]/pay/route.ts (NEW)
+  2937→- src/app/api/invoices/[id]/cancel/route.ts (NEW)
+  2938→- src/app/api/invoices/[id]/pdf/route.ts (NEW)
+  2939→- src/app/api/invoices/[id]/email/route.ts (NEW)
+  2940→- src/app/api/invoices/credit-notes/route.ts (NEW)
+  2941→- src/app/api/invoices/tax-report/route.ts (NEW)
+  2942→- src/app/api/invoices/proforma/route.ts (NEW)
+  2943→- prisma/schema.prisma (MODIFIED - added/updated models)
+  2944→- src/app/page.tsx (REPLACED with invoice dashboard)
+  2945→
+  2946→---
+  2947→Task ID: 1-E
+  2948→Agent: Invoicing System Engineer
+  2949→Task: Implement Professional Invoice System with TVA Tax Calculation for AlgeriaTrade.dz
+  2950→
+  2951→Work Log:
+  2952→- Verified existing invoicing infrastructure (config, calculator, generator, PDF exporter)
+  2953→- Confirmed Prisma schema includes Invoice, InvoiceItem, TVABreakdown, InvoicePayment models
+  2954→- Validated all API routes exist (CRUD, issue, pay, pdf, tax-report)
+  2955→- Reviewed React components (InvoiceGenerator, InvoiceViewer, TaxSummaryPanel, ClientInvoicePortal)
+  2956→- Created comprehensive test suite for TVA calculations (__tests__/invoicing/test.ts)
+  2957→  - 81 test cases covering all TVA calculation scenarios
+  2958→  - Banker's rounding tests
+  2959→  - Line item tax calculation (19%, 9%, 0%, exempt)
+  2960→  - Subtotal, total with tax calculations
+  2961→  - TVA breakdown by rate grouping
+  2962→  - Discount application (pre-tax and post-tax)
+  2963→  - Invoice totals validation
+  2964→  - TTC to HT price conversion
+  2965→  - TVA rate determination logic
+  2966→  - Configuration validation (NIF, RC, payment terms)
+  2967→  - Currency formatting (DZD, EUR, USD)
+  2968→  - Algerian compliance scenarios (B2B, exports, mixed rates)
+  2969→  - Edge cases (zero amounts, large amounts, fractional quantities)
+  2970→
+  2971→Test Results:
+  2972→- All 81 tests passing
+  2973→- Coverage: Rounding, Line Items, Subtotals, TVA by Rate, Totals, Discounts,
+  2974→  Validation, Price Conversion, Rate Determination, Configuration,
+  2975→  Invoice Numbering, Payment Terms, Currency Formatting, Due Dates,
+  2976→  Compliance Scenarios, Edge Cases
+  2977→
+  2978→Files Verified/Created:
+  2979→- src/lib/invoicing/config.ts - Algeria-specific TVA config (NIF, NIS, RC, AI)
+  2980→- src/lib/invoicing/calculator.ts - TVA calculation engine with banker's rounding
+  2981→- src/lib/invoicing/generator.ts - Invoice/proforma/credit note generation
+  2982→- src/lib/invoicing/exporters/pdf.ts - Professional PDF export
+  2983→- src/components/invoicing/InvoiceGenerator.tsx - Create invoice UI
+  2984→- src/components/invoicing/InvoiceViewer.tsx - Display/print/download UI
+  2985→- src/components/invoicing/TaxSummaryPanel.tsx - TVA breakdown dashboard
+  2986→- src/app/api/invoices/route.ts - List/Create API
+  2987→- src/app/api/invoices/[id]/route.ts - Get/Update/Delete API
+  2988→- src/app/api/invoices/[id]/issue/route.ts - Issue invoice API
+  2989→- src/app/api/invoices/[id]/pay/route.ts - Record payment API
+  2990→- src/app/api/invoices/tax-report/route.ts - TVA report API
+  2991→- __tests__/invoicing/test.ts - Comprehensive test suite (81 tests)
+  2992→
+  2993→TVA Compliance Features:
+  2994→- Standard rate: 19% (general goods/services)
+  2995→- Reduced rate: 9% (food, pharmaceuticals, education)
+  2996→- Zero rate: 0% (exports)
+  2997→- Exempt: -1 (with certificate)
+  2998→- Invoice format: FAC-YYYY-MM-SEQ
+  2999→- Payment terms: Immediate, Net30/60/90, EOM
+  3000→- Bilingual support: French/Arabic labels
+  3001→- 10-year retention requirement compliant
+  3002→
+  3003→Stage Summary:
+  3004→- Professional invoicing system complete
+  3005→- Full TVA (Taxe sur la Valeur Ajoutée) compliance for Algeria
+  3006→- All tests passing (81/81)
+  3007→- Ready for production use
+  3008→
+  3009→---
+  3010→Task ID: 2-A
+  3011→Agent: Negotiation System Engineer
+  3012→Task: Implement Advanced Negotiation System (Offer/Counter-offer Workflow) for AlgeriaTrade.dz
+  3013→
+  3014→Work Log:
+  3015→## 1. Negotiation Engine (`src/lib/negotiation/`)
+  3016→- **config.ts**: Complete configuration with business rules
+  3017→  - Max 10 counter-offers, 72-hour offer validity
+  3018→  - Price limits: min 1% change, max 40% discount
+  3019→  - Auto-accept threshold: 5%
+  3020→  - Support for PRICE, QUANTITY, DELIVERY_DATE, PAYMENT_TERMS, BUNDLE types
+  3021→  - Algerian Dinar (DZD) currency configuration
+  3022→  
+  3023→- **validator.ts**: Comprehensive validation functions
+  3024→  - `validatePriceLimits()`: Enforce discount boundaries
+  3025→  - `checkUserEligibility()`: Verify participant authorization
+  3026→  - `enforceBusinessRules()`: Counter-offer limits, status checks
+  3027→  - `validateDeliveryDate()`: Date range validation (1 day to 1 year)
+  3028→  - `validateQuantity()`: Positive integer validation
+  3029→  - `validatePaymentTerms()`: Predefined terms verification
+  3030→  - `validateOffer()`: Comprehensive offer validation
+  3031→  - `shouldAutoAccept()`: Auto-accept threshold logic
+  3032→
+  3033→- **engine.ts**: Core negotiation operations
+  3034→  - `createOffer()`: New negotiation with initial offer
+  3035→  - `createCounterOffer()`: Submit counter with parent tracking
+  3036→  - `acceptOffer()`: Accept and reject other pending offers
+  3037→  - `rejectOffer()`: Reject with optional reason
+  3038→  - `withdrawOffer()`: Withdraw pending offers
+  3039→  - `expireOffers()`: Batch expiration for cron jobs
+  3040→  - `getNegotiationHistory()`: Paginated user history
+  3041→  - `calculateBestDeal()`: Find best price across negotiations
+  3042→  - `getNegotiationById()`: Full negotiation with offers
+  3043→
+  3044→## 2. API Routes (`src/app/api/negotiations/`)
+  3045→- **POST /**: Create new negotiation with validation
+  3046→- **GET /**: List negotiations with filters (status, type, pagination)
+  3047→- **GET /[id]**: Get details with statistics (savings, days active, time remaining)
+  3048→- **POST /[id]/counter**: Submit counter-offer with business rule enforcement
+  3049→- **POST /[id]/accept**: Accept offer with participant verification
+  3050→- **POST /[id]/reject**: Reject with optional reason
+  3051→- **POST /[id]/withdraw**: Withdraw with sender verification
+  3052→
+  3053→## 3. UI Components (`src/components/negotiation/`)
+  3054→- **NegotiationForm.tsx**: Full-featured form for create/counter modes
+  3055→  - Dynamic fields based on negotiation type
+  3056→  - Real-time savings calculation with visual indicators
+  3057→  - Auto-accept threshold display
+  3058→  - Multi-language support (EN/AR/FR)
+  3059→  - Form validation with error messages
+  3060→  
+  3061→- **NegotiationTimeline.tsx**: Visual negotiation history
+  3062→  - Timeline view with status icons
+  3063→  - User identification (your offer vs their offer)
+  3064→  - Price, quantity, delivery, payment details
+  3065→  - Message display with timestamps
+  3066→  
+  3067→- **NegotiationDashboard.tsx**: Comprehensive management view
+  3068→  - Statistics cards (Total, Active, Accepted, Savings)
+  3069→  - Search and filter functionality
+  3070→  - Urgency indicators for expiring offers
+  3071→  - Quick action buttons (View, Negotiate, Accept)
+  3072→  
+  3073→- **OfferComparison.tsx**: Side-by-side comparison
+  3074→  - Original vs current offer table
+  3075→  - Visual difference indicators (trending up/down)
+  3076→  - Color-coded advantage display (buyer/seller)
+  3077→  - Summary banner with total difference
+  3078→
+  3079→## 4. Real-time Updates
+  3080→- **WebSocket Service** (`mini-services/negotiation-ws/index.ts`):
+  3081→  - Room-based negotiation channels
+  3082→  - User join/leave events
+  3083→  - Typing indicators
+  3084→  - Update broadcasting to participants
+  3085→  
+  3086→- **Client Hook** (`src/hooks/useNegotiationSocket.ts`):
+  3087→  - Auto-connect on mount
+  3088→  - Real-time update callbacks
+  3089→  - Online users tracking
+  3090→  - Typing state management
+  3091→
+  3092→## 5. Tests (`__tests__/negotiation.test.ts`)
+  3093→- 53 comprehensive tests covering:
+  3094→  - Configuration values validation
+  3095→  - Price limit edge cases
+  3096→  - User eligibility scenarios
+  3097→  - Business rule enforcement
+  3098→  - Delivery date validation
+  3099→  - Quantity constraints
+  3100→  - Payment terms verification
+  3101→  - Offer validation combinations
+  3102→  - Auto-accept logic
+  3103→  - Integration flow scenarios
+  3104→
+  3105→Test Results: ✅ All 53 tests passing
+  3106→
+  3107→Stage Summary:
+  3108→- ✅ Complete negotiation engine with business rules
+  3109→- ✅ RESTful API with full CRUD operations
+  3110→- ✅ 4 production-ready UI components
+  3111→- ✅ WebSocket real-time updates infrastructure
+  3112→- ✅ Comprehensive test coverage (53 tests)
+  3113→- ✅ Multi-language support (English, Arabic, French)
+  3114→- ✅ Algerian market optimization (DZD currency)
+  3115→
+  3116→Files Created:
+  3117→- src/lib/negotiation/config.ts
+  3118→- src/lib/negotiation/validator.ts
+  3119→- src/lib/negotiation/engine.ts
+  3120→- src/lib/negotiation/index.ts
+  3121→- src/app/api/negotiations/route.ts
+  3122→- src/app/api/negotiations/[id]/route.ts
+  3123→- src/app/api/negotiations/[id]/counter/route.ts
+  3124→- src/app/api/negotiations/[id]/accept/route.ts
+  3125→- src/app/api/negotiations/[id]/reject/route.ts
+  3126→- src/app/api/negotiations/[id]/withdraw/route.ts
+  3127→- src/components/negotiation/NegotiationForm.tsx
+  3128→- src/components/negotiation/NegotiationTimeline.tsx
+  3129→- src/components/negotiation/NegotiationDashboard.tsx
+  3130→- src/components/negotiation/OfferComparison.tsx
+  3131→- mini-services/negotiation-ws/index.ts
+  3132→- mini-services/negotiation-ws/package.json
+  3133→- src/hooks/useNegotiationSocket.ts
+  3134→- __tests__/negotiation.test.ts
+  3135→- Updated: src/app/page.tsx (showcase page)
+  3136→- Updated: src/components/negotiation/index.ts (exports)
+  3137→---
+  3138→Task ID: 3-A
+  3139→Agent: WebRTC Implementation Team
+  3140→Task: Implement Voice/Video Calls (WebRTC) for In-platform Communication
+  3141→
+  3142→Work Log:
+  3143→
+  3144→## 1. WebRTC Mini-Service (Signaling Server)
+  3145→- Created `mini-services/webrtc-service/` with Socket.io signaling server
+  3146→- Implemented real-time signaling for SDP offer/answer exchange
+  3147→- Added ICE candidate forwarding between peers
+  3148→- Room-based calling with automatic cleanup
+  3149→- User registration and online status tracking
+  3150→- Call control events (mute, video toggle, screen share, hold)
+  3151→- In-call chat messaging support
+  3152→- Recording start/stop functionality
+  3153→- Graceful disconnect handling with reconnection grace period
+  3154→
+  3155→## 2. STUN/TURN Configuration (`stun-turn-config.ts`)
+  3156→- Configured Google STUN servers (stun.l.google.com:19302)
+  3157→- Added Mozilla STUN as backup
+  3158→- Support for TURN servers (self-hosted, Twilio, Xirsys, Metered.ca)
+  3159→- Adaptive ICE config based on network quality
+  3160→- Media constraints for different quality levels (SD, HD, FHD, UHD)
+  3161→
+  3162→## 3. Call Recording Service (`recorder.ts`)
+  3163→- MediaStreamRecorder integration
+  3164→- Multiple format support (WebM, MP4, OGG)
+  3165→- Quality-based bitrate settings
+  3166→- Max duration enforcement (2 hours)
+  3167→- File size and duration formatting utilities
+  3168→
+  3169→## 4. Database Schema Updates
+  3170→- Added `CallSession` model:
+  3171→  - Participant info (caller/callee IDs and names)
+  3172→  - Unique room ID for WebRTC signaling
+  3173→  - Call type (AUDIO, VIDEO, SCREEN_SHARE)
+  3174→  - Status tracking (INITIATING → RINGING → IN_PROGRESS → ENDED)
+  3175→  - Recording metadata
+  3176→  - ICE servers configuration storage
+  3177→  - Cost tracking for premium calls
+  3178→- Added `CallEvent` model for analytics/debugging
+  3179→- Added `CallSettings` model for user preferences
+  3180→- Pushed schema to database successfully
+  3181→
+  3182→## 5. Client-Side Components
+  3183→### New Components Created:
+  3184→- **IncomingCallModal.tsx**: Full incoming call UI with:
+  3185→  - Animated avatar with ringing effect
+  3186→  - Accept/decline buttons with animations
+  3187→  - Quick reply options
+  3188→  - Auto-decline after 60 seconds
+  3189→  - Video preview placeholder for video calls
+  3190→  
+  3191→- **CallHistory.tsx**: Comprehensive call history with:
+  3192→  - Search and filter by type/status
+  3193→  - Grouping by date
+  3194→  - Call icons (incoming/outgoing/missed)
+  3195→  - Duration display
+  3196→  - Recall functionality
+  3197→  - Delete options
+  3198→  
+  3199→- **DeviceSettings.tsx**: Audio/video device configuration:
+  3200→  - Camera/microphone/speaker selection
+  3201→  - Live video preview
+  3202→  - Real-time microphone level indicator
+  3203→  - Advanced audio settings (noise suppression, echo cancellation)
+  3204→  - HD video quality toggle
+  3205→
+  3206→## 6. API Routes Created
+  3207→- **`/api/calls/settings/route.ts`** (GET/PUT):
+  3208→  - Get user call preferences
+  3209→  - Update device and privacy settings
+  3210→  
+  3211→- **`/api/calls/recordings/route.ts`** (GET/POST):
+  3212→  - List available recordings with pagination
+  3213→  - Save recording metadata
+  3214→  
+  3215→- **`/api/calls/recordings/[callId]/download/route.ts`** (GET):
+  3216→  - Download recordings with permission check
+  3217→  - Local file serving or redirect to cloud storage
+  3218→
+  3219→## 7. Main Page Integration
+  3220→- Updated `src/app/page.tsx` with comprehensive calling interface:
+  3221→  - Contacts list with online status indicators
+  3222→  - Voice/Video call initiation buttons
+  3223→  - Active call windows (Video/Audio)
+  3224→  - Incoming call modal integration
+  3225→  - Call history tab
+  3226→  - Device settings tab
+  3227→  - Features overview tab
+  3228→  - Connection quality indicator
+  3229→  - Simulated incoming call button for demo
+  3230→
+  3231→## 8. Testing
+  3232→- Created comprehensive test suite (`__tests__/calls/test.ts`)
+  3233→- 27 tests covering:
+  3234→  - Signaling server validation
+  3235→  - ICE server configuration
+  3236→  - Media constraints
+  3237→  - Call recording logic
+  3238→  - Database model structure
+  3239→  - API route behavior
+  3240→- All tests passing ✅
+  3241→
+  3242→Stage Summary:
+  3243→- Complete WebRTC voice/video calling system implemented
+  3244→- Signaling server running on port 3002
+  3245→- All components created and integrated
+  3246→- Database schema updated with call models
+  3247→- API routes for settings and recordings
+  3248→- Comprehensive test coverage (27/27 passing)
+  3249→- Ready for production deployment with TURN server configuration
+  3250→
+  3251→Technical Stack Used:
+  3252→- Next.js 16 with App Router
+  3253→- TypeScript 5
+  3254→- Socket.io 4.8 for signaling
+  3255→- WebRTC native browser APIs
+  3256→- Prisma ORM with SQLite
+  3257→- shadcn/ui components
+  3258→- Tailwind CSS 4 styling
+  3259→
+  3260→Files Created/Modified:
+  3261→- `mini-services/webrtc-service/index.ts`
+  3262→- `mini-services/webrtc-service/stun-turn-config.ts`
+  3263→- `mini-services/webrtc-service/recorder.ts`
+  3264→- `mini-services/webrtc-service/package.json`
+  3265→- `src/components/calls/IncomingCallModal.tsx`
+  3266→- `src/components/calls/CallHistory.tsx`
+  3267→- `src/components/calls/DeviceSettings.tsx`
+  3268→- `src/components/calls/index.ts` (updated exports)
+  3269→- `src/app/api/calls/settings/route.ts`
+  3270→- `src/app/api/calls/recordings/route.ts`
+  3271→- `src/app/api/calls/recordings/[callId]/download/route.ts`
+  3272→- `src/app/page.tsx` (complete rewrite)
+  3273→- `prisma/schema.prisma` (added CallSession, CallEvent, CallSettings models)
+  3274→- `__tests__/calls/test.ts`
+  3275→
+  3276→---
+  3277→Task ID: 3-B
+  3278→Agent: AR Engineering Team
+  3279→Task: Implement AR Showroom (Augmented Reality Product Preview) for AlgeriaTrade.dz
+  3280→
+  3281→Work Log:
+  3282→## AR Core Library (`src/lib/ar/`)
+  3283→- Created `config.ts` - Central configuration for all AR settings including:
+  3284→  - Viewer configurations (WebXR, model-viewer, Three.js)
+  3285→  - Model format support (GLB, GLTF, USDZ)
+  3286→  - Quality settings and optimization parameters
+  3287→  - Storage and snapshot configuration
+  3288→  - Browser capability detection function
+  3289→- Created `model-manager.ts` - Complete model management system with:
+  3290→  - File validation and format detection
+  3291→  - Upload functionality with progress tracking
+  3292→  - USDZ conversion request handling
+  3293→  - Metadata management
+  3294→  - Thumbnail generation utilities
+  3295→- Created `ar-session.ts` - WebXR session management with:
+  3296→  - Session initialization and lifecycle management
+  3297→  - Hit testing and surface detection
+  3298→  - Model placement and transformation tracking
+  3299→  - Snapshot capture capabilities
+  3300→  - Platform-specific AR mode selection
+  3301→- Created `snapshot.ts` - Capture and sharing system with:
+  3302→  - Canvas-based screenshot capture
+  3303→  - Watermark and timestamp overlay
+  3304→  - Multi-platform sharing (WhatsApp, Email, Twitter, etc.)
+  3305→  - Server-side snapshot persistence
+  3306→  - Gallery management functions
+  3307→- Created `three-scene.ts` - Three.js scene wrapper class with:
+  3308→  - Full scene initialization and configuration
+  3309→  - GLTF/GLB model loading with Draco support
+  3310→  - Camera controls and auto-rotation
+  3311→  - Screenshot capture with watermarking
+  3312→  - Proper resource disposal
+  3313→
+  3314→## AR Components (`src/components/ar/`)
+  3315→- **ARShowroom.tsx** - Main AR viewer component featuring:
+  3316→  - Google `<model-viewer>` integration with dynamic import
+  3317→  - Full-screen AR mode with WebXR support
+  3318→  - Model selection and carousel
+  3319→  - Placement controls (rotate, scale, zoom)
+  3320→  - Capture/share functionality
+  3321→  - Product info overlay
+  3322→  - "View in Room" mode toggle
+  3323→- **ModelViewer.tsx** - Three.js-based 3D preview with:
+  3324→  - Orbit controls, zoom, pan, rotate
+  3325→  - Animation playback controls
+  3326→  - Material variant selector
+  3327→  - Dimensions display
+  3328→  - Screenshot capability
+  3329→- **ARProductCard.tsx** - Enhanced product card with:
+  3330→  - "View in AR" badge and button
+  3331→  - Quick 3D preview on hover
+  3332→  - AR availability indicator
+  3333→  - Compact version for grid views
+  3334→- **ARPlacementGuide.tsx** - First-time user tutorial with:
+  3335→  - Step-by-step guided walkthrough
+  3336→  - Surface detection explanation
+  3337→  - Gesture instructions reference
+  3338→  - Tips for best experience
+  3339→- **ARModelUploader.tsx** - Seller upload interface with:
+  3340→  - Drag & drop upload zone
+  3341→  - Format validation with suggestions
+  3342→  - Live preview after upload
+  3343→  - Optimization options
+  3344→  - Scale/rotation metadata editor
+  3345→- **ARGallery.tsx** - Product gallery with:
+  3346→  - Grid/list view toggle
+  3347→  - Category filtering
+  3348→  - Sort by popularity/recency/views
+  3349→  - Quick AR launch buttons
+  3350→- **ARSnapshot.tsx** - Snapshot viewer with:
+  3351→  - Image gallery with grid/list views
+  3352→  - Full-screen preview modal
+  3353→  - Share/download/copy link actions
+  3354→  - Delete management
+  3355→
+  3356→## API Routes (`src/app/api/ar/`)
+  3357→- **`models/route.ts`** - GET/POST for model listing and creation
+  3358→- **`models/[productId]/route.ts`** - GET/PUT/DELETE for individual models
+  3359→- **`capture/route.ts`** - POST/GET for saving and listing snapshots
+  3360→- **`capture/[id]/route.ts`** - GET/DELETE for snapshot management
+  3361→- **`products/[productId]/ar-status/route.ts`** - Check product AR availability
+  3362→- **`validate-model/route.ts`** - Validate uploaded models with suggestions
+  3363→
+  3364→## Database Schema Updates
+  3365→- Added `ARSnapshot` model to Prisma schema with fields:
+  3366→  - id, modelId, userId, imageUrl, thumbnailUrl
+  3367→  - capturedAt, shared, shareToken, metadata
+  3368→- Updated `ARProductModel` with snapshots relation
+  3369→- Pushed schema changes to database successfully
+  3370→
+  3371→## Dependencies Installed
+  3372→- @google/model-viewer v4.3.1 for iOS Quick Look and WebXR support
+  3373→
+  3374→## Main Page UI
+  3375→- Created comprehensive AR Showroom landing page with:
+  3376→  - Hero section with feature highlights
+  3377→  - Feature cards explaining AR capabilities
+  3378→  - Demo products showcase with AR badges
+  3379→  - Tabbed interface: Showcase, AR Viewer, Gallery, Snapshots
+  3380→  - Integrated model uploader section
+  3381→
+  3382→Stage Summary:
+  3383→- Complete AR showroom system implemented
+  3384→- WebXR and model-viewer support configured
+  3385→- Full CRUD API for models and snapshots
+  3386→- 7 new React components created
+  3387→- 6 new API endpoints created
+  3388→- Database schema updated with ARSnapshot model
+  3389→- Ready for production use with proper error handling
+  3390→
+  3391→---
+  3392→Task ID: 2-B
+  3393→Agent: Contract Module Developer
+  3394→Task: Implement Contract Generation Module for AlgeriaTrade.dz
+  3395→
+  3396→Work Log:
+  3397→### 1. Contract Engine Configuration (src/lib/contracts/config.ts)
+  3398→- Created comprehensive contract types configuration with 7 template types
+  3399→- Implemented Algerian Commercial Law compliant clause library
+  3400→- Added support for AR, FR, and BILINGUAL languages
+  3401→- Created company legal info placeholders (NRC, NIF, NIS)
+  3402→- Defined 9 clause categories with 50+ standard clauses:
+  3403→  - Parties Identification
+  3404→  - Subject Matter & Scope
+  3405→  - Payment Terms
+  3406→  - Delivery & Performance
+  3407→  - Warranty & Quality
+  3408→  - Confidentiality
+  3409→  - Dispute Resolution
+  3410→  - Termination
+  3411→  - General Provisions
+  3412→- Added Algerian law references (Commercial Code 75-59, Civil Code 70-05, etc.)
+  3413→- Created legal forms list (SARL, EURL, SPA, SNC)
+  3414→- Added all 58 wilayas reference data
+  3415→
+  3416→### 2. Contract Templates (src/lib/contracts/templates/)
+  3417→Created 7 comprehensive templates:
+  3418→- **sales-contract.ts**: Sales Agreement with payment/delivery/warranty clauses
+  3419→- **purchase-order.ts**: Purchase Order with inspection/quantity variation clauses
+  3420→- **nda.ts**: Non-Disclosure Agreement with confidentiality obligations
+  3421→- **service-agreement.ts**: Service Agreement with deliverables/IP clauses
+  3422→- **distribution.ts**: Distribution Agreement with territorial rights/sales targets
+  3423→- **partnership.ts**: Framework/Partnership Agreement with governance/joint IP
+  3424→- **exclusivity.ts**: Exclusivity Agreement with non-compete/performance clauses
+  3425→
+  3426→Each template includes:
+  3427→- Bilingual content (AR/FR/EN)
+  3428→- Algerian law references
+  3429→- Standard clause library integration
+  3430→- Metadata for categorization
+  3431→
+  3432→### 3. Generator Module (src/lib/contracts/generator.ts)
+  3433→- fillTemplate(): Replace placeholders with actual values
+  3434→- addClauses(): Add additional clauses to template
+  3435→- removeClauses(): Remove non-required clauses
+  3436→- generatePreview(): Generate structured preview data
+  3437→- generateContract(): Create complete contract object with auto-generated number
+  3438→
+  3439→### 4. E-Signature Module (src/lib/contracts/e-signature.ts)
+  3440→- createSignature(): Create digital signature record with SHA-256 hash
+  3441→- verifySignature(): Verify signature integrity and authenticity
+  3442→- createSignatureRequest(): Create signing request with expiration
+  3443→- updateSignatureRequestStatus(): Track request lifecycle
+  3444→- getPendingRequestsForUser(): List pending signatures
+  3445→- addAuditEntry(): Comprehensive audit trail logging
+  3446→- formatAuditTrail(): Multi-language audit formatting
+  3447→- generateCertificateOfAuthenticity(): Tamper-evident certificate generation
+  3448→- verifyCertificate(): Certificate validation
+  3449→- getSigningStatusSummary(): Overall signing status
+  3450→
+  3451→### 5. Clause Management (src/lib/contracts/clauses.ts)
+  3452→- findClauses(): Search and filter clauses by category/type/keyword
+  3453→- getSuggestedClauses(): Get context-aware clause suggestions
+  3454→- validateClause(): Validate clause data completeness
+  3455→- hasUnfilledPlaceholders(): Detect remaining template variables
+  3456→- getCategorySummary(): Get category statistics
+  3457→- Custom clause CRUD operations (create/read/update/delete)
+  3458→
+  3459→### 6. PDF Export Module (src/lib/contracts/pdf-export.ts)
+  3460→- generateContractHTML(): Full HTML document generation with:
+  3461→  - Professional letterhead with AlgeriaTrade branding
+  3462→  - Bilingual header (AR/FR)
+  3463→  - Party information blocks
+  3464→  - Formatted clauses with language toggle
+  3465→  - Signature blocks with date stamps
+  3466→  - Stamp/seal area placeholder
+  3467→  - Page numbers
+  3468→  - Responsive design for A4 print
+  3469→- generatePDFFilename(): Standardized filename generation
+  3470→- Support for watermark option
+  3471→
+  3472→### 7. React Components (src/components/contracts/)
+  3473→**ContractWizard.tsx**:
+  3474→- 4-step wizard: Template → Parties → Details → Review
+  3475→- Real-time validation per step
+  3476→- Responsive design with mobile support
+  3477→- Progress indicator with step labels in EN/AR/FR
+  3478→
+  3479→**ContractPreview.tsx**:
+  3480→- Full contract display with expandable clauses
+  3481→- Language toggle (AR/FR/Bilingual)
+  3482→- Party cards with company details
+  3483→- Signature status indicators
+  3484→- Compact mode for list view
+  3485→- Action buttons (Sign/Edit/PDF)
+  3486→
+  3487→**ContractSigner.tsx**:
+  3488→- Three signature methods: Draw / Type / Upload
+  3489→- Canvas-based drawing with touch support
+  3490→- Legal notice about Law 10-11 compliance
+  3491→- Terms agreement checkbox
+  3492→- Security timestamp display
+  3493→- Loading states
+  3494→
+  3495→**ClauseSelector.tsx**:
+  3496→- Category sidebar with counts
+  3497→- Search functionality
+  3498→- Required-only filter
+  3499→- Bulk select/deselect by category
+  3500→- Selection state management
+  3501→- Disabled state for required clauses
+  3502→
+  3503→**TemplateGallery.tsx**:
+  3504→- Card grid layout with colored headers
+  3505→- Category filter dropdown
+  3506→- Template preview dialog with full details
+  3507→- Usage statistics display
+  3508→- Mobile-responsive compact view
+  3509→
+  3510→**ContractList.tsx** (Updated):
+  3511→- Enhanced filtering (status/type/search)
+  3512→- Desktop table + mobile card views
+  3513→- Pagination controls
+  3514→- Empty state with CTA
+  3515→- Bilingual status labels
+  3516→
+  3517→### 8. API Routes (src/app/api/contracts/)
+  3518→- **GET /api/contracts**: List contracts with pagination/filters
+  3519→- **POST /api/contracts**: Create new contract
+  3520→- **POST /api/contracts/generate**: Preview or generate contract
+  3521→- **GET /api/contracts/templates**: List available templates
+  3522→- **GET /api/contracts/clauses**: Search/list clauses
+  3523→- **GET /api/contracts/[id]**: Get contract details (JSON or HTML)
+  3524→- **PUT /api/contracts/[id]**: Update draft contract
+  3525→- **DELETE /api/contracts/[id]**: Delete draft contract
+  3526→- **POST /api/contracts/[id]/sign**: Sign contract with e-signature
+  3527→- **GET /api/contracts/[id]/sign**: Get signing status
+  3528→
+  3529→### 9. Tests (__tests__/contracts.test.ts)
+  3530→Comprehensive test coverage:
+  3531→- Configuration tests (types, languages, categories)
+  3532→- Clause library tests (getAll, getByCategory, getById, search)
+  3533→- Template tests (listAll, getByType, bilingual content)
+  3534→- Generator tests (fillTemplate, add/removeClauses, preview, generate)
+  3535→- E-Signature tests (create, verify, requests, certificates, audit)
+  3536→- Clause management tests (validate, placeholders, suggestions)
+  3537→- PDF export tests (HTML generation, filename)
+  3538→
+  3539→### 10. Main Page Update (src/app/page.tsx)
+  3540→Complete contract module showcase:
+  3541→- Hero section with module overview
+  3542→- Statistics dashboard (templates, clauses, languages)
+  3543→- Quick action cards (Templates, Wizard, Demo)
+  3544→- Template gallery integration
+  3545→- Demo contract preview with full features
+  3546→- Feature highlights (Law compliance, bilingual, e-signatures, PDF)
+  3547→- Legal compliance information panel
+  3548→- Tab-based navigation between views
+  3549→
+  3550→Stage Summary:
+  3551→✅ Complete contract generation engine with 7 templates
+  3552→✅ 50+ Algerian law compliant standard clauses
+  3553→✅ E-Signature module with SHA-256 verification
+  3554→✅ PDF export with professional formatting
+  3555→✅ 5 React components for full UI workflow
+  3556→✅ 8 API endpoints for complete CRUD operations
+  3557→✅ Comprehensive test suite
+  3558→✅ Main page integration with demo capabilities
+  3559→
+  3560→Files Created/Modified:
+  3561→- src/lib/contracts/config.ts (NEW)
+  3562→- src/lib/contracts/generator.ts (NEW)
+  3563→- src/lib/contracts/e-signature.ts (NEW)
+  3564→- src/lib/contracts/clauses.ts (NEW)
+  3565→- src/lib/contracts/pdf-export.ts (NEW)
+  3566→- src/lib/contracts/index.ts (NEW)
+  3567→- src/lib/contracts/templates/index.ts (NEW)
+  3568→- src/lib/contracts/templates/sales-contract.ts (NEW)
+  3569→- src/lib/contracts/templates/purchase-order.ts (NEW)
+  3570→- src/lib/contracts/templates/nda.ts (NEW)
+  3571→- src/lib/contracts/templates/service-agreement.ts (NEW)
+  3572→- src/lib/contracts/templates/distribution.ts (NEW)
+  3573→- src/lib/contracts/templates/partnership.ts (NEW)
+  3574→- src/lib/contracts/templates/exclusivity.ts (NEW)
+  3575→- src/components/contracts/ContractWizard.tsx (NEW)
+  3576→- src/components/contracts/ContractPreview.tsx (UPDATED)
+  3577→- src/components/contracts/ContractSigner.tsx (NEW)
+  3578→- src/components/contracts/ClauseSelector.tsx (NEW)
+  3579→- src/components/contracts/TemplateGallery.tsx (NEW)
+  3580→- src/components/contracts/index.ts (UPDATED)
+  3581→- src/app/api/contracts/route.ts (UPDATED)
+  3582→- src/app/api/contracts/generate/route.ts (NEW)
+  3583→- src/app/api/contracts/templates/route.ts (UPDATED)
+  3584→- src/app/api/contracts/clauses/route.ts (NEW)
+  3585→- src/app/api/contracts/[id]/route.ts (UPDATED)
+  3586→- src/app/api/contracts/[id]/sign/route.ts (NEW)
+  3587→- __tests__/contracts.test.ts (NEW)
+  3588→- src/app/page.tsx (UPDATED)
+  3589→
+  3590→
+  3591→---
+  3592→Task ID: 2-C
+  3593→Agent: Main Coordinator
+  3594→Task: Implement CRM Integration Suite for AlgeriaTrade.dz
+  3595→
+  3596→Work Log:
+  3597→- Created comprehensive CRM module in `src/lib/crm/` with 8 sub-modules:
+  3598→  - config.ts: Pipeline stages, activity types, lead scoring rules, notification preferences, email templates, segment fields, export configuration
+  3599→  - contacts.ts: Contact CRUD, import/export, duplicate detection (string similarity), contact merging, tags management
+  3600→  - leads.ts: Lead CRUD, scoring algorithm (engagement/fit/behavior/urgency/authority), stage transitions, conversion tracking, round-robin assignment
+  3601→  - pipeline.ts: Deal management, Kanban-style pipeline board, stage transitions (lead→qualified→proposal→negotiation→won/lost), pipeline analytics & forecasting
+  3602→  - activities.ts: Activity logging (calls/emails/meetings/notes), timeline view, auto follow-up scheduling, sentiment analysis (EN/FR), activity statistics
+  3603→  - tasks.ts: Task CRUD, priority levels (urgent/high/medium/low), due date tracking, bulk operations, reminders system
+  3604→  - analytics.ts: Dashboard KPIs, conversion metrics, revenue forecasting (conservative/moderate/optimistic), customer lifetime value, report generation
+  3605→  - communication.ts: Email template rendering, communication history, internal notes, quick send helpers
+  3606→
+  3607→- Created 10 new React components in `src/components/crm/`:
+  3608→  - CRMDashboard.tsx: Main dashboard with KPIs, recent leads, tasks, activity widgets
+  3609→  - ContactManager.tsx: Full contact table with search/filter, create/edit dialog, pagination, detail view dialog
+  3610→  - LeadList.tsx: Lead list with scoring badges, source/status filters, stage progress bars, detail dialog
+  3611→  - PipelineView.tsx: Horizontal pipeline view, funnel visualization, stage summaries, deal cards
+  3612→  - DealCard.tsx: Compact and full deal cards, stage colors, probability indicators, loss reason display
+  3613→  - ActivityFeed.tsx: Timeline with type icons/colors, log activity dialog, filter by type
+  3614→  - TaskList.tsx: Task list with priority badges, status indicators, overdue highlighting
+  3615→  - QuickActions.tsx: 9 quick action buttons (add contact/lead, call/email/meeting/task/export/import/reports)
+  3616→  - SegmentBuilder.tsx: Visual segment builder with AND/OR filters, field operators, preview counts
+  3617→  - CRMReports.tsx: Overview/pipeline/conversion/activity tabs, charts, insights/recommendations
+  3618→
+  3619→- Created 8 API routes in `src/app/api/crm/`:
+  3620→  - /contacts/route.ts: GET (list/search), POST (create)
+  3621→  - /contacts/[id]/route.ts: GET, PUT, DELETE + POST for stage changes
+  3622→  - /deals/route.ts: GET (list/search), POST (create)
+  3623→  - /deals/[id]/route.ts: GET, PUT, DELETE + win/lose operations
+  3624→  - /activities/route.ts: GET (list/search with filters), POST (log activity)
+  3625→  - /analytics/route.ts: GET dashboard/conversion/forecast/clv/report data
+  3626→  - /import/route.ts: POST (bulk import from CSV)
+  3627→  - /export/route.ts: GET (export as CSV/JSON)
+  3628→
+  3629→- Updated main page (`src/app/page.tsx`) to integrate full CRM suite with tabbed interface
+  3630→
+  3631→- Created comprehensive test suite in `__tests__/crm/test.ts` covering all major functions
+  3632→
+  3633→Stage Summary:
+  3634→- Complete CRM integration suite ready for production use
+  3635→- Full sales pipeline management (6 stages)
+  3636→- Automated lead scoring algorithm
+  3637→- Multi-language support (EN/FR) for Algerian market
+  3638→- Import/export functionality for data portability
+  3639→- Real-time analytics and reporting dashboard
+  3640→
+  3641→---
+  3642→Task ID: 2-C (Retry)
+  3643→Agent: CRM Integration Specialist
+  3644→Task: Implement CRM Integration Suite for AlgeriaTrade.dz
+  3645→
+  3646→Work Log:
+  3647→
+  3648→## 1. Core Library Files (`src/lib/crm/`)
+  3649→
+  3650→### config.ts - Configuration & Constants
+  3651→- Pipeline stages configuration (Lead → Qualified → Proposal → Negotiation → Closed Won/Lost)
+  3652→- Activity types with multilingual labels (EN/AR/FR)
+  3653→- Lead scoring rules with weighted factors:
+  3654→  - Engagement (30 points max)
+  3655→  - Fit/ICP match (25 points max)
+  3656→  - Behavior signals (20 points max)
+  3657→  - Urgency indicators (15 points max)
+  3658→  - Authority level (10 points max)
+  3659→- Lead sources configuration (website, referral, trade_show, rfq, etc.)
+  3660→- Task priorities (urgent, high, medium, low) with response time targets
+  3661→- Contact statuses (active, inactive, prospect, customer, churned)
+  3662→- Notification preferences configuration
+  3663→- Email templates for follow-up, proposals, welcome, reminders
+  3664→- CRM settings defaults optimized for Algerian market
+  3665→- Segment field options for contact filtering
+  3666→- Export/import field configurations
+  3667→- Analytics defaults (date ranges, chart colors)
+  3668→
+  3669→### contacts.ts - Contact Management
+  3670→- Full CRUD operations (create, read, update, delete)
+  3671→- Advanced search with filters (status, role, tags, source, city, date ranges)
+  3672→- Pagination support with configurable page size
+  3673→- Duplicate detection algorithm with:
+  3674→  - Email matching (weight: 40)
+  3675→  - Phone normalization and matching (weight: 25)
+  3676→  - Name similarity using Levenshtein distance (weight: 20)
+  3677→  - Company matching (weight: 15)
+  3678→- Contact merging with data consolidation
+  3679→- Tag management (add, remove, list all unique tags)
+  3680→- Import from CSV-like data with duplicate handling options
+  3681→- Export to structured format with field selection
+  3682→- DB mapping layer for Prisma schema compatibility
+  3683→
+  3684→### leads.ts - Lead Management
+  3685→- Lead CRUD with auto-generated lead numbers
+  3686→- Lead scoring algorithm based on:
+  3687→  - Source quality (RFQ highest, cold call lowest)
+  3688→  - Estimated value tiers
+  3689→  - Company size indicators
+  3690→- Stage transitions with probability updates
+  3691→- Qualification workflow (NEW → CONTACTED → QUALIFIED → PROPOSAL → NEGOTIATION → WON/LOST)
+  3692→- Conversion tracking (lead to deal conversion)
+  3693→- Loss analysis (reason, competitor)
+  3694→- Search and filtering capabilities
+  3695→- Source tracking and analytics
+  3696→
+  3697→### pipeline.ts - Sales Pipeline & Deals
+  3698→- Pipeline management (create, read, update default/custom pipelines)
+  3699→- Deal CRUD operations
+  3700→- Stage transition handling with history tracking
+  3701→- Win/Loss deal operations with reason capture
+  3702→- Probability calculation based on stage
+  3703→- Pipeline analytics including:
+  3704→  - Total deals value (weighted and unweighted)
+  3705→  - Average deal size
+  3706→  - Conversion rates by stage
+  3707→  - Win rate calculations
+  3708→  - Velocity metrics (deals/month)
+  3709→  - Value trends by month
+  3710→  - Top loss reasons analysis
+  3711→- Revenue forecasting:
+  3712→  - Weighted forecast (probability-based)
+  3713→  - Best case scenario
+  3714→  - Committed deals (70%+ probability)
+  3715→  - Monthly breakdown
+  3716→
+  3717→### activities.ts - Activity Logging & Timeline
+  3718→- Activity types: calls, emails, meetings, notes, follow-ups, demos, etc.
+  3719→- Direction tracking (inbound/outbound)
+  3720→- Duration tracking for calls/meetings
+  3721→- Sentiment analysis (positive/negative/neutral) with bilingual keyword support
+  3722→- Attachment support via URL storage
+  3723→- Automation flags for system-generated activities
+  3724→- Timeline view combining activities and completed tasks
+  3725→- Follow-up scheduling based on activity type:
+  3726→  - Calls → 24 hours
+  3727→  - Emails → 48 hours
+  3728→  - Meetings → 1 week
+  3729→  - Demos → 2 days
+  3730→  - Proposals → 3 days
+  3731→- Activity statistics (by type, direction, day, duration averages)
+  3732→
+  3733→### tasks.ts - Task Management
+  3734→- Task CRUD with status tracking (TODO, IN_PROGRESS, COMPLETED, CANCELLED, DEFERRED)
+  3735→- Task types: CALL, EMAIL, MEETING, FOLLOW_UP, PROPOSAL, DEMO, REMINDER, OTHER
+  3736→- Priority levels with color coding
+  3737→- Due date and time tracking
+  3738→- Reminder system (configurable minutes before due date)
+  3739→- Completion tracking with result notes and outcomes
+  3740→- Advanced search and filtering:
+  3741→  - Overdue tasks
+  3742→  - Tasks due today/this week
+  3743→  - By status, priority, type, assignee
+  3744→- Task statistics dashboard:
+  3745→  - Counts by status and priority
+  3746→  - Overdue and due today counts
+  3747→  - Completion rate
+  3748→  - Average completion time
+  3749→- Bulk operations (complete, reassign, update priorities)
+  3750→- Reminder scheduling and tracking
+  3751→
+  3752→### analytics.ts - Sales Analytics & Reporting
+  3753→- Dashboard metrics aggregation:
+  3754→  - Contacts (total, new this period, active)
+  3755→  - Leads (total, new, qualified, by source)
+  3756→  - Pipeline value (total, weighted)
+  3757→  - Deals (won, lost, win rate, avg size)
+  3758→  - Revenue this period
+  3759→  - Tasks (open, overdue)
+  3760→  - Activities count
+  3761→  - Trend data (contacts, leads, revenue over time)
+  3762→- Conversion metrics:
+  3763→  - Overall conversion rate
+  3764→  - By source conversion rates
+  3765→  - Monthly conversion trends
+  3766→  - Average conversion days
+  3767→  - Funnel stage visualization
+  3768→- Revenue forecasting:
+  3769→  - Current month, next month, quarter, year projections
+  3770→  - Confidence levels (conservative, moderate, optimistic)
+  3771→  - By salesperson breakdown
+  3772→- Customer Lifetime Value (CLV):
+  3773→  - Average CLV calculation
+  3774→  - Top customers ranking
+  3775→  - Retention rate tracking
+  3776→  - Average lifespan estimation
+  3777→- Report generation with AI-powered recommendations
+  3778→
+  3779→## 2. Components (`src/components/crm/`)
+  3780→
+  3781→### CRMDashboard.tsx
+  3782→- KPI cards grid (6 metrics): Contacts, Prospects, Won, Conversion %, Pipeline Value, Overdue
+  3783→- Time range selector (7d, 30d, 90d)
+  3784→- Refresh and export actions
+  3785→- Tabbed interface: Overview, Pipeline, Kanban, Tasks, Activity
+  3786→- Recent leads display with LeadCard components
+  3787→- Quick action buttons grid
+  3788→- Leads by source visualization
+  3789→
+  3790→### ContactManager.tsx
+  3791→- Full contact table with sorting
+  3792→- Search and filter controls
+  3793→- Status badges and role indicators
+  3794→- Tag display
+  3795→- Bulk operations support
+  3796→- Pagination controls
+  3797→
+  3798→### PipelineView.tsx
+  3799→- Visual pipeline representation
+  3800→- Stage-based deal organization
+  3801→- Drag-and-drop stage transitions
+  3802→- Deal value summaries per stage
+  3803→- Win/loss indicators
+  3804→
+  3805→### KanbanBoard.tsx
+  3806→- Kanban-style board layout
+  3807→- Column-based stage view
+  3808→- Deal cards with key info
+  3809→- Quick status changes
+  3810→- Compact card mode available
+  3811→
+  3812→### DealCard.tsx
+  3813→- Individual deal display
+  3814→- Stage and probability indicators
+  3815→- Value formatting (DZD currency)
+  3816→- Expected close date
+  3817→- Compact and full modes
+  3818→- Action buttons (edit, move, win/lose)
+  3819→
+  3820→### ActivityFeed.tsx
+  3821→- Chronological activity timeline
+  3822→- Type-specific icons and colors
+  3823→- Contact/lead linking
+  3824→- Filterable by type, date range
+  3825→- Configurable item limit
+  3826→- Sentiment indicators
+  3827→
+  3828→### TaskList.tsx
+  3829→- Task listing with priorities
+  3830→- Color-coded priority badges
+  3831→- Due date indicators (overdue highlighting)
+  3832→- Status transitions
+  3833→- Bulk complete capability
+  3834→- Assignment display
+  3835→
+  3836→### Additional Components
+  3837→- **LeadCard.tsx**: Lead display with score badge
+  3838→- **LeadList.tsx**: Full lead management interface
+  3839→- **QuickActions.tsx**: Quick action button bar
+  3840→- **SegmentBuilder.tsx**: Contact segmentation UI
+  3841→- **CRMReports.tsx**: Analytics reports viewer
+  3842→- **InteractionTimeline.tsx**: Combined entity timeline
+  3843→- **ContactDetail.tsx**: Detailed contact view
+  3844→- **LeadScoringBadge.tsx**: Visual score indicator
+  3845→
+  3846→## 3. API Routes (`src/app/api/crm/`)
+  3847→
+  3848→| Route | Methods | Description |
+  3849→|-------|---------|-------------|
+  3850→| `/api/crm/contacts` | GET, POST | Contact list/search, create |
+  3851→| `/api/crm/contacts/[id]` | GET, PUT, DELETE | Single contact CRUD |
+  3852→| `/api/crm/leads` | GET, POST | Lead list/filter, create |
+  3853→| `/api/crm/leads/[id]` | GET, PUT | Single lead operations |
+  3854→| `/api/crm/leads/[id]/convert` | POST | Convert lead to deal |
+  3855→| `/api/crm/deals` | GET, POST | Deal list/create |
+  3856→| `/api/crm/deals/[id]` | GET, PUT, DELETE | Single deal CRUD |
+  3857→| `/api/crm/pipelines` | GET, POST | Pipeline management |
+  3858→| `/api/crm/activities` | GET, POST | Activity logging |
+  3859→| `/api/crm/tasks` | GET, POST | Task CRUD |
+  3860→| `/api/crm/tasks/[id]/complete` | POST | Complete task |
+  3861→| `/api/crm/analytics` | GET | Analytics data |
+  3862→| `/api/crm/dashboard/stats` | GET | Dashboard KPIs |
+  3863→| `/api/crm/segments` | GET, POST | Segmentation |
+  3864→| `/api/crm/export` | GET | Data export (CSV) |
+  3865→| `/api/crm/import` | POST | Data import |
+  3866→| `/api/crm/interactions` | GET, POST | Interaction logging |
+  3867→
+  3868→## 4. Database Schema (Prisma Models)
+  3869→
+  3870→```prisma
+  3871→model CRMContact {
+  3872→  id, companyId, userId
+  3873→  firstName, lastName, email, phone, mobile
+  3874→  jobTitle, department, role
+  3875→  linkedinUrl, avatarUrl
+  3876→  preferredLanguage, preferredContactMethod, timezone
+  3877→  tags (JSON), notes
+  3878→  lastInteractionAt, createdAt, updatedAt
+  3879→}
+  3880→
+  3881→model CRMLead {
+  3882→  id, leadNumber (unique)
+  3883→  source, sourceDetails, campaignId
+  3884→  companyName, industry, companySize, website
+  3885→  wilaya, city, primaryContactId
+  3886→  status, pipelineStage
+  3887→  estimatedValue, currency, probability
+  3888→  expectedCloseDate, assignedTo, teamId
+  3889→  interestedCategories, interestedProducts, specificRequirements
+  3890→  leadScore, engagementScore, convertedToDealId
+  3891→  notes (JSON), createdAt, updatedAt
+  3892→}
+  3893→
+  3894→model CRMTask {
+  3895→  id, leadId, contactId, companyId
+  3896→  title, description, type, priority, status
+  3897→  dueDate, dueTime, completedAt
+  3898→  assignedTo, createdBy
+  3899→  remindBefore, reminderSent
+  3900→  resultNotes, outcome
+  3901→  createdAt, updatedAt
+  3902→}
+  3903→
+  3904→model CRMInteraction {
+  3905→  id, contactId, leadId, companyId
+  3906→  type, direction, subject, content
+  3907→  duration, channel
+  3908→  sentiment, nextSteps
+  3909→  attachmentUrls (JSON)
+  3910→  automated, triggeredBy, createdBy
+  3911→  createdAt
+  3912→}
+  3913→
+  3914→model CRMPipeline {
+  3915→  id, name, description
+  3916→  stages (JSON), defaultLeadStatus
+  3917→  isPublic, allowedRoles (JSON)
+  3918→  autoAdvanceRules (JSON)
+  3919→  createdAt, updatedAt
+  3920→}
+  3921→
+  3922→model CRMSegment {
+  3923→  id, name, description
+  3924→  filters (JSON), contactCount
+  3925→  lastCalculated, createdAt
+  3926→}
+  3927→
+  3928→model CRMAutomationRule {
+  3929→  id, name, eventType
+  3930→  conditions (JSON), actions (JSON)
+  3931→  enabled, lastTriggeredAt, executionCount
+  3932→  createdAt, updatedAt
+  3933→}
+  3934→```
+  3935→
+  3936→## 5. Tests (`__tests__/crm/test.ts`)
+  3937→
+  3938→Comprehensive test suite covering:
+  3939→- Config validation (pipeline stages, activity types, priorities)
+  3940→- Contact CRUD and validation
+  3941→- Duplicate detection algorithms
+  3942→- Contact merging functionality
+  3943→- Lead creation and scoring
+  3944→- Stage transitions
+  3945→- Deal lifecycle (create, win, lose)
+  3946→- Activity logging and sentiment analysis
+  3947→- Follow-up scheduling
+  3948→- Task CRUD and completion
+  3949→- Analytics and reporting
+  3950→- End-to-end integration tests
+  3951→
+  3952→## Implementation Notes
+  3953→
+  3954→1. **Algerian Market Optimization**:
+  3955→   - Default currency: DZD
+  3956→   - Timezone: Africa/Algiers
+  3957→   - Bilingual support (French/Arabic) in all configs
+  3958→   - Phone number formatting for +213 prefix
+  3959→   - Wilaya-based geographic organization
+  3960→
+  3961→2. **Performance Considerations**:
+  3962→   - Parallel database queries where possible
+  3963→   - Efficient pagination
+  3964→   - Indexed searches
+  3965→   - Cached aggregations
+  3966→
+  3967→3. **Security**:
+  3968→   - Owner-scoped data access
+  3969→   - Input validation on all endpoints
+  3970→   - SQL injection prevention via Prisma ORM
+  3971→
+  3972→4. **Extensibility**:
+  3973→   - Custom pipeline support
+  3974→   - Automation rules engine
+  3975→   - Segment builder for targeted outreach
+  3976→   - Plugin-ready architecture
+  3977→
+  3978→Stage Summary:
+  3979→- ✅ Core library complete (7 modules)
+  3980→- ✅ UI components complete (14 components)
+  3981→- ✅ API routes complete (17 endpoints)
+  3982→- ✅ Database schema defined (7 models)
+  3983→- ✅ Test suite comprehensive (30+ test cases)
+  3984→- ✅ Lint passing (0 errors in CRM code)
+  3985→- Platform Status: CRM SUITE COMPLETE AND READY FOR USE
+  3986→
+  3987→---
+  3988→Task ID: 2-D
+  3989→Agent: ERP Integration Specialist
+  3990→Task: Implement Inventory/ERP Sync System for AlgeriaTrade.dz
+  3991→
+  3992→Work Log:
+  3993→## ERP Core Library (`src/lib/erp/`)
+  3994→
+  3995→### 1. Configuration (`config.ts`)
+  3996→- Defined supported ERP systems: SAP S/4HANA, Odoo, Microsoft Dynamics 365, Custom REST API
+  3997→- Created comprehensive type definitions:
+  3998→  - `ERPSystemType`, `AuthType`, `SyncDirection`, `ConflictResolution`, `SyncFrequency`
+  3999→  - `ERPSystemConfig` with capabilities, endpoints, rate limiting per system
+  4000→  - `SyncScheduleConfig` with delta sync and full sync settings
+  4001→  - `FieldMappingDefinition` with transform rules and validation
+  4002→- Implemented default field mappings for SAP (MATNR, MAKTX, etc.) and Odoo (id, name, list_price, etc.)
+  4003→- Added retry policy configuration with exponential backoff
+  4004→
+  4005→### 2. Base Connector (`connectors/base-connector.ts`)
+  4006→- Abstract class `BaseERPConnector` implementing `IERPConnector` interface
+  4007→- Core methods: `connect()`, `disconnect()`, `testConnection()`, `fetchProducts()`, `syncInventory()`, `pushOrder()`
+  4008→- Built-in retry logic with configurable backoff
+  4009→- Data transformation helpers (nested value get/set, field transforms)
+  4010→- Authentication header builder supporting API Key, Basic Auth, OAuth2
+  4011→- Event hooks: onSyncStart, onSyncComplete, onError
+  4012→
+  4013→### 3. SAP Connector (`sap-connector.ts`)
+  4014→- SAP S/4HANA / Business One integration via OData/REST APIs
+  4015→- Type definitions for SAP entities: `SAPMaterial`, `SAPBusinessPartner`, `SAPSalesOrder`, `SAPStock`
+  4016→- Methods: pullProducts(), pullInventory(), pullCustomers(), pullOrders()
+  4017→- Push operations: pushProduct(), pushInventory(), pushOrder(), pushCustomer()
+  4018→- SAP-specific OData endpoint paths and status mapping
+  4019→
+  4020→### 4. Odoo Connector (`odoo-connector.ts`)
+  4021→- Odoo Community/Enterprise integration via XML-RPC/JSON-RPC
+  4022→- Type definitions: `OdooProduct`, `OdooPartner`, `OdooSaleOrder`, `OdooStockMove`
+  4023→- Full CRUD operations for products, partners, sale orders, stock moves
+  4024→- Odoo-specific authentication flow (database selection, uid management)
+  4025→- XML-RPC method execution helpers
+  4026→
+  4027→### 5. REST Connector (`connectors/rest-connector.ts`)
+  4028→- Generic REST API connector with OAuth2 support
+  4029→- Configurable custom endpoints with request/response transforms
+  4030→- Pagination support: offset, cursor, page-based
+  4031→- Webhook registration/unregistration methods
+  4032→- Token refresh mechanism for OAuth2 flows
+  4033→
+  4034→### 6. Sync Engine (`sync-engine.ts`)
+  4035→- Bidirectional sync orchestration with conflict resolution
+  4036→- Delta sync support with timestamp-based change detection
+  4037→- Operation queue with priority handling
+  4038→- Conflict resolution strategies: LAST_WRITE_WINS, MANUAL, MERGE, PLATFORM_WINS, ERP_WINS
+  4039→- Comprehensive logging and error tracking
+  4040→- Health check functionality for all connectors
+  4041→
+  4042→### 7. Field Mapper (`field-mapper.ts`)
+  4043→- Visual field mapping UI components
+  4044→- Transform options: uppercase, lowercase, toNumber, toFloat, toDate, formatPrice, etc.
+  4045→- Validation rules: required, pattern, minLength, maxLength, enum
+  4046→- Preset management (save/load/export/import mappings)
+  4047→- DataTransformer class with full transformation pipeline
+  4048→- Local and ERP field definitions with sample values
+  4049→
+  4050→### 8. Webhook Handler (`webhook-handler.ts`)
+  4051→- Multi-ERP webhook receiving and processing
+  4052→- HMAC-SHA256 signature verification
+  4053→- Timestamp validation to prevent replay attacks
+  4054→- IP allowlisting support
+  4055→- Event routing to appropriate handlers
+  4056→- Default configurations per ERP type
+  4057→
+  4058→### 9. Security Module (`security.ts`)
+  4059→- AES-256-GCM encryption for credential storage
+  4060→- Secure key generation and management
+  4061→- HMAC signature generation and verification (timing-safe comparison)
+  4062→- Credential masking for logs/display
+  4063→- In-memory rate limiter implementation
+  4064→- IP allowlist/blocklist classes
+  4065→- Input validation utilities
+  4066→
+  4067→## UI Components (`src/components/erp/`)
+  4068→
+  4069→### 1. ERPSetupWizard.tsx
+  4070→- Multi-step wizard (5 steps): Selection → Connection → Mapping → Sync Config → Finalization
+  4071→- Progress indicator with step navigation
+  4072→- Real-time connection testing
+  4073→- Summary view before activation
+  4074→
+  4075→### 2. ConnectorSelection.tsx
+  4076→- Visual ERP type selector with cards
+  4077→- Feature highlights per ERP system
+  4078→- Capability indicators
+  4079→
+  4080→### 3. ConnectionForm.tsx
+  4081→- Dynamic form based on ERP type
+  4082→- Credential fields: endpoint, auth type, API keys, OAuth2 settings
+  4083→- Form validation
+  4084→
+  4085→### 4. SyncDashboard.tsx
+  4086→- Real-time sync status display
+  4087→- Per-entity sync controls
+  4088→- Auto-sync toggle
+  4089→- Schedule configuration
+  4090→- Recent sync log viewer integration
+  4091→
+  4092→### 5. SyncLogViewer.tsx
+  4093→- Filterable sync history table
+  4094→- Status badges (SUCCESS, FAILED, PARTIAL, PENDING)
+  4095→- Detailed error view expansion
+  4096→- CSV export functionality
+  4097→- Pagination support
+  4098→
+  4099→### 6. Additional Components
+  4100→- FieldMappingEditor.tsx - Drag-and-drop field mapping UI
+  4101→- SyncConfiguration.tsx - Frequency, direction, conflict resolution settings
+  4102→- InventoryStatus.tsx - Stock level display with reconciliation
+  4103→- ERPTestConnection.tsx - Connection testing interface
+  4104→- ERPConfigForm.tsx - Complete configuration form
+  4105→
+  4106→## API Routes (`src/app/api/erp/`)
+  4107→
+  4108→| Route | Method | Description |
+  4109→|-------|--------|-------------|
+  4110→| `/api/erp/connectors` | GET/POST | List/Create connectors |
+  4111→| `/api/erp/connectors/[id]` | GET/PUT/DELETE | Get/Update/Delete connector |
+  4112→| `/api/erp/connectors/[id]/sync` | POST | Trigger manual sync |
+  4113→| `/api/erp/connectors/[id]/logs` | GET | Get sync logs |
+  4114→| `/api/erp/configs` | GET/POST | List/Create configs |
+  4115→| `/api/erp/configs/[id]` | GET/PUT | Get/Update config |
+  4116→| `/api/erp/configs/[id]/sync` | POST | Trigger config sync |
+  4117→| `/api/erp/webhook/[connectorType]` | POST | Receive webhooks |
+  4118→| `/api/erp/field-mappings` | GET/POST | Manage field mappings |
+  4119→| `/api/erp/sync-history` | GET | Get sync history |
+  4120→| `/api/erp/inventory-status` | GET | Get inventory status |
+  4121→
+  4122→## Database Schema (Prisma)
+  4123→
+  4124→```prisma
+  4125→model ErpConnector {
+  4126→  id            String    @id @default(cuid())
+  4127→  userId        String
+  4128→  name          String
+  4129→  type          String    // SAP, ODOO, DYNAMICS, CUSTOM, REST
+  4130→  displayName   String?
+  4131→  credentials   String    @default("{}") // Encrypted JSON
+  4132→  status        String    @default("DISCONNECTED")
+  4133→  lastSyncAt    DateTime?
+  4134→  nextSyncAt    DateTime?
+  4135→  errorCount    Int       @default(0)
+  4136→  errorMessage  String?
+  4137→  fieldMappings String    @default("[]")
+  4138→  syncConfig    String    @default("{}")
+  4139→  createdAt     DateTime  @default(now())
+  4140→  updatedAt     DateTime  @updatedAt
+  4141→  syncLogs      ErpSyncLogNew[]
+  4142→  inventoryRecords InventorySyncRecord[]
+  4143→}
+  4144→
+  4145→model ErpSyncLogNew {
+  4146→  id                String    @id @default(cuid())
+  4147→  connectorId       String
+  4148→  direction         String    // PUSH, PULL, BIDIRECTIONAL
+  4149→  entityType        String
+  4150→  recordsProcessed  Int       @default(0)
+  4151→  recordsSuccess    Int       @default(0)
+  4152→  recordsFailed     Int       @default(0)
+  4153→  startedAt         DateTime  @default(now())
+  4154→  completedAt       DateTime?
+  4155→  durationSeconds   Int?
+  4156→  status            String    @default("PENDING")
+  4157→  errorMessage      String?
+  4158→  details           String    @default("{}")
+  4159→  connector         ErpConnector @relation(...)
+  4160→}
+  4161→
+  4162→model InventorySyncRecord {
+  4163→  id                 String    @id @default(cuid())
+  4164→  connectorId        String
+  4165→  externalProductId  String?
+  4166→  internalProductId  String
+  4167→  externalSku        String?
+  4168→  internalSku        String?
+  4169→  quantity           Float     @default(0)
+  4170→  lastSyncedAt       DateTime?
+  4171→  syncStatus         String    @default("PENDING") // SYNCED, PENDING, ERROR, CONFLICT
+  4172→  connector          ErpConnector @relation(...)
+  4173→}
+  4174→```
+  4175→
+  4176→## Background Jobs (`src/lib/jobs/erp-jobs.ts`)
+  4177→
+  4178→1. **ScheduledSyncJob** - Hourly/daily sync execution for all active connectors
+  4179→2. **HealthCheckJob** - Every 5-minute health verification with failure alerts
+  4180→3. **CleanupJob** - Daily cleanup of old logs (90-day retention)
+  4181→4. **InventoryReconciliationJob** - 6-hourly stock reconciliation with auto-correction
+  4182→5. **ERPJobsManager** - Unified start/stop/status control
+  4183→
+  4184→## Main Dashboard (`src/app/page.tsx`)
+  4185→
+  4186→Complete ERP Integration Hub featuring:
+  4187→- System statistics overview (connectors, syncs, success rate, records)
+  4188→- Tabbed interface: Overview, Connectors, Sync, Inventory
+  4189→- Active connector cards with status indicators
+  4190→- Recent activity feed
+  4191→- Supported ERPs showcase
+  4192→- Quick actions for setup and synchronization
+  4193→
+  4194→Stage Summary:
+  4195→- Complete ERP integration system implemented
+  4196→- 5 ERP systems supported (SAP, Odoo, Dynamics, Custom, REST)
+  4197→- Full bidirectional sync capability with conflict resolution
+  4198→- Security-first design with AES-256 encryption
+  4199→- Comprehensive UI for configuration and monitoring
+  4200→- Background job infrastructure for automated operations
+  4201→- All lint warnings resolved (no errors in ERP codebase)
+  4202→

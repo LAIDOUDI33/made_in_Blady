@@ -4,237 +4,264 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { 
-  FileText, 
-  Download, 
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Separator } from '@/components/ui/separator';
+import {
+  FileText,
+  Download,
   Printer,
   Eye,
   EyeOff,
-  ChevronRight,
-  CheckCircle2
+  ChevronDown,
+  ChevronUp,
+  Languages,
+  Scale,
+  Calendar,
+  DollarSign,
+  Users,
+  CheckCircle2,
 } from 'lucide-react';
 import type { Contract, ContractClause } from '@/lib/contracts';
 
 interface ContractPreviewProps {
   contract: Contract;
+  onSign?: () => void;
   onDownload?: () => void;
-  onPrint?: () => void;
-  language?: 'en' | 'ar' | 'fr';
+  onEdit?: () => void;
+  showActions?: boolean;
+  compact?: boolean;
 }
 
 export function ContractPreview({
   contract,
+  onSign,
   onDownload,
-  onPrint,
-  language = 'en',
+  onEdit,
+  showActions = true,
+  compact = false,
 }: ContractPreviewProps) {
-  const [showAllClauses, setShowAllClauses] = useState(false);
-  const [visibleClauses, setVisibleClauses] = useState(3);
+  const [activeLanguage, setActiveLanguage] = useState<'fr' | 'ar' | 'both'>('both');
+  const [expandedClauses, setExpandedClauses] = useState<Set<string>>(new Set());
+  const [showFullContent, setShowFullContent] = useState(true);
 
-  const getLabel = (en: string, ar: string, fr: string) => {
-    return language === 'ar' ? ar : language === 'fr' ? fr : en;
+  const toggleClause = (clauseId: string) => {
+    setExpandedClauses((prev) => {
+      const next = new Set(prev);
+      if (next.has(clauseId)) {
+        next.delete(clauseId);
+      } else {
+        next.add(clauseId);
+      }
+      return next;
+    });
   };
 
-  const statusColors: Record<string, string> = {
-    DRAFT: 'bg-gray-100 text-gray-700',
-    REVIEW: 'bg-blue-100 text-blue-700',
-    PENDING_SIGNATURE: 'bg-yellow-100 text-yellow-700',
-    SIGNED: 'bg-green-100 text-green-700',
-    ACTIVE: 'bg-emerald-100 text-emerald-700',
-    EXPIRED: 'bg-gray-100 text-gray-500',
-    TERMINATED: 'bg-red-100 text-red-700',
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'SIGNED':
+        return 'bg-green-100 text-green-800 border-green-200';
+      case 'PENDING_SIGNATURE':
+        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      case 'DRAFT':
+        return 'bg-gray-100 text-gray-800 border-gray-200';
+      default:
+        return 'bg-blue-100 text-blue-800 border-blue-200';
+    }
   };
 
-  const displayedClauses = showAllClauses 
-    ? (contract.clauses || []) 
-    : (contract.clauses || []).slice(0, visibleClauses);
+  const formatDate = (dateStr: string | Date) => {
+    return new Date(dateStr).toLocaleDateString('fr-FR', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+  };
+
+  if (compact) {
+    return (
+      <Card className="overflow-hidden">
+        <div className="p-4 space-y-3">
+          <div className="flex items-start justify-between">
+            <div>
+              <h3 className="font-semibold line-clamp-1">{contract.subject}</h3>
+              <p className="text-sm text-muted-foreground">{contract.contractNumber}</p>
+            </div>
+            <Badge variant="outline" className={getStatusColor(contract.status)}>
+              {contract.status}
+            </Badge>
+          </div>
+          <div className="flex items-center gap-4 text-sm text-muted-foreground">
+            <span className="flex items-center gap-1">
+              <DollarSign className="w-4 h-4" />
+              {new Intl.NumberFormat().format(contract.totalValue)} {contract.currency}
+            </span>
+            <span className="flex items-center gap-1">
+              <Calendar className="w-4 h-4" />
+              {formatDate(contract.effectiveDate)}
+            </span>
+          </div>
+        </div>
+      </Card>
+    );
+  }
 
   return (
-    <div className="space-y-4">
-      {/* Preview Header */}
+    <div className="space-y-6">
+      {/* Header */}
       <Card>
-        <CardHeader className="pb-4">
-          <div className="flex items-center justify-between flex-wrap gap-3">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-primary/10">
-                <FileText className="h-6 w-6 text-primary" />
-              </div>
-              <div>
-                <CardTitle className="text-lg">{contract.contractNumber}</CardTitle>
-                <p className="text-sm text-muted-foreground">
-                  {getLabel('Contract Preview', 'معاينة العقد', 'Aperçu du contrat')}
-                </p>
+        <CardHeader className={compact ? 'p-4' : ''}>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="space-y-2">
+              <CardTitle className="text-xl flex items-center gap-2">
+                <FileText className="w-5 h-5 text-primary" />
+                {contract.subjectFr || contract.subject}
+              </CardTitle>
+              <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                <span>{contract.contractNumber}</span>
+                <Badge variant="outline" className={getStatusColor(contract.status)}>
+                  {contract.status.replace(/_/g, ' ')}
+                </Badge>
+                <span className="flex items-center gap-1">
+                  <Languages className="w-3 h-3" />
+                  {contract.language}
+                </span>
               </div>
             </div>
 
-            <div className="flex items-center gap-2 flex-wrap">
-              <Badge className={statusColors[contract.status] || ''}>
-                {contract.status}
-              </Badge>
-              <Badge variant="outline">v{contract.version}</Badge>
-              
-              {onDownload && (
-                <Button variant="outline" size="sm" onClick={onDownload}>
-                  <Download className="h-4 w-4 mr-1" />
-                  PDF
-                </Button>
-              )}
-              
-              {onPrint && (
-                <Button variant="outline" size="sm" onClick={onPrint}>
-                  <Printer className="h-4 w-4 mr-1" />
-                  {getLabel('Print', 'طباعة', 'Imprimer')}
-                </Button>
-              )}
-            </div>
+            {showActions && (
+              <div className="flex gap-2">
+                {onEdit && contract.status === 'DRAFT' && (
+                  <Button variant="outline" size="sm" onClick={onEdit}>
+                    Edit
+                  </Button>
+                )}
+                {onSign && contract.status !== 'SIGNED' && (
+                  <Button size="sm" onClick={onSign}>
+                    <CheckCircle2 className="w-4 h-4 mr-1" />
+                    Sign
+                  </Button>
+                )}
+                {onDownload && (
+                  <Button variant="outline" size="sm" onClick={onDownload}>
+                    <Download className="w-4 h-4 mr-1" />
+                    PDF
+                  </Button>
+                )}
+              </div>
+            )}
           </div>
         </CardHeader>
       </Card>
 
-      {/* Document Content */}
-      <Card className="overflow-hidden">
-        {/* Document Header */}
-        <div className="bg-gradient-to-r from-green-800 to-green-600 text-white p-6 text-center">
-          <h1 className="text-2xl font-bold mb-2">🇩🇿 AlgeriaTrade.dz</h1>
-          <p className="text-green-100 text-sm">
-            منصة التجارة بين الشركات في الجزائر
-          </p>
-          <p className="mt-3 text-lg font-semibold">
-            {contract.contractNumber}
-          </p>
-        </div>
-
-        <CardContent className="p-6 space-y-6">
-          {/* Parties Section */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Party A */}
-            <div className="border rounded-lg p-4">
-              <h3 className="font-semibold text-red-700 mb-3 pb-2 border-b border-red-100">
-                Party A - Supplier / البائع
-              </h3>
-              <PartyInfo party={contract.partyA} />
-            </div>
-
-            {/* Party B */}
-            <div className="border rounded-lg p-4">
-              <h3 className="font-semibold text-blue-700 mb-3 pb-2 border-b border-blue-100">
-                Party B - Buyer / المشتري
-              </h3>
-              <PartyInfo party={contract.partyB} />
-            </div>
+      {/* Main Content */}
+      <Card>
+        <CardContent className="p-6">
+          {/* Language Toggle */}
+          <div className="flex justify-end mb-4">
+            <Tabs value={activeLanguage} onValueChange={(v) => setActiveLanguage(v as typeof activeLanguage)}>
+              <TabsList>
+                <TabsTrigger value="fr">Français</TabsTrigger>
+                <TabsTrigger value="ar">العربية</TabsTrigger>
+                <TabsTrigger value="both">Bilingual</TabsTrigger>
+              </TabsList>
+            </Tabs>
           </div>
 
-          {/* Subject */}
-          <div className="border-t pt-4">
-            <h3 className="font-semibold mb-2">
-              Subject Matter / موضوع العقد / Objet du contrat
-            </h3>
-            <div className="bg-muted/50 p-3 rounded-md space-y-1">
-              <p><strong>EN:</strong> {contract.subject}</p>
-              <p dir="rtl" className="text-right"><strong>AR:</strong> {contract.subjectAr}</p>
-              <p className="italic"><strong>FR:</strong> {contract.subjectFr}</p>
-            </div>
-          </div>
-
-          {/* Financial Summary */}
-          <div className="border-t pt-4">
-            <h3 className="font-semibold mb-3">
-              Financial Terms / الشروط المالية / Conditions financières
-            </h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <FinancialItem 
-                label={getLabel('Total Value', 'القيمة الإجمالية', 'Valeur totale')} 
-                value={`${contract.totalValue.toLocaleString()} ${contract.currency}`}
-              />
-              <FinancialItem 
-                label={getLabel('Currency', 'العملة', 'Devise')} 
-                value={`${contract.currency} (DZD)`}
-              />
-              <FinancialItem 
-                label={getLabel('Payment Terms', 'شروط الدفع', 'Paiement')} 
-                value={contract.paymentTerms}
-              />
-              <FinancialItem 
-                label={getLabel('Effective Date', 'تاريخ السريان', "Date d'effet")} 
-                value={new Date(contract.effectiveDate).toLocaleDateString()}
-              />
-            </div>
-            
-            {contract.endDate && (
-              <div className="mt-3">
-                <FinancialItem 
-                  label={getLabel('End Date', 'تاريخ الانتهاء', "Date de fin")} 
-                  value={new Date(contract.endDate).toLocaleDateString()}
-                  fullWidth
-                />
+          {/* Metadata Section */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 p-4 bg-muted/50 rounded-lg">
+            <div className="flex items-center gap-3">
+              <Calendar className="w-5 h-5 text-primary" />
+              <div>
+                <p className="text-xs text-muted-foreground">Effective Date</p>
+                <p className="font-medium">{formatDate(contract.effectiveDate)}</p>
               </div>
-            )}
+            </div>
+            <div className="flex items-center gap-3">
+              <DollarSign className="w-5 h-5 text-primary" />
+              <div>
+                <p className="text-xs text-muted-foreground">Total Value</p>
+                <p className="font-medium">
+                  {new Intl.NumberFormat('fr-DZ').format(contract.totalValue)} {contract.currency}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <Scale className="w-5 h-5 text-primary" />
+              <div>
+                <p className="text-xs text-muted-foreground">Type</p>
+                <p className="font-medium">{contract.contractType.replace(/_/g, ' ')}</p>
+              </div>
+            </div>
           </div>
 
-          {/* Clauses */}
-          <div className="border-t pt-4">
-            <h3 className="font-semibold mb-3">
-              Contract Clauses / بنود العقد / Clauses du contrat
+          {/* Parties Section */}
+          <div className="mb-6">
+            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+              <Users className="w-5 h-5" />
+              Parties / الأطراف
             </h3>
-            
-            <div className="space-y-3">
-              {displayedClauses.map((clause, index) => (
-                <ClausePreview key={clause.id} clause={clause} index={index + 1} />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <PartyCard party={contract.partyA} label="PARTY A - Supplier" labelAr="الطرف أ - المورد" color="blue" />
+              <PartyCard party={contract.partyB} label="PARTY B - Buyer" labelAr="الطرف ب - المشتري" color="orange" />
+            </div>
+          </div>
+
+          <Separator className="my-6" />
+
+          {/* Clauses Section */}
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold flex items-center gap-2">
+                <FileText className="w-5 h-5" />
+                Contract Clauses / البنود
+              </h3>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowFullContent(!showFullContent)}
+              >
+                {showFullContent ? <EyeOff className="w-4 h-4 mr-1" /> : <Eye className="w-4 h-4 mr-1" />}
+                {showFullContent ? 'Collapse' : 'Expand'}
+              </Button>
+            </div>
+
+            <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
+              {[...contract.clauses, ...contract.customClauses].map((clause, index) => (
+                <ClauseItem
+                  key={`${clause.id}-${index}`}
+                  clause={clause}
+                  isExpanded={expandedClauses.has(clause.id)}
+                  onToggle={() => toggleClause(clause.id)}
+                  showContent={showFullContent}
+                  language={activeLanguage}
+                />
               ))}
             </div>
+          </div>
 
-            {/* Show More/Less */}
-            {(contract.clauses?.length || 0) > visibleClauses && (
-              <div className="flex justify-center pt-4">
-                <Button
-                  variant="ghost"
-                  onClick={() => setShowAllClauses(!showAllClauses)}
-                  className="text-primary"
-                >
-                  {showAllClauses ? (
-                    <>
-                      <EyeOff className="h-4 w-4 mr-1" />
-                      Show Less
-                    </>
-                  ) : (
-                    <>
-                      <Eye className="h-4 w-4 mr-1" />
-                      Show All ({(contract.clauses?.length || 0) - visibleClauses} more)
-                    </>
-                  )}
-                </Button>
+          {/* Signature Status */}
+          {(contract.partyASignedAt || contract.partyBSignedAt) && (
+            <>
+              <Separator className="my-6" />
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Signature Status</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <SignatureStatus
+                    partyLabel="Party A"
+                    signedAt={contract.partyASignedAt}
+                    signatureUrl={contract.partyASignatureUrl}
+                    representativeName={contract.partyA?.representativeName}
+                  />
+                  <SignatureStatus
+                    partyLabel="Party B"
+                    signedAt={contract.partyBSignedAt}
+                    signatureUrl={contract.partyBSignatureUrl}
+                    representativeName={contract.partyB?.representativeName}
+                  />
+                </div>
               </div>
-            )}
-          </div>
-
-          {/* Signatures Section */}
-          <div className="border-t pt-6 mt-6">
-            <h3 className="font-semibold mb-4 text-center">
-              Signatures / التوقيعات / Signatures
-            </h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <SignatureBlock
-                partyLabel="Party A - Supplier"
-                partyLabelAr="البائع"
-                signedAt={contract.partyASignedAt}
-                signatureUrl={contract.partyASignatureUrl}
-              />
-              
-              <SignatureBlock
-                partyLabel="Party B - Buyer"
-                partyLabelAr="المشتري"
-                signedAt={contract.partyBSignedAt}
-                signatureUrl={contract.partyBSignatureUrl}
-              />
-            </div>
-          </div>
-
-          {/* Footer */}
-          <div className="text-center text-xs text-muted-foreground pt-4 border-t">
-            <p>Generated via AlgeriaTrade.dz platform</p>
-            <p>Version {contract.version} • {new Date(contract.updatedAt).toLocaleString()}</p>
-          </div>
+            </>
+          )}
         </CardContent>
       </Card>
     </div>
@@ -242,104 +269,160 @@ export function ContractPreview({
 }
 
 // Sub-components
-function PartyInfo({ party }: { party: any }) {
-  if (!party) return <p className="text-muted-foreground text-sm">Not specified</p>;
-  
+function PartyCard({
+  party,
+  label,
+  labelAr,
+  color,
+}: {
+  party: any;
+  label: string;
+  labelAr: string;
+  color: 'blue' | 'orange';
+}) {
+  const bgColor = color === 'blue' ? 'bg-blue-50 border-blue-200' : 'bg-orange-50 border-orange-200';
+  const textColor = color === 'blue' ? 'text-blue-700' : 'text-orange-700';
+
   return (
-    <div className="space-y-1 text-sm">
-      <p className="font-medium">{party.companyName || '-'}</p>
-      <p><span className="text-muted-foreground">Rep:</span> {party.representativeName || '-'} {party.representativeTitle && `(${party.representativeTitle})`}</p>
-      <p><span className="text-muted-foreground">Email:</span> {party.email || '-'}</p>
-      <p><span className="text-muted-foreground">Phone:</span> {party.phone || '-'}</p>
-      <p><span className="text-muted-foreground">Address:</span> {party.address || '-'}</p>
-      {party.commercialRegister && <p><span className="text-muted-foreground">NRC:</span> {party.commercialRegister}</p>}
-      {party.taxId && <p><span className="text-muted-foreground">NIF:</span> {party.taxId}</p>}
+    <div className={`p-4 rounded-lg border ${bgColor}`}>
+      <h4 className={`font-semibold ${textColor} mb-3`}>{label}</h4>
+      <p className="text-xs text-muted-foreground mb-3">{labelAr}</p>
+      <dl className="space-y-1 text-sm">
+        <div>
+          <dt className="text-muted-foreground">Company:</dt>
+          <dd className="font-medium">{party?.companyName || '-'}</dd>
+        </div>
+        <div>
+          <dt className="text-muted-foreground">Representative:</dt>
+          <dd className="font-medium">
+            {party?.representativeName} ({party?.representativeTitle})
+          </dd>
+        </div>
+        <div>
+          <dt className="text-muted-foreground">Email:</dt>
+          <dd>{party?.email || '-'}</dd>
+        </div>
+        <div>
+          <dt className="text-muted-foreground">NRC:</dt>
+          <dd>{party?.commercialRegister || '-'}</dd>
+        </div>
+      </dl>
     </div>
   );
 }
 
-function FinancialItem({ label, value, fullWidth = false }: { label: string; value: string; fullWidth?: boolean }) {
-  return (
-    <div className={`bg-muted/50 p-3 rounded-md ${fullWidth ? 'col-span-full' : ''}`}>
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="font-semibold">{value}</p>
-    </div>
-  );
-}
-
-function ClausePreview({ clause, index }: { clause: ContractClause; index: number }) {
-  const [isExpanded, setIsExpanded] = useState(false);
-
+function ClauseItem({
+  clause,
+  isExpanded,
+  onToggle,
+  showContent,
+  language,
+}: {
+  clause: ContractClause;
+  isExpanded: boolean;
+  onToggle: () => void;
+  showContent: boolean;
+  language: 'fr' | 'ar' | 'both';
+}) {
   return (
     <div className="border rounded-lg overflow-hidden">
       <button
-        onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full flex items-center justify-between p-3 hover:bg-muted/50 transition-colors text-left"
+        onClick={onToggle}
+        className="w-full p-4 flex items-start justify-between bg-muted/30 hover:bg-muted/50 transition-colors text-left"
       >
-        <div className="flex items-center gap-2">
-          <span className="font-medium text-sm">{index}. {clause.title}</span>
-          <Badge variant="outline" className="text-xs">{clause.clauseType}</Badge>
-          {clause.isRequired && (
-            <CheckCircle2 className="h-3 w-3 text-orange-500" />
+        <div className="flex-1">
+          <div className="flex items-center gap-2">
+            <h4 className="font-medium">
+              {language === 'ar' ? clause.titleAr : clause.title}
+            </h4>
+            {clause.isRequired && (
+              <Badge variant="secondary" className="text-xs">
+                Required
+              </Badge>
+            )}
+          </div>
+          {language !== 'ar' && (
+            <p className="text-sm text-muted-foreground mt-1">{clause.titleFr}</p>
           )}
         </div>
-        <ChevronRight className={`h-4 w-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
+        {isExpanded ? (
+          <ChevronUp className="w-4 h-4 shrink-0 mt-1" />
+        ) : (
+          <ChevronDown className="w-4 h-4 shrink-0 mt-1" />
+        )}
       </button>
-      
-      {isExpanded && (
-        <div className="px-3 pb-3 space-y-2 border-t">
-          <div className="p-2 bg-background rounded text-sm">
-            <p className="font-medium text-xs text-muted-foreground mb-1">English</p>
-            <p>{clause.content}</p>
-          </div>
-          <div className="p-2 bg-background rounded text-sm" dir="rtl">
-            <p className="font-medium text-xs text-muted-foreground mb-1">العربية</p>
-            <p>{clause.contentAr}</p>
-          </div>
-          <div className="p-2 bg-background rounded text-sm italic">
-            <p className="font-medium text-xs text-muted-foreground mb-1">Français</p>
-            <p>{clause.contentFr}</p>
-          </div>
+
+      {isExpanded && showContent && (
+        <div className="p-4 border-t bg-white space-y-4">
+          {(language === 'fr' || language === 'both') && (
+            <div>
+              <p className="text-xs uppercase tracking-wide text-muted-foreground mb-2 font-medium">
+                Français
+              </p>
+              <p className="text-sm leading-relaxed whitespace-pre-wrap">{clause.contentFr}</p>
+            </div>
+          )}
+
+          {(language === 'ar' || language === 'both') && (
+            <div dir="rtl">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground mb-2 font-medium">
+                العربية
+              </p>
+              <p className="text-sm leading-loose whitespace-pre-wrap" style={{ fontFamily: 'Traditional Arabic, Arial, sans-serif' }}>
+                {clause.contentAr}
+              </p>
+            </div>
+          )}
+
+          {language !== 'ar' && (
+            <div>
+              <p className="text-xs uppercase tracking-wide text-muted-foreground mb-2 font-medium">
+                English
+              </p>
+              <p className="text-sm leading-relaxed whitespace-pre-wrap">{clause.content}</p>
+            </div>
+          )}
         </div>
       )}
     </div>
   );
 }
 
-function SignatureBlock({ 
-  partyLabel, 
-  partyLabelAr, 
-  signedAt, 
-  signatureUrl 
-}: { 
-  partyLabel: string; 
-  partyLabelAr: string; 
-  signedAt?: Date; 
+function SignatureStatus({
+  partyLabel,
+  signedAt,
+  signatureUrl,
+  representativeName,
+}: {
+  partyLabel: string;
+  signedAt?: Date | null;
   signatureUrl?: string;
+  representativeName?: string;
 }) {
   const isSigned = !!signedAt;
 
   return (
-    <div className="text-center">
-      <p className="font-medium mb-4">{partyLabel} / {partyLabelAr}</p>
-      
-      {signatureUrl ? (
-        <img 
-          src={signatureUrl} 
-          alt="Signature" 
-          className="max-h-20 mx-auto mb-2"
-        />
-      ) : (
-        <div className="h-16 border-b-2 border-dashed border-gray-300 mb-2" />
-      )}
-      
+    <div className={`p-4 rounded-lg border ${isSigned ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'}`}>
+      <div className="flex items-center gap-2 mb-2">
+        {isSigned ? (
+          <CheckCircle2 className="w-5 h-5 text-green-600" />
+        ) : (
+          <div className="w-5 h-5 rounded-full border-2 border-gray-300" />
+        )}
+        <span className={`font-medium ${isSigned ? 'text-green-700' : 'text-gray-500'}`}>
+          {partyLabel}
+        </span>
+      </div>
       {isSigned ? (
-        <div className="text-green-600 text-sm">
-          <CheckCircle2 className="h-4 w-4 inline mr-1" />
-          Signed on {new Date(signedAt).toLocaleDateString()}
+        <div className="text-sm text-green-700 space-y-1">
+          <p>Signed by: {representativeName}</p>
+          <p>Date: {formatDate(signedAt!)}</p>
+          {signatureUrl && (
+            <img src={signatureUrl} alt="Signature" className="mt-2 h-12 object-contain" />
+          )}
         </div>
       ) : (
-        <p className="text-gray-400 text-sm">Pending signature</p>
+        <p className="text-sm text-gray-500">Pending signature</p>
       )}
     </div>
   );

@@ -2,32 +2,46 @@
 
 import React, { useState, useEffect, useCallback } from 'react'
 import {
-  Search,
-  Filter,
-  Download,
-  Eye,
-  CheckCircle2,
-  XCircle,
-  Clock,
-  RefreshCw,
-  ArrowUpDown,
-  MoreVertical,
   CreditCard,
   Building2,
-  Smartphone,
-  Landmark,
-  Banknote,
+  Bitcoin,
+  Globe,
+  CheckCircle2,
+  XCircle,
+  AlertTriangle,
+  RefreshCw,
+  Eye,
+  EyeOff,
+  Copy,
+  ExternalLink,
+  Settings,
+  Shield,
+  Webhook,
+  ToggleLeft,
+  ToggleRight,
+  Server,
+  Key,
+  Activity,
+  Clock,
+  ChevronDown,
+  ChevronUp,
+  Zap,
+  DollarSign,
+  Info,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Switch } from '@/components/ui/switch'
+import { Separator } from '@/components/ui/separator'
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogDescription,
+  DialogFooter
+} from '@/components/ui/dialog'
 import {
   Table,
   TableBody,
@@ -36,670 +50,842 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import { Badge } from '@/components/ui/badge'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
-import { Textarea } from '@/components/ui/textarea'
-import { Label } from '@/components/ui/label'
-import { cn, formatDZD } from '@/lib/utils'
-import type { PaymentStatus } from '@/components/payments/PaymentStatusTracker'
+import { cn } from '@/lib/utils'
 
 // Types
-interface PaymentRecord {
-  id: string
-  orderId: string
-  orderNumber: string
-  amount: number
-  currency: string
-  method: string
-  status: PaymentStatus
-  referenceNumber: string | null
-  paidAt: Date | null
-  failureReason: string | null
-  createdAt: Date
-  buyerName: string | null
-  buyerEmail: string | null
-  companyName: string | null
-  needsVerification: boolean
+interface ProviderStatus {
+  name: string
+  icon: React.ReactNode
+  status: 'configured' | 'partial' | 'missing' | 'error'
+  enabled: boolean
+  environment: string
+  lastTest?: TestResult
 }
 
-interface PaymentsStats {
-  total: number
-  byStatus: Record<string, number>
-  amounts: {
-    total: number
-    completed: number
-  }
+interface TestResult {
+  success: boolean
+  message: string
+  responseTime?: number
+  error?: string
+  testedAt: Date
 }
 
-// Mock data for demo
-const mockPayments: PaymentRecord[] = [
-  {
-    id: 'pay_1',
-    orderId: 'order_1',
-    orderNumber: 'ORD-2024-001234',
-    amount: 125000,
-    currency: 'DZD',
-    method: 'CIB',
-    status: 'COMPLETED',
-    referenceNumber: 'CIB-20240115-A3F7K',
-    paidAt: new Date('2024-01-15T10:30:00'),
-    createdAt: new Date('2024-01-15T10:28:00'),
-    buyerName: 'Ahmed Benali',
-    buyerEmail: 'ahmed@entreprise.dz',
-    companyName: 'Algeria Foods Export',
-    needsVerification: false,
-  },
-  {
-    id: 'pay_2',
-    orderId: 'order_2',
-    orderNumber: 'ORD-2024-001235',
-    amount: 85000,
-    currency: 'DZD',
-    method: 'CCP',
-    status: 'PENDING_VERIFICATION',
-    referenceNumber: 'CCP-20240114-B8M2N',
-    paidAt: null,
-    createdAt: new Date('2024-01-14T14:20:00'),
-    buyerName: 'Fatima Zerhouni',
-    buyerEmail: 'fatima@company.dz',
-    companyName: 'TechSupply Algérie',
-    needsVerification: true,
-  },
-  {
-    id: 'pay_3',
-    orderId: 'order_3',
-    orderNumber: 'ORD-2024-001236',
-    amount: 250000,
-    currency: 'DZD',
-    method: 'BARIDIMOB',
-    status: 'COMPLETED',
-    referenceNumber: 'BM-20240114-X9P4Q',
-    paidAt: new Date('2024-01-14T09:15:00'),
-    createdAt: new Date('2024-01-14T09:12:00'),
-    buyerName: 'Karim Hadj',
-    buyerEmail: 'karim@business.dz',
-    companyName: 'Industrial Parts SA',
-    needsVerification: false,
-  },
-  {
-    id: 'pay_4',
-    orderId: 'order_4',
-    orderNumber: 'ORD-2024-001237',
-    amount: 45000,
-    currency: 'DZD',
-    method: 'BANK_TRANSFER',
-    status: 'PENDING_VERIFICATION',
-    referenceNumber: 'VB-20240113-K5L8M',
-    paidAt: null,
-    createdAt: new Date('2024-01-13T16:45:00'),
-    buyerName: 'Sara Amrani',
-    buyerEmail: 'sara@commerce.dz',
-    companyName: 'Algeria Foods Export',
-    needsVerification: true,
-  },
-  {
-    id: 'pay_5',
-    orderId: 'order_5',
-    orderNumber: 'ORD-2024-001238',
-    amount: 175000,
-    currency: 'DZD',
-    method: 'CIB',
-    status: 'FAILED',
-    referenceNumber: 'CIB-20240113-R7T2W',
-    paidAt: null,
-    failureReason: 'Fonds insuffisants',
-    createdAt: new Date('2024-01-13T11:30:00'),
-    buyerName: 'Youssef Mansouri',
-    buyerEmail: 'youssef@group.dz',
-    companyName: 'Bâtiment Plus',
-    needsVerification: false,
-  },
-  {
-    id: 'pay_6',
-    orderId: 'order_6',
-    orderNumber: 'ORD-2024-001239',
-    amount: 95000,
-    currency: 'DZD',
-    method: 'COD',
-    status: 'PROCESSING',
-    referenceNumber: 'COD-20240112-P3H6J',
-    paidAt: null,
-    createdAt: new Date('2024-01-12T08:20:00'),
-    buyerName: 'Lila Bouazza',
-    buyerEmail: 'lila@retail.dz',
-    companyName: 'TechSupply Algérie',
-    needsVerification: false,
-  },
-]
+interface ValidationData {
+  isValid: boolean
+  providers: Array<{
+    name: string
+    provider: string
+    status: string
+    missingFields: string[]
+    warnings: string[]
+    details?: Record<string, unknown>
+  }>
+  environment: string
+}
 
-export default function AdminPaymentsPage() {
-  // State
-  const [payments, setPayments] = useState<PaymentRecord[]>(mockPayments)
-  const [filteredPayments, setFilteredPayments] = useState<PaymentRecord[]>(mockPayments)
-  const [stats, setStats] = useState<PaymentsStats>({
-    total: mockPayments.length,
-    byStatus: {
-      PENDING: 0,
-      PROCESSING: 1,
-      COMPLETED: 2,
-      FAILED: 1,
-      PENDING_VERIFICATION: 2,
-    },
-    amounts: {
-      total: 775000,
-      completed: 375000,
-    },
+interface WebhookConfig {
+  provider: string
+  url: string
+  events: string[]
+  setupUrl: string
+  hasSecret: boolean
+  status: string
+}
+
+// Icons for providers
+const SatimIcon = () => (
+  <div className="w-10 h-10 rounded-lg bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+    <Building2 className="w-5 h-5 text-green-600 dark:text-green-400" />
+  </div>
+)
+
+const StripeIcon = () => (
+  <div className="w-10 h-10 rounded-lg bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
+    <CreditCard className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+  </div>
+)
+
+const CryptoIcon = () => (
+  <div className="w-10 h-10 rounded-lg bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center">
+    <Bitcoin className="w-5 h-5 text-orange-600 dark:text-orange-400" />
+  </div>
+)
+
+export default function AdminPaymentsSettingsPage() {
+  const [validationData, setValidationData] = useState<ValidationData | null>(null)
+  const [webhookConfigs, setWebhookConfigs] = useState<WebhookConfig[]>([])
+  const [loading, setLoading] = useState(true)
+  const [testingProvider, setTestingProvider] = useState<string | null>(null)
+  const [showSecrets, setShowSecrets] = useState<Record<string, boolean>>({})
+  const [selectedProvider, setSelectedProvider] = useState<string | null>(null)
+  const [expandedSection, setExpandedSection] = useState<string>('overview')
+  
+  // Payment method toggles
+  const [paymentMethods, setPaymentMethods] = useState({
+    satim: true,
+    stripe: true,
+    crypto: false,
   })
-  
-  const [searchQuery, setSearchQuery] = useState('')
-  const [statusFilter, setStatusFilter] = useState<string>('all')
-  const [methodFilter, setMethodFilter] = useState<string>('all')
-  const [isLoading, setIsLoading] = useState(false)
-  
-  // Dialog state
-  const [selectedPayment, setSelectedPayment] = useState<PaymentRecord | null>(null)
-  const [dialogOpen, setDialogOpen] = useState(false)
-  const [dialogAction, setDialogAction] = useState<'verify' | 'reject' | 'refund' | null>(null)
-  const [rejectionReason, setRejectionReason] = useState('')
-  const [notes, setNotes] = useState('')
 
-  // Filter payments
-  useEffect(() => {
-    let filtered = [...payments]
-
-    if (statusFilter !== 'all') {
-      filtered = filtered.filter(p => p.status === statusFilter)
-    }
-
-    if (methodFilter !== 'all') {
-      filtered = filtered.filter(p => p.method === methodFilter)
-    }
-
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase()
-      filtered = filtered.filter(p =>
-        p.orderNumber.toLowerCase().includes(query) ||
-        p.referenceNumber?.toLowerCase().includes(query) ||
-        p.buyerName?.toLowerCase().includes(query) ||
-        p.companyName?.toLowerCase().includes(query)
-      )
-    }
-
-    setFilteredPayments(filtered)
-  }, [payments, statusFilter, methodFilter, searchQuery])
-
-  // Handle action dialog open
-  const handleOpenActionDialog = (payment: PaymentRecord, action: 'verify' | 'reject' | 'refund') => {
-    setSelectedPayment(payment)
-    setDialogAction(action)
-    setRejectionReason('')
-    setNotes('')
-    setDialogOpen(true)
-  }
-
-  // Handle action submit
-  const handleSubmitAction = async () => {
-    if (!selectedPayment || !dialogAction) return
-
-    setIsLoading(true)
-
+  // Fetch validation data
+  const fetchValidationData = useCallback(async () => {
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000))
-
-      // Update local state
-      const updatedPayments = payments.map(p => {
-        if (p.id === selectedPayment.id) {
-          switch (dialogAction) {
-            case 'verify':
-              return { ...p, status: 'COMPLETED' as PaymentStatus, paidAt: new Date(), needsVerification: false }
-            case 'reject':
-              return { ...p, status: 'FAILED' as PaymentStatus, failureReason: rejectionReason || 'Rejeté par l\'administrateur', needsVerification: false }
-            case 'refund':
-              return { ...p, status: 'REFUNDED' as PaymentStatus }
-            default:
-              return p
-          }
-        }
-        return p
-      })
-
-      setPayments(updatedPayments)
-      setDialogOpen(false)
+      const response = await fetch('/api/admin/payments/config')
+      if (response.ok) {
+        const data = await response.json()
+        setValidationData(data.validation)
+        setWebhookConfigs(data.webhooks || [])
+        setPaymentMethods(data.paymentMethods || paymentMethods)
+      }
     } catch (error) {
-      console.error('Action error:', error)
+      console.error('Failed to fetch validation data:', error)
     } finally {
-      setIsLoading(false)
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchValidationData()
+  }, [fetchValidationData])
+
+  // Test connection to provider
+  const testConnection = async (provider: string) => {
+    setTestingProvider(provider)
+    try {
+      const response = await fetch(`/api/admin/payments/test?provider=${provider}`)
+      if (response.ok) {
+        const result = await response.json()
+        // Update local state with test result
+        if (validationData) {
+          const updatedProviders = validationData.providers.map(p => 
+            p.provider === provider 
+              ? { ...p, lastTest: result }
+              : p
+          )
+          setValidationData({ ...validationData, providers: updatedProviders })
+        }
+      }
+    } catch (error) {
+      console.error('Connection test failed:', error)
+    } finally {
+      setTestingProvider(null)
     }
   }
 
-  // Get method icon
-  const getMethodIcon = (method: string) => {
-    switch (method) {
-      case 'CIB': return <CreditCard className="h-4 w-4" />
-      case 'CCP': return <Building2 className="h-4 w-4" />
-      case 'BARIDIMOB': return <Smartphone className="h-4 w-4" />
-      case 'BANK_TRANSFER': return <Landmark className="h-4 w-4" />
-      case 'COD': return <Banknote className="h-4 w-4" />
-      default: return <CreditCard className="h-4 w-4" />
+  // Copy to clipboard
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text)
+  }
+
+  // Get status badge color
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'configured':
+        return <Badge variant="default" className="bg-green-500"><CheckCircle2 className="w-3 h-3 mr-1" /> Configured</Badge>
+      case 'partial':
+        return <Badge variant="secondary" className="bg-yellow-500 text-white"><AlertTriangle className="w-3 h-3 mr-1" /> Partial</Badge>
+      case 'missing':
+        return <Badge variant="destructive"><XCircle className="w-3 h-3 mr-1" /> Missing</Badge>
+      case 'error':
+        return <Badge variant="destructive"><XCircle className="w-3 h-3 mr-1" /> Error</Badge>
+      default:
+        return <Badge variant="outline">Unknown</Badge>
     }
   }
 
-  // Get method name
-  const getMethodName = (method: string): string => {
-    const names: Record<string, string> = {
-      CIB: 'Carte Bancaire',
-      CCP: 'Chèque Postale',
-      BARIDIMOB: 'BaridiMob',
-      BANK_TRANSFER: 'Virement Bancaire',
-      COD: 'Paiement à la Livraison',
-    }
-    return names[method] || method
-  }
-
-  // Status badge config
-  const getStatusBadge = (status: PaymentStatus) => {
-    const configs: Record<PaymentStatus, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; className: string }> = {
-      PENDING: { label: 'En attente', variant: 'outline', className: 'bg-gray-100 text-gray-700 border-gray-300' },
-      PROCESSING: { label: 'En cours', variant: 'secondary', className: 'bg-blue-100 text-blue-700' },
-      COMPLETED: { label: 'Complété', variant: 'default', className: 'bg-green-100 text-green-700 border-green-200' },
-      FAILED: { label: 'Échoué', variant: 'destructive', className: 'bg-red-100 text-red-700' },
-      REFUNDED: { label: 'Remboursé', variant: 'outline', className: 'bg-purple-100 text-purple-700' },
-      PENDING_VERIFICATION: { label: 'À vérifier', variant: 'secondary', className: 'bg-yellow-100 text-yellow-700' },
-      CANCELLED: { label: 'Annulé', variant: 'outline', className: 'bg-gray-100 text-gray-500' },
-    }
-    
-    const config = configs[status]
+  // Get environment badge
+  const getEnvironmentBadge = (env: string) => {
+    const isProduction = env === 'production'
     return (
-      <span className={cn("inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium", config.className)}>
-        {config.label}
-      </span>
+      <Badge variant={isProduction ? "default" : "secondary"} className={cn(
+        isProduction ? "bg-red-500" : "bg-blue-500 text-white"
+      )}>
+        <Server className="w-3 h-3 mr-1" />
+        {isProduction ? 'Production' : env === 'test' ? 'Sandbox/Test' : env}
+      </Badge>
+    )
+  }
+
+  // Toggle secret visibility
+  const toggleSecretVisibility = (key: string) => {
+    setShowSecrets(prev => ({ ...prev, [key]: !prev[key] }))
+  }
+
+  // Mask value for display
+  const maskValue = (value: string | undefined, visible: boolean): string => {
+    if (!value) return 'Not configured'
+    if (visible) return value
+    if (value.length <= 8) return '••••••••'
+    return `${value.substring(0, 4)}${'•'.repeat(Math.min(value.length - 4, 24))}`
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <RefreshCw className="w-8 h-8 animate-spin text-primary" />
+        <span className="ml-3 text-muted-foreground">Loading payment configuration...</span>
+      </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white border-b">
-        <div className="max-w-7xl mx-auto px-4 py-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Gestion des Paiements</h1>
-              <p className="text-sm text-gray-500 mt-1">Gérez et vérifiez les transactions de paiement</p>
-            </div>
-            
-            <div className="flex gap-3">
-              <Button variant="outline" size="sm">
-                <Download className="h-4 w-4 mr-2" />
-                Exporter
-              </Button>
-              <Button 
-                size="sm" 
-                onClick={() => window.location.reload()}
-                className="bg-[#006233] hover:bg-[#004d28]"
-              >
-                <RefreshCw className={cn("h-4 w-4 mr-2", isLoading && "animate-spin")} />
-                Actualiser
-              </Button>
-            </div>
+    <div className="space-y-6 p-6">
+      {/* Page Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
+            <Settings className="w-8 h-8" />
+            Payment Configuration
+          </h1>
+          <p className="text-muted-foreground mt-1">
+            Manage SATIM, Stripe, and cryptocurrency payment integrations
+          </p>
+        </div>
+        <div className="flex gap-3">
+          <Button variant="outline" onClick={fetchValidationData}>
+            <RefreshCw className={cn("w-4 h-4 mr-2", loading && "animate-spin")} />
+            Refresh
+          </Button>
+          <Button onClick={() => window.open('/api/admin/payments/validate', '_blank')}>
+            <Shield className="w-4 h-4 mr-2" />
+            Run Full Validation
+          </Button>
+        </div>
+      </div>
+
+      {/* Environment Banner */}
+      <Card className={cn(
+        "border-l-4",
+        validationData?.environment === 'production' 
+          ? "border-l-red-500 bg-red-50 dark:bg-red-950/20" 
+          : "border-l-blue-500 bg-blue-50 dark:bg-blue-950/20"
+      )}>
+        <CardContent className="py-4">
+          <div className="flex items-center gap-3">
+            <Activity className="w-5 h-5 text-muted-foreground" />
+            <span className="font-medium">Current Environment:</span>
+            {getEnvironmentBadge(validationData?.environment || 'unknown')}
+            <span className="text-sm text-muted-foreground ml-auto">
+              App URL: {process.env.NEXT_PUBLIC_APP_URL || 'https://algeriatrade.dz'}
+            </span>
           </div>
-        </div>
-      </header>
+        </CardContent>
+      </Card>
 
-      <main className="max-w-7xl mx-auto px-4 py-6 space-y-6">
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-          <StatCard 
-            title="Total" 
-            value={stats.total.toString()} 
-            subtitle={`${formatDZD(stats.amounts.total)}`}
-            icon={<CreditCard className="h-5 w-5" />}
-          />
-          <StatCard 
-            title="Complétés" 
-            value={stats.byStatus.COMPLETED?.toString() || '0'} 
-            subtitle={`${formatDZD(stats.amounts.completed)}`}
-            icon={<CheckCircle2 className="h-5 w-5 text-green-600" />}
-            color="green"
-          />
-          <StatCard 
-            title="En attente" 
-            value={(stats.byStatus.PENDING + stats.byStatus.PROCESSING).toString()} 
-            subtitle="Traitement"
-            icon={<Clock className="h-5 w-5 text-yellow-600" />}
-            color="yellow"
-          />
-          <StatCard 
-            title="À vérifier" 
-            value={stats.byStatus.PENDING_VERIFICATION?.toString() || '0'} 
-            subtitle="Preuves reçues"
-            icon={<Eye className="h-5 w-5 text-blue-600" />}
-            color="blue"
-          />
-          <StatCard 
-            title="Échoués" 
-            value={stats.byStatus.FAILED?.toString() || '0'} 
-            subtitle="À traiter"
-            icon={<XCircle className="h-5 w-5 text-red-600" />}
-            color="red"
-          />
-        </div>
-
-        {/* Filters */}
-        <Card>
-          <CardContent className="py-4">
-            <div className="flex flex-col sm:flex-row gap-4">
-              {/* Search */}
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input
-                  placeholder="Rechercher par N° commande, référence, client..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-
-              {/* Status Filter */}
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-full sm:w-48">
-                  <Filter className="h-4 w-4 mr-2 text-gray-400" />
-                  <SelectValue placeholder="Statut" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Tous les statuts</SelectItem>
-                  <SelectItem value="PENDING">En attente</SelectItem>
-                  <SelectItem value="PROCESSING">En cours</SelectItem>
-                  <SelectItem value="COMPLETED">Complété</SelectItem>
-                  <SelectItem value="FAILED">Échoué</SelectItem>
-                  <SelectItem value="PENDING_VERIFICATION">À vérifier</SelectItem>
-                  <SelectItem value="REFUNDED">Remboursé</SelectItem>
-                </SelectContent>
-              </Select>
-
-              {/* Method Filter */}
-              <Select value={methodFilter} onValueChange={setMethodFilter}>
-                <SelectTrigger className="w-full sm:w-48">
-                  <SelectValue placeholder="Méthode" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Toutes les méthodes</SelectItem>
-                  <SelectItem value="CIB">Carte Bancaire</SelectItem>
-                  <SelectItem value="CCP">Chèque Postale</SelectItem>
-                  <SelectItem value="BARIDIMOB">BaridiMob</SelectItem>
-                  <SelectItem value="BANK_TRANSFER">Virement</SelectItem>
-                  <SelectItem value="COD">Paiement à la livraison</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Payments Table */}
-        <Card>
+      {/* Overview Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* SATIM Card */}
+        <Card className="relative overflow-hidden">
           <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base">
-                Transactions ({filteredPayments.length})
-              </CardTitle>
-              <Button variant="ghost" size="sm">
-                <ArrowUpDown className="h-4 w-4 mr-2" />
-                Trier
-              </Button>
+            <div className="flex items-start justify-between">
+              <SatimIcon />
+              <Switch 
+                checked={paymentMethods.satim}
+                onCheckedChange={(checked) => setPaymentMethods(prev => ({ ...prev, satim: checked }))}
+              />
             </div>
+            <CardTitle className="text-lg mt-3">SATIM / CIB</CardTitle>
+            <CardDescription>Algerian local card payments</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>N° Commande</TableHead>
-                    <TableHead>Client</TableHead>
-                    <TableHead>Méthode</TableHead>
-                    <TableHead className="text-right">Montant</TableHead>
-                    <TableHead>Statut</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead className="w-12"></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredPayments.map((payment) => (
-                    <TableRow key={payment.id} className={payment.needsVerification ? "bg-yellow-50" : ""}>
-                      <TableCell>
-                        <div>
-                          <p className="font-mono font-medium text-sm">{payment.orderNumber}</p>
-                          {payment.referenceNumber && (
-                            <p className="text-xs text-gray-500">{payment.referenceNumber}</p>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div>
-                          <p className="font-medium text-sm">{payment.buyerName || '-'}</p>
-                          <p className="text-xs text-gray-500">{payment.companyName || ''}</p>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          {getMethodIcon(payment.method)}
-                          <span className="text-sm">{getMethodName(payment.method)}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <span className="font-semibold">{formatDZD(payment.amount)}</span>
-                      </TableCell>
-                      <TableCell>
-                        {getStatusBadge(payment.status)}
-                        {payment.failureReason && (
-                          <p className="text-xs text-red-500 mt-1 max-w-32 truncate">
-                            {payment.failureReason}
-                          </p>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-sm text-gray-500">
-                          {new Date(payment.createdAt).toLocaleDateString('fr-FR')}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => console.log('View details:', payment.id)}>
-                              <Eye className="h-4 w-4 mr-2" />
-                              Voir détails
-                            </DropdownMenuItem>
-                            
-                            {payment.needsVerification && (
-                              <>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem 
-                                  onClick={() => handleOpenActionDialog(payment, 'verify')}
-                                  className="text-green-600"
-                                >
-                                  <CheckCircle2 className="h-4 w-4 mr-2" />
-                                  Approuver
-                                </DropdownMenuItem>
-                                <DropdownMenuItem 
-                                  onClick={() => handleOpenActionDialog(payment, 'reject')}
-                                  className="text-red-600"
-                                >
-                                  <XCircle className="h-4 w-4 mr-2" />
-                                  Rejeter
-                                </DropdownMenuItem>
-                              </>
-                            )}
-                            
-                            {payment.status === 'COMPLETED' && (
-                              <>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem 
-                                  onClick={() => handleOpenActionDialog(payment, 'refund')}
-                                  className="text-purple-600"
-                                >
-                                  <RefreshCw className="h-4 w-4 mr-2" />
-                                  Rembourser
-                                </DropdownMenuItem>
-                              </>
-                            )}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  
-                  {filteredPayments.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={7} className="text-center py-12">
-                        <div className="text-gray-400">
-                          <Search className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                          <p>Aucun paiement trouvé</p>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Status</span>
+                {getStatusBadge(validationData?.providers.find(p => p.provider === 'satim')?.status || 'missing')}
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Environment</span>
+                {getEnvironmentBadge(validationData?.providers.find(p => p.provider === 'satim')?.details?.environment as string || 'test')}
+              </div>
+              <Separator />
+              <Button 
+                variant="outline" 
+                className="w-full"
+                onClick={() => testConnection('satim')}
+                disabled={testingProvider === 'satim'}
+              >
+                {testingProvider === 'satim' ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                    Testing...
+                  </>
+                ) : (
+                  <>
+                    <Zap className="w-4 h-4 mr-2" />
+                    Test Connection
+                  </>
+                )}
+              </Button>
+              <Button 
+                variant="ghost" 
+                className="w-full"
+                onClick={() => setSelectedProvider(selectedProvider === 'satim' ? null : 'satim')}
+              >
+                {selectedProvider === 'satim' ? 'Hide Details' : 'View Details'}
+              </Button>
             </div>
           </CardContent>
         </Card>
-      </main>
 
-      {/* Action Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>
-              {dialogAction === 'verify' && 'Approuver le paiement'}
-              {dialogAction === 'reject' && 'Rejeter le paiement'}
-              {dialogAction === 'refund' && 'Rembourser le paiement'}
-            </DialogTitle>
-          </DialogHeader>
-          
-          {selectedPayment && (
-            <div className="space-y-4 py-4">
-              {/* Payment Info */}
-              <div className="p-3 bg-gray-50 rounded-lg space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">Commande:</span>
-                  <span className="font-mono font-medium">{selectedPayment.orderNumber}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">Montant:</span>
-                  <span className="font-semibold">{formatDZD(selectedPayment.amount)}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">Client:</span>
-                  <span>{selectedPayment.buyerName}</span>
-                </div>
+        {/* Stripe Card */}
+        <Card className="relative overflow-hidden">
+          <CardHeader className="pb-3">
+            <div className="flex items-start justify-between">
+              <StripeIcon />
+              <Switch 
+                checked={paymentMethods.stripe}
+                onCheckedChange={(checked) => setPaymentMethods(prev => ({ ...prev, stripe: checked }))}
+              />
+            </div>
+            <CardTitle className="text-lg mt-3">Stripe</CardTitle>
+            <CardDescription>International card payments</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Status</span>
+                {getStatusBadge(validationData?.providers.find(p => p.provider === 'stripe')?.status || 'missing')}
               </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Currencies</span>
+                <Badge variant="outline">EUR, USD, GBP +3</Badge>
+              </div>
+              <Separator />
+              <Button 
+                variant="outline" 
+                className="w-full"
+                onClick={() => testConnection('stripe')}
+                disabled={testingProvider === 'stripe'}
+              >
+                {testingProvider === 'stripe' ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                    Testing...
+                  </>
+                ) : (
+                  <>
+                    <Zap className="w-4 h-4 mr-2" />
+                    Test Connection
+                  </>
+                )}
+              </Button>
+              <Button 
+                variant="ghost" 
+                className="w-full"
+                onClick={() => setSelectedProvider(selectedProvider === 'stripe' ? null : 'stripe')}
+              >
+                {selectedProvider === 'stripe' ? 'Hide Details' : 'View Details'}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
 
-              {/* Rejection Reason (only for reject) */}
-              {dialogAction === 'reject' && (
-                <div className="space-y-2">
-                  <Label htmlFor="reason">Motif du rejet *</Label>
-                  <Textarea
-                    id="reason"
-                    placeholder="Expliquez pourquoi ce paiement est rejeté..."
-                    value={rejectionReason}
-                    onChange={(e) => setRejectionReason(e.target.value)}
-                    rows={3}
-                  />
-                </div>
-              )}
+        {/* Crypto Card */}
+        <Card className="relative overflow-hidden">
+          <CardHeader className="pb-3">
+            <div className="flex items-start justify-between">
+              <CryptoIcon />
+              <Switch 
+                checked={paymentMethods.crypto}
+                onCheckedChange={(checked) => setPaymentMethods(prev => ({ ...prev, crypto: checked }))}
+              />
+            </div>
+            <CardTitle className="text-lg mt-3">Cryptocurrency</CardTitle>
+            <CardDescription>USDT, BTC, ETH payments</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Status</span>
+                {getStatusBadge(validationData?.providers.find(p => p.provider === 'crypto')?.status || 'missing')}
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Supported</span>
+                <Badge variant="outline">USDT, BTC, ETH, USDC</Badge>
+              </div>
+              <Separator />
+              <Button 
+                variant="outline" 
+                className="w-full"
+                onClick={() => testConnection('crypto')}
+                disabled={testingProvider === 'crypto'}
+              >
+                {testingProvider === 'crypto' ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                    Testing...
+                  </>
+                ) : (
+                  <>
+                    <Zap className="w-4 h-4 mr-2" />
+                    Test Connection
+                  </>
+                )}
+              </Button>
+              <Button 
+                variant="ghost" 
+                className="w-full"
+                onClick={() => setSelectedProvider(selectedProvider === 'crypto' ? null : 'crypto')}
+              >
+                {selectedProvider === 'crypto' ? 'Hide Details' : 'View Details'}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
-              {/* Notes */}
-              <div className="space-y-2">
-                <Label htmlFor="notes">Notes internes (optionnel)</Label>
-                <Textarea
-                  id="notes"
-                  placeholder="Ajoutez des notes pour référence interne..."
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  rows={2}
-                />
+      {/* Detailed Provider Configuration */}
+      {selectedProvider && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Key className="w-5 h-5" />
+              {selectedProvider === 'satim' ? 'SATIM/CIB Configuration' : 
+               selectedProvider === 'stripe' ? 'Stripe Configuration' : 
+               'Cryptocurrency Configuration'}
+            </CardTitle>
+            <CardDescription>
+              API keys and credentials. Click the eye icon to reveal values.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Setting</TableHead>
+                  <TableHead>Value</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="w-20">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {selectedProvider === 'satim' && (
+                  <>
+                    <TableRow>
+                      <TableCell className="font-medium">Merchant ID</TableCell>
+                      <TableCell className="font-mono text-sm">
+                        {maskValue(process.env.SATIM_MERCHANT_ID, showSecrets['satim_merchant'])}
+                      </TableCell>
+                      <TableCell>{process.env.SATIM_MERCHANT_ID ? 
+                        <CheckCircle2 className="w-4 h-4 text-green-500" /> : 
+                        <XCircle className="w-4 h-4 text-red-500" />}
+                      </TableCell>
+                      <TableCell>
+                        <Button variant="ghost" size="icon" onClick={() => toggleSecretVisibility('satim_merchant')}>
+                          {showSecrets['satim_merchant'] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell className="font-medium">API Key</TableCell>
+                      <TableCell className="font-mono text-sm">
+                        {maskValue(process.env.SATIM_API_KEY, showSecrets['satim_apikey'])}
+                      </TableCell>
+                      <TableCell>{process.env.SATIM_API_KEY ? 
+                        <CheckCircle2 className="w-4 h-4 text-green-500" /> : 
+                        <XCircle className="w-4 h-4 text-red-500" />}
+                      </TableCell>
+                      <TableCell>
+                        <Button variant="ghost" size="icon" onClick={() => toggleSecretVisibility('satim_apikey')}>
+                          {showSecrets['satim_apikey'] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell className="font-medium">API Secret</TableCell>
+                      <TableCell className="font-mono text-sm">
+                        {maskValue(process.env.SATIM_API_SECRET, showSecrets['satim_secret'])}
+                      </TableCell>
+                      <TableCell>{process.env.SATIM_API_SECRET ? 
+                        <CheckCircle2 className="w-4 h-4 text-green-500" /> : 
+                        <XCircle className="w-4 h-4 text-red-500" />}
+                      </TableCell>
+                      <TableCell>
+                        <Button variant="ghost" size="icon" onClick={() => toggleSecretVisibility('satim_secret')}>
+                          {showSecrets['satim_secret'] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell className="font-medium">Webhook Secret</TableCell>
+                      <TableCell className="font-mono text-sm">
+                        {maskValue(process.env.SATIM_WEBHOOK_SECRET, showSecrets['satim_webhook'])}
+                      </TableCell>
+                      <TableCell>{process.env.SATIM_WEBHOOK_SECRET ? 
+                        <CheckCircle2 className="w-4 h-4 text-green-500" /> : 
+                        <XCircle className="w-4 h-4 text-red-500" />}
+                      </TableCell>
+                      <TableCell>
+                        <Button variant="ghost" size="icon" onClick={() => toggleSecretVisibility('satim_webhook')}>
+                          {showSecrets['satim_webhook'] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  </>
+                )}
+                {selectedProvider === 'stripe' && (
+                  <>
+                    <TableRow>
+                      <TableCell className="font-medium">Secret Key</TableCell>
+                      <TableCell className="font-mono text-sm">
+                        {maskValue(process.env.STRIPE_SECRET_KEY, showSecrets['stripe_secret'])}
+                      </TableCell>
+                      <TableCell>{process.env.STRIPE_SECRET_KEY?.startsWith('sk_live_') ? 
+                        <CheckCircle2 className="w-4 h-4 text-green-500" /> : 
+                        process.env.STRIPE_SECRET_KEY?.startsWith('sk_test_') ?
+                        <AlertTriangle className="w-4 h-4 text-yellow-500" /> :
+                        <XCircle className="w-4 h-4 text-red-500" />}
+                      </TableCell>
+                      <TableCell>
+                        <Button variant="ghost" size="icon" onClick={() => toggleSecretVisibility('stripe_secret')}>
+                          {showSecrets['stripe_secret'] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell className="font-medium">Publishable Key</TableCell>
+                      <TableCell className="font-mono text-sm">
+                        {maskValue(process.env.STRIPE_PUBLISHABLE_KEY, showSecrets['stripe_publishable'])}
+                      </TableCell>
+                      <TableCell>{process.env.STRIPE_PUBLISHABLE_KEY ? 
+                        <CheckCircle2 className="w-4 h-4 text-green-500" /> : 
+                        <XCircle className="w-4 h-4 text-red-500" />}
+                      </TableCell>
+                      <TableCell>
+                        <Button variant="ghost" size="icon" onClick={() => toggleSecretVisibility('stripe_publishable')}>
+                          {showSecrets['stripe_publishable'] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell className="font-medium">Webhook Secret</TableCell>
+                      <TableCell className="font-mono text-sm">
+                        {maskValue(process.env.STRIPE_WEBHOOK_SECRET, showSecrets['stripe_webhook'])}
+                      </TableCell>
+                      <TableCell>{process.env.STRIPE_WEBHOOK_SECRET ? 
+                        <CheckCircle2 className="w-4 h-4 text-green-500" /> : 
+                        <XCircle className="w-4 h-4 text-red-500" />}
+                      </TableCell>
+                      <TableCell>
+                        <Button variant="ghost" size="icon" onClick={() => toggleSecretVisibility('stripe_webhook')}>
+                          {showSecrets['stripe_webhook'] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  </>
+                )}
+                {selectedProvider === 'crypto' && (
+                  <>
+                    <TableRow>
+                      <TableCell className="font-medium">USDT TRC20 Wallet</TableCell>
+                      <TableCell className="font-mono text-sm">
+                        {maskValue(process.env.USDT_TRC20_WALLET_ADDRESS, showSecrets['usdt_trc20'])}
+                      </TableCell>
+                      <TableCell>{process.env.USDT_TRC20_WALLET_ADDRESS ? 
+                        <CheckCircle2 className="w-4 h-4 text-green-500" /> : 
+                        <XCircle className="w-4 h-4 text-red-500" />}
+                      </TableCell>
+                      <TableCell>
+                        <Button variant="ghost" size="icon" onClick={() => toggleSecretVisibility('usdt_trc20')}>
+                          {showSecrets['usdt_trc20'] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell className="font-medium">USDT ERC20 Wallet</TableCell>
+                      <TableCell className="font-mono text-sm">
+                        {maskValue(process.env.USDT_ERC20_WALLET_ADDRESS, showSecrets['usdt_erc20'])}
+                      </TableCell>
+                      <TableCell>{process.env.USDT_ERC20_WALLET_ADDRESS ? 
+                        <CheckCircle2 className="w-4 h-4 text-green-500" /> : 
+                        <XCircle className="w-4 h-4 text-red-500" />}
+                      </TableCell>
+                      <TableCell>
+                        <Button variant="ghost" size="icon" onClick={() => toggleSecretVisibility('usdt_erc20')}>
+                          {showSecrets['usdt_erc20'] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell className="font-medium">BTC Wallet</TableCell>
+                      <TableCell className="font-mono text-sm">
+                        {maskValue(process.env.BTC_WALLET_ADDRESS, showSecrets['btc_wallet'])}
+                      </TableCell>
+                      <TableCell>{process.env.BTC_WALLET_ADDRESS ? 
+                        <CheckCircle2 className="w-4 h-4 text-green-500" /> : 
+                        <XCircle className="w-4 h-4 text-red-500" />}
+                      </TableCell>
+                      <TableCell>
+                        <Button variant="ghost" size="icon" onClick={() => toggleSecretVisibility('btc_wallet')}>
+                          {showSecrets['btc_wallet'] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell className="font-medium">ETH Wallet</TableCell>
+                      <TableCell className="font-mono text-sm">
+                        {maskValue(process.env.ETH_WALLET_ADDRESS, showSecrets['eth_wallet'])}
+                      </TableCell>
+                      <TableCell>{process.env.ETH_WALLET_ADDRESS ? 
+                        <CheckCircle2 className="w-4 h-4 text-green-500" /> : 
+                        <XCircle className="w-4 h-4 text-red-500" />}
+                      </TableCell>
+                      <TableCell>
+                        <Button variant="ghost" size="icon" onClick={() => toggleSecretVisibility('eth_wallet')}>
+                          {showSecrets['eth_wallet'] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell className="font-medium">Crypto Webhook Secret</TableCell>
+                      <TableCell className="font-mono text-sm">
+                        {maskValue(process.env.CRYPTO_WEBHOOK_SECRET, showSecrets['crypto_webhook'])}
+                      </TableCell>
+                      <TableCell>{process.env.CRYPTO_WEBHOOK_SECRET ? 
+                        <CheckCircle2 className="w-4 h-4 text-green-500" /> : 
+                        <XCircle className="w-4 h-4 text-red-500" />}
+                      </TableCell>
+                      <TableCell>
+                        <Button variant="ghost" size="icon" onClick={() => toggleSecretVisibility('crypto_webhook')}>
+                          {showSecrets['crypto_webhook'] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  </>
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Webhook Configuration Section */}
+      <Card>
+        <CardHeader 
+          className="cursor-pointer select-none"
+          onClick={() => setExpandedSection(expandedSection === 'webhooks' ? '' : 'webhooks')}
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Webhook className="w-5 h-5" />
+              <div>
+                <CardTitle>Webhook Endpoints</CardTitle>
+                <CardDescription>Configure webhook URLs in each provider dashboard</CardDescription>
               </div>
             </div>
-          )}
+            {expandedSection === 'webhooks' ? 
+              <ChevronUp className="w-5 h-5" /> : 
+              <ChevronDown className="w-5 h-5" />
+            }
+          </div>
+        </CardHeader>
+        {expandedSection === 'webhooks' && (
+          <CardContent>
+            <div className="space-y-4">
+              {webhookConfigs.map((webhook, index) => (
+                <div key={index} className="border rounded-lg p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 font-semibold">
+                      {webhook.provider === 'SATIM / CIB' && <SatimIcon />}
+                      {webhook.provider === 'Stripe' && <StripeIcon />}
+                      {webhook.provider === 'Crypto Payments' && <CryptoIcon />}
+                      <span>{webhook.provider}</span>
+                    </div>
+                    <Badge variant={webhook.status === 'active' ? 'default' : 'secondary'}>
+                      {webhook.status}
+                    </Badge>
+                  </div>
+                  
+                  <div className="bg-muted/50 rounded-md p-3 flex items-center justify-between gap-2">
+                    <code className="text-sm break-all">{webhook.url}</code>
+                    <Button variant="ghost" size="sm" onClick={() => copyToClipboard(webhook.url)}>
+                      <Copy className="w-4 h-4" />
+                    </Button>
+                  </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>
-              Annuler
+                  <div className="flex flex-wrap gap-2">
+                    <span className="text-sm text-muted-foreground">Events:</span>
+                    {webhook.events.map((event, i) => (
+                      <Badge key={i} variant="outline" className="text-xs">{event}</Badge>
+                    ))}
+                  </div>
+
+                  <div className="flex items-center justify-between pt-2 border-t">
+                    <span className="text-sm text-muted-foreground">
+                      Webhook Secret: {webhook.hasSecret ? 
+                        <span className="text-green-600">Configured</span> : 
+                        <span className="text-red-500">Not configured</span>}
+                    </span>
+                    <Button variant="link" size="sm" asChild>
+                      <a href={webhook.setupUrl} target="_blank" rel="noopener noreferrer">
+                        <ExternalLink className="w-4 h-4 mr-1" />
+                        Setup Guide
+                      </a>
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        )}
+      </Card>
+
+      {/* Exchange Rate Providers */}
+      <Card>
+        <CardHeader 
+          className="cursor-pointer select-none"
+          onClick={() => setExpandedSection(expandedSection === 'exchange' ? '' : 'exchange')}
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <DollarSign className="w-5 h-5" />
+              <div>
+                <CardTitle>Exchange Rate Providers</CardTitle>
+                <CardDescription>DZD/USD/EUR conversion rate APIs</CardDescription>
+              </div>
+            </div>
+            {expandedSection === 'exchange' ? 
+              <ChevronUp className="w-5 h-5" /> : 
+              <ChevronDown className="w-5 h-5" />
+            }
+          </div>
+        </CardHeader>
+        {expandedSection === 'exchange' && (
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Provider</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>API Key</TableHead>
+                  <TableHead>Tier</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                <TableRow>
+                  <TableCell className="font-medium">Fixer.io</TableCell>
+                  <TableCell>
+                    {process.env.FIXER_API_KEY && !process.env.FIXER_API_KEY.includes('your_') ? 
+                      <Badge variant="default"><CheckCircle2 className="w-3 h-3 mr-1" /> Active</Badge> : 
+                      <Badge variant="secondary"><XCircle className="w-3 h-3 mr-1" /> Not Set</Badge>}
+                  </TableCell>
+                  <TableCell className="font-mono text-sm">
+                    {maskValue(process.env.FIXER_API_KEY, showSecrets['fixer_key'])}
+                  </TableCell>
+                  <TableCell><Badge variant="outline">Free/Paid</Badge></TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell className="font-medium">CoinGecko</TableCell>
+                  <TableCell>
+                    <Badge variant="default"><CheckCircle2 className="w-3 h-3 mr-1" /> Active</Badge>
+                    <span className="text-xs text-muted-foreground ml-2">(Free tier)</span>
+                  </TableCell>
+                  <TableCell className="font-mono text-sm">
+                    {maskValue(process.env.COINGECKO_API_KEY, showSecrets['coingecko_key']) || 'Optional'}
+                  </TableCell>
+                  <TableCell><Badge variant="outline">Free</Badge></TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell className="font-medium">ExchangeRate-API</TableCell>
+                  <TableCell>
+                    {process.env.EXCHANGERATE_API_KEY && !process.env.EXCHANGERATE_API_KEY.includes('your_') ? 
+                      <Badge variant="default"><CheckCircle2 className="w-3 h-3 mr-1" /> Active</Badge> : 
+                      <Badge variant="secondary"><XCircle className="w-3 h-3 mr-1" /> Not Set</Badge>}
+                  </TableCell>
+                  <TableCell className="font-mono text-sm">
+                    {maskValue(process.env.EXCHANGERATE_API_KEY, showSecrets['exchangerate_key'])}
+                  </TableCell>
+                  <TableCell><Badge variant="outline">Free/Paid</Badge></TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+            
+            <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg flex gap-3">
+              <Info className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" />
+              <p className="text-sm text-blue-700 dark:text-blue-300">
+                At least one exchange rate API should be configured for accurate currency conversion. 
+                CoinGecko works without an API key for basic usage but has rate limits.
+              </p>
+            </div>
+          </CardContent>
+        )}
+      </Card>
+
+      {/* Warnings & Issues */}
+      {validationData && validationData.providers.some(p => p.warnings.length > 0 || p.missingFields.length > 0) && (
+        <Card className="border-yellow-200 dark:border-yellow-800">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-yellow-600">
+              <AlertTriangle className="w-5 h-5" />
+              Configuration Issues
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {validationData.providers.map((provider, index) => (
+                <div key={index}>
+                  {provider.missingFields.length > 0 && (
+                    <div className="mb-2">
+                      <span className="font-medium text-red-600">{provider.name} - Missing:</span>
+                      <ul className="list-disc list-inside ml-4 text-sm text-red-600">
+                        {provider.missingFields.map((field, i) => (
+                          <li key={i}>{field}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {provider.warnings.length > 0 && (
+                    <div>
+                      <span className="font-medium text-yellow-600">{provider.name} - Warnings:</span>
+                      <ul className="list-disc list-inside ml-4 text-sm text-yellow-600">
+                        {provider.warnings.map((warning, i) => (
+                          <li key={i}>{warning}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Quick Actions */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Quick Actions</CardTitle>
+          <CardDescription>Common administrative tasks</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Button variant="outline" className="h-auto py-4 flex-col gap-2" asChild>
+              <a href="/docs/payment-webhooks">
+                <Webhook className="w-6 h-6" />
+                <span>View Webhook Docs</span>
+              </a>
             </Button>
-            <Button
-              onClick={handleSubmitAction}
-              disabled={isLoading || (dialogAction === 'reject' && !rejectionReason)}
-              className={cn(
-                dialogAction === 'verify' && "bg-green-600 hover:bg-green-700",
-                dialogAction === 'reject' && "bg-red-600 hover:bg-red-700",
-                dialogAction === 'refund' && "bg-purple-600 hover:bg-purple-700"
-              )}
-            >
-              {isLoading ? 'Traitement...' : 
-               dialogAction === 'verify' ? 'Approuver' :
-               dialogAction === 'reject' ? 'Rejeter' : 'Rembourser'}
+            <Button variant="outline" className="h-auto py-4 flex-col gap-2" asChild>
+              <a href="#" onClick={(e) => { e.preventDefault(); alert('Run: bun scripts/rotate-keys.sh --provider satim') }}>
+                <Key className="w-6 h-6" />
+                <span>Rotate Keys</span>
+              </a>
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            <Button variant="outline" className="h-auto py-4 flex-col gap-2" asChild>
+              <a href="https://dashboard.stripe.com/webhooks" target="_blank" rel="noopener noreferrer">
+                <ExternalLink className="w-6 h-6" />
+                <span>Stripe Dashboard</span>
+              </a>
+            </Button>
+            <Button variant="outline" className="h-auto py-4 flex-col gap-2" asChild>
+              <a href="https://www.cib.dz" target="_blank" rel="noopener noreferrer">
+                <Globe className="w-6 h-6" />
+                <span>CIB Portal</span>
+              </a>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
-  )
-}
-
-// Sub-components
-function StatCard({ 
-  title, 
-  value, 
-  subtitle, 
-  icon, 
-  color = 'gray' 
-}: { 
-  title: string; 
-  value: string; 
-  subtitle: string; 
-  icon: React.ReactNode;
-  color?: 'gray' | 'green' | 'yellow' | 'blue' | 'red';
-}) {
-  const colorClasses = {
-    gray: 'bg-gray-50 border-gray-200',
-    green: 'bg-green-50 border-green-200',
-    yellow: 'bg-yellow-50 border-yellow-200',
-    blue: 'bg-blue-50 border-blue-200',
-    red: 'bg-red-50 border-red-200',
-  }
-
-  return (
-    <Card className={colorClasses[color]}>
-      <CardContent className="pt-4 pb-4">
-        <div className="flex items-start justify-between">
-          <div>
-            <p className="text-sm text-gray-500">{title}</p>
-            <p className="text-2xl font-bold mt-1">{value}</p>
-            <p className="text-xs text-gray-400 mt-1">{subtitle}</p>
-          </div>
-          <div className={cn(
-            "p-2 rounded-lg",
-            color === 'green' && "bg-green-100",
-            color === 'yellow' && "bg-yellow-100",
-            color === 'blue' && "bg-blue-100",
-            color === 'red' && "bg-red-100",
-            color === 'gray' && "bg-gray-100"
-          )}>
-            {icon}
-          </div>
-        </div>
-      </CardContent>
-    </Card>
   )
 }

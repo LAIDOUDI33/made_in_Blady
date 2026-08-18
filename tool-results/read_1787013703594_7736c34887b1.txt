@@ -1,0 +1,844 @@
+     1→/**
+     2→ * SATIM (CIB) Payment Gateway Integration Tests
+     3→ * Comprehensive test suite for AlgeriaTrade.dz payment system
+     4→ * @module __tests__/payments/satim.test
+     5→ */
+     6→
+     7→import {
+     8→  generateSignature,
+     9→  validateCallback,
+    10→  detectCardType,
+    11→  getCardTypeInfo,
+    12→  initiatePayment,
+    13→  checkPaymentStatus,
+    14→  refundPayment,
+    15→  handle3DSecure,
+    16→  SatimError,
+    17→  errorMessages,
+    18→  getErrorMessage,
+    19→} from '@/lib/payments/satim/client'
+    20→import { satimConfig, validateAmount, isSatimConfigured } from '@/lib/payments/satim/config'
+    21→import type {
+    22→  SatimPaymentRequest,
+    23→  SatimWebhookPayload,
+    24→  CardType,
+    25→  ThreeDSecureResult,
+    26→} from '@/lib/payments/satim/types'
+    27→
+    28→// ============================================
+    29→// TEST CONSTANTS
+    30→// ============================================
+    31→
+    32→const TEST_SECRET = 'test-api-secret-key-12345'
+    33→const TEST_MERCHANT_ID = '001000000000001'
+    34→
+    35→const VALID_PAYMENT_REQUEST: SatimPaymentRequest = {
+    36→  amount: 5000,
+    37→  orderId: 'TEST-ORDER-12345',
+    38→  customerId: 'user-test-001',
+    39→  customerEmail: 'test@example.com',
+    40→  customerPhone: '+213555123456',
+    41→  description: 'Test payment',
+    42→}
+    43→
+    44→const VALID_WEBHOOK_PAYLOAD: SatimWebhookPayload = {
+    45→  transactionId: 'SATIM_TEST_1234567890_abcdef12',
+    46→  orderId: 'TEST-ORDER-12345',
+    47→  amount: 5000,
+    48→  currency: 'DZD',
+    49→  status: 'APPROVED',
+    50→  authCode: 'AUTH123',
+    51→  rrn: '20231234567890123',
+    52→  timestamp: new Date().toISOString(),
+    53→  signature: '',
+    54→}
+    55→
+    56→// ============================================
+    57→// SIGNATURE GENERATION & VALIDATION TESTS
+    58→// ============================================
+    59→
+    60→describe('SATIM Signature Generation', () => {
+    61→  describe('generateSignature()', () => {
+    62→    it('should generate a valid HMAC-SHA256 signature', () => {
+    63→      const data = {
+    64→        merchant_id: TEST_MERCHANT_ID,
+    65→        amount: 500000,
+    66→        order_id: 'TEST-ORDER-123',
+    67→        timestamp: 1703001600,
+    68→      }
+    69→
+    70→      const signature = generateSignature(data, TEST_SECRET)
+    71→
+    72→      expect(signature).toBeDefined()
+    73→      expect(typeof signature).toBe('string')
+    74→      expect(signature.length).toBe(64) // SHA256 hex length
+    75→    })
+    76→
+    77→    it('should produce consistent signatures for same input', () => {
+    78→      const data = { amount: 1000, order_id: 'ORD-1' }
+    79→
+    80→      const sig1 = generateSignature(data, TEST_SECRET)
+    81→      const sig2 = generateSignature(data, TEST_SECRET)
+    82→
+    83→      expect(sig1).toEqual(sig2)
+    84→    })
+    85→
+    86→    it('should sort keys alphabetically before signing', () => {
+    87→      const data1 = { a: 1, b: 2, c: 3 }
+    88→      const data2 = { c: 3, b: 2, a: 1 }
+    89→
+    90→      const sig1 = generateSignature(data1, TEST_SECRET)
+    91→      const sig2 = generateSignature(data2, TEST_SECRET)
+    92→
+    93→      expect(sig1).toEqual(sig2)
+    94→    })
+    95→
+    96→    it('should filter out undefined and empty values', () => {
+    97→      const dataWithUndefined = {
+    98→        merchant_id: TEST_MERCHANT_ID,
+    99→        amount: 1000,
+   100→        undefined_field: undefined,
+   101→        empty_field: '',
+   102→      }
+   103→
+   104→      const dataWithoutUndefined = {
+   105→        merchant_id: TEST_MERCHANT_ID,
+   106→        amount: 1000,
+   107→      }
+   108→
+   109→      const sig1 = generateSignature(dataWithUndefined as Record<string, string | number | boolean | undefined>, TEST_SECRET)
+   110→      const sig2 = generateSignature(dataWithoutUndefined, TEST_SECRET)
+   111→
+   112→      expect(sig1).toEqual(sig2)
+   113→    })
+   114→
+   115→    it('should handle different data types correctly', () => {
+   116→      const data = {
+   117→        string_value: 'test',
+   118→        number_value: 42,
+   119→        boolean_true: true,
+   120→        boolean_false: false,
+   121→      }
+   122→
+   123→      const signature = generateSignature(data, TEST_SECRET)
+   124→      
+   125→      expect(signature).toBeDefined()
+   126→      expect(signature.length).toBe(64)
+   127→    })
+   128→  })
+   129→
+   130→  describe('validateCallback()', () => {
+   131→    it('should validate a correct webhook signature', () => {
+   132→      const payload = {
+   133→        transactionId: 'TXN-123',
+   134→        orderId: 'ORD-456',
+   135→        amount: 5000,
+   136→        currency: 'DZD',
+   137→        status: 'APPROVED',
+   138→        timestamp: '2024-01-01T00:00:00Z',
+   139→      }
+   140→
+   141→      // Generate valid signature
+   142→      const signature = generateSignature(payload, TEST_SECRET)
+   143→      const signedPayload = { ...payload, signature }
+   144→
+   145→      expect(validateCallback(signedPayload as unknown as SatimWebhookPayload, TEST_SECRET)).toBe(true)
+   146→    })
+   147→
+   148→    it('should reject invalid signatures', () => {
+   149→      const payload = {
+   150→        transactionId: 'TXN-123',
+   151→        orderId: 'ORD-456',
+   152→        amount: 5000,
+   153→        currency: 'DZD',
+   154→        status: 'APPROVED',
+   155→        timestamp: '2024-01-01T00:00:00Z',
+   156→        signature: 'invalid-signature-here',
+   157→      }
+   158→
+   159→      expect(validateCallback(payload as unknown as SatimWebhookPayload, TEST_SECRET)).toBe(false)
+   160→    })
+   161→
+   162→    it('should reject payloads without signature', () => {
+   163→      const payload = {
+   164→        transactionId: 'TXN-123',
+   165→        status: 'APPROVED',
+   166→        // No signature field
+   167→      }
+   168→
+   169→      expect(validateCallback(payload as unknown as SatimWebhookPayload, TEST_SECRET)).toBe(false)
+   170→    })
+   171→
+   172→    it('should detect tampered payload data', () => {
+   173→      const originalData = {
+   174→        transactionId: 'TXN-123',
+   175→        amount: 5000,
+   176→      }
+   177→
+   178→      // Generate signature for original data
+   179→      const signature = generateSignature(originalData, TEST_SECRET)
+   180→
+   181→      // Tamper with the data but keep original signature
+   182→      const tamperedPayload = {
+   183→        ...originalData,
+   184→        amount: 99999, // Changed!
+   185→        signature,
+   186→      }
+   187→
+   188→      expect(validateCallback(tamperedPayload as unknown as SatimWebhookPayload, TEST_SECRET)).toBe(false)
+   189→    })
+   190→  })
+   191→})
+   192→
+   193→// ============================================
+   194→// CARD TYPE DETECTION TESTS
+   195→// ============================================
+   196→
+   197→describe('SATIM Card Type Detection', () => {
+   198→  describe('detectCardType()', () => {
+   199→    it('should detect Visa cards (starts with 4)', () => {
+   200→      expect(detectCardType('4111111111111111')).toBe('VISA')
+   201→      expect(detectCardType('4000000000000002')).toBe('VISA')
+   202→      expect(detectCardType('4 532 1234 5678 9012')).toBe('VISA')
+   203→      expect(detectCardType('4916338504648547')).toBe('VISA')
+   204→    })
+   205→
+   206→    it('should detect Mastercard cards (51-55 or 2221-2720)', () => {
+   207→      expect(detectCardType('5555555555554444')).toBe('MASTERCARD')
+   208→      expect(detectCardType('5105105105105100')).toBe('MASTERCARD')
+   209→      expect(detectCardType('2223000048400011')).toBe('MASTERCARD') // New range
+   210→      expect(detectCardType('2720994356888947')).toBe('MASTERCARD') // New range end
+   211→    })
+   212→
+   213→    it('should detect CIB cards (starts with 6)', () => {
+   214→      expect(detectCardType('6000000000000005')).toBe('CIB')
+   215→      expect(detectCardType('6500000000000002')).toBe('CIB')
+   216→    })
+   217→
+   218→    it('should return UNKNOWN for unrecognized patterns', () => {
+   219→      expect(detectCardType('')).toBe('UNKNOWN')
+   220→      expect(detectCardType('1')).toBe('UNKNOWN')
+   221→      expect(detectCardType('371449635398431')).toBe('UNKNOWN') // Amex
+   222→      expect(detectCardType('3530111333300000')).toBe('UNKNOWN') // JCB
+   223→    })
+   224→
+   225→    it('should handle formatted card numbers with spaces', () => {
+   226→      expect(detectCardType('4111 1111 1111 1111')).toBe('VISA')
+   227→      expect(detectCardType('5555 5555 5555 4444')).toBe('MASTERCARD')
+   228→    })
+   229→
+   230→    it('should ignore non-digit characters', () => {
+   231→      expect(detectCardType('4111-1111-1111-1111')).toBe('VISA')
+   232→    })
+   233→  })
+   234→
+   235→  describe('getCardTypeInfo()', () => {
+   236→    it('should return Visa info for VISA type', () => {
+   237→      const info = getCardTypeInfo('VISA')
+   238→      expect(info.name).toBe('Visa')
+   239→      expect(info.color).toBe('#1434CB')
+   240→      expect(info.bgColor).toBe('#EBF5FF')
+   241→    })
+   242→
+   243→    it('should return Mastercard info for MASTERCARD type', () => {
+   244→      const info = getCardTypeInfo('MASTERCARD')
+   245→      expect(info.name).toBe('Mastercard')
+   246→      expect(info.color).toBe('#EB001B')
+   247→      expect(info.bgColor).toBe('#FFE8E8')
+   248→    })
+   249→
+   250→    it('should return CIB info for CIB type', () => {
+   251→      const info = getCardTypeInfo('CIB')
+   252→      expect(info.name).toBe('CIB')
+   253→      expect(info.color).toBe('#006233')
+   254→      expect(info.bgColor).toBe('#E8F5EE')
+   255→    })
+   256→
+   257→    it('should return generic info for UNKNOWN type', () => {
+   258→      const info = getCardTypeInfo('UNKNOWN')
+   259→      expect(info.name).toBe('Carte')
+   260→      expect(info.color).toBe('#6B7280')
+   261→    })
+   262→  })
+   263→})
+   264→
+   265→// ============================================
+   266→// AMOUNT VALIDATION TESTS
+   267→// ============================================
+   268→
+   269→describe('SATIM Amount Validation', () => {
+   270→  describe('validateAmount()', () => {
+   271→    it('should accept valid amounts within range', () => {
+   272→      expect(validateAmount(100).valid).toBe(true)
+   273→      expect(validateAmount(5000).valid).toBe(true)
+   274→      expect(validateAmount(100000).valid).toBe(true)
+   275→      expect(validateAmount(2000000).valid).toBe(true)
+   276→    })
+   277→
+   278→    it('should reject amounts below minimum (100 DZD)', () => {
+   279→      const result = validateAmount(99)
+   280→      expect(result.valid).toBe(false)
+   281→      expect(result.error).toContain('Minimum')
+   282→    })
+   283→
+   284→    it('should reject amounts above maximum (2,000,000 DZD)', () => {
+   285→      const result = validateAmount(2000001)
+   286→      expect(result.valid).toBe(false)
+   287→      expect(result.error).toContain('Maximum')
+   288→    })
+   289→
+   290→    it('should reject NaN values', () => {
+   291→      const result = validateAmount(NaN as unknown as number)
+   292→      expect(result.valid).toBe(false)
+   293→    })
+   294→
+   295→    it('should reject Infinity', () => {
+   296→      const result = validateAmount(Infinity)
+   297→      expect(result.valid).toBe(false)
+   298→    })
+   299→
+   300→    it('should reject negative numbers', () => {
+   301→      const result = validateAmount(-100)
+   302→      expect(result.valid).toBe(false)
+   303→    })
+   304→
+   305→    it('should accept zero for edge case (if needed)', () => {
+   306→      // Zero might be used in some scenarios
+   307→      const result = validateAmount(0)
+   308→      // This depends on business rules - currently should fail min check
+   309→      if (result.valid === false) {
+   310→        expect(result.error).toBeDefined()
+   311→      }
+   312→    })
+   313→  })
+   314→})
+   315→
+   316→// ============================================
+   317→// PAYMENT INITIATION TESTS
+   318→// ============================================
+   319→
+   320→describe('SATIM Payment Initiation', () => {
+   321→  describe('initiatePayment()', () => {
+   322→    it('should create a payment session with valid request', async () => {
+   323→      const result = await initiatePayment(VALID_PAYMENT_REQUEST)
+   324→
+   325→      expect(result.success).toBeDefined()
+   326→      expect(result.transactionId).toBeDefined()
+   327→      expect(result.transactionId).toMatch(/^SATIM_/)
+   328→      expect(result.redirectUrl).toBeDefined()
+   329→      expect(result.redirectUrl).toContain('transactionId=')
+   330→      expect(result.status).toBe('PENDING')
+   331→      expect(result.createdAt).toBeInstanceOf(Date)
+   332→    }, 15000)
+   333→
+   334→    it('should throw error for missing order ID', async () => {
+   335→      await expect(
+   336→        initiatePayment({ ...VALID_PAYMENT_REQUEST, orderId: '' })
+   337→      ).rejects.toThrow('MISSING_ORDER_ID')
+   338→    })
+   339→
+   340→    it('should throw error for missing customer ID', async () => {
+   341→      await expect(
+   342→        initiatePayment({ ...VALID_PAYMENT_REQUEST, customerId: '' })
+   343→      ).rejects.toThrow('MISSING_CUSTOMER_ID')
+   344→    })
+   345→
+   346→    it('should throw error for invalid amount (too low)', async () => {
+   347→      await expect(
+   348→        initiatePayment({ ...VALID_PAYMENT_REQUEST, amount: 50 })
+   349→      ).rejects.toThrow('INVALID_AMOUNT')
+   350→    })
+   351→
+   352→    it('should throw error for invalid amount (too high)', async () => {
+   353→      await expect(
+   354→        initiatePayment({ ...VALID_PAYMENT_REQUEST, amount: 5000000 })
+   355→      ).rejects.toThrow('INVALID_AMOUNT')
+   356→    })
+   357→
+   358→    it('should include billing address when provided', async () => {
+   359→      const requestWithAddress: SatimPaymentRequest = {
+   360→        ...VALID_PAYMENT_REQUEST,
+   361→        billingAddress: {
+   362→          firstName: 'John',
+   363→          lastName: 'Doe',
+   364→          address: '123 Main St',
+   365→          city: 'Algiers',
+   366→          zipCode: '16000',
+   367→          country: 'DZ',
+   368→        },
+   369→      }
+   370→
+   371→      const result = await initiatePayment(requestWithAddress)
+   372→      expect(result.transactionId).toBeDefined()
+   373→    }, 10000)
+   374→
+   375→    it('should handle installments parameter', async () => {
+   376→      const requestWithInstallments: SatimPaymentRequest = {
+   377→        ...VALID_PAYMENT_REQUEST,
+   378→        installments: 3,
+   379→      }
+   380→
+   381→      const result = await initiatePayment(requestWithInstallments)
+   382→      expect(result.transactionId).toBeDefined()
+   383→    }, 10000)
+   384→  })
+   385→})
+   386→
+   387→// ============================================
+   388→// PAYMENT STATUS CHECK TESTS
+   389→// ============================================
+   390→
+   391→describe('SATIM Payment Status Check', () => {
+   392→  describe('checkPaymentStatus()', () => {
+   393→    it('should return status for valid transaction ID', async () => {
+   394→      // First create a payment to get a valid transaction ID
+   395→      const payment = await initiatePayment(VALID_PAYMENT_REQUEST)
+   396→      
+   397→      const status = await checkPaymentStatus(payment.transactionId)
+   398→
+   399→      expect(status.transactionId).toBe(payment.transactionId)
+   400→      expect(status.currency).toBe('DZD')
+   401→      expect(['COMPLETED', 'FAILED', 'PENDING']).toContain(status.status)
+   402→    }, 15000)
+   403→
+   404→    it('should throw error for missing transaction ID', async () => {
+   405→      await expect(checkPaymentStatus('')).rejects.toThrow('TRANSACTION_NOT_FOUND')
+   406→    })
+   407→
+   408→    it('should return COMPLETED status for test transactions starting with SATIM_', async () => {
+   409→      const payment = await initiatePayment(VALID_PAYMENT_REQUEST)
+   410→      const status = await checkPaymentStatus(payment.transactionId)
+   411→
+   412→      // Test mode returns COMPLETED for SATIM_* prefixed IDs
+   413→      expect(status.status).toBe('COMPLETED')
+   414→    }, 15000)
+   415→
+   416→    it('should include authCode and rrn for completed transactions', async () => {
+   417→      const payment = await initiatePayment(VALID_PAYMENT_REQUEST)
+   418→      const status = await checkPaymentStatus(payment.transactionId)
+   419→
+   420→      if (status.status === 'COMPLETED') {
+   421→        expect(status.authCode).toBeDefined()
+   422→        expect(status.rrn).toBeDefined()
+   423→        expect(status.cardLast4).toBeDefined()
+   424→        expect(status.cardType).toBeDefined()
+   425→        expect(status.paidAt).toBeInstanceOf(Date)
+   426→      }
+   427→    }, 15000)
+   428→  })
+   429→})
+   430→
+   431→// ============================================
+   432→// REFUND PROCESSING TESTS
+   433→// ============================================
+   434→
+   435→describe('SATIM Refund Processing', () => {
+   436→  describe('refundPayment()', () => {
+   437→    let testTransactionId: string
+   438→
+   439→    beforeAll(async () => {
+   440→      // Create a payment first for refund testing
+   441→      const payment = await initiatePayment({
+   442→        ...VALID_PAYMENT_REQUEST,
+   443→        amount: 10000,
+   444→      })
+   445→      testTransactionId = payment.transactionId
+   446→    }, 15000)
+   447→
+   448→    it('should process a full refund successfully', async () => {
+   449→      const result = await refundPayment({
+   450→        transactionId: testTransactionId,
+   451→        reason: 'Customer requested refund',
+   452→      })
+   453→
+   454→      expect(result.success).toBe(true)
+   455→      expect(result.refundId).toBeDefined()
+   456→      expect(result.refundId).toMatch(/^REFUND_/)
+   457→      expect(result.refundedAmount).toBe(10000)
+   458→    }, 10000)
+   459→
+   460→    it('should process a partial refund successfully', async () => {
+   461→      // Create a new payment for this test
+   462→      const payment = await initiatePayment({
+   463→        ...VALID_PAYMENT_REQUEST,
+   464→        amount: 8000,
+   465→        orderId: 'TEST-PARTIAL-REFUND',
+   466→      })
+   467→
+   468→      const result = await refundPayment({
+   469→        transactionId: payment.transactionId,
+   470→        amount: 3000,
+   471→        reason: 'Partial refund - item out of stock',
+   472→      })
+   473→
+   474→      expect(result.success).toBe(true)
+   475→      expect(result.refundId).toBeDefined()
+   476→      expect(result.refundedAmount).toBe(3000)
+   477→      expect(result.remainingAmount).toBeDefined()
+   478→    }, 15000)
+   479→
+   480→    it('should throw error for missing transaction ID', async () => {
+   481→      await expect(
+   482→        refundPayment({ transactionId: '' })
+   483→      ).rejects.toThrow('TRANSACTION_NOT_FOUND')
+   484→    })
+   485→
+   486→    it('should include reason in refund processing', async () => {
+   487→      const payment = await initiatePayment({
+   488→        ...VALID_PAYMENT_REQUEST,
+   489→        amount: 2000,
+   490→        orderId: 'TEST-REFUND-REASON',
+   491→      })
+   492→
+   493→      const result = await refundPayment({
+   494→        transactionId: payment.transactionId,
+   495→        reason: 'Product defective - quality issue reported by customer',
+   496→        initiatedBy: 'admin-user-001',
+   497→      })
+   498→
+   499→      expect(result.success).toBe(true)
+   500→    }, 10000)
+   501→  })
+   502→})
+   503→
+   504→// ============================================
+   505→// 3D SECURE FLOW TESTS
+   506→// ============================================
+   507→
+   508→describe('SATIM 3D Secure Flow', () => {
+   509→  describe('handle3DSecure()', () => {
+   510→    it('should return 3DS required status for new transaction', async () => {
+   511→      const payment = await initiatePayment(VALID_PAYMENT_REQUEST)
+   512→      
+   513→      const result: ThreeDSecureResult = await handle3DSecure(payment.transactionId)
+   514→
+   515→      expect(result.required).toBe(true)
+   516→      expect(result.version).toBe('2.0')
+   517→      expect(result.serverTransactionId).toBeDefined()
+   518→    }, 15000)
+   519→
+   520→    it('should verify successful 3DS callback', async () => {
+   521→      const payment = await initiatePayment(VALID_PAYMENT_REQUEST)
+   522→      
+   523→      const callbackData = {
+   524→        trans_status: 'Y', // Successful authentication
+   525→        cres: 'mock-cres-value',
+   526→        ds_trans_id: `3DS_${Date.now()}`,
+   527→        signature: '', // Will be validated
+   528→      }
+   529→
+   530→      // Generate proper signature for callback
+   531→      callbackData.signature = generateSignature(callbackData, satimConfig.apiSecret || TEST_SECRET)
+   532→
+   533→      const result = await handle3DSecure(payment.transactionId, callbackData)
+   534→
+   535→      expect(result.required).toBe(true)
+   536→      expect(result.authenticated).toBe(true)
+   537→      expect(result.authenticationValue).toBe(callbackData.cres)
+   538→    }, 15000)
+   539→
+   540→    it('should detect failed 3DS authentication', async () => {
+   541→      const payment = await initiatePayment(VALID_PAYMENT_REQUEST)
+   542→      
+   543→      const callbackData = {
+   544→        trans_status: 'N', // Failed authentication
+   545→        cres: 'failed-cres',
+   546→        ds_trans_id: `3DS_FAIL_${Date.now()}`,
+   547→        signature: '',
+   548→      }
+   549→
+   550→      callbackData.signature = generateSignature(callbackData, satimConfig.apiSecret || TEST_SECRET)
+   551→
+   552→      const result = await handle3DSecure(payment.transactionId, callbackData)
+   553→
+   554→      expect(result.required).toBe(true)
+   555→      expect(result.authenticated).toBe(false)
+   556→      expect(result.error).toBeDefined()
+   557→    }, 15000)
+   558→
+   559→    it('should reject invalid 3DS callback signatures', async () => {
+   560→      const payment = await initiatePayment(VALID_PAYMENT_REQUEST)
+   561→      
+   562→      const invalidCallbackData = {
+   563→        trans_status: 'Y',
+   564→        cres: 'some-value',
+   565→        ds_trans_id: 'fake-id',
+   566→        signature: 'totally-invalid-signature',
+   567→      }
+   568→
+   569→      const result = await handle3DSecure(payment.transactionId, invalidCallbackData)
+   570→
+   571→      expect(result.error).toContain('signature')
+   572→    }, 10000)
+   573→  })
+   574→})
+   575→
+   576→// ============================================
+   577→// ERROR HANDLING TESTS
+   578→// ============================================
+   579→
+   580→describe('SATIM Error Handling', () => {
+   581→  describe('SatimError class', () => {
+   582→    it('should create error with all properties', () => {
+   583→      const error = new SatimError(
+   584→        'PAYMENT_FAILED',
+   585→        'Payment was declined',
+   586→        402,
+   587→        { declineCode: 'insufficient_funds' }
+   588→      )
+   589→
+   590→      expect(error).toBeInstanceOf(Error)
+   591→      expect(error).toBeInstanceOf(SatimError)
+   592→      expect(error.code).toBe('PAYMENT_FAILED')
+   593→      expect(error.message).toBe('Payment was declined')
+   594→      expect(error.httpStatus).toBe(402)
+   595→      expect(error.details).toEqual({ declineCode: 'insufficient_funds' })
+   596→      expect(error.name).toBe('SatimError')
+   597→    })
+   598→
+   599→    it('should be throwable and catchable', () => {
+   600→      expect(() => {
+   601→        throw new SatimError('API_ERROR', 'Test error', 500)
+   602→      }).toThrow(SatimError)
+   603→    })
+   604→  })
+   605→
+   606→  describe('errorMessages', () => {
+   607→    it('should have messages for all error codes', () => {
+   608→      const expectedCodes = [
+   609→        'INVALID_AMOUNT',
+   610→        'INVALID_CURRENCY',
+   611→        'MISSING_ORDER_ID',
+   612→        'TRANSACTION_NOT_FOUND',
+   613→        'PAYMENT_FAILED',
+   614→        'NETWORK_ERROR',
+   615→        'INTERNAL_ERROR',
+   616→      ]
+   617→
+   618→      expectedCodes.forEach(code => {
+   619→        expect(errorMessages[code as keyof typeof errorMessages]).toBeDefined()
+   620→        expect(errorMessages[code as keyof typeof errorMessages].fr).toBeDefined()
+   621→        expect(errorMessages[code as keyof typeof errorMessages].ar).toBeDefined()
+   622→        expect(errorMessages[code as keyof typeof errorMessages].en).toBeDefined()
+   623→      })
+   624→    })
+   625→  })
+   626→
+   627→  describe('getErrorMessage()', () => {
+   628→    it('should return French message by default', () => {
+   629→      const msg = getErrorMessage('INVALID_AMOUNT')
+   630→      expect(msg).toBe(errorMessages.INVALID_AMOUNT.fr)
+   631→    })
+   632→
+   633→    it('should return Arabic message when requested', () => {
+   634→      const msg = getErrorMessage('INVALID_AMOUNT', 'ar')
+   635→      expect(msg).toBe(errorMessages.INVALID_AMOUNT.ar)
+   636→    })
+   637→
+   638→    it('should return English message when requested', () => {
+   639→      const msg = getErrorMessage('INVALID_AMOUNT', 'en')
+   640→      expect(msg).toBe(errorMessages.INVALID_AMOUNT.en)
+   641→    })
+   642→
+   643→    it('should fall back to French for unknown locale', () => {
+   644→      const msg = getErrorMessage('INVALID_AMOUNT', 'de' as 'fr')
+   645→      expect(msg).toBe(errorMessages.INVALID_AMOUNT.fr)
+   646→    })
+   647→  })
+   648→})
+   649→
+   650→// ============================================
+   651→// CONFIGURATION TESTS
+   652→// ============================================
+   653→
+   654→describe('SATIM Configuration', () => {
+   655→  describe('satimConfig', () => {
+   656→    it('should have required configuration fields', () => {
+   657→      expect(satimConfig.merchantId).toBeDefined()
+   658→      expect(satimConfig.apiKey).toBeDefined()
+   659→      expect(satimConfig.apiSecret).toBeDefined()
+   660→      expect(satimConfig.environment).toBeDefined()
+   661→      expect(satimConfig.baseUrl).toBeDefined()
+   662→    })
+   663→
+   664→    it('should use test environment in development', () => {
+   665→      // In tests, we're likely not in production
+   666→      expect(['test', 'production']).toContain(satimConfig.environment)
+   667→    })
+   668→  })
+   669→
+   670→  describe('isSatimConfigured()', () => {
+   671→    it('should return boolean indicating configuration status', () => {
+   672→      const configured = isSatimConfigured()
+   673→      expect(typeof configured).toBe('boolean')
+   674→    })
+   675→  })
+   676→})
+   677→
+   678→// ============================================
+   679→// INTEGRATION SCENARIO TESTS
+   680→// ============================================
+   681→
+   682→describe('SATIM Integration Scenarios', () => {
+   683→  describe('Complete Payment Flow', () => {
+   684→    it('should complete full payment lifecycle', async () => {
+   685→      // Step 1: Initiate payment
+   686→      const paymentResponse = await initiatePayment({
+   687→        amount: 7500,
+   688→        orderId: `INTEGRATION-${Date.now()}`,
+   689→        customerId: 'integration-user',
+   690→        customerEmail: 'integration@test.com',
+   691→      })
+   692→
+   693→      expect(paymentResponse.transactionId).toBeDefined()
+   694→      expect(paymentResponse.redirectUrl).toBeDefined()
+   695→
+   696→      // Step 2: Check initial status
+   697→      const initialStatus = await checkPaymentStatus(paymentResponse.transactionId)
+   698→      expect(initialStatus.transactionId).toBe(paymentResponse.transactionId)
+   699→
+   700→      // Step 3: Process 3D Secure (simulated)
+   701→      const threeDSResult = await handle3DSecure(paymentResponse.transactionId, {
+   702→        trans_status: 'Y',
+   703→        cres: 'integration-test-cres',
+   704→        ds_trans_id: `3DS_INT_${Date.now()}`,
+   705→        signature: generateSignature(
+   706→          { trans_status: 'Y', cres: 'test', ds_trans_id: 'test' },
+   707→          TEST_SECRET
+   708→        ),
+   709→      })
+   710→
+   711→      expect(threeDSResult.authenticated).toBe(true)
+   712→
+   713→      // Step 4: Verify final status
+   714→      const finalStatus = await checkPaymentStatus(paymentResponse.transactionId)
+   715→      expect(finalStatus.status).toBe('COMPLETED')
+   716→
+   717→    }, 30000)
+   718→
+   719→    it('should handle failed payment flow', async () => {
+   720→      // Create a payment that will fail validation
+   721→      try {
+   722→        await initiatePayment({
+   723→          amount: 50, // Below minimum
+   724→          orderId: 'FAIL-FLOW-TEST',
+   725→          customerId: 'test-user',
+   726→        })
+   727→        // Should not reach here
+   728→        expect(true).toBe(false)
+   729→      } catch (error) {
+   730→        expect(error).toBeInstanceOf(SatimError)
+   731→        expect((error as SatimError).code).toBe('INVALID_AMOUNT')
+   732→      }
+   733→    })
+   734→  })
+   735→
+   736→  describe('Refund After Payment', () => {
+   737→    it('should allow refund after completed payment', async () => {
+   738→      // Complete a payment first
+   739→      const payment = await initiatePayment({
+   740→        amount: 15000,
+   741→        orderId: `REFUND-AFTER-${Date.now()}`,
+   742→        customerId: 'refund-test-user',
+   743→        customerEmail: 'refund@test.com',
+   744→      })
+   745→
+   746→      // Verify payment completed
+   747→      const status = await checkPaymentStatus(payment.transactionId)
+   748→      expect(status.status).toBe('COMPLETED')
+   749→
+   750→      // Process refund
+   751→      const refundResult = await refundPayment({
+   752→        transactionId: payment.transactionId,
+   753→        amount: 5000,
+   754→        reason: 'Customer returned item',
+   755→      })
+   756→
+   757→      expect(refundResult.success).toBe(true)
+   758→      expect(refundResult.refundId).toBeDefined()
+   759→
+   760→    }, 25000)
+   761→  })
+   762→})
+   763→
+   764→// ============================================
+   765→// EDGE CASES AND BOUNDARY TESTS
+   766→// ============================================
+   767→
+   768→describe('SATIM Edge Cases', () => {
+   769→  describe('Boundary Values', () => {
+   770→    it('should handle minimum valid amount (100 DZD)', async () => {
+   771→      const result = await initiatePayment({
+   772→        ...VALID_PAYMENT_REQUEST,
+   773→        amount: 100,
+   774→        orderId: 'BOUNDARY-MIN',
+   775→      })
+   776→
+   777→      expect(result.transactionId).toBeDefined()
+   778→    }, 10000)
+   779→
+   780→    it('should handle maximum valid amount (2,000,000 DZD)', async () => {
+   781→      const result = await initiatePayment({
+   782→        ...VALID_PAYMENT_REQUEST,
+   783→        amount: 2000000,
+   784→        orderId: 'BOUNDARY-MAX',
+   785→      })
+   786→
+   787→      expect(result.transactionId).toBeDefined()
+   788→    }, 10000)
+   789→
+   790→    it('should handle decimal amounts correctly', async () => {
+   791→      const result = await initiatePayment({
+   792→        ...VALID_PAYMENT_REQUEST,
+   793→        amount: 9999.99,
+   794→        orderId: 'DECIMAL-AMOUNT',
+   795→      })
+   796→
+   797→      expect(result.transactionId).toBeDefined()
+   798→    }, 10000)
+   799→  })
+   800→
+   801→  describe('Special Characters', () => {
+   802→    it('should handle special characters in description', async () => {
+   803→      const result = await initiatePayment({
+   804→        ...VALID_PAYMENT_REQUEST,
+   805→        description: 'Paiement pour commande #123 - éèêë àâä ùûü ôö îï ç €$%&!',
+   806→        orderId: 'SPECIAL-CHARS',
+   807→      })
+   808→
+   809→      expect(result.transactionId).toBeDefined()
+   810→    }, 10000)
+   811→
+   812→    it('should handle long order IDs', async () => {
+   813→      const longOrderId = 'VERY-LONG-ORDER-ID-' + 'X'.repeat(100)
+   814→      
+   815→      const result = await initiatePayment({
+   816→        ...VALID_PAYMENT_REQUEST,
+   817→        orderId: longOrderId,
+   818→      })
+   819→
+   820→      expect(result.transactionId).toBeDefined()
+   821→    }, 10000)
+   822→  })
+   823→
+   824→  describe('Concurrent Operations', () => {
+   825→    it('should handle multiple simultaneous payment initiations', async () => {
+   826→      const requests = Array.from({ length: 5 }, (_, i) =>
+   827→        initiatePayment({
+   828→          ...VALID_PAYMENT_REQUEST,
+   829→          orderId: `CONCURRENT-${i}-${Date.now()}`,
+   830→        })
+   831→      )
+   832→
+   833→      const results = await Promise.allSettled(requests)
+   834→
+   835→      results.forEach((result, index) => {
+   836→        expect(result.status).toBe('fulfilled')
+   837→        if (result.status === 'fulfilled') {
+   838→          expect(result.value.transactionId).toBeDefined()
+   839→        }
+   840→      })
+   841→    }, 30000)
+   842→  })
+   843→})
+   844→
