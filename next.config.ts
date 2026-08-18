@@ -2,6 +2,11 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   // =============================================================================
+  // Turbopack Configuration (Next.js 16 default)
+  // =============================================================================
+  turbopack: {}, // Use empty config to silence warning
+  
+  // =============================================================================
   // Output Configuration
   // =============================================================================
   output: "standalone",
