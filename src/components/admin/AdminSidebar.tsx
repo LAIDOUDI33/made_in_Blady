@@ -30,7 +30,22 @@ import {
   ClipboardCheck,
   CalendarDays,
   Truck,
-  TrendingUp
+  TrendingUp,
+  // Phase 8 Icons
+  CreditCard,
+  Wallet,
+  Bitcoin,
+  Calendar,
+  DollarSign,
+  Receipt,
+  Scale,
+  FileSearch,
+  AddressBook,
+  Phone,
+  Box,
+  Database,
+  RefreshCw,
+  UsersRound
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -184,6 +199,73 @@ const navigation: NavSection[] = [
         title: 'Métriques Phase 6',
         href: '/admin/analytics/phase6-metrics',
         icon: <TrendingUp className="h-5 w-5" />,
+      },
+    ],
+  },
+  {
+    title: '🚀 Modules Phase 8',
+    items: [
+      {
+        title: 'Paiements (SATIM/Stripe)',
+        href: '/admin/payments',
+        icon: <CreditCard className="h-5 w-5" />,
+        badge: 0,
+      },
+      {
+        title: 'Factures & TVA',
+        href: '/admin/invoices',
+        icon: <Receipt className="h-5 w-5" />,
+      },
+      {
+        title: 'Rapports TVA',
+        href: '/admin/invoices/tva-reports',
+        icon: <DollarSign className="h-5 w-5" />,
+      },
+      {
+        title: 'Paiements Crypto',
+        href: '/admin/crypto',
+        icon: <Bitcoin className="h-5 w-5" />,
+      },
+      {
+        title: 'Plans DPA (Mensualité)',
+        href: '/admin/installments',
+        icon: <Calendar className="h-5 w-5" />,
+      },
+      {
+        title: 'Négociations',
+        href: '/admin/negotiations',
+        icon: <Scale className="h-5 w-5" />,
+        badge: 2,
+      },
+      {
+        title: 'Contrats',
+        href: '/admin/contracts',
+        icon: <FileText className="h-5 w-5" />,
+      },
+      {
+        title: 'CRM & Contacts',
+        href: '/admin/crm',
+        icon: <AddressBook className="h-5 w-5" />,
+      },
+      {
+        title: 'Connecteurs ERP',
+        href: '/admin/erp',
+        icon: <Database className="h-5 w-5" />,
+      },
+      {
+        title: 'Appels Vidéo/Audio',
+        href: '/admin/calls',
+        icon: <Phone className="h-5 w-5" />,
+      },
+      {
+        title: 'Modèles AR 3D',
+        href: '/admin/ar-models',
+        icon: <Box className="h-5 w-5" />,
+      },
+      {
+        title: 'Devises (Multi-devise)',
+        href: '/admin/currency',
+        icon: <RefreshCw className="h-5 w-5" />,
       },
     ],
   },

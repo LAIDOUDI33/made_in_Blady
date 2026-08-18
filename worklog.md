@@ -4800,3 +4800,557 @@ Files Created:
 6. docs/POST-DEPLOY-CHECKLIST.md (Verification checklist - ~750 lines)
 
 Total Documentation: ~5,350 lines of operational documentation
+
+---
+Task ID: Phase8-Admin-Dashboard
+Agent: Fullstack Developer
+Task: Create Complete Admin Dashboard with Phase 8 Features
+
+Work Log:
+- Created comprehensive admin dashboard at src/app/admin/page.tsx
+- Implemented Header section with:
+  - Welcome message and branding (AlgeriaTrade.dz logo)
+  - Real-time clock in Algerian timezone (Africa/Algiers)
+  - Current date display in French locale
+  - System health status indicator
+  - Quick action buttons (Export, Settings)
+- Built KPI Cards Grid with 16 cards organized in 4 tabs:
+  - Overview Tab: Revenue, Active Users, Pending Orders, Conversion Rate
+  - Payments Tab: SATIM, Stripe, Crypto transactions + DPA Plans status
+  - Business Tab: CRM Contacts, Negotiations, Contracts, Invoices
+  - Technical Tab: ERP Connectors, Video Calls, AR Models, Currency Rates
+- Created Charts Section (2x2 grid):
+  - Revenue by Payment Method (SVG Donut Chart)
+  - Orders Trend Last 30 Days (Mini Bar Chart)
+  - Currency Distribution (Horizontal Bar Chart)
+  - CRM Pipeline Funnel (Visual Stages)
+- Implemented Recent Activity Table:
+  - 10 recent activities with type icons
+  - Color-coded by activity type (payment, negotiation, order, etc.)
+  - Status badges (success, pending, warning, error)
+  - Timestamps and amounts display
+- Added Quick Links Grid:
+  - 8 navigation links to admin sub-pages
+  - Icon-based cards with hover effects
+  - Item counts where applicable
+- Created Bottom Stats Summary:
+  - System Uptime (99.98%)
+  - Wilayas Covered (58)
+  - Products Listed (12,456)
+  - User Satisfaction (4.8/5)
+
+Technical Implementation:
+- Used 'use client' directive for real-time clock updates
+- Leveraged shadcn/ui components: Card, Button, Badge, Table, Tabs
+- Used lucide-react icons throughout
+- Custom SVG-based charts (Donut, Bar, Funnel) without external dependencies
+- Responsive grid layouts (1/2/4 columns based on viewport)
+- Algerian Dinar (د.ج) currency formatting
+- Mock data realistic for B2B marketplace context
+- Fixed ESLint error regarding variable reassignment after render
+
+Stage Summary:
+- Complete admin dashboard with all 12 Phase 8 features represented
+- Professional UI matching AlgeriaTrade.dz brand colors (emerald/teal gradient)
+- Fully responsive design for mobile, tablet, desktop
+- Real-time updates for date/time display
+- Clean code passing ESLint validation
+- Ready for integration with backend APIs
+
+Files Modified:
+1. src/app/admin/page.tsx (Complete rewrite - ~1020 lines of comprehensive dashboard code)
+
+
+---
+Task ID: Admin-Pages-DPA-Crypto-Currency-Calls-AR
+Agent: Fullstack Developer
+Task: Build DPA Installments, Crypto, Currency & WebRTC Admin Pages for AlgeriaTrade.dz
+
+Work Log:
+## Part A: DPA/Installments Admin
+
+### 1. DPA Dashboard (`src/app/admin/installments/page.tsx`)
+- Created comprehensive installment plans overview page
+- **Stats Cards**: Active Plans (14), Monthly Revenue from DPA (~3M DZD), Avg Plan Value (~2.5M DZD), Default Rate (5.6%)
+- **Active Agreements Table** with 18 mock DPA agreements:
+  - ID, Buyer (name + company), Seller (name + company)
+  - Principal amount, Monthly payment, Remaining balance
+  - Status badges: Active (green), Paid (blue), Defaulted (red), Early Settled (purple)
+  - Overdue highlights with red background and days overdue badge
+  - Next Due Date with overdue indicators
+- **Pipeline Chart**: Plans by duration (3m/6m/12m/24m) with progress bars
+- **Bank Partner Breakdown**: BNA, BEA, BDL, CPA with volumes and counts
+- **Quick Actions**: Contact Overdue Buyers, Process Payments, Review Defaults, Generate Reports
+- Real-time simulation via useEffect (30s interval)
+
+### 2. DPA Detail/Edit Page (`src/app/admin/installments/[id]/page.tsx`)
+- Single plan management with full agreement details
+- **Progress Overview**: Visual progress bar, payment stats grid
+- **Party Information**: Buyer and Seller cards with contact details
+- **Payment Schedule Table**: 12 installments with:
+  - #, Due Date, Amount, Principal, Interest breakdown
+  - Status badges (Paid/Pending/Overdue) with late fee calculation
+  - Paid date and method display
+  - Record Payment action button per row
+- **Record Payment Dialog**: Manual payment entry with notes
+- **Late Fee Calculator**: Real-time fee estimation based on days late
+- **Early Settlement Offer Generator**: 
+  - Discount calculation (5% for early settlement)
+  - Settlement summary with savings display
+- **Document Upload Section**: File upload dialog with drag-drop UI
+- **Communication Log**: Notes, calls, emails, system events timeline
+- **Add Note functionality**: Inline note creation
+- **Agreement Terms Card**: Principal, interest rate, duration, bank info
+
+## Part B: Crypto Payments Admin
+
+### 3. Crypto Dashboard (`src/app/admin/crypto/page.tsx`)
+- Crypto payment monitoring dashboard
+- **Stats Cards**: 
+  - Today's Crypto Volume (dynamic calculation)
+  - Pending Confirmations (live count with pulse animation)
+  - Total Payments Today (22)
+  - Success Rate (percentage)
+- **Active Transactions Table** with 22 crypto payments:
+  - Payment ID, Crypto type (USDT/BTC/ETH/USDC/DAI) with icons
+  - Network (TRC20/ERC20/BEP20/Bitcoin) badges
+  - Amount in crypto (formatted) and DZD equivalent
+  - Confirmations progress bar (animated updates every 8s)
+  - Status badges: Pending (yellow), Confirming (blue pulse), Completed (green), Expired (gray), Failed (red)
+  - Time remaining countdown
+  - QR Code viewer dialog on hover/action
+- **Volume by Crypto**: USDT/BTC/ETH/Other breakdown with progress bars
+- **Exchange Rates Panel**: Current rates to DZD with 24h change indicators
+- **Network Fees**: TRC20, ERC20, BEP20, Bitcoin fees with estimated times
+- **Blockchain Status**: Operational/degraded status per network with live indicators
+- Auto-simulation of confirmation progress for "Confirming" payments
+
+## Part C: Multi-Currency Admin
+
+### 4. Currency Management Page (`src/app/admin/currency/page.tsx`)
+- Comprehensive currency settings interface
+- **Supported Currencies Table** (8 currencies):
+  - Flag emoji, Code, Name, Symbol
+  - Rate to DZD with manual override indicator
+  - Change percentage with trend icons (up/down/flat)
+  - Status: Active/Disabled/Maintenance badges
+  - Last updated timestamp
+  - Enable/disable toggle, Override rate, View actions
+- **Exchange Rates Tab**:
+  - Rate Providers status (Fixer.io, ECB, OER)
+  - Provider health with latency and sync time
+  - Rate Summary cards (active currencies, overrides, update frequency)
+- **Rate History Tab**:
+  - 30-day visual chart representation (bar-style)
+  - Recent rates table (last 7 days)
+  - USD/DZD and EUR/DZD visualization
+- **Conversions Tab**: Recent conversion log with amounts and rates used
+- **Audit Log Tab**: Complete audit trail of all changes:
+  - Rate overrides with before/after values
+  - Currency enable/disable actions
+  - Provider switch events
+  - Timestamps and user attribution
+- **Settings Tab**:
+  - Auto-detection settings (IP geolocation, browser language, preferences)
+  - Regional defaults (Algeria→DZD, International→USD, Tunisia→TND, Morocco→MAD)
+- **Rate Override Dialog**: New rate input, reason field, warning about auto-update pause
+
+## Part D: WebRTC Calls Admin
+
+### 5. Calls Monitoring Page (`src/app/admin/calls/page.tsx`)
+- Voice/video call administration interface
+- **Stats Cards**:
+  - Active Calls Today (with live pulse animation when >0)
+  - Total Duration Today (completed calls sum)
+  - Avg Call Quality (Excellent/Good/Fair/Poor)
+  - Recorded Calls count
+- **Live Calls Tab**:
+  - Active call cards with real-time duration counter (1s updates)
+  - Caller/Callee info with company names
+  - Video/Audio type indicator
+  - Control buttons: Mute, Monitor (dialog), End Call
+  - Monitor dialog with video placeholder and end button
+  - Empty state when no active calls
+- **Call History Tab** (28 records):
+  - ID, Participants (caller → callee), Type badge
+  - Duration (formatted mm:ss), Status badge
+  - Quality indicator (Excellent/Good/Fair/Poor color-coded)
+  - Recording availability badge
+  - Started timestamp
+  - Actions dropdown (View Details, Download Recording, Analytics)
+  - Filters: Status (All/Completed/Missed/Declined/Failed), Type (Audio/Video)
+  - Search by name or ID
+- **Analytics Tab**:
+  - Call Types distribution (Video vs Audio)
+  - Quality distribution (Excellent/Good/Fair/Poor counts)
+  - Status Summary (Completed/Missed/Declined/Failed)
+  - Network Types (WiFi/Cellular/Unknown)
+
+### 6. Call Detail/Analytics Page (`src/app/admin/calls/[callId]/page.tsx`)
+- Individual call comprehensive view
+- **Overview Tab**:
+  - Participant Info Cards: Avatar, name, company, email, device info
+    - Device type (Desktop/Mobile), Browser, OS
+    - User profile link
+  - Call Metadata Grid: Type, Duration, Status, Network, ICE Candidates, Protocol
+  - Related items (Order ID, Negotiation ID)
+- **Recording Tab**:
+  - Video player placeholder with custom controls
+  - Play/Pause, Progress bar, Volume control, Mute toggle
+  - Center play button overlay
+  - Recording metadata (format, resolution, framerate, audio codec)
+  - Download options (WebM, Audio only)
+  - Empty state when no recording available
+- **Timeline Tab**:
+  - Chronological event log with visual timeline line
+  - Event types: Ringing, Connected, Hold, Resume, Quality Change, Error, Ended
+  - Color-coded event icons
+  - Timestamps and additional details
+- **Quality Metrics Tab**:
+  - 8 technical metrics with status indicators:
+    - Latency, Packet Loss, Jitter, Video Bitrate, Audio Bitrate
+    - Round Trip Time, CPU Usage (both parties)
+  - Good/Warning/Critical status badges
+  - Progress bars showing metric health
+  - Overall assessment summary card
+- **Issues Tab**:
+  - Reported issues list with severity badges (Low/Medium/High)
+  - Issue types (Audio/Video/Connection/Other)
+  - Resolved/unresolved status
+  - Timestamp of report
+  - Empty state when no issues ("All Clear!")
+
+## Part E: AR Models Admin (Updated)
+
+### 7. AR Models Admin (`src/app/admin/ar-models/page.tsx`) [ENHANCED]
+- Updated existing page with new features
+- **Enhanced Stats Cards** (5 cards now):
+  - Total Models, Active, Total Views, Captures (NEW), Optimized count (NEW)
+- **Enhanced Models Table** (12 mock models):
+  - Product name + model filename display
+  - Format badges with color coding (GLB=green, USDZ=blue)
+  - Polygon count (formatted as K)
+  - Optimized status with Zap icon
+  - NEW: Captures column
+  - Upload date display
+- **NEW: Optimization Queue Tab**:
+  - Queue items with processing status
+  - Progress bar for active optimizations
+  - Model name, format conversion type, original size
+  - Status badges: Pending, Processing (animated), Completed, Failed
+  - Start timestamp for active jobs
+- **Enhanced Analytics Tab**:
+  - Most Viewed Models ranking (top 5)
+  - Highest Capture Rates with percentages
+  - Format Distribution with progress bars
+  - Average View Duration rankings
+- **NEW: CDN Settings Tab**:
+  - CDN Configuration panel:
+    - Active CDN status with URL
+    - Cache TTL, Compression, SSL certificate status
+    - Configure settings button
+  - Optimization Settings:
+    - Auto-optimize toggle
+    - Generate USDZ version toggle
+    - Max polygon count target
+    - Max texture size limit
+    - Save settings button
+
+Technical Implementation:
+- All pages use 'use client' directive for interactivity
+- Consistent use of shadcn/ui components (Card, Table, Badge, Button, Progress, Dialog, Tabs)
+- Lucide React icons throughout for consistent iconography
+- Real-time simulations using useEffect/setInterval
+- Professional dark/light mode compatible styling
+- Fully responsive design (mobile-first approach)
+- Mock data throughout for demonstration (15+ DPA agreements, 22 crypto payments, 28 call records, 8 currencies, 12 AR models)
+- Algerian context: DZD currency formatting, Algerian banks (BNA/BEA/BDL/CPA), French locale dates
+- Color scheme: No indigo/blue restrictions - used appropriate colors per section (violet for DPA, amber for crypto, green for currency, cyan for calls, purple for AR)
+
+Files Created:
+1. src/app/admin/installments/page.tsx (~550 lines) - DPA Dashboard
+2. src/app/admin/installments/[id]/page.tsx (~500 lines) - DPA Detail/Edit
+3. src/app/admin/crypto/page.tsx (~650 lines) - Crypto Dashboard
+4. src/app/admin/currency/page.tsx (~700 lines) - Currency Management
+5. src/app/admin/calls/page.tsx (~600 lines) - Calls Monitoring
+6. src/app/admin/calls/[callId]/page.tsx (~550 lines) - Call Detail/Analytics
+
+Files Modified:
+7. src/app/admin/ar-models/page.tsx (~650 lines) - Enhanced with queue, analytics, CDN settings
+
+Stage Summary:
+- 7 admin pages created/enhanced covering DPA, crypto, currency, calls, and AR models
+- Comprehensive mock data for realistic demonstrations
+- Real-time feel with simulated updates
+- Professional UI matching AlgeriaTrade.dz design standards
+- All pages accessible under /admin/* routes
+- Ready for backend API integration
+
+---
+Task ID: Admin-Pages-Invoice-Negotiation-Contracts
+Agent: Fullstack Developer
+Date: 2024
+Task: Build Invoice, Negotiation & Contracts Admin Pages for AlgeriaTrade.dz
+
+Work Log:
+
+## Part A: Invoice Administration
+
+### 1. Invoice List Page (`src/app/admin/invoices/page.tsx`)
+- Created professional invoice management interface with full CRUD capabilities
+- Implemented table with columns: Invoice #, Buyer, Seller, Amount (DZD), TVA %, Total TTC, Status, Issue Date, Due Date, Actions
+- Status badges with color coding:
+  - Draft = gray (bg-gray-100)
+  - Issued = blue (bg-blue-100)
+  - Paid = green (bg-green-100)
+  - Overdue = red (bg-red-100) with row highlighting
+  - Cancelled = strikethrough styling
+- Advanced filters: Status dropdown, Date range, Amount range (min/max), Currency
+- Search functionality by invoice number or buyer name
+- Bulk actions with dialog confirmation: Export CSV, Mark issued, Generate credit notes
+- Summary footer showing: Count, Subtotal HT, TVA total, Grand Total TTC
+- Pagination (10 items per page)
+- Mock data: 28 realistic Algerian invoices with DZD amounts ranging from 185,000 to 22,000,000 د.ج
+- Proper DZD formatting with thousands separator and د.ج symbol
+
+### 2. TVA Tax Report Page (`src/app/admin/invoices/tva-reports/page.tsx`)
+- Built Algerian tax reporting dashboard compliant with DGI requirements
+- Period selector: Monthly, Quarterly, Annual with year/quarter/month dropdowns
+- TVA breakdown table with columns:
+  | Rate | Label | Taxable Base | TVA Amount | Transactions | Note |
+  |------|-------|-------------|-----------|---------------|------|
+  | 19% | Taux normal | 10,000,000 × multiplier | 1,900,000 × mult | 156 × mult | Standard rate |
+  | 9% | Taux réduit | 3,000,000 × multiplier | 270,000 × mult | 45 × mult | Essential goods |
+  | 0% | TVA 0% (Export) | 500,000 × multiplier | 0 | 12 × mult | Exports |
+  | Exempt | Exonéré | 200,000 × multiplier | 0 | 8 × mult | Exempt products |
+- Total TVA payable calculation and display
+- Export PDF button for DGI submission (simulated)
+- Comparison charts with previous period metrics
+- Visual CSS bar charts showing TVA distribution by rate
+- Horizontal bar chart for taxable base visualization
+- DGI compliance info box with CIDTA article references
+- Summary cards: Total base, TVA payable, Transactions count, Period info
+
+## Part B: Negotiation Administration
+
+### 3. Negotiations List Page (`src/app/admin/negotiations/page.tsx`)
+- Active negotiations overview with comprehensive filtering
+- Table columns: ID, Product (with category badge), Buyer, Seller, Original Price, Current Offer, Savings %, Status, Time Left, Actions
+- Status badges with colors:
+  - Pending = yellow (bg-yellow-100)
+  - Countered = blue (bg-blue-100)
+  - Accepted = green (bg-green-100)
+  - Rejected = red (bg-red-100)
+  - Expired = gray (bg-gray-100)
+- **Expiring soon highlight**: <24h shows red pulse animation with AlertTriangle icon
+- Filters: Status, Product category (dynamic from data), Value range (min/max)
+- Search by ID, product name, or buyer name
+- Intervention options in dropdown menu: View detail, Mediate (with dialog), Extend deadline
+- Success rate metric card (31.8%)
+- Average savings metric card (9.5%)
+- Mock data: 22 negotiations at various stages with realistic Algerian products
+- Products include: Ciment Portland, Acier Armature, Paracétamol, Ordinateur Dell, Huile Olive, etc.
+- Link to negotiation detail page via Next.js router
+
+### 4. Negotiation Detail Page (`src/app/admin/negotiations/[id]/page.tsx`)
+- Single negotiation view with threaded offer/counter-offer timeline
+- Product info card with description, category badge, buyer/seller details
+- Timeline features:
+  - Each offer shows: Price (formatted DZD), % off original, Message, Timestamp, Author avatar (initials)
+  - Role badges: Buyer (blue), Seller (green), Admin (purple)
+  - "Contre-offre" badge on counter-offers
+  - Current best offer highlight with amber gradient box
+  - Visual timeline connector line (colored by role)
+- **Admin Action Panel** with 4 actions:
+  1. Propose price (with margin calculator preview)
+  2. Accept on behalf of seller (green button)
+  3. Reject offer (red button)
+  4. Extend deadline (date picker)
+- **Profit Margin Calculator** display:
+  - Original price vs current offer margins
+  - Estimated cost basis (65% of price)
+  - Warning when margin < 15%
+  - Potential profit display
+- Related order link placeholder (if converted)
+- Dialog confirmations for all admin actions
+- Back navigation to list page
+
+## Part C: Contracts Administration
+
+### 5. Contracts List Page (`src/app/admin/contracts/page.tsx`)
+- Contract management with template type system
+- Table columns: Contract #, Type (color-coded badge), Title, Buyer, Seller, Status, Valid From, Valid Until, Value, Actions
+- **Template Types** (7 types with unique icons/colors):
+  - Sales (Vente) = ShoppingCart icon, blue
+  - PO (Commande) = PenTool icon, emerald
+  - NDA = Shield icon, purple
+  - Service = Wrench icon, orange
+  - Distribution = Truck icon, cyan
+  - Partnership (Partenariat) = Handshake icon, pink
+  - Exclusivity (Exclusivité) = Lock icon, indigo
+- **Status badges**:
+  - Draft (Brouillon) = gray
+  - Pending Signature (En attente signature) = yellow
+  - Signed (Signé) = green
+  - Expired (Expiré) = red
+  - Terminated (Résilié) = gray strikethrough
+- **Expiring warning**: <30 days shows orange ring on status badge + orange text on date + orange row background
+- Filters: Type (all 7), Status (all 5), Party (buyer/seller search), Search
+- Download signed PDF button (appears only for signed contracts)
+- Value display in millions format (e.g., "12.5M د.ج")
+- Stats cards: Total contracts, Signed count, Pending count, Expiring soon count, Total value
+- Mock data: 18 contracts with realistic Algerian company names
+- Legend footer explaining visual indicators
+
+### 6. Contract Templates Gallery (`src/app/admin/contracts/templates/page.tsx`)
+- Card grid layout of available contract templates (switchable to list view)
+- Each template card includes:
+  - Colored icon (matching contract type)
+  - Template name and category badge
+  - Description (3-line clamp)
+  - Enable/disable toggle switch (affects "Use" button state)
+  - Clauses count display
+  - Usage statistics (total uses)
+  - Last used date
+  - Preview button + Use button (disabled if template off)
+- **View toggle**: Grid view (3 columns) / List view (full width table)
+- Search bar for template search
+- Category filter dropdown (dynamically populated)
+- **Stats summary cards**: Total templates, Enabled count, Total usage, Average clauses
+- Custom clauses management link card at bottom (bordered dashed style)
+- Mock data: 12 templates covering all categories:
+  - Commercial: Vente standard, Distribution exclusive, Exclusivité commerciale, Agence commerciale
+  - Achat: Bon de commande (PO)
+  - Juridique: NDA bilatéral, NDA projet immobilier, NDA projet tourisme
+  - Services: Prestation services, Sous-traitance industrielle, Location équipement
+  - Partenariat: Partenariat stratégique, Accord licence, MoU
+  - Industriel: Sous-traitance (disabled example)
+
+## Main Dashboard Update (`src/app/page.tsx`)
+- Created unified admin navigation hub with tabbed interface
+- Three main tabs: Factures (emerald), Négociations (amber), Contrats (violet)
+- Quick stats row: 28 factures, 2.17M TVA totale, 22 négociations, 18 contrats
+- Navigation cards for each section with:
+  - Feature bullet points
+  - Hover effects and color transitions
+  - Direct links to respective pages
+- Example link to NEG-001 negotiation detail
+- Footer info section explaining:
+  - DZD format with symbol
+  - French date format DD/MM/YYYY
+  - DGI compliance statement
+
+## Technical Implementation Details
+
+### Tech Stack Used:
+- Next.js 16 App Router with TypeScript
+- shadcn/ui components: Card, Table, Badge, Button, Dialog, Tabs, Select, Switch, Avatar, Separator, DropdownMenu
+- Lucide icons throughout
+- Responsive design with mobile-first approach
+- CSS animations (pulse for expiring items, hover transitions)
+
+### Code Quality:
+- All files pass ESLint validation
+- TypeScript strict typing
+- Consistent naming conventions (French UI labels where appropriate)
+- Proper DZD currency formatting function
+- French-style date format DD/MM/YYYY
+
+### Files Created:
+1. `/src/app/admin/invoices/page.tsx` (~500 lines)
+2. `/src/app/admin/invoices/tva-reports/page.tsx` (~450 lines)
+3. `/src/app/admin/negotiations/page.tsx` (~480 lines)
+4. `/src/app/admin/negotiations/[id]/page.tsx` (~420 lines)
+5. `/src/app/admin/contracts/page.tsx` (~430 lines)
+6. `/src/app/admin/contracts/templates/page.tsx` (~400 lines)
+7. Updated `/src/app/page.tsx` (~545 lines)
+
+Stage Summary:
+- ✅ 6 complete admin pages delivered
+- ✅ Invoice management with 28+ mock invoices
+- ✅ TVA tax reports with DGI export capability
+- ✅ Negotiation tracking with 22+ mock negotiations
+- ✅ Detailed negotiation view with timeline
+- ✅ Contracts management with 7 type categories
+- ✅ Template gallery with 12 templates
+- ✅ All pages pass lint validation
+- ✅ Professional Algerian B2B styling
+- ✅ DZD formatting and French dates throughout
+
+---
+Task ID: CRM-ADMIN-INTERFACE
+Agent: Fullstack Developer
+Task: Build Complete CRM Admin Interface for AlgeriaTrade.dz
+
+Work Log:
+- Created CRM Dashboard page (`src/app/admin/crm/page.tsx`)
+  - Overview stats: Total contacts (1,247), leads (384), deals (89), pipeline value (28.5M DZD)
+  - Lead source breakdown with visual progress bars
+  - Conversion metrics table and mini chart
+  - Recent activities feed (8 activities)
+  - Quick actions bar (Add Contact, Create Lead, New Deal, Add Task)
+  - Hot leads preview section
+  - Priority deals preview section
+  - Upcoming tasks preview
+
+- Created Contacts List page (`src/app/admin/crm/contacts/page.tsx`)
+  - Full contact management table with 25 Algerian company contacts
+  - Columns: Name, Company, Email, Phone, City, Tags, Status, Created, Actions
+  - Search by name/email/company
+  - Filter by status (Client/Actif/Prospect/Inactif), tags, city
+  - Bulk selection with export and tag management
+  - Contact detail modal with full information display
+  - Pagination support (25/50/100 per page)
+  - Sortable columns (Name, Company, Date)
+  - Mock data includes real Algerian companies (Sonatrach, Cevital, Condor, Naftal, etc.)
+
+- Created Leads Management page (`src/app/admin/crm/leads/page.tsx`)
+  - Leads table with scoring system (0-100)
+  - Columns: Contact Name, Source, Score, Status, Value, Priority, Assignee, Created
+  - Score visualization with color-coded progress bars
+  - Temperature indicators: Hot (≥75), Warm (50-74), Cold (<50)
+  - Hot/Warm/Cold filtering
+  - Qualify/Convert/Reject action buttons in dropdown
+  - Lead detail modal with conversion probability
+  - 18 mock leads from various Algerian companies
+  - Stats cards showing lead distribution by temperature
+
+- Created Deals/Pipeline page (`src/app/admin/crm/deals/page.tsx`)
+  - Dual view mode: Table View and Kanban View toggle
+  - Table View: Deal list with stage, value, probability, close date
+  - Kanban View: 6-stage pipeline (Prospect → Qualifié → Proposition → Négociation → Gagné → Perdu)
+  - Stage summary cards with deal counts and values
+  - Deal cards with key information in Kanban view
+  - Stage advancement actions
+  - Weighted value calculation
+  - 22 mock deals across all stages including won/lost examples
+  - Pipeline statistics (total value, weighted value, win rate)
+
+- Created Tasks Admin page (`src/app/admin/crm/tasks/page.tsx`)
+  - Task list with priority badges (High=red, Medium=yellow, Low=green)
+  - Due date highlighting with overdue detection (red + pulse animation)
+  - Task types: Call, Email, Meeting, Follow-up, Task, Other
+  - Assignee filter with dynamic assignee list
+  - Complete/uncomplete toggle with checkbox
+  - Add task modal with form fields
+  - Task detail modal with full information
+  - 18 mock tasks with various priorities and statuses
+  - Completion rate statistics
+
+Technical Implementation:
+- All pages use 'use client' directive for Next.js App Router
+- shadcn/ui components throughout (Card, Table, Button, Badge, Dialog, Select, etc.)
+- Lucide icons for consistent iconography
+- Responsive design with mobile-friendly layouts
+- French language UI for Algeria market alignment
+- DZD currency formatting for financial values
+- Real Algerian company names and cities for authenticity
+- Color-coded statuses and priorities for quick visual scanning
+- Memoized filters for performance optimization
+
+Stage Summary:
+- 5 complete CRM admin pages created
+- 100+ mock data records across all entities
+- Full CRUD-like functionality with modals and actions
+- Professional styling matching AlgeriaTrade.dz brand
+- Ready for backend API integration
