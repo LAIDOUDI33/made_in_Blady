@@ -45,7 +45,7 @@ export function createSalesContractTemplate(language: 'AR' | 'FR' | 'BILINGUAL' 
       category: 'SALES',
       typicalUseCases: ['Product sales', 'Equipment purchase', 'Raw materials supply'],
       typicalUseCasesAr: ['بيع المنتجات', 'شراء المعدات', 'توريد المواد الخام'],
-      typicalUseCasesFr: ['Vente de produits', \'Achat d\'équipements\', 'Fourniture de matières premières'],
+      typicalUseCasesFr: ['Vente de produits', "Achat d'équipements", 'Fourniture de matières premières'],
       algerianLawReferences: [
         'Articles 388-396 Civil Code (Sale)',
         'Articles 523-525 Commercial Code (Payment terms)',

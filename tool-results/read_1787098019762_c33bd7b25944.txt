@@ -1,0 +1,914 @@
+     1→'use client'
+     2→
+     3→import React, { useState, useEffect } from 'react'
+     4→import { 
+     5→  CreditCard, 
+     6→  TrendingUp, 
+     7→  DollarSign, 
+     8→  AlertTriangle,
+     9→  Calendar,
+    10→  Building2,
+    11→  Users,
+    12→  Clock,
+    13→  CheckCircle2,
+    14→  XCircle,
+    15→  ArrowRight,
+    16→  Eye,
+    17→  Download,
+    18→  Filter,
+    19→  RefreshCw,
+    20→  FileText,
+    21→  MessageSquare,
+    22→  MoreVertical
+    23→} from 'lucide-react'
+    24→import { Button } from '@/components/ui/button'
+    25→import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+    26→import { Badge } from '@/components/ui/badge'
+    27→import { Progress } from '@/components/ui/progress'
+    28→import {
+    29→  Table,
+    30→  TableBody,
+    31→  TableCell,
+    32→  TableHead,
+    33→  TableHeader,
+    34→  TableRow,
+    35→} from '@/components/ui/table'
+    36→import {
+    37→  Dialog,
+    38→  DialogContent,
+    39→  DialogHeader,
+    40→  DialogTitle,
+    41→  DialogTrigger,
+    42→} from '@/components/ui/dialog'
+    43→import {
+    44→  DropdownMenu,
+    45→  DropdownMenuContent,
+    46→  DropdownMenuItem,
+    47→  DropdownMenuTrigger,
+    48→} from '@/components/ui/dropdown-menu'
+    49→import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+    50→
+    51→// Types
+    52→interface DPAgreement {
+    53→  id: string
+    54→  agreementNumber: string
+    55→  buyerName: string
+    56→  buyerCompany: string
+    57→  sellerName: string
+    58→  sellerCompany: string
+    59→  principal: number
+    60→  interestRate: number
+    61→  monthlyPayment: number
+    62→  remainingBalance: number
+    63→  totalPayments: number
+    64→  paidPayments: number
+    65→  status: 'ACTIVE' | 'PAID' | 'DEFAULTED' | 'EARLY_SETTLED' | 'PENDING'
+    66→  nextDueDate: string
+    67→  startDate: string
+    68→  endDate: string
+    69→  durationMonths: number
+    70→  bankPartner: string
+    71→  isOverdue: boolean
+    72→  daysOverdue?: number
+    73→}
+    74→
+    75→// Mock Data - 18 active DPA agreements
+    76→const mockAgreements: DPAgreement[] = [
+    77→  {
+    78→    id: '1',
+    79→    agreementNumber: 'DPA-2024-001',
+    80→    buyerName: 'Ahmed Benali',
+    81→    buyerCompany: 'TechnoDz Sarl',
+    82→    sellerName: 'Karim Hadj',
+    83→    sellerCompany: 'HardwarePro Algeria',
+    84→    principal: 2500000,
+    85→    interestRate: 8.5,
+    86→    monthlyPayment: 218750,
+    87→    remainingBalance: 1750000,
+    88→    totalPayments: 12,
+    89→    paidPayments: 4,
+    90→    status: 'ACTIVE',
+    91→    nextDueDate: '2025-02-15',
+    92→    startDate: '2024-10-15',
+    93→    endDate: '2025-09-15',
+    94→    durationMonths: 12,
+    95→    bankPartner: 'BNA',
+    96→    isOverdue: false
+    97→  },
+    98→  {
+    99→    id: '2',
+   100→    agreementNumber: 'DPA-2024-002',
+   101→    buyerName: 'Fatima Zerhouni',
+   102→    buyerCompany: 'ModeStyle Algérie',
+   103→    sellerName: 'Yacine Boudiaf',
+   104→    sellerCompany: 'TextileExport',
+   105→    principal: 1800000,
+   106→    interestRate: 7.75,
+   107→    monthlyPayment: 152500,
+   108→    remainingBalance: 1220000,
+   109→    totalPayments: 12,
+   110→    paidPayments: 4,
+   111→    status: 'ACTIVE',
+   112→    nextDueDate: '2025-02-20',
+   113→    startDate: '2024-10-20',
+   114→    endDate: '2025-09-20',
+   115→    durationMonths: 12,
+   116→    bankPartner: 'BEA',
+   117→    isOverdue: false
+   118→  },
+   119→  {
+   120→    id: '3',
+   121→    agreementNumber: 'DPA-2024-003',
+   122→    buyerName: 'Mohamed Amine',
+   123→    buyerCompany: 'AgroPlus DZ',
+   124→    sellerName: 'Sara Mellal',
+   125→    sellerCompany: 'FarmEquipment Co.',
+   126→    principal: 5500000,
+   127→    interestRate: 9.25,
+   128→    monthlyPayment: 486111,
+   129→    remainingBalance: 4375000,
+   130→    totalPayments: 12,
+   131→    paidPayments: 2,
+   132→    status: 'ACTIVE',
+   133→    nextDueDate: '2025-01-05',
+   134→    startDate: '2024-11-05',
+   135→    endDate: '2025-10-05',
+   136→    durationMonths: 12,
+   137→    bankPartner: 'BDL',
+   138→    isOverdue: true,
+   139→    daysOverdue: 15
+   140→  },
+   141→  {
+   142→    id: '4',
+   143→    agreementNumber: 'DPA-2024-004',
+   144→    buyerName: 'Nadia Bouazza',
+   145→    buyerCompany: 'PharmaDist Algerie',
+   146→    sellerName: 'Omar Kaci',
+   147→    sellerCompany: 'MedSupply Intl',
+   148→    principal: 4200000,
+   149→    interestRate: 8.0,
+   150→    monthlyPayment: 366667,
+   151→    remainingBalance: 2940000,
+   152→    totalPayments: 12,
+   153→    paidPayments: 4,
+   154→    status: 'ACTIVE',
+   155→    nextDueDate: '2025-02-10',
+   156→    startDate: '2024-10-10',
+   157→    endDate: '2025-09-10',
+   158→    durationMonths: 12,
+   159→    bankPartner: 'CPA',
+   160→    isOverdue: false
+   161→  },
+   162→  {
+   163→    id: '5',
+   164→    agreementNumber: 'DPA-2024-005',
+   165→    buyerName: 'Rachid Hamadi',
+   166→    buyerCompany: 'AutoParts DZ',
+   167→    sellerName: 'Leila Mansouri',
+   168→    sellerCompany: 'EuroAuto Parts',
+   169→    principal: 1200000,
+   170→    interestRate: 7.5,
+   171→    monthlyPayment: 103333,
+   172→    remainingBalance: 930000,
+   173→    totalPayments: 12,
+   174→    paidPayments: 3,
+   175→    status: 'ACTIVE',
+   176→    nextDueDate: '2025-02-25',
+   177→    startDate: '2024-11-25',
+   178→    endDate: '2025-10-25',
+   179→    durationMonths: 12,
+   180→    bankPartner: 'BNA',
+   181→    isOverdue: false
+   182→  },
+   183→  {
+   184→    id: '6',
+   185→    agreementNumber: 'DPA-2024-006',
+   186→    buyerName: 'Samira Khelifi',
+   187→    buyerCompany: 'BeautyZone',
+   188→    sellerName: 'Tarek Beghloul',
+   189→    sellerCompany: 'CosmoTrade',
+   190→    principal: 850000,
+   191→    interestRate: 8.25,
+   192→    monthlyPayment: 74583,
+   193→    remainingBalance: 596666,
+   194→    totalPayments: 12,
+   195→    paidPayments: 4,
+   196→    status: 'ACTIVE',
+   197→    nextDueDate: '2025-03-01',
+   198→    startDate: '2024-11-01',
+   199→    endDate: '2025-10-01',
+   200→    durationMonths: 12,
+   201→    bankPartner: 'BEA',
+   202→    isOverdue: false
+   203→  },
+   204→  {
+   205→    id: '7',
+   206→    agreementNumber: 'DPA-2024-007',
+   207→    buyerName: 'Kamel Djellouli',
+   208→    buyerCompany: 'ElectroDz',
+   209→    sellerName: 'Nora Belmokhtar',
+   210→    sellerCompany: 'TechComponents SA',
+   211→    principal: 3200000,
+   212→    interestRate: 9.0,
+   213→    monthlyPayment: 282222,
+   214→    remainingBalance: 2256000,
+   215→    totalPayments: 12,
+   216→    paidPayments: 3,
+   217→    status: 'DEFAULTED',
+   218→    nextDueDate: '2024-12-15',
+   219→    startDate: '2024-09-15',
+   220→    endDate: '2025-08-15',
+   221→    durationMonths: 12,
+   222→    bankPartner: 'BDL',
+   223→    isOverdue: true,
+   224→    daysOverdue: 46
+   225→  },
+   226→  {
+   227→    id: '8',
+   228→    agreementNumber: 'DPA-2024-008',
+   229→    buyerName: 'Amina Toubal',
+   230→    buyerCompany: 'HomeDecor Plus',
+   231→    sellerName: 'Farid Meziane',
+   232→    sellerCompany: 'FurnitureExport',
+   233→    principal: 1500000,
+   234→    interestRate: 7.85,
+   235→    monthlyPayment: 129792,
+   236→    remainingBalance: 0,
+   237→    totalPayments: 12,
+   238→    paidPayments: 12,
+   239→    status: 'PAID',
+   240→    nextDueDate: '-',
+   241→    startDate: '2024-02-01',
+   242→    endDate: '2025-01-01',
+   243→    durationMonths: 12,
+   244→    bankPartner: 'CPA',
+   245→    isOverdue: false
+   246→  },
+   247→  {
+   248→    id: '9',
+   249→    agreementNumber: 'DPA-2024-009',
+   250→    buyerName: 'Youssef Brahimi',
+   251→    buyerCompany: 'SportGear DZ',
+   252→    sellerName: 'Ines Rahmani',
+   253→    supplierCompany: 'AthleticSupplies',
+   254→    principal: 680000,
+   255→    interestRate: 8.0,
+   256→    monthlyPayment: 59333,
+   257→    remainingBalance: 476000,
+   258→    totalPayments: 12,
+   259→    paidPayments: 4,
+   260→    status: 'ACTIVE',
+   261→    nextDueDate: '2025-02-18',
+   262→    startDate: '2024-10-18',
+   263→    endDate: '2025-09-18',
+   264→    durationMonths: 12,
+   265→    bankPartner: 'BNA',
+   266→    isOverdue: false
+   267→  },
+   268→  {
+   269→    id: '10',
+   270→    agreementNumber: 'DPA-2024-010',
+   271→    buyerName: 'Lina Messaoudi',
+   272→    buyerCompany: 'BookWorld Algeria',
+   273→    sellerName: 'Mourad Medelci',
+   274→    sellerCompany: 'EduPublish Intl',
+   275→    principal: 450000,
+   276→    interestRate: 7.25,
+   277→    monthlyPayment: 38542,
+   278→    remainingBalance: 231250,
+   279→    totalPayments: 12,
+   280→    paidPayments: 6,
+   281→    status: 'EARLY_SETTLED',
+   282→    nextDueDate: '-',
+   283→    startDate: '2024-06-01',
+   284→    endDate: '2025-05-01',
+   285→    durationMonths: 12,
+   286→    bankPartner: 'BEA',
+   287→    isOverdue: false
+   288→  },
+   289→  {
+   290→    id: '11',
+   291→    agreementNumber: 'DPA-2024-011',
+   292→    buyerName: 'Omar Fettouhi',
+   293→    buyerCompany: 'BuildMat Pro',
+   294→    sellerName: 'Salima Ait Ali',
+   295→    sellerCompany: 'ConstructionSupply',
+   296→    principal: 4800000,
+   297→    interestRate: 9.5,
+   298→    monthlyPayment: 426667,
+   299→    remainingBalance: 3840000,
+   300→    totalPayments: 12,
+   301→    paidPayments: 2,
+   302→    status: 'ACTIVE',
+   303→    nextDueDate: '2025-02-08',
+   304→    startDate: '2024-11-08',
+   305→    endDate: '2025-10-08',
+   306→    durationMonths: 12,
+   307→    bankPartner: 'BDL',
+   308→    isOverdue: false
+   309→  },
+   310→  {
+   311→    id: '12',
+   312→    agreementNumber: 'DPA-2024-012',
+   313→    buyerName: 'Hafsa Amrani',
+   314→    buyerCompany: 'FoodService DZ',
+   315→    sellerName: 'Reda Benhammou',
+   316→    sellerCompany: 'RestaurantEquip',
+   317→    principal: 2100000,
+   318→    interestRate: 8.35,
+   319→    monthlyPayment: 184583,
+   320→    remainingBalance: 1477000,
+   321→    totalPayments: 12,
+   322→    paidPayments: 4,
+   323→    status: 'ACTIVE',
+   324→    nextDueDate: '2025-02-22',
+   325→    startDate: '2024-10-22',
+   326→    endDate: '2025-09-22',
+   327→    durationMonths: 12,
+   328→    bankPartner: 'CPA',
+   329→    isOverdue: false
+   330→  },
+   331→  {
+   332→    id: '13',
+   333→    agreementNumber: 'DPA-2024-013',
+   334→    buyerName: 'Bilal Charef',
+   335→    buyerCompany: 'IT Solutions DZ',
+   336→    sellerName: 'Amira Bouteflika',
+   337→    sellerCompany: 'SoftwareHub',
+   338→    principal: 1650000,
+   339→    interestRate: 7.65,
+   340→    monthlyPayment: 141458,
+   341→    remainingBalance: 1130000,
+   342→    totalPayments: 12,
+   343→    paidPayments: 4,
+   344→    status: 'ACTIVE',
+   345→    nextDueDate: '2025-02-12',
+   346→    startDate: '2024-10-12',
+   347→    endDate: '2025-09-12',
+   348→    durationMonths: 12,
+   349→    bankPartner: 'BNA',
+   350→    isOverdue: false
+   351→  },
+   352→  {
+   353→    id: '14',
+   354→    agreementNumber: 'DPA-2024-014',
+   355→    buyerName: 'Meriem Kaced',
+   356→    buyerCompany: 'GreenGarden DZ',
+   357→    sellerName: 'Nabil Ouldali',
+   358→    sellerCompany: 'AgriTech Supply',
+   359→    principal: 920000,
+   360→    interestRate: 8.1,
+   361→    monthlyPayment: 80067,
+   362→    remainingBalance: 720600,
+   363→    totalPayments: 12,
+   364→    paidPayments: 3,
+   365→    status: 'ACTIVE',
+   366→    nextDueDate: '2025-01-28',
+   367→    startDate: '2024-10-28',
+   368→    endDate: '2025-09-28',
+   369→    durationMonths: 12,
+   370→    bankPartner: 'BEA',
+   371→    isOverdue: true,
+   372→    daysOverdue: 8
+   373→  },
+   374→  {
+   375→    id: '15',
+   376→    agreementNumber: 'DPA-2024-015',
+   377→    buyerName: 'Abdelkrim Haddad',
+   378→    buyerCompany: 'MetalWorks Co',
+   379→    sellerName: 'Dalila Bensaid',
+   380→    sellerCompany: 'SteelImport',
+   381→    principal: 3800000,
+   382→    interestRate: 9.15,
+   383→    monthlyPayment: 334861,
+   384→    remainingBalance: 3014000,
+   385→    totalPayments: 12,
+   386→    paidPayments: 2,
+   387→    status: 'ACTIVE',
+   388→    nextDueDate: '2025-02-05',
+   389→    startDate: '2024-11-05',
+   390→    endDate: '2025-10-05',
+   391→    durationMonths: 12,
+   392→    bankPartner: 'BDL',
+   393→    isOverdue: false
+   394→  },
+   395→  {
+   396→    id: '16',
+   397→    agreementNumber: 'DPA-2024-016',
+   398→    buyerName: 'Nourhane Sadki',
+   399→    buyerCompany: 'FashionHub DZ',
+   400→    sellerName: 'Karim Mebarki',
+   401→    sellerCompany: 'TextilePremium',
+   402→    principal: 1350000,
+   403→    interestRate: 7.95,
+   404→    monthlyPayment: 116875,
+   405→    remainingBalance: 1050000,
+   406→    totalPayments: 12,
+   407→    paidPayments: 3,
+   408→    status: 'ACTIVE',
+   409→    nextDueDate: '2025-03-05',
+   410→    startDate: '2024-12-05',
+   411→    endDate: '2025-11-05',
+   412→    durationMonths: 12,
+   413→    bankPartner: 'CPA',
+   414→    isOverdue: false
+   415→  },
+   416→  {
+   417→    id: '17',
+   418→    agreementNumber: 'DPA-2024-017',
+   419→    buyerName: 'Imene Boudjelida',
+   420→    buyerCompany: 'CleanPro Services',
+   421→    sellerName: 'Yacine Sadi',
+   422→    sellerCompany: 'JanitorialSupply',
+   423→    principal: 520000,
+   424→    interestRate: 7.4,
+   425→    monthlyPayment: 44233,
+   426→    remainingBalance: 354000,
+   427→    totalPayments: 12,
+   428→    paidPayments: 4,
+   429→    status: 'ACTIVE',
+   430→    nextDueDate: '2025-02-28',
+   431→    startDate: '2024-10-28',
+   432→    endDate: '2025-09-28',
+   433→    durationMonths: 12,
+   434→    bankPartner: 'BNA',
+   435→    isOverdue: false
+   436→  },
+   437→  {
+   438→    id: '18',
+   439→    agreementNumber: 'DPA-2024-018',
+   440→    buyerName: 'Tarek Boussaid',
+   441→    buyerCompany: 'SecurityFirst DZ',
+   442→    sellerName: 'Wassila Laifa',
+   443→    sellerCompany: 'SecuritySystems',
+   444→    principal: 2750000,
+   445→    interestRate: 8.75,
+   446→    monthlyPayment: 242708,
+   447→    remainingBalance: 1942000,
+   448→    totalPayments: 12,
+   449→    paidPayments: 3,
+   450→    status: 'ACTIVE',
+   451→    nextDueDate: '2025-02-15',
+   452→    startDate: '2024-11-15',
+   453→    endDate: '2025-10-15',
+   454→    durationMonths: 12,
+   455→    bankPartner: 'BEA',
+   456→    isOverdue: false
+   457→  }
+   458→]
+   459→
+   460→export default function InstallmentsAdminPage() {
+   461→  const [agreements, setAgreements] = useState<DPAgreement[]>(mockAgreements)
+   462→  const [selectedStatus, setSelectedStatus] = useState<string>('all')
+   463→  const [selectedBank, setSelectedBank] = useState<string>('all')
+   464→  const [searchQuery, setSearchQuery] = useState('')
+   465→  const [isRefreshing, setIsRefreshing] = useState(false)
+   466→
+   467→  // Simulate real-time updates
+   468→  useEffect(() => {
+   469→    const interval = setInterval(() => {
+   470→      // Random subtle update simulation
+   471→      setAgreements(prev => prev.map(agreement => ({
+   472→        ...agreement,
+   473→        // Simulate occasional status changes for demo
+   474→      })))
+   475→    }, 30000)
+   476→    return () => clearInterval(interval)
+   477→  }, [])
+   478→
+   479→  const handleRefresh = async () => {
+   480→    setIsRefreshing(true)
+   481→    await new Promise(resolve => setTimeout(resolve, 1000))
+   482→    setIsRefreshing(false)
+   483→  }
+   484→
+   485→  // Calculate stats
+   486→  const activePlans = agreements.filter(a => a.status === 'ACTIVE').length
+   487→  const monthlyRevenue = agreements
+   488→    .filter(a => a.status === 'ACTIVE')
+   489→    .reduce((sum, a) => sum + a.monthlyPayment, 0)
+   490→  const avgPlanValue = Math.round(
+   491→    agreements.reduce((sum, a) => sum + a.principal, 0) / agreements.length
+   492→  )
+   493→  const defaultRate = (
+   494→    (agreements.filter(a => a.status === 'DEFAULTED').length / agreements.length) * 100
+   495→  ).toFixed(1)
+   496→  const overdueCount = agreements.filter(a => a.isOverdue).length
+   497→
+   498→  // Pipeline by duration (simulated distribution)
+   499→  const pipelineByDuration = [
+   500→    { label: '3 Months', count: 3, value: 16.7, color: 'bg-emerald-500' },
+   501→    { label: '6 Months', count: 5, value: 27.8, color: 'bg-blue-500' },
+   502→    { label: '12 Months', count: 8, value: 44.4, color: 'bg-purple-500' },
+   503→    { label: '24 Months', count: 2, value: 11.1, color: 'bg-orange-500' }
+   504→  ]
+   505→
+   506→  // Bank partner breakdown
+   507→  const bankBreakdown = [
+   508→    { name: 'BNA', fullName: 'Banque Nationale d\'Algérie', count: 5, volume: 8940000, color: 'bg-red-600' },
+   509→    { name: 'BEA', fullName: 'Banque Extérieure d\'Algérie', count: 5, volume: 6820000, color: 'bg-green-600' },
+   510→    { name: 'BDL', fullName: 'Banque de Développement Local', count: 4, volume: 18350000, color: 'bg-blue-600' },
+   511→    { name: 'CPA', fullName: 'Crédit Populaire d\'Algérie', count: 4, volume: 9070000, color: 'bg-yellow-600' }
+   512→  ]
+   513→
+   514→  // Filter agreements
+   515→  const filteredAgreements = agreements.filter(agreement => {
+   516→    if (selectedStatus !== 'all' && agreement.status !== selectedStatus) return false
+   517→    if (selectedBank !== 'all' && agreement.bankPartner !== selectedBank) return false
+   518→    if (searchQuery) {
+   519→      const query = searchQuery.toLowerCase()
+   520→      return (
+   521→        agreement.agreementNumber.toLowerCase().includes(query) ||
+   522→        agreement.buyerName.toLowerCase().includes(query) ||
+   523→        agreement.buyerCompany.toLowerCase().includes(query) ||
+   524→        agreement.sellerName.toLowerCase().includes(query) ||
+   525→        agreement.sellerCompany.toLowerCase().includes(query)
+   526→      )
+   527→    }
+   528→    return true
+   529→  })
+   530→
+   531→  const getStatusBadge = (status: DPAgreement['status'], isOverdue: boolean) => {
+   532→    if (isOverdue && status === 'ACTIVE') {
+   533→      return <Badge className="bg-red-100 text-red-700 border-red-200 animate-pulse">OVERDUE</Badge>
+   534→    }
+   535→    
+   536→    switch (status) {
+   537→      case 'ACTIVE':
+   538→        return <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">Active</Badge>
+   539→      case 'PAID':
+   540→        return <Badge className="bg-blue-100 text-blue-700 border-blue-200">Paid</Badge>
+   541→      case 'DEFAULTED':
+   542→        return <Badge className="bg-red-100 text-red-700 border-red-200">Defaulted</Badge>
+   543→      case 'EARLY_SETTLED':
+   544→        return <Badge className="bg-purple-100 text-purple-700 border-purple-200">Early Settled</Badge>
+   545→      case 'PENDING':
+   546→        return <Badge className="bg-yellow-100 text-yellow-700 border-yellow-200">Pending</Badge>
+   547→      default:
+   548→        return <Badge variant="secondary">{status}</Badge>
+   549→    }
+   550→  }
+   551→
+   552→  const formatCurrency = (amount: number) => {
+   553→    return new Intl.NumberFormat('fr-DZ', {
+   554→      style: 'currency',
+   555→      currency: 'DZD',
+   556→      minimumFractionDigits: 0,
+   557→      maximumFractionDigits: 0
+   558→    }).format(amount)
+   559→  }
+   560→
+   561→  const formatDate = (dateStr: string) => {
+   562→    if (dateStr === '-') return '-'
+   563→    return new Date(dateStr).toLocaleDateString('fr-FR', {
+   564→      day: '2-digit',
+   565→      month: 'short',
+   566→      year: 'numeric'
+   567→    })
+   568→  }
+   569→
+   570→  return (
+   571→    <div className="space-y-6">
+   572→      {/* Header */}
+   573→      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+   574→        <div>
+   575→          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
+   576→            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-600 to-purple-600 flex items-center justify-center">
+   577→              <CreditCard className="w-5 h-5 text-white" />
+   578→            </div>
+   579→            DPA Installment Plans
+   580→          </h1>
+   581→          <p className="text-sm text-gray-500 mt-1">
+   582→            Manage deferred payment agreements and installment plans
+   583→          </p>
+   584→        </div>
+   585→
+   586→        <div className="flex items-center gap-2">
+   587→          <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isRefreshing}>
+   588→            <RefreshCw className={`mr-2 h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+   589→            Refresh
+   590→          </Button>
+   591→          <Button variant="outline" size="sm">
+   592→            <Download className="mr-2 h-4 w-4" />
+   593→            Export
+   594→          </Button>
+   595→          <Button size="sm">
+   596→            <CreditCard className="mr-2 h-4 w-4" />
+   597→            New Agreement
+   598→          </Button>
+   599→        </div>
+   600→      </div>
+   601→
+   602→      {/* Stats Cards */}
+   603→      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+   604→        <Card>
+   605→          <CardContent className="pt-6">
+   606→            <div className="flex items-center justify-between">
+   607→              <div>
+   608→                <p className="text-sm font-medium text-gray-500">Active Plans</p>
+   609→                <p className="text-2xl font-bold mt-1">{activePlans}</p>
+   610→                <p className="text-xs text-gray-500 mt-1">of {agreements.length} total</p>
+   611→              </div>
+   612→              <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center">
+   613→                <CreditCard className="w-6 h-6 text-emerald-600" />
+   614→              </div>
+   615→            </div>
+   616→          </CardContent>
+   617→        </Card>
+   618→
+   619→        <Card>
+   620→          <CardContent className="pt-6">
+   621→            <div className="flex items-center justify-between">
+   622→              <div>
+   623→                <p className="text-sm font-medium text-gray-500">Monthly Revenue</p>
+   624→                <p className="text-2xl font-bold mt-1">{formatCurrency(monthlyRevenue)}</p>
+   625→                <p className="text-xs text-emerald-600 mt-1 flex items-center gap-1">
+   626→                  <TrendingUp className="w-3 h-3" /> +12.5% vs last month
+   627→                </p>
+   628→              </div>
+   629→              <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center">
+   630→                <DollarSign className="w-6 h-6 text-blue-600" />
+   631→              </div>
+   632→            </div>
+   633→          </CardContent>
+   634→        </Card>
+   635→
+   636→        <Card>
+   637→          <CardContent className="pt-6">
+   638→            <div className="flex items-center justify-between">
+   639→              <div>
+   640→                <p className="text-sm font-medium text-gray-500">Avg Plan Value</p>
+   641→                <p className="text-2xl font-bold mt-1">{formatCurrency(avgPlanValue)}</p>
+   642→                <p className="text-xs text-gray-500 mt-1">Principal amount</p>
+   643→              </div>
+   644→              <div className="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center">
+   645→                <TrendingUp className="w-6 h-6 text-purple-600" />
+   646→              </div>
+   647→            </div>
+   648→          </CardContent>
+   649→        </Card>
+   650→
+   651→        <Card className={overdueCount > 0 ? 'border-red-200 bg-red-50/30' : ''}>
+   652→          <CardContent className="pt-6">
+   653→            <div className="flex items-center justify-between">
+   654→              <div>
+   655→                <p className="text-sm font-medium text-gray-500">Default Rate</p>
+   656→                <p className="text-2xl font-bold mt-1 text-red-600">{defaultRate}%</p>
+   657→                <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
+   658→                  <AlertTriangle className="w-3 h-3" />
+   659→                  {overdueCount} overdue payments
+   660→                </p>
+   661→              </div>
+   662→              <div className="w-12 h-12 rounded-xl bg-red-100 flex items-center justify-center">
+   663→                <AlertTriangle className="w-6 h-6 text-red-600" />
+   664→              </div>
+   665→            </div>
+   666→          </CardContent>
+   667→        </Card>
+   668→      </div>
+   669→
+   670→      {/* Main Content Grid */}
+   671→      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+   672→        {/* Agreements Table */}
+   673→        <Card className="xl:col-span-2">
+   674→          <CardHeader className="pb-4">
+   675→            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+   676→              <CardTitle className="text-lg flex items-center gap-2">
+   677→                Active Agreements
+   678→                {overdueCount > 0 && (
+   679→                  <Badge className="bg-red-100 text-red-700 ml-2">
+   680→                    {overdueCount} Overdue
+   681→                  </Badge>
+   682→                )}
+   683→              </CardTitle>
+   684→              
+   685→              <div className="flex items-center gap-2">
+   686→                <div className="relative">
+   687→                  <input
+   688→                    type="text"
+   689→                    placeholder="Search agreements..."
+   690→                    value={searchQuery}
+   691→                    onChange={(e) => setSearchQuery(e.target.value)}
+   692→                    className="pl-9 pr-4 py-2 text-sm border rounded-lg w-48 focus:outline-none focus:ring-2 focus:ring-violet-500"
+   693→                  />
+   694→                  <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+   695→                </div>
+   696→              </div>
+   697→            </div>
+   698→
+   699→            {/* Filters */}
+   700→            <div className="flex flex-wrap gap-2 mt-4">
+   701→              <select
+   702→                value={selectedStatus}
+   703→                onChange={(e) => setSelectedStatus(e.target.value)}
+   704→                className="text-sm border rounded-md px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-violet-500"
+   705→              >
+   706→                <option value="all">All Statuses</option>
+   707→                <option value="ACTIVE">Active</option>
+   708→                <option value="PAID">Paid</option>
+   709→                <option value="DEFAULTED">Defaulted</option>
+   710→                <option value="EARLY_SETTLED">Early Settled</option>
+   711→                <option value="PENDING">Pending</option>
+   712→              </select>
+   713→
+   714→              <select
+   715→                value={selectedBank}
+   716→                onChange={(e) => setSelectedBank(e.target.value)}
+   717→                className="text-sm border rounded-md px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-violet-500"
+   718→              >
+   719→                <option value="all">All Banks</option>
+   720→                <option value="BNA">BNA</option>
+   721→                <option value="BEA">BEA</option>
+   722→                <option value="BDL">BDL</option>
+   723→                <option value="CPA">CPA</option>
+   724→              </select>
+   725→            </div>
+   726→          </CardHeader>
+   727→
+   728→          <CardContent>
+   729→            <div className="overflow-x-auto">
+   730→              <Table>
+   731→                <TableHeader>
+   732→                  <TableRow>
+   733→                    <TableHead>ID</TableHead>
+   734→                    <TableHead>Buyer</TableHead>
+   735→                    <TableHead>Seller</TableHead>
+   736→                    <TableHead className="text-right">Principal</TableHead>
+   737→                    <TableHead className="text-right">Monthly</TableHead>
+   738→                    <TableHead className="text-right">Remaining</TableHead>
+   739→                    <TableHead>Status</TableHead>
+   740→                    <TableHead>Next Due</TableHead>
+   741→                    <TableHead className="text-right">Actions</TableHead>
+   742→                  </TableRow>
+   743→                </TableHeader>
+   744→                <TableBody>
+   745→                  {filteredAgreements.slice(0, 10).map((agreement) => (
+   746→                    <TableRow 
+   747→                      key={agreement.id} 
+   748→                      className={agreement.isOverdue ? 'bg-red-50/50' : ''}
+   749→                    >
+   750→                      <TableCell>
+   751→                        <span className="font-mono text-xs">{agreement.agreementNumber}</span>
+   752→                      </TableCell>
+   753→                      <TableCell>
+   754→                        <div>
+   755→                          <p className="font-medium text-sm">{agreement.buyerName}</p>
+   756→                          <p className="text-xs text-gray-500">{agreement.buyerCompany}</p>
+   757→                        </div>
+   758→                      </TableCell>
+   759→                      <TableCell>
+   760→                        <div>
+   761→                          <p className="font-medium text-sm">{agreement.sellerName}</p>
+   762→                          <p className="text-xs text-gray-500">{agreement.sellerCompany}</p>
+   763→                        </div>
+   764→                      </TableCell>
+   765→                      <TableCell className="text-right font-medium">
+   766→                        {formatCurrency(agreement.principal)}
+   767→                      </TableCell>
+   768→                      <TableCell className="text-right text-sm">
+   769→                        {formatCurrency(agreement.monthlyPayment)}
+   770→                      </TableCell>
+   771→                      <TableCell className="text-right">
+   772→                        <span className={`font-medium ${agreement.isOverdue ? 'text-red-600' : ''}`}>
+   773→                          {formatCurrency(agreement.remainingBalance)}
+   774→                        </span>
+   775→                      </TableCell>
+   776→                      <TableCell>
+   777→                        {getStatusBadge(agreement.status, agreement.isOverdue)}
+   778→                      </TableCell>
+   779→                      <TableCell>
+   780→                        <div className="flex items-center gap-1">
+   781→                          <span className={`text-sm ${agreement.isOverdue ? 'text-red-600 font-medium' : ''}`}>
+   782→                            {formatDate(agreement.nextDueDate)}
+   783→                          </span>
+   784→                          {agreement.isOverdue && agreement.daysOverdue && (
+   785→                            <Badge variant="outline" className="text-xs text-red-600 border-red-300">
+   786→                              +{agreement.daysOverdue}d
+   787→                            </Badge>
+   788→                          )}
+   789→                        </div>
+   790→                      </TableCell>
+   791→                      <TableCell className="text-right">
+   792→                        <DropdownMenu>
+   793→                          <DropdownMenuTrigger asChild>
+   794→                            <Button variant="ghost" size="icon" className="h-8 w-8">
+   795→                              <MoreVertical className="h-4 w-4" />
+   796→                            </Button>
+   797→                          </DropdownMenuTrigger>
+   798→                          <DropdownMenuContent align="end">
+   799→                            <DropdownMenuItem asChild>
+   800→                              <a href={`/admin/installments/${agreement.id}`}>
+   801→                                <Eye className="mr-2 h-4 w-4" />
+   802→                                View Details
+   803→                              </a>
+   804→                            </DropdownMenuItem>
+   805→                            <DropdownMenuItem>
+   806→                              <FileText className="mr-2 h-4 w-4" />
+   807→                              View Documents
+   808→                            </DropdownMenuItem>
+   809→                            <DropdownMenuItem>
+   810→                              <MessageSquare className="mr-2 h-4 w-4" />
+   811→                              Communication Log
+   812→                            </DropdownMenuItem>
+   813→                          </DropdownMenuContent>
+   814→                        </DropdownMenu>
+   815→                      </TableCell>
+   816→                    </TableRow>
+   817→                  ))}
+   818→                </TableBody>
+   819→              </Table>
+   820→            </div>
+   821→
+   822→            {filteredAgreements.length > 10 && (
+   823→              <div className="mt-4 pt-4 border-t text-center">
+   824→                <Button variant="outline" size="sm">
+   825→                  View All {filteredAgreements.length} Agreements
+   826→                  <ArrowRight className="ml-2 h-4 w-4" />
+   827→                </Button>
+   828→              </div>
+   829→            )}
+   830→          </CardContent>
+   831→        </Card>
+   832→
+   833→        {/* Side Panel */}
+   834→        <div className="space-y-6">
+   835→          {/* Pipeline by Duration */}
+   836→          <Card>
+   837→            <CardHeader className="pb-3">
+   838→              <CardTitle className="text-base flex items-center gap-2">
+   839→                <Calendar className="w-5 h-5 text-violet-500" />
+   840→                Plans by Duration
+   841→              </CardTitle>
+   842→            </CardHeader>
+   843→            <CardContent className="space-y-4">
+   844→              {pipelineByDuration.map((item) => (
+   845→                <div key={item.label} className="space-y-2">
+   846→                  <div className="flex items-center justify-between text-sm">
+   847→                    <span className="font-medium">{item.label}</span>
+   848→                    <span className="text-gray-500">{item.count} plans ({item.value}%)</span>
+   849→                  </div>
+   850→                  <Progress value={item.value} className="h-2" />
+   851→                </div>
+   852→              ))}
+   853→            </CardContent>
+   854→          </Card>
+   855→
+   856→          {/* Bank Partner Breakdown */}
+   857→          <Card>
+   858→            <CardHeader className="pb-3">
+   859→              <CardTitle className="text-base flex items-center gap-2">
+   860→                <Building2 className="w-5 h-5 text-blue-500" />
+   861→                Bank Partners
+   862→              </CardTitle>
+   863→            </CardHeader>
+   864→            <CardContent className="space-y-4">
+   865→              {bankBreakdown.map((bank) => (
+   866→                <div key={bank.name} className="flex items-start gap-3 p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors">
+   867→                  <div className={`w-10 h-10 rounded-lg ${bank.color} flex items-center justify-center text-white font-bold text-sm`}>
+   868→                    {bank.name}
+   869→                  </div>
+   870→                  <div className="flex-1 min-w-0">
+   871→                    <p className="font-medium text-sm">{bank.fullName}</p>
+   872→                    <p className="text-xs text-gray-500">{bank.count} active agreements</p>
+   873→                    <p className="text-sm font-semibold text-gray-700 mt-1">
+   874→                      {formatCurrency(bank.volume)}
+   875→                    </p>
+   876→                  </div>
+   877→                </div>
+   878→              ))}
+   879→            </CardContent>
+   880→          </Card>
+   881→
+   882→          {/* Quick Actions */}
+   883→          <Card>
+   884→            <CardHeader className="pb-3">
+   885→              <CardTitle className="text-base flex items-center gap-2">
+   886→                <Clock className="w-5 h-5 text-orange-500" />
+   887→                Quick Actions
+   888→              </CardTitle>
+   889→            </CardHeader>
+   890→            <CardContent className="space-y-2">
+   891→              <Button variant="outline" className="w-full justify-start" size="sm">
+   892→                <Users className="mr-2 h-4 w-4" />
+   893→                Contact Overdue Buyers ({overdueCount})
+   894→              </Button>
+   895→              <Button variant="outline" className="w-full justify-start" size="sm">
+   896→                <CheckCircle2 className="mr-2 h-4 w-4" />
+   897→                Process Today's Payments
+   898→              </Button>
+   899→              <Button variant="outline" className="w-full justify-start" size="sm">
+   900→                <XCircle className="mr-2 h-4 w-4" />
+   901→                Review Defaulted Accounts
+   902→              </Button>
+   903→              <Button variant="outline" className="w-full justify-start" size="sm">
+   904→                <FileText className="mr-2 h-4 w-4" />
+   905→                Generate Monthly Report
+   906→              </Button>
+   907→            </CardContent>
+   908→          </Card>
+   909→        </div>
+   910→      </div>
+   911→    </div>
+   912→  )
+   913→}
+   914→

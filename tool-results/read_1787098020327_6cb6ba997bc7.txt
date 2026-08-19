@@ -1,0 +1,809 @@
+     1→'use client'
+     2→
+     3→import React, { useState, useEffect } from 'react'
+     4→import { 
+     5→  Bitcoin,
+     6→  Coins,
+     7→  Clock,
+     8→  CheckCircle2,
+     9→  XCircle,
+    10→  AlertTriangle,
+    11→  RefreshCw,
+    12→  Download,
+    13→  Filter,
+    14→  QrCode,
+    15→  Activity,
+    16→  Wifi,
+    17→  TrendingUp,
+    18→  ExternalLink,
+    19→  Eye,
+    20→  Copy,
+    21→  MoreVertical,
+    22→  Zap,
+    23→  Globe,
+    24→  Server
+    25→} from 'lucide-react'
+    26→import { Button } from '@/components/ui/button'
+    27→import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+    28→import { Badge } from '@/components/ui/badge'
+    29→import { Progress } from '@/components/ui/progress'
+    30→import {
+    31→  Table,
+    32→  TableBody,
+    33→  TableCell,
+    34→  TableHead,
+    35→  TableHeader,
+    36→  TableRow,
+    37→} from '@/components/ui/table'
+    38→import {
+    39→  Dialog,
+    40→  DialogContent,
+    41→  DialogHeader,
+    42→  DialogTitle,
+    43→  DialogTrigger,
+    44→} from '@/components/ui/dialog'
+    45→import {
+    46→  DropdownMenu,
+    47→  DropdownMenuContent,
+    48→  DropdownMenuItem,
+    49→  DropdownMenuTrigger,
+    50→} from '@/components/ui/dropdown-menu'
+    51→import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+    52→
+    53→// Types
+    54→interface CryptoPayment {
+    55→  id: string
+    56→  paymentId: string
+    57→  cryptoType: 'USDT' | 'BTC' | 'ETH' | 'USDC' | 'DAI'
+    58→  network: 'TRC20' | 'ERC20' | 'BEP20' | 'BITCOIN'
+    59→  amountCrypto: number
+    60→  amountDZD: number
+    61→  confirmations: number
+    62→  requiredConfirmations: number
+    63→  status: 'PENDING' | 'CONFIRMING' | 'COMPLETED' | 'EXPIRED' | 'FAILED'
+    64→  createdAt: string
+    65→  expiresAt: string
+    66→  walletAddress: string
+    67→  txHash?: string
+    68→  buyerName: string
+    69→  orderId: string
+    70→}
+    71→
+    72→interface ExchangeRate {
+    73→  crypto: string
+    74→  rate: number
+    75→  change24h: number
+    76→}
+    77→
+    78→interface NetworkFee {
+    79→  network: string
+    80→  avgFee: number
+    81→  unit: string
+    82→  estimatedTime: string
+    83→}
+    84→
+    85→// Mock Data - 22 crypto payments
+    86→const mockPayments: CryptoPayment[] = [
+    87→  {
+    88→    id: '1', paymentId: 'CPY-2025-001', cryptoType: 'USDT', network: 'TRC20',
+    89→    amountCrypto: 150, amountDZD: 22500, confirmations: 12, requiredConfirmations: 12,
+    90→    status: 'COMPLETED', createdAt: '2025-01-20T10:30:00', expiresAt: '2025-01-20T11:30:00',
+    91→    walletAddress: 'TXxxxxxxxxxxxxxx...abc123', txHash: '0x8f2a3b4c...',
+    92→    buyerName: 'Ahmed Benali', orderId: 'ORD-2025-001'
+    93→  },
+    94→  {
+    95→    id: '2', paymentId: 'CPY-2025-002', cryptoType: 'BTC', network: 'BITCOIN',
+    96→    amountCrypto: 0.0045, amountDZD: 28000, confirmations: 3, requiredConfirmations: 6,
+    97→    status: 'CONFIRMING', createdAt: '2025-01-20T14:15:00', expiresAt: '2025-01-20T17:15:00',
+    98→    walletAddress: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
+    99→    buyerName: 'Fatima Zerhouni', orderId: 'ORD-2025-002'
+   100→  },
+   101→  {
+   102→    id: '3', paymentId: 'CPY-2025-003', cryptoType: 'USDT', network: 'ERC20',
+   103→    amountCrypto: 200, amountDZD: 30000, confirmations: 18, requiredConfirmations: 15,
+   104→    status: 'COMPLETED', createdAt: '2025-01-19T09:45:00', expiresAt: '2025-01-19T10:45:00',
+   105→    walletAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f8bE8F', txHash: '0x9c3b4d5e...',
+   106→    buyerName: 'Mohamed Amine', orderId: 'ORD-2025-003'
+   107→  },
+   108→  {
+   109→    id: '4', paymentId: 'CPY-2025-004', cryptoType: 'ETH', network: 'BITCOIN',
+   110→    amountCrypto: 0.025, amountDZD: 52000, confirmations: 0, requiredConfirmations: 24,
+   111→    status: 'PENDING', createdAt: '2025-01-20T16:00:00', expiresAt: '2025-01-20T19:00:00',
+   112→    walletAddress: '0xAb5801a7D398351b8bE11C439e05C5B3ae9b6aB8',
+   113→    buyerName: 'Nadia Bouazza', orderId: 'ORD-2025-004'
+   114→  },
+   115→  {
+   116→    id: '5', paymentId: 'CPY-2025-005', cryptoType: 'USDC', network: 'BEP20',
+   117→    amountCrypto: 180, amountDZD: 27000, confirmations: 10, requiredConfirmations: 12,
+   118→    status: 'CONFIRMING', createdAt: '2025-01-20T13:30:00', expiresAt: '2025-01-20T14:30:00',
+   119→    walletAddress: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+   120→    buyerName: 'Rachid Hamadi', orderId: 'ORD-2025-005'
+   121→  },
+   122→  {
+   123→    id: '6', paymentId: 'CPY-2025-006', cryptoType: 'USDT', network: 'TRC20',
+   124→    amountCrypto: 500, amountDZD: 75000, confirmations: 0, requiredConfirmations: 12,
+   125→    status: 'PENDING', createdAt: '2025-01-20T17:45:00', expiresAt: '2025-01-20T18:45:00',
+   126→    walletAddress: 'TXxxxxxxxxxxxxxx...def456',
+   127→    buyerName: 'Samira Khelifi', orderId: 'ORD-2025-006'
+   128→  },
+   129→  {
+   130→    id: '7', paymentId: 'CPY-2025-007', cryptoType: 'DAI', network: 'ERC20',
+   131→    amountCrypto: 120, amountDZD: 18000, confirmations: 15, requiredConfirmations: 12,
+   132→    status: 'COMPLETED', createdAt: '2025-01-18T11:20:00', expiresAt: '2025-01-18T12:20:00',
+   133→    walletAddress: '0x4fAAmE91aC1a55EaC38D24b9c2F3eB145Ad81595', txHash: '0xa4c5d6e7...',
+   134→    buyerName: 'Kamel Djellouli', orderId: 'ORD-2025-007'
+   135→  },
+   136→  {
+   137→    id: '8', paymentId: 'CPY-2025-008', cryptoType: 'BTC', network: 'BITCOIN',
+   138→    amountCrypto: 0.008, amountDZD: 49800, confirmations: 0, requiredConfirmations: 6,
+   139→    status: 'EXPIRED', createdAt: '2025-01-19T08:00:00', expiresAt: '2025-01-19T09:00:00',
+   140→    walletAddress: 'bc1qcr70te3x5elr5k5nqlum3sc7tjf5mx2spvwvmz',
+   141→    buyerName: 'Amina Toubal', orderId: 'ORD-2025-008'
+   142→  },
+   143→  {
+   144→    id: '9', paymentId: 'CPY-2025-009', cryptoType: 'USDT', network: 'TRC20',
+   145→    amountCrypto: 75, amountDZD: 11250, confirmations: 12, requiredConfirmations: 12,
+   146→    status: 'COMPLETED', createdAt: '2025-01-20T07:15:00', expiresAt: '2025-01-20T08:15:00',
+   147→    walletAddress: 'TXxxxxxxxxxxxxxx...ghi789', txHash: '0xb5d6e7f8...',
+   148→    buyerName: 'Youssef Brahimi', orderId: 'ORD-2025-009'
+   149→  },
+   150→  {
+   151→    id: '10', paymentId: 'CPY-2025-010', cryptoType: 'ETH', network: 'ERC20',
+   152→    amountCrypto: 0.015, amountDZD: 31200, confirmations: 8, requiredConfirmations: 24,
+   153→    status: 'CONFIRMING', createdAt: '2025-01-20T15:00:00', expiresAt: '2025-01-20T18:00:00',
+   154→    walletAddress:0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',
+   155→    buyerName: 'Lina Messaoudi', orderId: 'ORD-2025-010'
+   156→  },
+   157→  {
+   158→    id: '11', paymentId: 'CPY-2025-011', cryptoType: 'USDT', network: 'BEP20',
+   159→    amountCrypto: 320, amountDZD: 48000, confirmations: 14, requiredConfirmations: 12,
+   160→    status: 'COMPLETED', createdAt: '2025-01-19T14:30:00', expiresAt: '2025-01-19T15:30:00',
+   161→    walletAddress: '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c', txHash: '0xc6e7f8g9...',
+   162→    buyerName: 'Omar Fettouhi', orderId: 'ORD-2025-011'
+   163→  },
+   164→  {
+   165→    id: '12', paymentId: 'CPY-2025-012', cryptoType: 'USDC', network: 'TRC20',
+   166→    amountCrypto: 250, amountDZD: 37500, confirmations: 0, requiredConfirmations: 12,
+   167→    status: 'PENDING', createdAt: '2025-01-20T18:20:00', expiresAt: '2025-01-20T19:20:00',
+   168→    walletAddress: 'TXxxxxxxxxxxxxxx...jkl012',
+   169→    buyerName: 'Hafsa Amrani', orderId: 'ORD-2025-012'
+   170→  },
+   171→  {
+   172→    id: '13', paymentId: 'CPY-2025-013', cryptoType: 'BTC', network: 'BITCOIN',
+   173→    amountCrypto: 0.012, amountDZD: 74700, confirmations: 5, requiredConfirmations: 6,
+   174→    status: 'CONFIRMING', createdAt: '2025-01-20T12:00:00', expiresAt: '2025-01-20T15:00:00',
+   175→    walletAddress: 'bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq',
+   176→    buyerName: 'Bilal Charef', orderId: 'ORD-2025-013'
+   177→  },
+   178→  {
+   179→    id: '14', paymentId: 'CPY-2025-014', cryptoType: 'USDT', network: 'ERC20',
+   180→    amountCrypto: 90, amountDZD: 13500, confirmations: 12, requiredConfirmations: 12,
+   181→    status: 'COMPLETED', createdAt: '2025-01-19T16:45:00', expiresAt: '2025-01-19T17:45:00',
+   182→    walletAddress: '0xdAC17F958D2ee523a2206206994597C13D831ec7', txHash: '0xd7f8g9h0...',
+   183→    buyerName: 'Meriem Kaced', orderId: 'ORD-2025-014'
+   184→  },
+   185→  {
+   186→    id: '15', paymentId: 'CPY-2025-015', cryptoType: 'DAI', network: 'BEP20',
+   187→    amountCrypto: 400, amountDZD: 60000, confirmations: 0, requiredConfirmations: 12,
+   188→    status: 'FAILED', createdAt: '2025-01-19T10:00:00', expiresAt: '2025-01-19T11:00:00',
+   189→    walletAddress: '0x1AF3F329e8BE1541474aDeC6c323945085bE6F90',
+   190→    buyerName: 'Abdelkrim Haddad', orderId: 'ORD-2025-015'
+   191→  },
+   192→  {
+   193→    id: '16', paymentId: 'CPY-2025-016', cryptoType: 'ETH', network: 'ERC20',
+   194→    amountCrypto: 0.038, amountDZD: 78960, confirmations: 20, requiredConfirmations: 24,
+   195→    status: 'CONFIRMING', createdAt: '2025-01-20T11:30:00', expiresAt: '2025-01-20T14:30:00',
+   196→    walletAddress: '0x6B175474E89094C44Da98b954EedeAC495271d0F',
+   197→    buyerName: 'Nourhane Sadki', orderId: 'ORD-2025-016'
+   198→  },
+   199→  {
+   200→    id: '17', paymentId: 'CPY-2025-017', cryptoType: 'USDT', network: 'TRC20',
+   201→    amountCrypto: 175, amountDZD: 26250, confirmations: 12, requiredConfirmations: 12,
+   202→    status: 'COMPLETED', createdAt: '2025-01-20T06:00:00', expiresAt: '2025-01-20T07:00:00',
+   203→    walletAddress: 'TXxxxxxxxxxxxxxx...mno345', txHash: '0xe8g9h0i1...',
+   204→    buyerName: 'Imene Boudjelida', orderId: 'ORD-2025-017'
+   205→  },
+   206→  {
+   207→    id: '18', paymentId: 'CPY-2025-018', cryptoType: 'USDC', network: 'ERC20',
+   208→    amountCrypto: 280, amountDZD: 42000, confirmations: 0, requiredConfirmations: 12,
+   209→    status: 'PENDING', createdAt: '2025-01-20T19:00:00', expiresAt: '2025-01-20T20:00:00',
+   210→    walletAddress: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
+   211→    buyerName: 'Tarek Boussaid', orderId: 'ORD-2025-018'
+   212→  },
+   213→  {
+   214→    id: '19', paymentId: 'CPY-2025-019', cryptoType: 'BTC', network: 'BITCOIN',
+   215→    amountCrypto: 0.006, amountDZD: 37350, confirmations: 6, requiredConfirmations: 6,
+   216→    status: 'COMPLETED', createdAt: '2025-01-19T13:00:00', expiresAt: '2025-01-19T16:00:00',
+   217→    walletAddress: 'bc1qm3ld0x2zplnque2z0zqtuye2x2fzy6ylyv0nfq', txHash: 'f9h0i1j2...',
+   218→    buyerName: 'Sara Mellal', orderId: 'ORD-2025-019'
+   219→  },
+   220→  {
+   221→    id: '20', paymentId: 'CPY-2025-020', cryptoType: 'USDT', network: 'BEP20',
+   222→    amountCrypto: 450, amountDZD: 67500, confirmations: 11, requiredConfirmations: 12,
+   223→    status: 'CONFIRMING', createdAt: '2025-01-20T09:00:00', expiresAt: '2025-01-20T10:00:00',
+   224→    walletAddress: '0xe9e7CEA3DedcAc5963C8D5Ef8DF8B4120d294069',
+   225→    buyerName: 'Leila Mansouri', orderId: 'ORD-2025-020'
+   226→  },
+   227→  {
+   228→    id: '21', paymentId: 'CPY-2025-021', cryptoType: 'ETH', network: 'BEP20',
+   229→    amountCrypto: 0.02, amountDZD: 41600, confirmations: 0, requiredConfirmations: 15,
+   230→    status: 'PENDING', createdAt: '2025-01-20T19:30:00', expiresAt: '2025-01-20T21:30:00',
+   231→    walletAddress: '0x2170Ed0880ac9A755fd29B6AC4c99113e169bf41',
+   232→    buyerName: 'Farid Meziane', orderId: 'ORD-2025-021'
+   233→  },
+   234→  {
+   235→    id: '22', paymentId: 'CPY-2025-022', cryptoType: 'DAI', network: 'TRC20',
+   236→    amountCrypto: 160, amountDZD: 24000, confirmations: 12, requiredConfirmations: 12,
+   237→    status: 'COMPLETED', createdAt: '2025-01-18T15:30:00', expiresAt: '2025-01-18T16:30:00',
+   238→    walletAddress: 'TXxxxxxxxxxxxxxx...pqr678', txHash: '0xg0i1j2k3...',
+   239→    buyerName: 'Wassila Laifa', orderId: 'ORD-2025-022'
+   240→  }
+   241→]
+   242→
+   243→const exchangeRates: ExchangeRate[] = [
+   244→  { crypto: 'USDT', rate: 150, change24h: 0.01 },
+   245→  { crypto: 'BTC', rate: 6225000, change24h: -2.34 },
+   246→  { crypto: 'ETH', rate: 2080000, change24h: 1.56 },
+   247→  { crypto: 'USDC', rate: 150, change24h: 0.00 },
+   248→  { crypto: 'DAI', rate: 149.85, change24h: -0.1 }
+   249→]
+   250→
+   251→const networkFees: NetworkFee[] = [
+   252→  { network: 'TRC20 (USDT)', avgFee: 1, unit: 'USDT', estimatedTime: '< 1 min' },
+   253→  { network: 'ERC20 (USDT)', avgFee: 2.5, unit: 'USD', estimatedTime: '2-5 min' },
+   254→  { network: 'BEP20 (USDT)', avgFee: 0.2, unit: 'USD', estimatedTime: '< 1 min' },
+   255→  { network: 'Bitcoin', avgFee: 1500, unit: 'satoshi/byte', estimatedTime: '10-60 min' }
+   256→]
+   257→
+   258→export default function CryptoAdminPage() {
+   259→  const [payments, setPayments] = useState<CryptoPayment[]>(mockPayments)
+   260→  const [selectedStatus, setSelectedStatus] = useState<string>('all')
+   261→  const [selectedCrypto, setSelectedCrypto] = useState<string>('all')
+   262→  const [searchQuery, setSearchQuery] = useState('')
+   263→  const [isRefreshing, setIsRefreshing] = useState(false)
+   264→  const [showQRDialog, setShowQRDialog] = useState(false)
+   265→  const [selectedPayment, setSelectedPayment] = useState<CryptoPayment | null>(null)
+   266→
+   267→  // Simulate real-time updates for confirming transactions
+   268→  useEffect(() => {
+   269→    const interval = setInterval(() => {
+   270→      setPayments(prev => prev.map(payment => {
+   271→        if (payment.status === 'CONFIRMING' && payment.confirmations < payment.requiredConfirmations) {
+   272→          return {
+   273→            ...payment,
+   274→            confirmations: Math.min(
+   275→              payment.confirmations + Math.floor(Math.random() * 2),
+   276→              payment.requiredConfirmations
+   277→            )
+   278→          }
+   279→        }
+   280→        // Auto-complete when confirmations reached
+   281→        if (payment.status === 'CONFIRMING' && payment.confirmations >= payment.requiredConfirmations) {
+   282→          return { ...payment, status: 'COMPLETED' as const }
+   283→        }
+   284→        return payment
+   285→      }))
+   286→    }, 8000)
+   287→
+   288→    return () => clearInterval(interval)
+   289→  }, [])
+   290→
+   291→  const handleRefresh = async () => {
+   292→    setIsRefreshing(true)
+   293→    await new Promise(resolve => setTimeout(resolve, 1000))
+   294→    setIsRefreshing(false)
+   295→  }
+   296→
+   297→  // Calculate stats
+   298→  const todayVolume = payments
+   299→    .filter(p => new Date(p.createdAt).toDateString() === new Date().toDateString())
+   300→    .reduce((sum, p) => sum + p.amountDZD, 0)
+   301→  
+   302→  const pendingConfirmations = payments.filter(p => p.status === 'CONFIRMING').length
+   303→  
+   304→  const cryptoSplit = {
+   305→    USDT: payments.filter(p => p.cryptoType === 'USDT').reduce((sum, p) => sum + p.amountDZD, 0),
+   306→    BTC: payments.filter(p => p.cryptoType === 'BTC').reduce((sum, p) => sum + p.amountDZD, 0),
+   307→    ETH: payments.filter(p => p.cryptoType === 'ETH').reduce((sum, p) => sum + p.amountDZD, 0),
+   308→    Other: payments.filter(p => !['USDT', 'BTC', 'ETH'].includes(p.cryptoType)).reduce((sum, p) => sum + p.amountDZD, 0)
+   309→  }
+   310→
+   311→  // Filter payments
+   312→  const filteredPayments = payments.filter(payment => {
+   313→    if (selectedStatus !== 'all' && payment.status !== selectedStatus) return false
+   314→    if (selectedCrypto !== 'all' && payment.cryptoType !== selectedCrypto) return false
+   315→    if (searchQuery) {
+   316→      const query = searchQuery.toLowerCase()
+   317→      return (
+   318→        payment.paymentId.toLowerCase().includes(query) ||
+   319→        payment.buyerName.toLowerCase().includes(query) ||
+   320→        payment.orderId.toLowerCase().includes(query) ||
+   321→        payment.walletAddress.toLowerCase().includes(query)
+   322→      )
+   323→    }
+   324→    return true
+   325→  })
+   326→
+   327→  const getStatusBadge = (status: CryptoPayment['status']) => {
+   328→    switch (status) {
+   329→      case 'PENDING':
+   330→        return <Badge className="bg-yellow-100 text-yellow-700 border-yellow-200">Pending</Badge>
+   331→      case 'CONFIRMING':
+   332→        return <Badge className="bg-blue-100 text-blue-700 border-blue-200 animate-pulse">Confirming</Badge>
+   333→      case 'COMPLETED':
+   334→        return <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">Completed</Badge>
+   335→      case 'EXPIRED':
+   336→        return <Badge className="bg-gray-100 text-gray-700 border-gray-200">Expired</Badge>
+   337→      case 'FAILED':
+   338→        return <Badge className="bg-red-100 text-red-700 border-red-200">Failed</Badge>
+   339→      default:
+   340→        return <Badge variant="secondary">{status}</Badge>
+   341→    }
+   342→  }
+   343→
+   344→  const getCryptoIcon = (crypto: string) => {
+   345→    switch (crypto) {
+   346→      case 'BTC': return <Bitcoin className="w-5 h-5 text-orange-500" />
+   347→      case 'ETH': return <Coins className="w-5 h-5 text-indigo-500" />
+   348→      case 'USDT': return <Coins className="w-5 h-5 text-green-500" />
+   349→      case 'USDC': return <Coins className="w-5 h-5 text-blue-500" />
+   350→      case 'DAI': return <Coins className="w-5 h-5 text-yellow-600" />
+   351→      default: return <Coins className="w-5 h-5 text-gray-500" />
+   352→    }
+   353→  }
+   354→
+   355→  const formatCurrency = (amount: number) => {
+   356→    return new Intl.NumberFormat('fr-DZ', {
+   357→      style: 'currency',
+   358→      currency: 'DZD',
+   359→      minimumFractionDigits: 0,
+   360→      maximumFractionDigits: 0
+   361→    }).format(amount)
+   362→  }
+   363→
+   364→  const formatDateTime = (dateStr: string) => {
+   365→    return new Date(dateStr).toLocaleString('fr-FR', {
+   366→      day: '2-digit',
+   367→      month: 'short',
+   368→      hour: '2-digit',
+   369→      minute: '2-digit'
+   370→    })
+   371→  }
+   372→
+   373→  const getTimeRemaining = (expiresAt: string) => {
+   374→    const now = new Date()
+   375→    const expiry = new Date(expiresAt)
+   376→    const diff = expiry.getTime() - now.getTime()
+   377→    
+   378→    if (diff <= 0) return 'Expired'
+   379→    
+   380→    const minutes = Math.floor(diff / 60000)
+   381→    if (minutes < 60) return `${minutes}m`
+   382→    
+   383→    const hours = Math.floor(minutes / 60)
+   384→    return `${hours}h ${minutes % 60}m`
+   385→  }
+   386→
+   387→  const copyToClipboard = (text: string) => {
+   388→    navigator.clipboard.writeText(text)
+   389→    alert('Copied to clipboard!')
+   390→  }
+   391→
+   392→  return (
+   393→    <div className="space-y-6">
+   394→      {/* Header */}
+   395→      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+   396→        <div>
+   397→          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
+   398→            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center">
+   399→              <Bitcoin className="w-5 h-5 text-white" />
+   400→            </div>
+   401→            Crypto Payments
+   402→          </h1>
+   403→          <p className="text-sm text-gray-500 mt-1">
+   404→            Monitor and manage cryptocurrency payment transactions
+   405→          </p>
+   406→        </div>
+   407→
+   408→        <div className="flex items-center gap-2">
+   409→          <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isRefreshing}>
+   410→            <RefreshCw className={`mr-2 h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+   411→            Refresh
+   412→          </Button>
+   413→          <Button variant="outline" size="sm">
+   414→            <Download className="mr-2 h-4 w-4" />
+   415→            Export
+   416→          </Button>
+   417→        </div>
+   418→      </div>
+   419→
+   420→      {/* Stats Cards */}
+   421→      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+   422→        <Card>
+   423→          <CardContent className="pt-6">
+   424→            <div className="flex items-center justify-between">
+   425→              <div>
+   426→                <p className="text-sm font-medium text-gray-500">Today's Volume</p>
+   427→                <p className="text-2xl font-bold mt-1">{formatCurrency(todayVolume)}</p>
+   428→                <p className="text-xs text-emerald-600 mt-1 flex items-center gap-1">
+   429→                  <TrendingUp className="w-3 h-3" /> +18.2% vs yesterday
+   430→                </p>
+   431→              </div>
+   432→              <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center">
+   433→                <Coins className="w-6 h-6 text-emerald-600" />
+   434→              </div>
+   435→            </div>
+   436→          </CardContent>
+   437→        </Card>
+   438→
+   439→        <Card>
+   440→          <CardContent className="pt-6">
+   441→            <div className="flex items-center justify-between">
+   442→              <div>
+   443→                <p className="text-sm font-medium text-gray-500">Pending Confirmations</p>
+   444→                <p className="text-2xl font-bold mt-1 text-blue-600">{pendingConfirmations}</p>
+   445→                <p className="text-xs text-gray-500 mt-1">Awaiting blockchain</p>
+   446→              </div>
+   447→              <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center">
+   448→                <Clock className="w-6 h-6 text-blue-600" />
+   449→              </div>
+   450→            </div>
+   451→          </CardContent>
+   452→        </Card>
+   453→
+   454→        <Card>
+   455→          <CardContent className="pt-6">
+   456→            <div className="flex items-center justify-between">
+   457→              <div>
+   458→                <p className="text-sm font-medium text-gray-500">Total Payments Today</p>
+   459→                <p className="text-2xl font-bold mt-1">{payments.length}</p>
+   460→                <p className="text-xs text-gray-500 mt-1">All networks</p>
+   461→              </div>
+   462→              <div className="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center">
+   463→                <Activity className="w-6 h-6 text-purple-600" />
+   464→              </div>
+   465→            </div>
+   466→          </CardContent>
+   467→        </Card>
+   468→
+   469→        <Card>
+   470→          <CardContent className="pt-6">
+   471→            <div className="flex items-center justify-between">
+   472→              <div>
+   473→                <p className="text-sm font-medium text-gray-500">Success Rate</p>
+   474→                <p className="text-2xl font-bold mt-1 text-emerald-600">
+   475→                  {((payments.filter(p => p.status === 'COMPLETED').length / payments.length) * 100).toFixed(1)}%
+   476→                </p>
+   477→                <p className="text-xs text-gray-500 mt-1">Completion rate</p>
+   478→              </div>
+   479→              <div className="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center">
+   480→                <CheckCircle2 className="w-6 h-6 text-green-600" />
+   481→              </div>
+   482→            </div>
+   483→          </CardContent>
+   484→        </Card>
+   485→      </div>
+   486→
+   487→      {/* Main Content Grid */}
+   488→      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+   489→        {/* Payments Table */}
+   490→        <Card className="xl:col-span-2">
+   491→          <CardHeader className="pb-4">
+   492→            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+   493→              <CardTitle className="text-lg flex items-center gap-2">
+   494→                Active Transactions
+   495→                {pendingConfirmations > 0 && (
+   496→                  <Badge className="bg-blue-100 text-blue-700 animate-pulse ml-2">
+   497→                    {pendingConfirmations} Confirming
+   498→                  </Badge>
+   499→                )}
+   500→              </CardTitle>
+   501→              
+   502→              <div className="flex items-center gap-2">
+   503→                <input
+   504→                  type="text"
+   505→                  placeholder="Search by ID, name..."
+   506→                  value={searchQuery}
+   507→                  onChange={(e) => setSearchQuery(e.target.value)}
+   508→                  className="px-3 py-2 text-sm border rounded-lg w-48 focus:outline-none focus:ring-2 focus:ring-amber-500"
+   509→                />
+   510→              </div>
+   511→            </div>
+   512→
+   513→            {/* Filters */}
+   514→            <div className="flex flex-wrap gap-2 mt-4">
+   515→              <select
+   516→                value={selectedStatus}
+   517→                onChange={(e) => setSelectedStatus(e.target.value)}
+   518→                className="text-sm border rounded-md px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-amber-500"
+   519→              >
+   520→                <option value="all">All Statuses</option>
+   521→                <option value="PENDING">Pending</option>
+   522→                <option value="CONFIRMING">Confirming</option>
+   523→                <option value="COMPLETED">Completed</option>
+   524→                <option value="EXPIRED">Expired</option>
+   525→                <option value="FAILED">Failed</option>
+   526→              </select>
+   527→
+   528→              <select
+   529→                value={selectedCrypto}
+   530→                onChange={(e) => setSelectedCrypto(e.target.value)}
+   531→                className="text-sm border rounded-md px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-amber-500"
+   532→              >
+   533→                <option value="all">All Cryptos</option>
+   534→                <option value="USDT">USDT</option>
+   535→                <option value="BTC">BTC</option>
+   536→                <option value="ETH">ETH</option>
+   537→                <option value="USDC">USDC</option>
+   538→                <option value="DAI">DAI</option>
+   539→              </select>
+   540→            </div>
+   541→          </CardHeader>
+   542→
+   543→          <CardContent>
+   544→            <div className="overflow-x-auto">
+   545→              <Table>
+   546→                <TableHeader>
+   547→                  <TableRow>
+   548→                    <TableHead>Payment ID</TableHead>
+   549→                    <TableHead>Crypto</TableHead>
+   550→                    <TableHead>Network</TableHead>
+   551→                    <TableHead className="text-right">Amount (Crypto)</TableHead>
+   552→                    <TableHead className="text-right">Amount (DZD)</TableHead>
+   553→                    <TableHead>Confirmations</TableHead>
+   554→                    <TableHead>Status</TableHead>
+   555→                    <TableHead>Time Left</TableHead>
+   556→                    <TableHead className="text-right">Actions</TableHead>
+   557→                  </TableRow>
+   558→                </TableHeader>
+   559→                <TableBody>
+   560→                  {filteredPayments.slice(0, 15).map((payment) => (
+   561→                    <TableRow key={payment.id}>
+   562→                      <TableCell>
+   563→                        <span className="font-mono text-xs">{payment.paymentId}</span>
+   564→                      </TableCell>
+   565→                      <TableCell>
+   566→                        <div className="flex items-center gap-2">
+   567→                          {getCryptoIcon(payment.cryptoType)}
+   568→                          <span className="font-medium">{payment.cryptoType}</span>
+   569→                        </div>
+   570→                      </TableCell>
+   571→                      <TableCell>
+   572→                        <Badge variant="outline" className="text-xs">{payment.network}</Badge>
+   573→                      </TableCell>
+   574→                      <TableCell className="text-right font-mono text-sm">
+   575→                        {payment.amountCrypto.toFixed(payment.cryptoType === 'BTC' || payment.cryptoType === 'ETH' ? 6 : 2)}
+   576→                      </TableCell>
+   577→                      <TableCell className="text-right font-medium">
+   578→                        {formatCurrency(payment.amountDZD)}
+   579→                      </TableCell>
+   580→                      <TableCell>
+   581→                        <div className="flex items-center gap-2">
+   582→                          <Progress 
+   583→                            value={(payment.confirmations / payment.requiredConfirmations) * 100} 
+   584→                            className="w-16 h-2"
+   585→                          />
+   586→                          <span className="text-xs text-gray-500">
+   587→                            {payment.confirmations}/{payment.requiredConfirmations}
+   588→                          </span>
+   589→                        </div>
+   590→                      </TableCell>
+   591→                      <TableCell>{getStatusBadge(payment.status)}</TableCell>
+   592→                      <TableCell>
+   593→                        <span className={`text-sm ${
+   594→                          getTimeRemaining(payment.expiresAt) === 'Expired' ? 'text-red-600' : ''
+   595→                        }`}>
+   596→                          {getTimeRemaining(payment.expiresAt)}
+   597→                        </span>
+   598→                      </TableCell>
+   599→                      <TableCell className="text-right">
+   600→                        <DropdownMenu>
+   601→                          <DropdownMenuTrigger asChild>
+   602→                            <Button variant="ghost" size="icon" className="h-8 w-8">
+   603→                              <MoreVertical className="h-4 w-4" />
+   604→                            </Button>
+   605→                          </DropdownMenuTrigger>
+   606→                          <DropdownMenuContent align="end">
+   607→                            <DropdownMenuItem onClick={() => {
+   608→                              setSelectedPayment(payment)
+   609→                              setShowQRDialog(true)
+   610→                            }}>
+   611→                              <QrCode className="mr-2 h-4 w-4" />
+   612→                              View QR Code
+   613→                            </DropdownMenuItem>
+   614→                            <DropdownMenuItem onClick={() => copyToClipboard(payment.walletAddress)}>
+   615→                              <Copy className="mr-2 h-4 w-4" />
+   616→                              Copy Address
+   617→                            </DropdownMenuItem>
+   618→                            {payment.txHash && (
+   619→                              <DropdownMenuItem>
+   620→                                <ExternalLink className="mr-2 h-4 w-4" />
+   621→                                View on Explorer
+   622→                              </DropdownMenuItem>
+   623→                            )}
+   624→                          </DropdownMenuContent>
+   625→                        </DropdownMenu>
+   626→                      </TableCell>
+   627→                    </TableRow>
+   628→                  ))}
+   629→                </TableBody>
+   630→              </Table>
+   631→            </div>
+   632→          </CardContent>
+   633→        </Card>
+   634→
+   635→        {/* Side Panel */}
+   636→        <div className="space-y-6">
+   637→          {/* Crypto Split */}
+   638→          <Card>
+   639→            <CardHeader className="pb-3">
+   640→              <CardTitle className="text-base flex items-center gap-2">
+   641→                <Coins className="w-5 h-5 text-amber-500" />
+   642→                Volume by Crypto
+   643→              </CardTitle>
+   644→            </CardHeader>
+   645→            <CardContent className="space-y-4">
+   646→              {Object.entries(cryptoSplit).map(([crypto, volume]) => (
+   647→                <div key={crypto} className="space-y-2">
+   648→                  <div className="flex items-center justify-between text-sm">
+   649→                    <div className="flex items-center gap-2">
+   650→                      {getCryptoIcon(crypto)}
+   651→                      <span className="font-medium">{crypto}</span>
+   652→                    </div>
+   653→                    <span className="text-gray-500">{formatCurrency(volume)}</span>
+   654→                  </div>
+   655→                  <Progress 
+   656→                    value={(volume / Object.values(cryptoSplit).reduce((a, b) => a + b, 0)) * 100} 
+   657→                    className="h-2"
+   658→                  />
+   659→                </div>
+   660→              ))}
+   661→            </CardContent>
+   662→          </Card>
+   663→
+   664→          {/* Exchange Rates */}
+   665→          <Card>
+   666→            <CardHeader className="pb-3">
+   667→              <CardTitle className="text-base flex items-center gap-2">
+   668→                <TrendingUp className="w-5 h-5 text-blue-500" />
+   669→                Exchange Rates
+   670→              </CardTitle>
+   671→              <CardDescription>Current rates to DZD</CardDescription>
+   672→            </CardHeader>
+   673→            <CardContent className="space-y-3">
+   674→              {exchangeRates.map((rate) => (
+   675→                <div key={rate.crypto} className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50">
+   676→                  <div className="flex items-center gap-2">
+   677→                    {getCryptoIcon(rate.crypto)}
+   678→                    <span className="font-medium text-sm">{rate.crypto}/DZD</span>
+   679→                  </div>
+   680→                  <div className="text-right">
+   681→                    <p className="font-semibold text-sm">{rate.rate.toLocaleString()}</p>
+   682→                    <p className={`text-xs flex items-center justify-end gap-1 ${
+   683→                      rate.change24h >= 0 ? 'text-emerald-600' : 'text-red-600'
+   684→                    }`}>
+   685→                      {rate.change24h >= 0 ? <TrendingUp className="w-3 h-3" /> : <AlertTriangle className="w-3 h-3" />}
+   686→                      {rate.change24h >= 0 ? '+' : ''}{rate.change24h}%
+   687→                    </p>
+   688→                  </div>
+   689→                </div>
+   690→              ))}
+   691→            </CardContent>
+   692→          </Card>
+   693→
+   694→          {/* Network Fees */}
+   695→          <Card>
+   696→            <CardHeader className="pb-3">
+   697→              <CardTitle className="text-base flex items-center gap-2">
+   698→                <Server className="w-5 h-5 text-purple-500" />
+   699→                Network Fees
+   700→              </CardTitle>
+   701→            </CardHeader>
+   702→            <CardContent className="space-y-3">
+   703→              {networkFees.map((fee) => (
+   704→                <div key={fee.network} className="flex items-start justify-between p-2 rounded-lg bg-gray-50">
+   705→                  <div>
+   706→                    <p className="font-medium text-sm">{fee.network}</p>
+   707→                    <p className="text-xs text-gray-500">{fee.estimatedTime}</p>
+   708→                  </div>
+   709→                  <div className="text-right">
+   710→                    <p className="font-semibold text-sm">{fee.avgFee} {fee.unit}</p>
+   711→                  </div>
+   712→                </div>
+   713→              ))}
+   714→            </CardContent>
+   715→          </Card>
+   716→
+   717→          {/* Blockchain Status */}
+   718→          <Card>
+   719→            <CardHeader className="pb-3">
+   720→              <CardTitle className="text-base flex items-center gap-2">
+   721→                <Wifi className="w-5 h-5 text-green-500" />
+   722→                Blockchain Status
+   723→              </CardTitle>
+   724→            </CardHeader>
+   725→            <CardContent className="space-y-3">
+   726→              <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-200">
+   727→                <div className="flex items-center gap-2">
+   728→                  <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+   729→                  <span className="font-medium text-sm">Tron (TRC20)</span>
+   730→                </div>
+   731→                <span className="text-xs text-green-600">Operational</span>
+   732→              </div>
+   733→              <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-200">
+   734→                <div className="flex items-center gap-2">
+   735→                  <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+   736→                  <span className="font-medium text-sm">Ethereum (ERC20)</span>
+   737→                </div>
+   738→                <span className="text-xs text-green-600">Operational</span>
+   739→              </div>
+   740→              <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-200">
+   741→                <div className="flex items-center gap-2">
+   742→                  <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+   743→                  <span className="font-medium text-sm">BSC (BEP20)</span>
+   744→                </div>
+   745→                <span className="text-xs text-green-600">Operational</span>
+   746→              </div>
+   747→              <div className="flex items-center justify-between p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+   748→                <div className="flex items-center gap-2">
+   749→                  <div className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse"></div>
+   750→                  <span className="font-medium text-sm">Bitcoin</span>
+   751→                </div>
+   752→                <span className="text-xs text-yellow-600">Congested</span>
+   753→              </div>
+   754→            </CardContent>
+   755→          </Card>
+   756→        </div>
+   757→      </div>
+   758→
+   759→      {/* QR Code Dialog */}
+   760→      <Dialog open={showQRDialog} onOpenChange={setShowQRDialog}>
+   761→        <DialogContent className="max-w-sm">
+   762→          <DialogHeader>
+   763→            <DialogTitle>Payment QR Code</DialogTitle>
+   764→          </DialogHeader>
+   765→          {selectedPayment && (
+   766→            <div className="space-y-4 py-4">
+   767→              <div className="bg-white p-4 rounded-lg border flex justify-center">
+   768→                <div className="w-48 h-48 bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg flex items-center justify-center">
+   769→                  <QrCode className="w-24 h-24 text-gray-400" />
+   770→                </div>
+   771→              </div>
+   772→              
+   773→              <div className="space-y-2 text-sm">
+   774→                <div className="flex justify-between">
+   775→                  <span className="text-gray-500">Payment ID:</span>
+   776→                  <span className="font-mono font-medium">{selectedPayment.paymentId}</span>
+   777→                </div>
+   778→                <div className="flex justify-between">
+   779→                  <span className="text-gray-500">Amount:</span>
+   780→                  <span className="font-medium">{selectedPayment.amountCrypto} {selectedPayment.cryptoType}</span>
+   781→                </div>
+   782→                <div className="flex justify-between">
+   783→                  <span className="text-gray-500">Network:</span>
+   784→                  <span>{selectedPayment.network}</span>
+   785→                </div>
+   786→              </div>
+   787→
+   788→              <div className="p-3 bg-gray-50 rounded-lg">
+   789→                <p className="text-xs text-gray-500 mb-1">Wallet Address:</p>
+   790→                <div className="flex items-center gap-2">
+   791→                  <code className="text-xs font-mono flex-1 truncate">{selectedPayment.walletAddress}</code>
+   792→                  <Button 
+   793→                    variant="ghost" 
+   794→                    size="icon" 
+   795→                    className="h-8 w-8"
+   796→                    onClick={() => copyToClipboard(selectedPayment.walletAddress)}
+   797→                  >
+   798→                    <Copy className="h-4 w-4" />
+   799→                  </Button>
+   800→                </div>
+   801→              </div>
+   802→            </div>
+   803→          )}
+   804→        </DialogContent>
+   805→      </Dialog>
+   806→    </div>
+   807→  )
+   808→}
+   809→

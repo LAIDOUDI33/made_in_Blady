@@ -116,7 +116,7 @@ export function ARProductCard({
           // Create model viewer element
           const viewer = document.createElement('model-viewer') as HTMLElement
           viewer.src = modelUrl
-          viewer.alt={`${name} - Quick Preview`}
+          viewer.alt = name + " - Quick Preview"
           viewer.autoRotate = true
           viewer.cameraControls = false
           viewer.setAttribute('touch-action', 'none')

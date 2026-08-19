@@ -1,0 +1,928 @@
+     1→'use client'
+     2→
+     3→import React, { useState, useEffect } from 'react'
+     4→import { 
+     5→  Phone,
+     6→  Video,
+     7→  PhoneOff,
+     8→  Clock,
+     9→  Signal,
+    10→  Mic,
+    11→  MicOff,
+    12→  Download,
+    13→  RefreshCw,
+    14→  Filter,
+    15→  Eye,
+    16→  MoreVertical,
+    17→  Activity,
+    18→  Users,
+    19→  Volume2,
+    20→  AlertTriangle,
+    21→  CheckCircle2,
+    22→  XCircle,
+    23→  Pause,
+    24→  Play
+    25→} from 'lucide-react'
+    26→import { Button } from '@/components/ui/button'
+    27→import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+    28→import { Badge } from '@/components/ui/badge'
+    29→import { Progress } from '@/components/ui/progress'
+    30→import {
+    31→  Table,
+    32→  TableBody,
+    33→  TableCell,
+    34→  TableHead,
+    35→  TableHeader,
+    36→  TableRow,
+    37→} from '@/components/ui/table'
+    38→import {
+    39→  Dialog,
+    40→  DialogContent,
+    41→  DialogHeader,
+    42→  DialogTitle,
+    43→  DialogTrigger,
+    44→} from '@/components/ui/dialog'
+    45→import {
+    46→  DropdownMenu,
+    47→  DropdownMenuContent,
+    48→  DropdownMenuItem,
+    49→  DropdownMenuTrigger,
+    50→} from '@/components/ui/dropdown-menu'
+    51→import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+    52→
+    53→// Types
+    54→interface CallRecord {
+    55→  id: string
+    56→  callId: string
+    57→  callerName: string
+    58→  callerCompany: string
+    59→  calleeName: string
+    60→  calleeCompany: string
+    61→  type: 'AUDIO' | 'VIDEO'
+    62→  status: 'IN_PROGRESS' | 'COMPLETED' | 'MISSED' | 'DECLINED' | 'FAILED'
+    63→  duration: number // in seconds
+    64→  quality: 'EXCELLENT' | 'GOOD' | 'FAIR' | 'POOR'
+    65→  hasRecording: boolean
+    66→  recordingUrl?: string
+    67→  startedAt: string
+    68→  endedAt?: string
+    69→  networkType: 'wifi' | 'cellular' | 'unknown'
+    70→  iceCandidates: number
+    71→}
+    72→
+    73→interface LiveCall extends CallRecord {
+    74→  currentDuration: number
+    75→  isMuted: boolean
+    76→  isVideoEnabled: boolean
+    77→}
+    78→
+    79→// Mock Data - 28 call records
+    80→const mockCallHistory: CallRecord[] = [
+    81→  {
+    82→    id: '1', callId: 'CALL-2025-001', callerName: 'Ahmed Benali', callerCompany: 'TechnoDz Sarl',
+    83→    calleeName: 'Karim Hadj', calleeCompany: 'HardwarePro Algeria',
+    84→    type: 'VIDEO', status: 'COMPLETED', duration: 342, quality: 'EXCELLENT',
+    85→    hasRecording: true, recordingUrl: '/recordings/call001.webm',
+    86→    startedAt: '2025-01-20T10:30:00', endedAt: '2025-01-20T10:35:42',
+    87→    networkType: 'wifi', iceCandidates: 8
+    88→  },
+    89→  {
+    90→    id: '2', callId: 'CALL-2025-002', callerName: 'Fatima Zerhouni', callerCompany: 'ModeStyle Algérie',
+    91→    calleeName: 'Yacine Boudiaf', calleeCompany: 'TextileExport',
+    92→    type: 'AUDIO', status: 'COMPLETED', duration: 185, quality: 'GOOD',
+    93→    hasRecording: true, recordingUrl: '/recordings/call002.webm',
+    94→    startedAt: '2025-01-20T11:15:00', endedAt: '2025-01-20T11:18:05',
+    95→    networkType: 'cellular', iceCandidates: 6
+    96→  },
+    97→  {
+    98→    id: '3', callId: 'CALL-2025-003', callerName: 'Mohamed Amine', callerCompany: 'AgroPlus DZ',
+    99→    calleeName: 'Sara Mellal', calleeCompany: 'FarmEquipment Co.',
+   100→    type: 'VIDEO', status: 'COMPLETED', duration: 567, quality: 'GOOD',
+   101→    hasRecording: true, recordingUrl: '/recordings/call003.webm',
+   102→    startedAt: '2025-01-20T09:00:00', endedAt: '2025-01-20T09:09:27',
+   103→    networkType: 'wifi', iceCandidates: 9
+   104→  },
+   105→  {
+   106→    id: '4', callId: 'CALL-2025-004', callerName: 'Nadia Bouazza', callerCompany: 'PharmaDist Algerie',
+   107→    calleeName: 'Omar Kaci', calleeCompany: 'MedSupply Intl',
+   108→    type: 'VIDEO', status: 'MISSED', duration: 0, quality: 'FAIR',
+   109→    hasRecording: false,
+   110→    startedAt: '2025-01-20T14:30:00',
+   111→    networkType: 'unknown', iceCandidates: 2
+   112→  },
+   113→  {
+   114→    id: '5', callId: 'CALL-2025-005', callerName: 'Rachid Hamadi', callerCompany: 'AutoParts DZ',
+   115→    calleeName: 'Leila Mansouri', calleeCompany: 'EuroAuto Parts',
+   116→    type: 'AUDIO', status: 'DECLINED', duration: 0, quality: 'POOR',
+   117→    hasRecording: false,
+   118→    startedAt: '2025-01-20T13:45:00',
+   119→    networkType: 'cellular', iceCandidates: 1
+   120→  },
+   121→  {
+   122→    id: '6', callId: 'CALL-2025-006', callerName: 'Samira Khelifi', callerCompany: 'BeautyZone',
+   123→    calleeName: 'Tarek Beghloul', calleeCompany: 'CosmoTrade',
+   124→    type: 'VIDEO', status: 'COMPLETED', duration: 423, quality: 'EXCELLENT',
+   125→    hasRecording: true, recordingUrl: '/recordings/call006.webm',
+   126→    startedAt: '2025-01-19T16:20:00', endedAt: '2025-01-19T16:27:03',
+   127→    networkType: 'wifi', iceCandidates: 7
+   128→  },
+   129→  {
+   130→    id: '7', callId: 'CALL-2025-007', callerName: 'Kamel Djellouli', callerCompany: 'ElectroDz',
+   131→    calleeName: 'Nora Belmokhtar', calleeCompany: 'TechComponents SA',
+   132→    type: 'VIDEO', status: 'FAILED', duration: 12, quality: 'POOR',
+   133→    hasRecording: false,
+   134→    startedAt: '2025-01-19T15:30:00', endedAt: '2025-01-19T15:30:12',
+   135→    networkType: 'cellular', iceCandidates: 3
+   136→  },
+   137→  {
+   138→    id: '8', callId: 'CALL-2025-008', callerName: 'Amina Toubal', callerCompany: 'HomeDecor Plus',
+   139→    calleeName: 'Farid Meziane', calleeCompany: 'FurnitureExport',
+   140→    type: 'AUDIO', status: 'COMPLETED', duration: 298, quality: 'GOOD',
+   141→    hasRecording: true, recordingUrl: '/recordings/call008.webm',
+   142→    startedAt: '2025-01-19T14:00:00', endedAt: '2025-01-19T14:04:58',
+   143→    networkType: 'wifi', iceCandidates: 8
+   144→  },
+   145→  {
+   146→    id: '9', callId: 'CALL-2025-009', callerName: 'Youssef Brahimi', callerCompany: 'SportGear DZ',
+   147→    calleeName: 'Ines Rahmani', calleeCompany: 'AthleticSupplies',
+   148→    type: 'VIDEO', status: 'COMPLETED', duration: 156, quality: 'EXCELLENT',
+   149→    hasRecording: true, recordingUrl: '/recordings/call009.webm',
+   150→    startedAt: '2025-01-19T11:30:00', endedAt: '2025-01-19T11:32:36',
+   151→    networkType: 'wifi', iceCandidates: 10
+   152→  },
+   153→  {
+   154→    id: '10', callId: 'CALL-2025-010', callerName: 'Lina Messaoudi', callerCompany: 'BookWorld Algeria',
+   155→    calleeName: 'Mourad Medelci', calleeCompany: 'EduPublish Intl',
+   156→    type: 'AUDIO', status: 'COMPLETED', duration: 445, quality: 'GOOD',
+   157→    hasRecording: true, recordingUrl: '/recordings/call010.webm',
+   158→    startedAt: '2025-01-18T10:15:00', endedAt: '2025-01-18T10:22:05',
+   159→    networkType: 'cellular', iceCandidates: 5
+   160→  },
+   161→  {
+   162→    id: '11', callId: 'CALL-2025-011', callerName: 'Omar Fettouhi', callerCompany: 'BuildMat Pro',
+   163→    calleeName: 'Salima Ait Ali', calleeCompany: 'ConstructionSupply',
+   164→    type: 'VIDEO', status: 'COMPLETED', duration: 678, quality: 'EXCELLENT',
+   165→    hasRecording: true, recordingUrl: '/recordings/call011.webm',
+   166→    startedAt: '2025-01-18T09:00:00', endedAt: '2025-01-18T09:11:18',
+   167→    networkType: 'wifi', iceCandidates: 9
+   168→  },
+   169→  {
+   170→    id: '12', callId: 'CALL-2025-012', callerName: 'Hafsa Amrani', callerCompany: 'FoodService DZ',
+   171→    calleeName: 'Reda Benhammou', calleeCompany: 'RestaurantEquip',
+   172→    type: 'AUDIO', status: 'MISSED', duration: 0, quality: 'FAIR',
+   173→    hasRecording: false,
+   174→    startedAt: '2025-01-17T16:45:00',
+   175→    networkType: 'unknown', iceCandidates: 0
+   176→  },
+   177→  {
+   178→    id: '13', callId: 'CALL-2025-013', callerName: 'Bilal Charef', callerCompany: 'IT Solutions DZ',
+   179→    calleeName: 'Amira Bouteflika', calleeCompany: 'SoftwareHub',
+   180→    type: 'VIDEO', status: 'COMPLETED', duration: 892, quality: 'GOOD',
+   181→    hasRecording: true, recordingUrl: '/recordings/call013.webm',
+   182→    startedAt: '2025-01-17T14:00:00', endedAt: '2025-01-17T14:14:52',
+   183→    networkType: 'wifi', iceCandidates: 8
+   184→  },
+   185→  {
+   186→    id: '14', callId: 'CALL-2025-014', callerName: 'Meriem Kaced', callerCompany: 'GreenGarden DZ',
+   187→    calleeName: 'Nabil Ouldali', calleeCompany: 'AgriTech Supply',
+   188→    type: 'VIDEO', status: 'COMPLETED', duration: 334, quality: 'EXCELLENT',
+   189→    hasRecording: true, recordingUrl: '/recordings/call014.webm',
+   190→    startedAt: '2025-01-16T11:30:00', endedAt: '2025-01-16T11:35:34',
+   191→    networkType: 'wifi', iceCandidates: 7
+   192→  },
+   193→  {
+   194→    id: '15', callId: 'CALL-2025-015', callerName: 'Abdelkrim Haddad', callerCompany: 'MetalWorks Co',
+   195→    calleeName: 'Dalila Bensaid', calleeCompany: 'SteelImport',
+   196→    type: 'AUDIO', status: 'DECLINED', duration: 0, quality: 'FAIR',
+   197→    hasRecording: false,
+   198→    startedAt: '2025-01-16T09:20:00',
+   199→    networkType: 'cellular', iceCandidates: 2
+   200→  },
+   201→  {
+   202→    id: '16', callId: 'CALL-2025-016', callerName: 'Nourhane Sadki', callerCompany: 'FashionHub DZ',
+   203→    calleeName: 'Karim Mebarki', calleeCompany: 'TextilePremium',
+   204→    type: 'VIDEO', status: 'COMPLETED', duration: 267, quality: 'GOOD',
+   205→    hasRecording: true, recordingUrl: '/recordings/call016.webm',
+   206→    startedAt: '2025-01-15T15:45:00', endedAt: '2025-01-15T15:49:27',
+   207→    networkType: 'wifi', iceCandidates: 6
+   208→  },
+   209→  {
+   210→    id: '17', callId: 'CALL-2025-017', callerName: 'Imene Boudjelida', callerCompany: 'CleanPro Services',
+   211→    calleeName: 'Yacine Sadi', calleeCompany: 'JanitorialSupply',
+   212→    type: 'AUDIO', status: 'COMPLETED', duration: 178, quality: 'EXCELLENT',
+   213→    hasRecording: true, recordingUrl: '/recordings/call017.webm',
+   214→    startedAt: '2025-01-15T13:00:00', endedAt: '2025-01-15T13:02:58',
+   215→    networkType: 'cellular', iceCandidates: 5
+   216→  },
+   217→  {
+   218→    id: '18', callId: 'CALL-2025-018', callerName: 'Tarek Boussaid', callerCompany: 'SecurityFirst DZ',
+   219→    calleeName: 'Wassila Laifa', calleeCompany: 'SecuritySystems',
+   220→    type: 'VIDEO', status: 'COMPLETED', duration: 512, quality: 'GOOD',
+   221→    hasRecording: true, recordingUrl: '/recordings/call018.webm',
+   222→    startedAt: '2025-01-14T10:30:00', endedAt: '2025-01-14T10:38:32',
+   223→    networkType: 'wifi', iceCandidates: 9
+   224→  },
+   225→  {
+   226→    id: '19', callId: 'CALL-2025-019', callerName: 'Sara Mellal', callerCompany: 'FarmEquipment Co.',
+   227→    calleeName: 'Mohamed Amine', calleeCompany: 'AgroPlus DZ',
+   228→    type: 'VIDEO', status: 'COMPLETED', duration: 445, quality: 'EXCELLENT',
+   229→    hasRecording: true, recordingUrl: '/recordings/call019.webm',
+   230→    startedAt: '2025-01-14T09:15:00', endedAt: '2025-01-14T09:22:05',
+   231→    networkType: 'wifi', iceCandidates: 8
+   232→  },
+   233→  {
+   234→    id: '20', callId: 'CALL-2025-020', callerName: 'Leila Mansouri', callerCompany: 'EuroAuto Parts',
+   235→    calleeName: 'Rachid Hamadi', calleeCompany: 'AutoParts DZ',
+   236→    type: 'AUDIO', status: 'MISSED', duration: 0, quality: 'FAIR',
+   237→    hasRecording: false,
+   238→    startedAt: '2025-01-13T17:00:00',
+   239→    networkType: 'unknown', iceCandidates: 1
+   240→  },
+   241→  {
+   242→    id: '21', callId: 'CALL-2025-021', callerName: 'Farid Meziane', callerCompany: 'FurnitureExport',
+   243→    calleeName: 'Amina Toubal', calleeCompany: 'HomeDecor Plus',
+   244→    type: 'VIDEO', status: 'COMPLETED', duration: 389, quality: 'GOOD',
+   245→    hasRecording: true, recordingUrl: '/recordings/call021.webm',
+   246→    startedAt: '2025-01-13T14:30:00', endedAt: '2025-01-13T14:36:29',
+   247→    networkType: 'wifi', iceCandidates: 7
+   248→  },
+   249→  {
+   250→    id: '22', callId: 'CALL-2025-022', callerName: 'Omar Kaci', callerCompany: 'MedSupply Intl',
+   251→    calleeName: 'Nadia Bouazza', calleeCompany: 'PharmaDist Algerie',
+   252→    type: 'VIDEO', status: 'FAILED', duration: 8, quality: 'POOR',
+   253→    hasRecording: false,
+   254→    startedAt: '2025-01-12T11:00:00', endedAt: '2025-01-12T11:00:08',
+   255→    networkType: 'cellular', iceCandidates: 2
+   256→  },
+   257→  {
+   258→    id: '23', callId: 'CALL-2025-023', callerName: 'Yacine Boudiaf', callerCompany: 'TextileExport',
+   259→    calleeName: 'Fatima Zerhouni', calleeCompany: 'ModeStyle Algérie',
+   260→    type: 'AUDIO', status: 'COMPLETED', duration: 234, quality: 'EXCELLENT',
+   261→    hasRecording: true, recordingUrl: '/recordings/call023.webm',
+   262→    startedAt: '2025-01-12T09:45:00', endedAt: '2025-01-12T09:49:14',
+   263→    networkType: 'wifi', iceCandidates: 6
+   264→  },
+   265→  {
+   266→    id: '24', callId: 'CALL-2025-024', callerName: 'Nora Belmokhtar', callerCompany: 'TechComponents SA',
+   267→    calleeName: 'Kamel Djellouli', calleeCompany: 'ElectroDz',
+   268→    type: 'VIDEO', status: 'COMPLETED', duration: 567, quality: 'GOOD',
+   269→    hasRecording: true, recordingUrl: '/recordings/call024.webm',
+   270→    startedAt: '2025-01-11T13:20:00', endedAt: '2025-01-11T13:29:27',
+   271→    networkType: 'wifi', iceCandidates: 9
+   272→  },
+   273→  {
+   274→    id: '25', callId: 'CALL-2025-025', callerName: 'Tarek Beghloul', callerCompany: 'CosmoTrade',
+   275→    calleeName: 'Samira Khelifi', calleeCompany: 'BeautyZone',
+   276→    type: 'VIDEO', status: 'COMPLETED', duration: 178, quality: 'EXCELLENT',
+   277→    hasRecording: true, recordingUrl: '/recordings/call025.webm',
+   278→    startedAt: '2025-01-11T10:00:00', endedAt: '2025-01-11T10:02:58',
+   279→    networkType: 'wifi', iceCandidates: 8
+   280→  },
+   281→  {
+   282→    id: '26', callId: 'CALL-2025-026', callerName: 'Salima Ait Ali', callerCompany: 'ConstructionSupply',
+   283→    calleeName: 'Omar Fettouhi', calleeCompany: 'BuildMat Pro',
+   284→    type: 'AUDIO', status: 'DECLINED', duration: 0, quality: 'FAIR',
+   285→    hasRecording: false,
+   286→    startedAt: '2025-01-10T16:30:00',
+   287→    networkType: 'cellular', iceCandidates: 1
+   288→  },
+   289→  {
+   290→    id: '27', callId: 'CALL-2025-027', callerName: 'Reda Benhammou', callerCompany: 'RestaurantEquip',
+   291→    calleeName: 'Hafsa Amrani', calleeCompany: 'FoodService DZ',
+   292→    type: 'VIDEO', status: 'COMPLETED', duration: 423, quality: 'GOOD',
+   293→    hasRecording: true, recordingUrl: '/recordings/call027.webm',
+   294→    startedAt: '2025-01-10T14:00:00', endedAt: '2025-01-10T14:07:03',
+   295→    networkType: 'wifi', iceCandidates: 7
+   296→  },
+   297→  {
+   298→    id: '28', callId: 'CALL-2025-028', callerName: 'Amira Bouteflika', callerCompany: 'SoftwareHub',
+   299→    calleeName: 'Bilal Charef', calleeCompany: 'IT Solutions DZ',
+   300→    type: 'VIDEO', status: 'COMPLETED', duration: 756, quality: 'EXCELLENT',
+   301→    hasRecording: true, recordingUrl: '/recordings/call028.webm',
+   302→    startedAt: '2025-01-09T09:30:00', endedAt: '2025-01-09T09:42:36',
+   303→    networkType: 'wifi', iceCandidates: 10
+   304→  }
+   305→]
+   306→
+   307→// Simulated live calls (3 active)
+   308→const initialLiveCalls: LiveCall[] = [
+   309→  {
+   310→    ...mockCallHistory[0], currentDuration: 245, isMuted: false, isVideoEnabled: true
+   311→  } as LiveCall,
+   312→]
+   313→
+   314→export default function CallsAdminPage() {
+   315→  const [callHistory] = useState<CallRecord[]>(mockCallHistory)
+   316→  const [liveCalls, setLiveCalls] = useState<LiveCall[]>(initialLiveCalls)
+   317→  const [selectedStatus, setSelectedStatus] = useState<string>('all')
+   318→  const [selectedType, setSelectedType] = useState<string>('all')
+   319→  const [searchQuery, setSearchQuery] = useState('')
+   320→  const [isRefreshing, setIsRefreshing] = useState(false)
+   321→
+   322→  // Simulate live call duration updates
+   323→  useEffect(() => {
+   324→    const interval = setInterval(() => {
+   325→      setLiveCalls(prev => prev.map(call => ({
+   326→        ...call,
+   327→        currentDuration: call.currentDuration + 1
+   328→      })))
+   329→    }, 1000)
+   330→
+   331→    return () => clearInterval(interval)
+   332→  }, [])
+   333→
+   334→  const handleRefresh = async () => {
+   335→    setIsRefreshing(true)
+   336→    await new Promise(resolve => setTimeout(resolve, 1000))
+   337→    setIsRefreshing(false)
+   338→  }
+   339→
+   340→  const handleEndCall = (callId: string) => {
+   341→    setLiveCalls(prev => prev.filter(c => c.id !== callId))
+   342→  }
+   343→
+   344→  const handleToggleMute = (callId: string) => {
+   345→    setLiveCalls(prev => prev.map(c =>
+   346→      c.id === callId ? { ...c, isMuted: !c.isMuted } : c
+   347→    ))
+   348→  }
+   349→
+   350→  // Calculate stats
+   351→  const activeCallsToday = liveCalls.length
+   352→  const totalDuration = callHistory
+   353→    .filter(c => c.status === 'COMPLETED')
+   354→    .reduce((sum, c) => sum + c.duration, 0)
+   355→  
+   356→  const avgCallQuality = (() => {
+   357→    const completedCalls = callHistory.filter(c => c.status === 'COMPLETED')
+   358→    if (completedCalls.length === 0) return 'N/A'
+   359→    
+   360→    const qualityScores = { EXCELLENT: 4, GOOD: 3, FAIR: 2, POOR: 1 }
+   361→    const avgScore = completedCalls.reduce((sum, c) => 
+   362→      sum + (qualityScores[c.quality] || 0), 0) / completedCalls.length
+   363→    
+   364→    if (avgScore >= 3.5) return 'Excellent'
+   365→    if (avgScore >= 2.5) return 'Good'
+   366→    if (avgScore >= 1.5) return 'Fair'
+   367→    return 'Poor'
+   368→  })()
+   369→
+   370→  const recordedCallsCount = callHistory.filter(c => c.hasRecording).length
+   371→
+   372→  // Filter calls
+   373→  const filteredCalls = callHistory.filter(call => {
+   374→    if (selectedStatus !== 'all' && call.status !== selectedStatus) return false
+   375→    if (selectedType !== 'all' && call.type !== selectedType) return false
+   376→    if (searchQuery) {
+   377→      const query = searchQuery.toLowerCase()
+   378→      return (
+   379→        call.callId.toLowerCase().includes(query) ||
+   380→        call.callerName.toLowerCase().includes(query) ||
+   381→        call.calleeName.toLowerCase().includes(query) ||
+   382→        call.callerCompany.toLowerCase().includes(query) ||
+   383→        call.calleeCompany.toLowerCase().includes(query)
+   384→      )
+   385→    }
+   386→    return true
+   387→  })
+   388→
+   389→  const getStatusBadge = (status: CallRecord['status']) => {
+   390→    switch (status) {
+   391→      case 'IN_PROGRESS':
+   392→        return <Badge className="bg-green-100 text-green-700 border-green-200 animate-pulse flex items-center gap-1">
+   393→          <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+   394→          In Progress
+   395→        </Badge>
+   396→      case 'COMPLETED':
+   397→        return <Badge className="bg-blue-100 text-blue-700 border-blue-200">Completed</Badge>
+   398→      case 'MISSED':
+   399→        return <Badge className="bg-yellow-100 text-yellow-700 border-yellow-200">Missed</Badge>
+   400→      case 'DECLINED':
+   401→        return <Badge className="bg-red-100 text-red-700 border-red-200">Declined</Badge>
+   402→      case 'FAILED':
+   403→        return <Badge className="bg-gray-100 text-gray-700 border-gray-200">Failed</Badge>
+   404→      default:
+   405→        return <Badge variant="secondary">{status}</Badge>
+   406→    }
+   407→  }
+   408→
+   409→  const getQualityBadge = (quality: CallRecord['quality']) => {
+   410→    switch (quality) {
+   411→      case 'EXCELLENT':
+   412→        return <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">Excellent</Badge>
+   413→      case 'GOOD':
+   414→        return <Badge className="bg-blue-100 text-blue-700 border-blue-200">Good</Badge>
+   415→      case 'FAIR':
+   416→        return <Badge className="bg-yellow-100 text-yellow-700 border-yellow-200">Fair</Badge>
+   417→      case 'POOR':
+   418→        return <Badge className="bg-red-100 text-red-700 border-red-200">Poor</Badge>
+   419→      default:
+   420→        return <Badge variant="secondary">{quality}</Badge>
+   421→    }
+   422→  }
+   423→
+   424→  const getQualityColor = (quality: CallRecord['quality']) => {
+   425→    switch (quality) {
+   426→      case 'EXCELLENT': return 'text-emerald-500'
+   427→      case 'GOOD': return 'text-blue-500'
+   428→      case 'FAIR': return 'text-yellow-500'
+   429→      case 'POOR': return 'text-red-500'
+   430→      default: return 'text-gray-500'
+   431→    }
+   432→  }
+   433→
+   434→  const formatDuration = (seconds: number) => {
+   435→    const mins = Math.floor(seconds / 60)
+   436→    const secs = seconds % 60
+   437→    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+   438→  }
+   439→
+   440→  const formatDateTime = (dateStr: string) => {
+   441→    return new Date(dateStr).toLocaleString('fr-FR', {
+   442→      day: '2-digit',
+   443→      month: 'short',
+   444→      hour: '2-digit',
+   445→      minute: '2-digit'
+   446→    })
+   447→  }
+   448→
+   449→  return (
+   450→    <div className="space-y-6">
+   451→      {/* Header */}
+   452→      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+   453→        <div>
+   454→          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
+   455→            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-600 to-blue-600 flex items-center justify-center">
+   456→              <Phone className="w-5 h-5 text-white" />
+   457→            </div>
+   458→            WebRTC Calls Monitor
+   459→          </h1>
+   460→          <p className="text-sm text-gray-500 mt-1">
+   461→            Real-time voice and video call administration
+   462→          </p>
+   463→        </div>
+   464→
+   465→        <div className="flex items-center gap-2">
+   466→          <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isRefreshing}>
+   467→            <RefreshCw className={`mr-2 h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+   468→            Refresh
+   469→          </Button>
+   470→          <Button variant="outline" size="sm">
+   471→            <Download className="mr-2 h-4 w-4" />
+   472→            Export
+   473→          </Button>
+   474→        </div>
+   475→      </div>
+   476→
+   477→      {/* Stats Cards */}
+   478→      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+   479→        <Card className={activeCallsToday > 0 ? 'border-green-300 bg-green-50/30' : ''}>
+   480→          <CardContent className="pt-6">
+   481→            <div className="flex items-center justify-between">
+   482→              <div>
+   483→                <p className="text-sm font-medium text-gray-500">Active Calls</p>
+   484→                <p className={`text-2xl font-bold mt-1 ${activeCallsToday > 0 ? 'text-green-600' : ''}`}>
+   485→                  {activeCallsToday}
+   486→                </p>
+   487→                <p className="text-xs text-gray-500 mt-1">Live now</p>
+   488→              </div>
+   489→              <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+   490→                activeCallsToday > 0 ? 'bg-green-100' : 'bg-gray-100'
+   491→              }`}>
+   492→                <Phone className={`w-6 h-6 ${activeCallsToday > 0 ? 'text-green-600 animate-pulse' : 'text-gray-400'}`} />
+   493→              </div>
+   494→            </div>
+   495→          </CardContent>
+   496→        </Card>
+   497→
+   498→        <Card>
+   499→          <CardContent className="pt-6">
+   500→            <div className="flex items-center justify-between">
+   501→              <div>
+   502→                <p className="text-sm font-medium text-gray-500">Total Duration Today</p>
+   503→                <p className="text-2xl font-bold mt-1">{formatDuration(totalDuration)}</p>
+   504→                <p className="text-xs text-gray-500 mt-1">Completed calls</p>
+   505→              </div>
+   506→              <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center">
+   507→                <Clock className="w-6 h-6 text-blue-600" />
+   508→              </div>
+   509→            </div>
+   510→          </CardContent>
+   511→        </Card>
+   512→
+   513→        <Card>
+   514→          <CardContent className="pt-6">
+   515→            <div className="flex items-center justify-between">
+   516→              <div>
+   517→                <p className="text-sm font-medium text-gray-500">Avg. Quality</p>
+   518→                <p className="text-2xl font-bold mt-1">{avgCallQuality}</p>
+   519→                <p className="text-xs text-gray-500 mt-1">Overall rating</p>
+   520→              </div>
+   521→              <div className="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center">
+   522→                <Signal className="w-6 h-6 text-purple-600" />
+   523→              </div>
+   524→            </div>
+   525→          </CardContent>
+   526→        </Card>
+   527→
+   528→        <Card>
+   529→          <CardContent className="pt-6">
+   530→            <div className="flex items-center justify-between">
+   531→              <div>
+   532→                <p className="text-sm font-medium text-gray-500">Recorded Calls</p>
+   533→                <p className="text-2xl font-bold mt-1">{recordedCallsCount}</p>
+   534→                <p className="text-xs text-gray-500 mt-1">of {callHistory.length} total</p>
+   535→              </div>
+   536→              <div className="w-12 h-12 rounded-xl bg-orange-100 flex items-center justify-center">
+   537→                <Volume2 className="w-6 h-6 text-orange-600" />
+   538→              </div>
+   539→            </div>
+   540→          </CardContent>
+   541→        </Card>
+   542→      </div>
+   543→
+   544→      {/* Main Content */}
+   545→      <Tabs defaultValue="live" className="space-y-6">
+   546→        <TabsList>
+   547→          <TabsTrigger value="live" className="gap-2">
+   548→            {activeCallsToday > 0 && (
+   549→              <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+   550→            )}
+   551→            Live Calls ({activeCallsToday})
+   552→          </TabsTrigger>
+   553→          <TabsTrigger value="history">Call History ({callHistory.length})</TabsTrigger>
+   554→          <TabsTrigger value="analytics">Analytics</TabsTrigger>
+   555→        </TabsList>
+   556→
+   557→        {/* Live Calls Tab */}
+   558→        <TabsContent value="live" className="space-y-6">
+   559→          {liveCalls.length === 0 ? (
+   560→            <Card>
+   561→              <CardContent className="py-12 text-center">
+   562→                <Phone className="w-16 h-16 mx-auto text-gray-300 mb-4" />
+   563→                <h3 className="text-lg font-medium text-gray-700 mb-2">No Active Calls</h3>
+   564→                <p className="text-sm text-gray-500">
+   565→                  There are no calls in progress at the moment.
+   566→                </p>
+   567→              </CardContent>
+   568→            </Card>
+   569→          ) : (
+   570→            <Card>
+   571→              <CardHeader className="pb-4">
+   572→                <CardTitle className="text-lg flex items-center gap-2 text-green-600">
+   573→                  <span className="w-3 h-3 rounded-full bg-green-500 animate-pulse"></span>
+   574→                  Active Calls Now
+   575→                </CardTitle>
+   576→              </CardHeader>
+   577→              
+   578→              <CardContent className="space-y-4">
+   579→                {liveCalls.map((call) => (
+   580→                  <div key={call.id} className="p-4 border rounded-lg bg-gradient-to-r from-green-50 to-emerald-50 border-green-200">
+   581→                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+   582→                      <div className="flex items-center gap-4">
+   583→                        <div className="relative">
+   584→                          <div className="w-12 h-12 rounded-full bg-green-500 flex items-center justify-center">
+   585→                            {call.type === 'VIDEO' ? (
+   586→                              <Video className="w-6 h-6 text-white" />
+   587→                            ) : (
+   588→                              <Phone className="w-6 h-6 text-white" />
+   589→                            )}
+   590→                          </div>
+   591→                          <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-red-500 animate-pulse border-2 border-white"></span>
+   592→                        </div>
+   593→                        
+   594→                        <div>
+   595→                          <div className="flex items-center gap-2 mb-1">
+   596→                            <span className="font-semibold">{call.callerName}</span>
+   597→                            <span className="text-gray-400">→</span>
+   598→                            <span className="font-semibold">{call.calleeName}</span>
+   599→                          </div>
+   600→                          <div className="text-sm text-gray-500">
+   601→                            {call.callId} • {call.type === 'VIDEO' ? 'Video' : 'Audio'} Call
+   602→                          </div>
+   603→                        </div>
+   604→                      </div>
+   605→
+   606→                      <div className="flex items-center gap-4">
+   607→                        <div className="text-right">
+   608→                          <p className="text-2xl font-mono font-bold text-green-600">
+   609→                            {formatDuration(call.currentDuration)}
+   610→                          </p>
+   611→                          <p className="text-xs text-gray-500">Duration</p>
+   612→                        </div>
+   613→
+   614→                        <div className="flex items-center gap-2">
+   615→                          <Button
+   616→                            variant="outline"
+   617→                            size="icon"
+   618→                            onClick={() => handleToggleMute(call.id)}
+   619→                            title={call.isMuted ? 'Unmute' : 'Mute'}
+   620→                          >
+   621→                            {call.isMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+   622→                          </Button>
+   623→                          
+   624→                          <Dialog>
+   625→                            <DialogTrigger asChild>
+   626→                              <Button variant="outline" size="icon" title="Monitor">
+   627→                                <Eye className="w-4 h-4" />
+   628→                              </Button>
+   629→                            </DialogTrigger>
+   630→                            <DialogContent className="max-w-2xl">
+   631→                              <DialogHeader>
+   632→                                <DialogTitle>Monitor Call: {call.callId}</DialogTitle>
+   633→                              </DialogHeader>
+   634→                              <div className="py-4 space-y-4">
+   635→                                <div className="grid grid-cols-2 gap-4">
+   636→                                  <div className="p-4 bg-gray-50 rounded-lg">
+   637→                                    <p className="text-sm text-gray-500">Caller</p>
+   638→                                    <p className="font-semibold">{call.callerName}</p>
+   639→                                    <p className="text-sm text-gray-600">{call.callerCompany}</p>
+   640→                                  </div>
+   641→                                  <div className="p-4 bg-gray-50 rounded-lg">
+   642→                                    <p className="text-sm text-gray-500">Callee</p>
+   643→                                    <p className="font-semibold">{call.calleeName}</p>
+   644→                                    <p className="text-sm text-gray-600">{call.calleeCompany}</p>
+   645→                                  </div>
+   646→                                </div>
+   647→                                
+   648→                                <div className="p-4 bg-black rounded-lg aspect-video flex items-center justify-center">
+   649→                                  <Video className="w-16 h-16 text-gray-600" />
+   650→                                </div>
+   651→                                
+   652→                                <div className="flex justify-center gap-4">
+   653→                                  <Button variant="destructive" onClick={() => handleEndCall(call.id)}>
+   654→                                    <PhoneOff className="mr-2 h-4 w-4" />
+   655→                                    End Call
+   656→                                  </Button>
+   657→                                </div>
+   658→                              </div>
+   659→                            </DialogContent>
+   660→                          </Dialog>
+   661→
+   662→                          <Button
+   663→                            variant="destructive"
+   664→                            size="icon"
+   665→                            onClick={() => handleEndCall(call.id)}
+   666→                            title="End Call"
+   667→                          >
+   668→                            <PhoneOff className="w-4 h-4" />
+   669→                          </Button>
+   670→                        </div>
+   671→                      </div>
+   672→                    </div>
+   673→                  </div>
+   674→                ))}
+   675→              </CardContent>
+   676→            </Card>
+   677→          )}
+   678→        </TabsContent>
+   679→
+   680→        {/* History Tab */}
+   681→        <TabsContent value="history" className="space-y-6">
+   682→          <Card>
+   683→            <CardHeader className="pb-4">
+   684→              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+   685→                <CardTitle className="text-lg flex items-center gap-2">
+   686→                  <Clock className="w-5 h-5 text-blue-500" />
+   687→                  Call History
+   688→                </CardTitle>
+   689→                
+   690→                <div className="flex items-center gap-2">
+   691→                  <input
+   692→                    type="text"
+   693→                    placeholder="Search by name, ID..."
+   694→                    value={searchQuery}
+   695→                    onChange={(e) => setSearchQuery(e.target.value)}
+   696→                    className="px-3 py-2 text-sm border rounded-lg w-48 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+   697→                  />
+   698→                </div>
+   699→              </div>
+   700→
+   701→              {/* Filters */}
+   702→              <div className="flex flex-wrap gap-2 mt-4">
+   703→                <select
+   704→                  value={selectedStatus}
+   705→                  onChange={(e) => setSelectedStatus(e.target.value)}
+   706→                  className="text-sm border rounded-md px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+   707→                >
+   708→                  <option value="all">All Statuses</option>
+   709→                  <option value="COMPLETED">Completed</option>
+   710→                  <option value="MISSED">Missed</option>
+   711→                  <option value="DECLINED">Declined</option>
+   712→                  <option value="FAILED">Failed</option>
+   713→                </select>
+   714→
+   715→                <select
+   716→                  value={selectedType}
+   717→                  onChange={(e) => setSelectedType(e.target.value)}
+   718→                  className="text-sm border rounded-md px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+   719→                >
+   720→                  <option value="all">All Types</option>
+   721→                  <option value="AUDIO">Audio Only</option>
+   722→                  <option value="VIDEO">Video</option>
+   723→                </select>
+   724→              </div>
+   725→            </CardHeader>
+   726→
+   727→            <CardContent>
+   728→              <div className="overflow-x-auto">
+   729→                <Table>
+   730→                  <TableHeader>
+   731→                    <TableRow>
+   732→                      <TableHead>ID</TableHead>
+   733→                      <TableHead>Participants</TableHead>
+   734→                      <TableHead>Type</TableHead>
+   735→                      <TableHead className="text-right">Duration</TableHead>
+   736→                      <TableHead>Status</TableHead>
+   737→                      <TableHead>Quality</TableHead>
+   738→                      <TableHead>Recording</TableHead>
+   739→                      <TableHead>Started At</TableHead>
+   740→                      <TableHead className="text-right">Actions</TableHead>
+   741→                    </TableRow>
+   742→                  </TableHeader>
+   743→                  <TableBody>
+   744→                    {filteredCalls.slice(0, 20).map((call) => (
+   745→                      <TableRow key={call.id}>
+   746→                        <TableCell>
+   747→                          <code className="font-mono text-xs">{call.callId}</code>
+   748→                        </TableCell>
+   749→                        <TableCell>
+   750→                          <div>
+   751→                            <p className="font-medium text-sm">{call.callerName}</p>
+   752→                            <p className="text-xs text-gray-500">→ {call.calleeName}</p>
+   753→                          </div>
+   754→                        </TableCell>
+   755→                        <TableCell>
+   756→                          <Badge variant="outline" className="gap-1">
+   757→                            {call.type === 'VIDEO' ? (
+   758→                              <Video className="w-3 h-3" />
+   759→                            ) : (
+   760→                              <Phone className="w-3 h-3" />
+   761→                            )}
+   762→                            {call.type}
+   763→                          </Badge>
+   764→                        </TableCell>
+   765→                        <TableCell className="text-right font-mono">
+   766→                          {call.duration > 0 ? formatDuration(call.duration) : '-'}
+   767→                        </TableCell>
+   768→                        <TableCell>{getStatusBadge(call.status)}</TableCell>
+   769→                        <TableCell>{getQualityBadge(call.quality)}</TableCell>
+   770→                        <TableCell>
+   771→                          {call.hasRecording ? (
+   772→                            <Badge variant="outline" className="text-orange-600 border-orange-300">
+   773→                              <Volume2 className="w-3 h-3 mr-1" />
+   774→                              Yes
+   775→                            </Badge>
+   776→                          ) : (
+   777→                            <span className="text-gray-400 text-sm">No</span>
+   778→                          )}
+   779→                        </TableCell>
+   780→                        <TableCell className="text-sm text-gray-500">
+   781→                          {formatDateTime(call.startedAt)}
+   782→                        </TableCell>
+   783→                        <TableCell className="text-right">
+   784→                          <DropdownMenu>
+   785→                            <DropdownMenuTrigger asChild>
+   786→                              <Button variant="ghost" size="icon" className="h-8 w-8">
+   787→                                <MoreVertical className="h-4 w-4" />
+   788→                              </Button>
+   789→                            </DropdownMenuTrigger>
+   790→                            <DropdownMenuContent align="end">
+   791→                              <DropdownMenuItem asChild>
+   792→                                <a href={`/admin/calls/${call.callId}`}>
+   793→                                  <Eye className="mr-2 h-4 w-4" />
+   794→                                  View Details
+   795→                                </a>
+   796→                              </DropdownMenuItem>
+   797→                              {call.hasRecording && (
+   798→                                <DropdownMenuItem>
+   799→                                  <Download className="mr-2 h-4 w-4" />
+   800→                                  Download Recording
+   801→                                </DropdownMenuItem>
+   802→                              )}
+   803→                              <DropdownMenuItem>
+   804→                                <Activity className="mr-2 h-4 w-4" />
+   805→                                View Analytics
+   806→                              </DropdownMenuItem>
+   807→                            </DropdownMenuContent>
+   808→                          </DropdownMenu>
+   809→                        </TableCell>
+   810→                      </TableRow>
+   811→                    ))}
+   812→                  </TableBody>
+   813→                </Table>
+   814→              </div>
+   815→            </CardContent>
+   816→          </Card>
+   817→        </TabsContent>
+   818→
+   819→        {/* Analytics Tab */}
+   820→        <TabsContent value="analytics" className="space-y-6">
+   821→          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+   822→            {/* Call Types Distribution */}
+   823→            <Card>
+   824→              <CardHeader className="pb-3">
+   825→                <CardTitle className="text-base flex items-center gap-2">
+   826→                  <Phone className="w-5 h-5 text-cyan-500" />
+   827→                  Call Types
+   828→                </CardTitle>
+   829→              </CardHeader>
+   830→              <CardContent className="space-y-4">
+   831→                {[
+   832→                  { label: 'Video Calls', count: callHistory.filter(c => c.type === 'VIDEO').length, percent: (callHistory.filter(c => c.type === 'VIDEO').length / callHistory.length) * 100, color: 'bg-purple-500' },
+   833→                  { label: 'Audio Calls', count: callHistory.filter(c => c.type === 'AUDIO').length, percent: (callHistory.filter(c => c.type === 'AUDIO').length / callHistory.length) * 100, color: 'bg-blue-500' }
+   834→                ].map((item) => (
+   835→                  <div key={item.label} className="space-y-2">
+   836→                    <div className="flex justify-between text-sm">
+   837→                      <span className="font-medium">{item.label}</span>
+   838→                      <span className="text-gray-500">{item.count} ({item.percent.toFixed(1)}%)</span>
+   839→                    </div>
+   840→                    <Progress value={item.percent} className="h-2" />
+   841→                  </div>
+   842→                ))}
+   843→              </CardContent>
+   844→            </Card>
+   845→
+   846→            {/* Quality Distribution */}
+   847→            <Card>
+   848→              <CardHeader className="pb-3">
+   849→                <CardTitle className="text-base flex items-center gap-2">
+   850→                  <Signal className="w-5 h-5 text-green-500" />
+   851→                  Quality Distribution
+   852→                </CardTitle>
+   853→              </CardHeader>
+   854→              <CardContent className="space-y-4">
+   855→                {[
+   856→                  { label: 'Excellent', count: callHistory.filter(c => c.quality === 'EXCELLENT').length, color: 'bg-emerald-500' },
+   857→                  { label: 'Good', count: callHistory.filter(c => c.quality === 'GOOD').length, color: 'bg-blue-500' },
+   858→                  { label: 'Fair', count: callHistory.filter(c => c.quality === 'FAIR').length, color: 'bg-yellow-500' },
+   859→                  { label: 'Poor', count: callHistory.filter(c => c.quality === 'POOR').length, color: 'bg-red-500' }
+   860→                ].map((item) => (
+   861→                  <div key={item.label} className="flex items-center justify-between p-2 rounded hover:bg-gray-50">
+   862→                    <div className="flex items-center gap-2">
+   863→                      <div className={`w-3 h-3 rounded-full ${item.color}`}></div>
+   864→                      <span className="text-sm">{item.label}</span>
+   865→                    </div>
+   866→                    <span className="font-semibold">{item.count}</span>
+   867→                  </div>
+   868→                ))}
+   869→              </CardContent>
+   870→            </Card>
+   871→
+   872→            {/* Status Summary */}
+   873→            <Card>
+   874→              <CardHeader className="pb-3">
+   875→                <CardTitle className="text-base flex items-center gap-2">
+   876→                  <Activity className="w-5 h-5 text-purple-500" />
+   877→                  Status Summary
+   878→                </CardTitle>
+   879→              </CardHeader>
+   880→              <CardContent className="space-y-4">
+   881→                {[
+   882→                  { label: 'Completed', count: callHistory.filter(c => c.status === 'COMPLETED').length, icon: CheckCircle2, color: 'text-blue-600' },
+   883→                  { label: 'Missed', count: callHistory.filter(c => c.status === 'MISSED').length, icon: PhoneOff, color: 'text-yellow-600' },
+   884→                  { label: 'Declined', count: callHistory.filter(c => c.status === 'DECLINED').length, icon: XCircle, color: 'text-red-600' },
+   885→                  { label: 'Failed', count: callHistory.filter(c => c.status === 'FAILED').length, icon: AlertTriangle, color: 'text-gray-600' }
+   886→                ].map((item) => (
+   887→                  <div key={item.label} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+   888→                    <div className="flex items-center gap-3">
+   889→                      <item.icon className={`w-5 h-5 ${item.color}`} />
+   890→                      <span className="font-medium">{item.label}</span>
+   891→                    </div>
+   892→                    <span className="font-bold text-lg">{item.count}</span>
+   893→                  </div>
+   894→                ))}
+   895→              </CardContent>
+   896→            </Card>
+   897→
+   898→            {/* Network Types */}
+   899→            <Card>
+   900→              <CardHeader className="pb-3">
+   901→                <CardTitle className="text-base flex items-center gap-2">
+   902→                  <Signal className="w-5 h-5 text-orange-500" />
+   903→                  Network Types
+   904→                </CardTitle>
+   905→              </CardHeader>
+   906→              <CardContent className="space-y-4">
+   907→                {[
+   908→                  { label: 'WiFi', count: callHistory.filter(c => c.networkType === 'wifi').length, icon: '📶' },
+   909→                  { label: 'Cellular', count: callHistory.filter(c => c.networkType === 'cellular').length, icon: '📱' },
+   910→                  { label: 'Unknown', count: callHistory.filter(c => c.networkType === 'unknown').length, icon: '❓' }
+   911→                ].map((item) => (
+   912→                  <div key={item.label} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+   913→                    <div className="flex items-center gap-3">
+   914→                      <span className="text-xl">{item.icon}</span>
+   915→                      <span className="font-medium">{item.label}</span>
+   916→                    </div>
+   917→                    <span className="font-bold">{item.count}</span>
+   918→                  </div>
+   919→                ))}
+   920→              </CardContent>
+   921→            </Card>
+   922→          </div>
+   923→        </TabsContent>
+   924→      </Tabs>
+   925→    </div>
+   926→  )
+   927→}
+   928→

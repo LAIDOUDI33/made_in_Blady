@@ -1,0 +1,579 @@
+     1→'use client'
+     2→
+     3→import React, { useState, useMemo } from 'react'
+     4→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+     5→import { Button } from '@/components/ui/button'
+     6→import { Badge } from '@/components/ui/badge'
+     7→import { Input } from '@/components/ui/input'
+     8→import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+     9→import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+    10→import { Checkbox } from '@/components/ui/checkbox'
+    11→import {
+    12→  DropdownMenu,
+    13→  DropdownMenuContent,
+    14→  DropdownMenuItem,
+    15→  DropdownMenuTrigger,
+    16→} from '@/components/ui/dropdown-menu'
+    17→import {
+    18→  Dialog,
+    19→  DialogContent,
+    20→  DialogDescription,
+    21→  DialogFooter,
+    22→  DialogHeader,
+    23→  DialogTitle,
+    24→} from '@/components/ui/dialog'
+    25→import {
+    26→  FileText,
+    27→  DollarSign,
+    28→  Search,
+    29→  Filter,
+    30→  Download,
+    31→  Eye,
+    32→  Edit,
+    33→  Trash2,
+    34→  MoreHorizontal,
+    35→  ChevronLeft,
+    36→  ChevronRight,
+    37→  Calendar,
+    38→  AlertCircle,
+    39→  CheckCircle,
+    40→  Clock,
+    41→  XCircle,
+    42→  FileDown,
+    43→  Receipt,
+    44→  ArrowUpDown
+    45→} from 'lucide-react'
+    46→
+    47→// Types
+    48→type InvoiceStatus = 'draft' | 'issued' | 'paid' | 'overdue' | 'cancelled'
+    49→
+    50→interface Invoice {
+    51→  id: string
+    52→  invoiceNumber: string
+    53→  buyer: string
+    54→  buyerId: string
+    55→  seller: string
+    56→  sellerId: string
+    57→  amount: number
+    58→  tvaRate: number
+    59→  tvaAmount: number
+    60→  total: number
+    61→  status: InvoiceStatus
+    62→  issueDate: string
+    63→  dueDate: string
+    64→  paidDate?: string
+    65→  currency: string
+    66→}
+    67→
+    68→// Mock Data - 28 realistic Algerian invoices
+    69→const mockInvoices: Invoice[] = [
+    70→  { id: '1', invoiceNumber: 'FAC-2024-001', buyer: 'Sarl El Djazair Commerce', buyerId: 'B001', seller: 'Ets Benali Distribution', sellerId: 'S001', amount: 2500000, tvaRate: 19, tvaAmount: 475000, total: 2975000, status: 'paid', issueDate: '15/01/2024', dueDate: '14/02/2024', paidDate: '10/02/2024', currency: 'DZD' },
+    71→  { id: '2', invoiceNumber: 'FAC-2024-002', buyer: 'Groupe Industriel Constantinois', buyerId: 'B002', seller: 'Sider Algérie', sellerId: 'S002', amount: 8500000, tvaRate: 19, tvaAmount: 1615000, total: 10115000, status: 'issued', issueDate: '18/01/2024', dueDate: '17/02/2024', currency: 'DZD' },
+    72→  { id: '3', invoiceNumber: 'FAC-2024-003', buyer: 'PharmaPlus Oran', buyerId: 'B003', seller: 'Laboratoires Meditech', sellerId: 'S003', amount: 1200000, tvaRate: 9, tvaAmount: 108000, total: 1308000, status: 'paid', issueDate: '20/01/2024', dueDate: '19/02/2024', paidDate: '15/02/2024', currency: 'DZD' },
+    73→  { id: '4', invoiceNumber: 'FAC-2024-004', buyer: 'Bâtiments & Travaux SPA', buyerId: 'B004', seller: 'Ciment d\'Algérie', sellerId: 'S004', amount: 15000000, tvaRate: 19, tvaAmount: 2850000, total: 17850000, status: 'overdue', issueDate: '05/01/2024', dueDate: '04/02/2024', currency: 'DZD' },
+    74→  { id: '5', invoiceNumber: 'FAC-2024-005', buyer: 'TechnoImport Alger', buyerId: 'B005', seller: 'Informatique Plus', sellerId: 'S005', amount: 450000, tvaRate: 19, tvaAmount: 85500, total: 535500, status: 'cancelled', issueDate: '22/01/2024', dueDate: '21/02/2024', currency: 'DZD' },
+    75→  { id: '6', invoiceNumber: 'FAC-2024-006', buyer: 'Agroalimentaire Setif', buyerId: 'B006', seller: 'Céréales du Tell', sellerId: 'S006', amount: 3200000, tvaRate: 0, tvaAmount: 0, total: 3200000, status: 'issued', issueDate: '25/01/2024', dueDate: '24/02/2024', currency: 'DZD' },
+    76→  { id: '7', invoiceNumber: 'FAC-2024-007', buyer: 'Textile Moderne Blida', buyerId: 'B007', seller: 'Tissus Premium', sellerId: 'S007', amount: 780000, tvaRate: 19, tvaAmount: 148200, total: 928200, status: 'draft', issueDate: '28/01/2024', dueDate: '27/02/2024', currency: 'DZD' },
+    77→  { id: '8', invoiceNumber: 'FAC-2024-008', buyer: 'Pétrole & Gaz Services', buyerId: 'B008', seller: 'Sonatrach Fournitures', sellerId: 'S008', amount: 22000000, tvaRate: 0, tvaAmount: 0, total: 22000000, status: 'paid', issueDate: '01/02/2024', dueDate: '02/03/2024', paidDate: '25/02/2024', currency: 'DZD' },
+    78→  { id: '9', invoiceNumber: 'FAC-2024-009', buyer: 'AutoMotive Algeria', buyerId: 'B009', seller: 'Pièces Détachées SARL', sellerId: 'S009', amount: 1850000, tvaRate: 19, tvaAmount: 351500, total: 2201500, status: 'issued', issueDate: '03/02/2024', dueDate: '04/03/2024', currency: 'DZD' },
+    79→  { id: '10', invoiceNumber: 'FAC-2024-010', buyer: 'Hôtel Sahara Deluxe', buyerId: 'B010', seller: 'Équipements Hôtellerie', sellerId: 'S010', amount: 950000, tvaRate: 19, tvaAmount: 180500, total: 1130500, status: 'paid', issueDate: '05/02/2024', dueDate: '06/03/2024', paidDate: '01/03/2024', currency: 'DZD' },
+    80→  { id: '11', invoiceNumber: 'FAC-2024-011', buyer: 'Clinique Santé Plus', buyerId: 'B011', seller: 'Medical Equipment Pro', sellerId: 'S011', amount: 5500000, tvaRate: 9, tvaAmount: 495000, total: 5995000, status: 'overdue', issueDate: '10/01/2024', dueDate: '09/02/2024', currency: 'DZD' },
+    81→  { id: '12', invoiceNumber: 'FAC-2024-012', buyer: 'École Supérieure Informatique', buyerId: 'B012', seller: 'Digital Solutions EURL', sellerId: 'S012', amount: 320000, tvaRate: 19, tvaAmount: 60800, total: 380800, status: 'draft', issueDate: '08/02/2024', dueDate: '09/03/2024', currency: 'DZD' },
+    82→  { id: '13', invoiceNumber: 'FAC-2024-013', buyer: 'Transports Rapides Algérie', buyerId: 'B013', seller: 'Logistique Express', sellerId: 'S013', amount: 1400000, tvaRate: 19, tvaAmount: 266000, total: 1666000, status: 'paid', issueDate: '10/02/2024', dueDate: '11/03/2024', paidDate: '08/03/2024', currency: 'DZD' },
+    83→  { id: '14', invoiceNumber: 'FAC-2024-014', buyer: 'Immobilière du Centre', buyerId: 'B014', seller: 'Matériaux Construction+', sellerId: 'S014', amount: 6700000, tvaRate: 19, tvaAmount: 1273000, total: 7973000, status: 'issued', issueDate: '12/02/2024', dueDate: '13/03/2024', currency: 'DZD' },
+    84→  { id: '15', invoiceNumber: 'FAC-2024-015', buyer: 'Bijouterie Fine Oran', buyerId: 'B015', seller: 'Or & Diamants Import', sellerId: 'S015', amount: 4200000, tvaRate: 19, tvaAmount: 798000, total: 4998000, status: 'cancelled', issueDate: '14/02/2024', dueDate: '14/03/2024', currency: 'DZD' },
+    85→  { id: '16', invoiceNumber: 'FAC-2024-016', buyer: 'Supermarché Central', buyerId: 'B016', seller: 'Grossiste Alimentaire', sellerId: 'S016', amount: 2800000, tvaRate: 9, tvaAmount: 252000, total: 3052000, status: 'paid', issueDate: '15/02/2024', dueDate: '16/03/2024', paidDate: '12/03/2024', currency: 'DZD' },
+    86→  { id: '17', invoiceNumber: 'FAC-2024-017', buyer: 'Station Service Nord', buyerId: 'B017', seller: 'Naftal Distributeur', sellerId: 'S017', amount: 8900000, tvaRate: 0, tvaAmount: 0, total: 8900000, status: 'issued', issueDate: '18/02/2024', dueDate: '19/03/2024', currency: 'DZD' },
+    87→  { id: '18', invoiceNumber: 'FAC-2024-018', buyer: 'Cabinet Avocats Associés', buyerId: 'B018', seller: 'Services Juridiques Pro', sellerId: 'S018', amount: 350000, tvaRate: 19, tvaAmount: 66500, total: 416500, status: 'draft', issueDate: '20/02/2024', dueDate: '21/03/2024', currency: 'DZD' },
+    88→  { id: '19', invoiceNumber: 'FAC-2024-019', buyer: 'Usine Textile Annaba', buyerId: 'B019', seller: 'Machines Industrielles SA', sellerId: 'S019', amount: 12500000, tvaRate: 19, tvaAmount: 2375000, total: 14875000, status: 'overdue', issueDate: '20/01/2024', dueDate: '19/02/2024', currency: 'DZD' },
+    89→  { id: '20', invoiceNumber: 'FAC-2024-020', buyer: 'Restaurant La Casbah', buyerId: 'B020', seller: 'Frais Restaurant Supply', sellerId: 'S020', amount: 185000, tvaRate: 19, tvaAmount: 35150, total: 220150, status: 'paid', issueDate: '22/02/2024', dueDate: '23/03/2024', paidDate: '20/03/2024', currency: 'DZD' },
+    90→  { id: '21', invoiceNumber: 'FAC-2024-021', buyer: 'Salon de Beauté Prestige', buyerId: 'B021', seller: 'Cosmétiques Professionnels', sellerId: 'S021', amount: 420000, tvaRate: 19, tvaAmount: 79800, total: 499800, status: 'issued', issueDate: '25/02/2024', dueDate: '26/03/2024', currency: 'DZD' },
+    91→  { id: '22', invoiceNumber: 'FAC-2024-022', buyer: 'Librairie Universitaire', buyerId: 'B022', seller: 'Editions Nationales', sellerId: 'S022', amount: 275000, tvaRate: 9, tvaAmount: 24750, total: 299750, status: 'paid', issueDate: '26/02/2024', dueDate: '27/03/2024', paidDate: '22/03/2024', currency: 'DZD' },
+    92→  { id: '23', invoiceNumber: 'FAC-2024-023', buyer: 'Garage Automobile Modern', buyerId: 'B023', seller: 'Outillage Pro Algérie', sellerId: 'S023', amount: 650000, tvaRate: 19, tvaAmount: 123500, total: 773500, status: 'draft', issueDate: '28/02/2024', dueDate: '29/03/2024', currency: 'DZD' },
+    93→  { id: '24', invoiceNumber: 'FAC-2024-024', buyer: 'Ferme Avicole Tlemcen', buyerId: 'B024', seller: 'Aliments Bétail SARL', sellerId: 'S024', amount: 1900000, tvaRate: 0, tvaAmount: 0, total: 1900000, status: 'issued', issueDate: '01/03/2024', dueDate: '31/03/2024', currency: 'DZD' },
+    94→  { id: '25', invoiceNumber: 'FAC-2024-025', buyer: 'Agence de Voyage Sahel', buyerId: 'B025', seller: 'Tourisme & Transport', sellerId: 'S025', amount: 1100000, tvaRate: 19, tvaAmount: 209000, total: 1309000, status: 'paid', issueDate: '03/03/2024', dueDate: '02/04/2024', paidDate: '28/03/2024', currency: 'DZD' },
+    95→  { id: '26', invoiceNumber: 'FAC-2024-026', buyer: 'Piscine Municipale', buyerId: 'B026', seller: 'Équipements Sportifs Pro', sellerId: 'S026', amount: 3400000, tvaRate: 19, tvaAmount: 646000, total: 4046000, status: 'overdue', issueDate: '05/02/2024', dueDate: '06/03/2024', currency: 'DZD' },
+    96→  { id: '27', invoiceNumber: 'FAC-2024-027', buyer: 'Boulangerie Traditionnelle', buyerId: 'B027', seller: 'Farines de Qualité', sellerId: 'S027', amount: 520000, tvaRate: 0, tvaAmount: 0, total: 520000, status: 'cancelled', issueDate: '07/03/2024', dueDate: '06/04/2024', currency: 'DZD' },
+    97→  { id: '28', invoiceNumber: 'FAC-2024-028', buyer: 'Société d\'Électronique', buyerId: 'B028', seller: 'Composants Tech EURL', sellerId: 'S028', amount: 2300000, tvaRate: 19, tvaAmount: 437000, total: 2737000, status: 'draft', issueDate: '10/03/2024', dueDate: '09/04/2024', currency: 'DZD' },
+    98→]
+    99→
+   100→// Helper functions
+   101→function formatDZD(amount: number): string {
+   102→  return new Intl.NumberFormat('fr-DZ', {
+   103→    style: 'decimal',
+   104→    minimumFractionDigits: 2,
+   105→    maximumFractionDigits: 2,
+   106→  }).format(amount) + ' د.ج'
+   107→}
+   108→
+   109→function getStatusConfig(status: InvoiceStatus) {
+   110→  switch (status) {
+   111→    case 'draft':
+   112→      return { label: 'Brouillon', color: 'bg-gray-100 text-gray-700 border-gray-200', icon: FileText }
+   113→    case 'issued':
+   114→      return { label: 'Émise', color: 'bg-blue-100 text-blue-700 border-blue-200', icon: Clock }
+   115→    case 'paid':
+   116→      return { label: 'Payée', color: 'bg-green-100 text-green-700 border-green-200', icon: CheckCircle }
+   117→    case 'overdue':
+   118→      return { label: 'En retard', color: 'bg-red-100 text-red-700 border-red-200', icon: AlertCircle }
+   119→    case 'cancelled':
+   120→      return { label: 'Annulée', color: 'bg-gray-100 text-gray-400 border-gray-200 line-through', icon: XCircle }
+   121→  }
+   122→}
+   123→
+   124→export default function InvoiceListPage() {
+   125→  const [searchQuery, setSearchQuery] = useState('')
+   126→  const [statusFilter, setStatusFilter] = useState<string>('all')
+   127→  const [currencyFilter, setCurrencyFilter] = useState<string>('all')
+   128→  const [minAmount, setMinAmount] = useState('')
+   129→  const [maxAmount, setMaxAmount] = useState('')
+   130→  const [selectedInvoices, setSelectedInvoices] = useState<string[]>([])
+   131→  const [currentPage, setCurrentPage] = useState(1)
+   132→  const [showBulkDialog, setShowBulkDialog] = useState(false)
+   133→  const [bulkAction, setBulkAction] = useState('')
+   134→  const itemsPerPage = 10
+   135→
+   136→  // Filter and search invoices
+   137→  const filteredInvoices = useMemo(() => {
+   138→    return mockInvoices.filter(invoice => {
+   139→      // Search filter
+   140→      const matchesSearch = searchQuery === '' || 
+   141→        invoice.invoiceNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+   142→        invoice.buyer.toLowerCase().includes(searchQuery.toLowerCase())
+   143→      
+   144→      // Status filter
+   145→      const matchesStatus = statusFilter === 'all' || invoice.status === statusFilter
+   146→      
+   147→      // Currency filter
+   148→      const matchesCurrency = currencyFilter === 'all' || invoice.currency === currencyFilter
+   149→      
+   150→      // Amount range filter
+   151→      const matchesMinAmount = minAmount === '' || invoice.amount >= parseFloat(minAmount)
+   152→      const matchesMaxAmount = maxAmount === '' || invoice.amount <= parseFloat(maxAmount)
+   153→      
+   154→      return matchesSearch && matchesStatus && matchesCurrency && matchesMinAmount && matchesMaxAmount
+   155→    })
+   156→  }, [searchQuery, statusFilter, currencyFilter, minAmount, maxAmount])
+   157→
+   158→  // Pagination
+   159→  const totalPages = Math.ceil(filteredInvoices.length / itemsPerPage)
+   160→  const paginatedInvoices = filteredInvoices.slice(
+   161→    (currentPage - 1) * itemsPerPage,
+   162→    currentPage * itemsPerPage
+   163→  )
+   164→
+   165→  // Summary calculations
+   166→  const summary = useMemo(() => {
+   167→    const visibleInvoices = paginatedInvoices
+   168→    return {
+   169→      count: visibleInvoices.length,
+   170→      subtotal: visibleInvoices.reduce((sum, inv) => sum + inv.amount, 0),
+   171→      tvaTotal: visibleInvoices.reduce((sum, inv) => sum + inv.tvaAmount, 0),
+   172→      grandTotal: visibleInvoices.reduce((sum, inv) => sum + inv.total, 0),
+   173→    }
+   174→  }, [paginatedInvoices])
+   175→
+   176→  // Selection handlers
+   177→  const toggleSelectAll = () => {
+   178→    if (selectedInvoices.length === paginatedInvoices.length) {
+   179→      setSelectedInvoices([])
+   180→    } else {
+   181→      setSelectedInvoices(paginatedInvoices.map(inv => inv.id))
+   182→    }
+   183→  }
+   184→
+   185→  const toggleSelectOne = (id: string) => {
+   186→    setSelectedInvoices(prev =>
+   187→      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+   188→    )
+   189→  }
+   190→
+   191→  // Bulk action handler
+   192→  const handleBulkAction = () => {
+   193→    console.log(`Executing ${bulkAction} on invoices:`, selectedInvoices)
+   194→    setShowBulkDialog(false)
+   195→    setSelectedInvoices([])
+   196→    setBulkAction('')
+   197→  }
+   198→
+   199→  // Export CSV
+   200→  const exportCSV = () => {
+   201→    const headers = ['N° Facture', 'Acheteur', 'Vendeur', 'Montant', 'TVA %', 'Montant TVA', 'Total', 'Statut', 'Date Émission', 'Date Échéance']
+   202→    const rows = filteredInvoices.map(inv => [
+   203→      inv.invoiceNumber,
+   204→      inv.buyer,
+   205→      inv.seller,
+   206→      inv.amount.toString(),
+   207→      `${inv.tvaRate}%`,
+   208→      inv.tvaAmount.toString(),
+   209→      inv.total.toString(),
+   210→      inv.status,
+   211→      inv.issueDate,
+   212→      inv.dueDate
+   213→    ])
+   214→    
+   215→    const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n')
+   216→    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+   217→    const link = document.createElement('a')
+   218→    link.href = URL.createObjectURL(blob)
+   219→    link.download = `factures_algeriatrade_${new Date().toISOString().split('T')[0]}.csv`
+   220→    link.click()
+   221→  }
+   222→
+   223→  return (
+   224→    <div className="min-h-screen bg-gray-50">
+   225→      {/* Header */}
+   226→      <header className="bg-white border-b sticky top-0 z-40">
+   227→        <div className="container mx-auto px-4 py-4">
+   228→          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+   229→            <div className="flex items-center gap-3">
+   230→              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-600 flex items-center justify-center">
+   231→                <FileText className="w-5 h-5 text-white" />
+   232→              </div>
+   233→              <div>
+   234→                <h1 className="text-xl font-bold text-gray-900">Gestion des Factures</h1>
+   235→                <p className="text-xs text-gray-500">AlgeriaTrade.dz - Administration des factures</p>
+   236→              </div>
+   237→            </div>
+   238→            
+   239→            <div className="flex items-center gap-3">
+   240→              <Button variant="outline" size="sm" onClick={exportCSV}>
+   241→                <Download className="mr-2 h-4 w-4" />
+   242→                Exporter CSV
+   243→              </Button>
+   244→              <Button size="sm">
+   245→                <Receipt className="mr-2 h-4 w-4" />
+   246→                Nouvelle Facture
+   247→              </Button>
+   248→            </div>
+   249→          </div>
+   250→        </div>
+   251→      </header>
+   252→
+   253→      <main className="container mx-auto px-4 py-6 space-y-6">
+   254→        {/* Stats Cards */}
+   255→        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+   256→          <Card>
+   257→            <CardContent className="pt-4 pb-3">
+   258→              <div className="flex items-center gap-2">
+   259→                <FileText className="h-5 w-5 text-blue-500" />
+   260→                <div>
+   261→                  <p className="text-xl font-bold">{mockInvoices.length}</p>
+   262→                  <p className="text-xs text-gray-500">Total Factures</p>
+   263→                </div>
+   264→              </div>
+   265→            </CardContent>
+   266→          </Card>
+   267→          
+   268→          <Card>
+   269→            <CardContent className="pt-4 pb-3">
+   270→              <div className="flex items-center gap-2">
+   271→                <Clock className="h-5 w-5 text-yellow-500" />
+   272→                <div>
+   273→                  <p className="text-xl font-bold">{mockInvoices.filter(i => i.status === 'issued').length}</p>
+   274→                  <p className="text-xs text-gray-500">En attente</p>
+   275→                </div>
+   276→              </div>
+   277→            </CardContent>
+   278→          </Card>
+   279→          
+   280→          <Card>
+   281→            <CardContent className="pt-4 pb-3">
+   282→              <div className="flex items-center gap-2">
+   283→                <CheckCircle className="h-5 w-5 text-green-500" />
+   284→                <div>
+   285→                  <p className="text-xl font-bold">{mockInvoices.filter(i => i.status === 'paid').length}</p>
+   286→                  <p className="text-xs text-gray-500">Payées</p>
+   287→                </div>
+   288→              </div>
+   289→            </CardContent>
+   290→          </Card>
+   291→          
+   292→          <Card className={mockInvoices.filter(i => i.status === 'overdue').length > 0 ? 'border-red-300 bg-red-50/30' : ''}>
+   293→            <CardContent className="pt-4 pb-3">
+   294→              <div className="flex items-center gap-2">
+   295→                <AlertCircle className={`h-5 w-5 ${mockInvoices.filter(i => i.status === 'overdue').length > 0 ? 'text-red-500' : 'text-gray-400'}`} />
+   296→                <div>
+   297→                  <p className="text-xl font-bold">{mockInvoices.filter(i => i.status === 'overdue').length}</p>
+   298→                  <p className="text-xs text-gray-500">En retard</p>
+   299→                </div>
+   300→              </div>
+   301→            </CardContent>
+   302→          </Card>
+   303→          
+   304→          <Card>
+   305→            <CardContent className="pt-4 pb-3">
+   306→              <div className="flex items-center gap-2">
+   307→                <DollarSign className="h-5 w-5 text-emerald-500" />
+   308→                <div>
+   309→                  <p className="text-sm font-bold">{formatDZD(mockInvoices.reduce((sum, i) => sum + i.total, 0))}</p>
+   310→                  <p className="text-xs text-gray-500">Total TTC</p>
+   311→                </div>
+   312→              </div>
+   313→            </CardContent>
+   314→          </Card>
+   315→        </div>
+   316→
+   317→        {/* Filters */}
+   318→        <Card>
+   319→          <CardHeader className="pb-4">
+   320→            <CardTitle className="text-base flex items-center gap-2">
+   321→              <Filter className="h-5 w-5 text-gray-500" />
+   322→              Filtres et Recherche
+   323→            </CardTitle>
+   324→          </CardHeader>
+   325→          <CardContent>
+   326→            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+   327→              {/* Search */}
+   328→              <div className="lg:col-span-2 relative">
+   329→                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+   330→                <Input
+   331→                  placeholder="Rechercher par N° facture ou acheteur..."
+   332→                  value={searchQuery}
+   333→                  onChange={(e) => setSearchQuery(e.target.value)}
+   334→                  className="pl-10"
+   335→                />
+   336→              </div>
+   337→              
+   338→              {/* Status Filter */}
+   339→              <Select value={statusFilter} onValueChange={setStatusFilter}>
+   340→                <SelectTrigger>
+   341→                  <SelectValue placeholder="Statut" />
+   342→                </SelectTrigger>
+   343→                <SelectContent>
+   344→                  <SelectItem value="all">Tous les statuts</SelectItem>
+   345→                  <SelectItem value="draft">Brouillon</SelectItem>
+   346→                  <SelectItem value="issued">Émise</SelectItem>
+   347→                  <SelectItem value="paid">Payée</SelectItem>
+   348→                  <SelectItem value="overdue">En retard</SelectItem>
+   349→                  <SelectItem value="cancelled">Annulée</SelectItem>
+   350→                </SelectContent>
+   351→              </Select>
+   352→              
+   353→              {/* Currency Filter */}
+   354→              <Select value={currencyFilter} onValueChange={setCurrencyFilter}>
+   355→                <SelectTrigger>
+   356→                  <SelectValue placeholder="Devise" />
+   357→                </SelectTrigger>
+   358→                <SelectContent>
+   359→                  <SelectItem value="all">Toutes devises</SelectItem>
+   360→                  <SelectItem value="DZD">DZD - Dinar Algérien</SelectItem>
+   361→                </SelectContent>
+   362→              </Select>
+   363→              
+   364→              {/* Amount Range */}
+   365→              <div className="flex gap-2">
+   366→                <Input
+   367→                  type="number"
+   368→                  placeholder="Min (د.ج)"
+   369→                  value={minAmount}
+   370→                  onChange={(e) => setMinAmount(e.target.value)}
+   371→                />
+   372→                <Input
+   373→                  type="number"
+   374→                  placeholder="Max (د.ج)"
+   375→                  value={maxAmount}
+   376→                  onChange={(e) => setMaxAmount(e.target.value)}
+   377→                />
+   378→              </div>
+   379→            </div>
+   380→            
+   381→            {/* Bulk Actions */}
+   382→            {selectedInvoices.length > 0 && (
+   383→              <div className="mt-4 p-3 bg-blue-50 rounded-lg flex items-center justify-between">
+   384→                <span className="text-sm text-blue-700">
+   385→                  {selectedInvoices.length} facture(s) sélectionnée(s)
+   386→                </span>
+   387→                <div className="flex gap-2">
+   388→                  <DropdownMenu>
+   389→                    <DropdownMenuTrigger asChild>
+   390→                      <Button variant="outline" size="sm">
+   391→                        Actions groupées
+   392→                      </Button>
+   393→                    </DropdownMenuTrigger>
+   394→                    <DropdownMenuContent>
+   395→                      <DropdownMenuItem onClick={() => { setBulkAction('export'); setShowBulkDialog(true) }}>
+   396→                        <Download className="mr-2 h-4 w-4" />
+   397→                        Exporter CSV
+   398→                      </DropdownMenuItem>
+   399→                      <DropdownMenuItem onClick={() => { setBulkAction('mark_issued'); setShowBulkDialog(true) }}>
+   400→                        <Clock className="mr-2 h-4 w-4" />
+   401→                        Marquer comme émise
+   402→                      </DropdownMenuItem>
+   403→                      <DropdownMenuItem onClick={() => { setBulkAction('credit_note'); setShowBulkDialog(true) }}>
+   404→                        <FileDown className="mr-2 h-4 w-4" />
+   405→                        Générer avoirs
+   406→                      </DropdownMenuItem>
+   407→                    </DropdownMenuContent>
+   408→                  </DropdownMenu>
+   409→                  <Button variant="ghost" size="sm" onClick={() => setSelectedInvoices([])}>
+   410→                    Effacer
+   411→                  </Button>
+   412→                </div>
+   413→              </div>
+   414→            )}
+   415→          </CardContent>
+   416→        </Card>
+   417→
+   418→        {/* Invoices Table */}
+   419→        <Card>
+   420→          <CardContent className="p-0">
+   421→            <div className="overflow-x-auto">
+   422→              <Table>
+   423→                <TableHeader>
+   424→                  <TableRow>
+   425→                    <TableHead className="w-12">
+   426→                      <Checkbox 
+   427→                        checked={selectedInvoices.length === paginatedInvoices.length && paginatedInvoices.length > 0}
+   428→                        onCheckedChange={toggleSelectAll}
+   429→                      />
+   430→                    </TableHead>
+   431→                    <TableHead>N° Facture</TableHead>
+   432→                    <TableHead>Acheteur</TableHead>
+   433→                    <TableHead>Vendeur</TableHead>
+   434→                    <TableHead className="text-right">Montant HT</TableHead>
+   435→                    <TableHead className="text-right">TVA</TableHead>
+   436→                    <TableHead className="text-right">Total TTC</TableHead>
+   437→                    <TableHead>Statut</TableHead>
+   438→                    <TableHead>Date Émission</TableHead>
+   439→                    <TableHead>Échéance</TableHead>
+   440→                    <TableHead className="w-12">Actions</TableHead>
+   441→                  </TableRow>
+   442→                </TableHeader>
+   443→                <TableBody>
+   444→                  {paginatedInvoices.map((invoice) => {
+   445→                    const statusConfig = getStatusConfig(invoice.status)
+   446→                    const StatusIcon = statusConfig.icon
+   447→                    
+   448→                    return (
+   449→                      <TableRow key={invoice.id} className={`${invoice.status === 'cancelled' ? 'opacity-60' : ''} ${invoice.status === 'overdue' ? 'bg-red-50/50' : ''}`}>
+   450→                        <TableCell>
+   451→                          <Checkbox 
+   452→                            checked={selectedInvoices.includes(invoice.id)}
+   453→                            onCheckedChange={() => toggleSelectOne(invoice.id)}
+   454→                          />
+   455→                        </TableCell>
+   456→                        <TableCell className="font-medium">{invoice.invoiceNumber}</TableCell>
+   457→                        <TableCell>
+   458→                          <span className="max-w-[150px] truncate block" title={invoice.buyer}>{invoice.buyer}</span>
+   459→                        </TableCell>
+   460→                        <TableCell>
+   461→                          <span className="max-w-[150px] truncate block" title={invoice.seller}>{invoice.seller}</span>
+   462→                        </TableCell>
+   463→                        <TableCell className="text-right font-mono text-sm">{formatDZD(invoice.amount)}</TableCell>
+   464→                        <TableCell className="text-right font-mono text-sm">{invoice.tvaRate}%</TableCell>
+   465→                        <TableCell className="text-right font-mono text-sm font-semibold">{formatDZD(invoice.total)}</TableCell>
+   466→                        <TableCell>
+   467→                          <Badge variant="outline" className={statusConfig.color}>
+   468→                            <StatusIcon className="mr-1 h-3 w-3" />
+   469→                            {statusConfig.label}
+   470→                          </Badge>
+   471→                        </TableCell>
+   472→                        <TableCell className="text-sm">{invoice.issueDate}</TableCell>
+   473→                        <TableCell className={`text-sm ${invoice.status === 'overdue' ? 'text-red-600 font-semibold' : ''}`}>{invoice.dueDate}</TableCell>
+   474→                        <TableCell>
+   475→                          <DropdownMenu>
+   476→                            <DropdownMenuTrigger asChild>
+   477→                              <Button variant="ghost" size="icon" className="h-8 w-8">
+   478→                                <MoreHorizontal className="h-4 w-4" />
+   479→                              </Button>
+   480→                            </DropdownMenuTrigger>
+   481→                            <DropdownMenuContent align="end">
+   482→                              <DropdownMenuItem>
+   483→                                <Eye className="mr-2 h-4 w-4" />
+   484→                                Voir détails
+   485→                              </DropdownMenuItem>
+   486→                              <DropdownMenuItem>
+   487→                                <Edit className="mr-2 h-4 w-4" />
+   488→                                Modifier
+   489→                              </DropdownMenuItem>
+   490→                              <DropdownMenuItem>
+   491→                                <Download className="mr-2 h-4 w-4" />
+   492→                                Télécharger PDF
+   493→                              </DropdownMenuItem>
+   494→                              <DropdownMenuItem className="text-red-600">
+   495→                                <Trash2 className="mr-2 h-4 w-4" />
+   496→                                Supprimer
+   497→                              </DropdownMenuItem>
+   498→                            </DropdownMenuContent>
+   499→                          </DropdownMenu>
+   500→                        </TableCell>
+   501→                      </TableRow>
+   502→                    )
+   503→                  })}
+   504→                  
+   505→                  {paginatedInvoices.length === 0 && (
+   506→                    <TableRow>
+   507→                      <TableCell colSpan={11} className="text-center py-12">
+   508→                        <FileText className="h-12 w-12 mx-auto text-gray-300 mb-3" />
+   509→                        <p className="text-gray-500">Aucune facture trouvée</p>
+   510→                        <p className="text-sm text-gray-400 mt-1">Essayez de modifier vos filtres de recherche</p>
+   511→                      </TableCell>
+   512→                    </TableRow>
+   513→                  )}
+   514→                </TableBody>
+   515→              </Table>
+   516→            </div>
+   517→            
+   518→            {/* Summary Footer */}
+   519→            <div className="border-t bg-gray-50 px-4 py-3">
+   520→              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+   521→                <div className="flex items-center gap-6 text-sm">
+   522→                  <span><strong>{summary.count}</strong> factures</span>
+   523→                  <span>HT: <strong>{formatDZD(summary.subtotal)}</strong></span>
+   524→                  <span>TVA: <strong>{formatDZD(summary.tvaTotal)}</strong></span>
+   525→                  <span className="font-semibold text-emerald-700">Total TTC: {formatDZD(summary.grandTotal)}</span>
+   526→                </div>
+   527→                
+   528→                {/* Pagination */}
+   529→                <div className="flex items-center gap-2">
+   530→                  <Button
+   531→                    variant="outline"
+   532→                    size="sm"
+   533→                    disabled={currentPage <= 1}
+   534→                    onClick={() => setCurrentPage(p => p - 1)}
+   535→                  >
+   536→                    <ChevronLeft className="h-4 w-4" />
+   537→                  </Button>
+   538→                  <span className="text-sm px-2">
+   539→                    Page {currentPage} sur {totalPages || 1}
+   540→                  </span>
+   541→                  <Button
+   542→                    variant="outline"
+   543→                    size="sm"
+   544→                    disabled={currentPage >= totalPages}
+   545→                    onClick={() => setCurrentPage(p => p + 1)}
+   546→                  >
+   547→                    <ChevronRight className="h-4 w-4" />
+   548→                  </Button>
+   549→                </div>
+   550→              </div>
+   551→            </div>
+   552→          </CardContent>
+   553→        </Card>
+   554→      </main>
+   555→
+   556→      {/* Bulk Action Confirmation Dialog */}
+   557→      <Dialog open={showBulkDialog} onOpenChange={setShowBulkDialog}>
+   558→        <DialogContent>
+   559→          <DialogHeader>
+   560→            <DialogTitle>Confirmer l&apos;action groupée</DialogTitle>
+   561→            <DialogDescription>
+   562→              Vous êtes sur le point d&apos;effectuer l&apos;action &quot;{bulkAction}&quot; sur {selectedInvoices.length} facture(s).
+   563→              Cette action est irréversible.
+   564→            </DialogDescription>
+   565→          </DialogHeader>
+   566→          <DialogFooter>
+   567→            <Button variant="outline" onClick={() => setShowBulkDialog(false)}>
+   568→              Annuler
+   569→            </Button>
+   570→            <Button onClick={handleBulkAction}>
+   571→              Confirmer
+   572→            </Button>
+   573→          </DialogFooter>
+   574→        </DialogContent>
+   575→      </Dialog>
+   576→    </div>
+   577→  )
+   578→}
+   579→

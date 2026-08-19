@@ -151,7 +151,7 @@ const mockPayments: CryptoPayment[] = [
     id: '10', paymentId: 'CPY-2025-010', cryptoType: 'ETH', network: 'ERC20',
     amountCrypto: 0.015, amountDZD: 31200, confirmations: 8, requiredConfirmations: 24,
     status: 'CONFIRMING', createdAt: '2025-01-20T15:00:00', expiresAt: '2025-01-20T18:00:00',
-    walletAddress:0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',
+    walletAddress: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',
     buyerName: 'Lina Messaoudi', orderId: 'ORD-2025-010'
   },
   {

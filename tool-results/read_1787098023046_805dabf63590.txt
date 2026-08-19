@@ -1,0 +1,850 @@
+     1→'use client'
+     2→
+     3→import React, { useState, useEffect } from 'react'
+     4→import { 
+     5→  Plus, 
+     6→  Upload, 
+     7→  Trash2, 
+     8→  Edit, 
+     9→  Eye,
+    10→  Box,
+    11→  Search,
+    12→  Filter,
+    13→  MoreVertical,
+    14→  BarChart3,
+    15→  Settings,
+    16→  Globe,
+    17→  Zap,
+    18→  Clock,
+    19→  CheckCircle2,
+    20→  Loader2,
+    21→  Camera
+    22→} from 'lucide-react'
+    23→import { Button } from '@/components/ui/button'
+    24→import { Input } from '@/components/ui/input'
+    25→import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+    26→import { Badge } from '@/components/ui/badge'
+    27→import { Progress } from '@/components/ui/progress'
+    28→import {
+    29→  Table,
+    30→  TableBody,
+    31→  TableCell,
+    32→  TableHead,
+    33→  TableHeader,
+    34→  TableRow,
+    35→} from '@/components/ui/table'
+    36→import {
+    37→  Dialog,
+    38→  DialogContent,
+    39→  DialogHeader,
+    40→  DialogTitle,
+    41→  DialogTrigger,
+    42→} from '@/components/ui/dialog'
+    43→import {
+    44→  DropdownMenu,
+    45→  DropdownMenuContent,
+    46→  DropdownMenuItem,
+    47→  DropdownMenuTrigger,
+    48→} from '@/components/ui/dropdown-menu'
+    49→import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+    50→import { Separator } from '@/components/ui/separator'
+    51→import ARModelUploader from '@/components/admin/ARModelUploader'
+    52→import ARModelPreview from '@/components/admin/ARModelPreview'
+    53→
+    54→// Types
+    55→interface ARModelData {
+    56→  id: string
+    57→  productId: string
+    58→  productName: string
+    59→  name: string
+    60→  modelUrl: string
+    61→  thumbnailUrl: string
+    62→  format: 'GLB' | 'USDZ' | 'GLTF' | 'FBX'
+    63→  fileSize: number // KB
+    64→  polygonCount: number
+    65→  optimizedForMobile: boolean
+    66→  isEnabled: boolean
+    67→  viewsCount: number
+    68→  capturesCount: number
+    69→  avgViewDuration: number
+    70→  createdAt: string
+    71→  updatedAt: string
+    72→  cdnUrl?: string
+    73→}
+    74→
+    75→interface OptimizationQueueItem {
+    76→  id: string
+    77→  modelName: string
+    78→  format: string
+    79→  originalSize: number
+    80→  status: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED'
+    81→  progress: number
+    82→  startedAt?: string
+    83→}
+    84→
+    85→// Mock Data - 12 AR models for demonstration
+    86→const mockModels: ARModelData[] = [
+    87→  {
+    88→    id: '1', productId: 'PRD-001', productName: 'Industrial CNC Machine',
+    89→    name: 'cnc_machine_v2.glb',
+    90→    modelUrl: '/models/cnc_machine.glb',
+    91→    thumbnailUrl: '/thumbnails/cnc_machine.png',
+    92→    format: 'GLB', fileSize: 4520, polygonCount: 125000,
+    93→    optimizedForMobile: true, isEnabled: true,
+    94→    viewsCount: 1245, capturesCount: 89, avgViewDuration: 42,
+    95→    createdAt: '2025-01-15T10:00:00', updatedAt: '2025-01-18T14:30:00',
+    96→    cdnUrl: 'https://cdn.algeriatrade.dz/ar/models/cnc_machine_v2.glb'
+    97→  },
+    98→  {
+    99→    id: '2', productId: 'PRD-002', productName: 'Office Ergonomic Chair',
+   100→    name: 'ergo_chair.usdz',
+   101→    modelUrl: '/models/ergo_chair.usdz',
+   102→    thumbnailUrl: '/thumbnails/ergo_chair.png',
+   103→    format: 'USDZ', fileSize: 2890, polygonCount: 78000,
+   104→    optimizedForMobile: true, isEnabled: true,
+   105→    viewsCount: 2340, capturesCount: 156, avgViewDuration: 35,
+   106→    createdAt: '2025-01-14T09:15:00', updatedAt: '2025-01-17T11:20:00',
+   107→    cdnUrl: 'https://cdn.algeriatrade.dz/ar/models/ergo_chair.usdz'
+   108→  },
+   109→  {
+   110→    id: '3', productId: 'PRD-003', productName: 'Smart Home Speaker',
+   111→    name: 'smart_speaker_v3.glb',
+   112→    modelUrl: '/models/smart_speaker.glb',
+   113→    thumbnailUrl: '/thumbnails/smart_speaker.png',
+   114→    format: 'GLB', fileSize: 1850, polygonCount: 45000,
+   115→    optimizedForMobile: true, isEnabled: true,
+   116→    viewsCount: 3420, capturesCount: 234, avgViewDuration: 28,
+   117→    createdAt: '2025-01-13T16:30:00', updatedAt: '2025-01-19T09:00:00',
+   118→    cdnUrl: 'https://cdn.algeriatrade.dz/ar/models/smart_speaker_v3.glb'
+   119→  },
+   120→  {
+   121→    id: '4', productId: 'PRD-004', productName: 'Solar Panel Kit',
+   122→    name: 'solar_panel_kit.glb',
+   123→    modelUrl: '/models/solar_panel.glb',
+   124→    thumbnailUrl: '/thumbnails/solar_panel.png',
+   125→    format: 'GLB', fileSize: 6780, polygonCount: 198000,
+   126→    optimizedForMobile: false, isEnabled: true,
+   127→    viewsCount: 890, capturesCount: 45, avgViewDuration: 55,
+   128→    createdAt: '2025-01-12T11:00:00', updatedAt: '2025-01-12T11:00:00'
+   129→  },
+   130→  {
+   131→    id: '5', productId: 'PRD-005', productName: 'Medical Equipment Cart',
+   132→    name: 'medical_cart_v2.usdz',
+   133→    modelUrl: '/models/medical_cart.usdz',
+   134→    thumbnailUrl: '/thumbnails/medical_cart.png',
+   135→    format: 'USDZ', fileSize: 3200, polygonCount: 95000,
+   136→    optimizedForMobile: true, isEnabled: true,
+   137→    viewsCount: 567, capturesCount: 28, avgViewDuration: 38,
+   138→    createdAt: '2025-01-11T14:45:00', updatedAt: '2025-01-16T10:15:00',
+   139→    cdnUrl: 'https://cdn.algeriatrade.dz/ar/models/medical_cart_v2.usdz'
+   140→  },
+   141→  {
+   142→    id: '6', productId: 'PRD-006', productName: 'Textile Loom Machine',
+   143→    name: 'textile_loom.glb',
+   144→    modelUrl: '/models/textile_loom.glb',
+   145→    thumbnailUrl: '/thumbnails/textile_loom.png',
+   146→    format: 'GLB', fileSize: 8900, polygonCount: 245000,
+   147→    optimizedForMobile: false, isEnabled: false,
+   148→    viewsCount: 234, capturesCount: 12, avgViewDuration: 62,
+   149→    createdAt: '2025-01-10T08:30:00', updatedAt: '2025-01-10T08:30:00'
+   150→  },
+   151→  {
+   152→    id: '7', productId: 'PRD-007', productName: 'Agricultural Tractor',
+   153→    name: 'tractor_2024.glb',
+   154→    modelUrl: '/models/tractor.glb',
+   155→    thumbnailUrl: '/thumbnails/tractor.png',
+   156→    format: 'GLB', fileSize: 12450, polygonCount: 356000,
+   157→    optimizedForMobile: false, isEnabled: true,
+   158→    viewsCount: 1567, capturesCount: 78, avgViewDuration: 48,
+   159→    createdAt: '2025-01-09T13:20:00', updatedAt: '2025-01-18T16:45:00'
+   160→  },
+   161→  {
+   162→    id: '8', productId: 'PRD-008', productName: 'Construction Crane Model',
+   163→    name: 'mini_crane.usdz',
+   164→    modelUrl: '/models/mini_crane.usdz',
+   165→    thumbnailUrl: '/thumbnails/mini_crane.png',
+   166→    format: 'USDZ', fileSize: 2100, polygonCount: 67000,
+   167→    optimizedForMobile: true, isEnabled: true,
+   168→    viewsCount: 1890, capturesCount: 112, avgViewDuration: 33,
+   169→    createdAt: '2025-01-08T10:00:00', updatedAt: '2025-01-15T14:00:00',
+   170→    cdnUrl: 'https://cdn.algeriatrade.dz/ar/models/mini_crane.usdz'
+   171→  },
+   172→  {
+   173→    id: '9', productId: 'PRD-009', productName: 'Pharmaceutical Display Unit',
+   174→    name: 'pharma_display.glb',
+   175→    modelUrl: '/models/pharma_display.glb',
+   176→    thumbnailUrl: '/thumbnails/pharma_display.png',
+   177→    format: 'GLB', fileSize: 1650, polygonCount: 42000,
+   178→    optimizedForMobile: true, isEnabled: true,
+   179→    viewsCount: 756, capturesCount: 43, avgViewDuration: 29,
+   180→    createdAt: '2025-01-07T15:30:00', updatedAt: '2025-01-14T11:30:00',
+   181→    cdnUrl: 'https://cdn.algeriatrade.dz/ar/models/pharma_display.glb'
+   182→  },
+   183→  {
+   184→    id: '10', productId: 'PRD-010', productName: 'LED Street Light',
+   185→    name: 'led_streetlight_v2.glb',
+   186→    modelUrl: '/models/led_streetlight.glb',
+   187→    thumbnailUrl: '/thumbnails/led_streetlight.png',
+   188→    format: 'GLB', fileSize: 890, polygonCount: 28000,
+   189→    optimizedForMobile: true, isEnabled: true,
+   190→    viewsCount: 1120, capturesCount: 67, avgViewDuration: 24,
+   191→    createdAt: '2025-01-06T09:45:00', updatedAt: '2025-01-13T08:15:00',
+   192→    cdnUrl: 'https://cdn.algeriatrade.dz/ar/models/led_streetlight_v2.glb'
+   193→  },
+   194→  {
+   195→    id: '11', productId: 'PRD-011', productName: 'Water Pump System',
+   196→    name: 'water_pump.fbx',
+   197→    modelUrl: '/models/water_pump.fbx',
+   198→    thumbnailUrl: '/thumbnails/water_pump.png',
+   199→    format: 'FBX', filesize: 5600, polygonCount: 145000,
+   200→    optimizedForMobile: false, isEnabled: false,
+   201→    viewsCount: 123, capturesCount: 5, avgViewDuration: 41,
+   202→    createdAt: '2025-01-05T12:00:00', updatedAt: '2025-01-05T12:00:00'
+   203→  } as any,
+   204→  {
+   205→    id: '12', productId: 'PRD-012', productName: 'Warehouse Shelving Unit',
+   206→    name: 'shelving_unit.glb',
+   207→    modelUrl: '/models/shelving_unit.glb',
+   208→    thumbnailUrl: '/thumbnails/shelving_unit.png',
+   209→    format: 'GLB', fileSize: 2340, polygonCount: 68000,
+   210→    optimizedForMobile: true, isEnabled: true,
+   211→    viewsCount: 945, capturesCount: 54, avgViewDuration: 31,
+   212→    createdAt: '2025-01-04T16:15:00', updatedAt: '2025-01-12T10:30:00',
+   213→    cdnUrl: 'https://cdn.algeriatrade.dz/ar/models/shelving_unit.glb'
+   214→  }
+   215→]
+   216→
+   217→const mockOptimizationQueue: OptimizationQueueItem[] = [
+   218→  { id: 'opt-1', modelName: 'solar_panel_kit.glb', format: 'GLB → USDZ', originalSize: 6780, status: 'PROCESSING', progress: 65, startedAt: '2025-01-20T10:30:00' },
+   219→  { id: 'opt-2', modelName: 'tractor_2024.glb', format: 'GLB (Optimize)', originalSize: 12450, status: 'PENDING', progress: 0 },
+   220→  { id: 'opt-3', modelName: 'textile_loom.glb', format: 'GLB → USDZ + Optimize', originalSize: 8900, status: 'PENDING', progress: 0 }
+   221→]
+   222→
+   223→export default function ARModelsAdminPage() {
+   224→  const [models, setModels] = useState<ARModelData[]>(mockModels)
+   225→  const [isLoading] = useState(false)
+   226→  const [searchQuery, setSearchQuery] = useState('')
+   227→  const [showUploadDialog, setShowUploadDialog] = useState(false)
+   228→  const [selectedModel, setSelectedModel] = useState<ARModelData | null>(null)
+   229→  const [showPreviewDialog, setShowPreviewDialog] = useState(false)
+   230→  const [optimizationQueue] = useState<OptimizationQueueItem[]>(mockOptimizationQueue)
+   231→
+   232→  const handleDelete = async (modelId: string) => {
+   233→    if (!confirm('Are you sure you want to delete this AR model?')) return
+   234→    setModels(models.filter(m => m.id !== modelId))
+   235→  }
+   236→
+   237→  const handleToggleEnabled = async (model: ARModelData) => {
+   238→    setModels(models.map(m => 
+   239→      m.id === model.id ? { ...m, isEnabled: !m.isEnabled } : m
+   240→    ))
+   241→  }
+   242→
+   243→  // Format file size
+   244→  const formatFileSize = (kb: number): string => {
+   245→    if (!kb) return 'N/A'
+   246→    if (kb < 1024) return `${kb.toFixed(0)} KB`
+   247→    return `${(kb / 1024).toFixed(1)} MB`
+   248→  }
+   249→
+   250→  // Filter models by search query
+   251→  const filteredModels = models.filter(model =>
+   252→    model.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+   253→    model.productId.toLowerCase().includes(searchQuery.toLowerCase()) ||
+   254→    model.productName.toLowerCase().includes(searchQuery.toLowerCase())
+   255→  )
+   256→
+   257→  // Calculate stats
+   258→  const totalViews = models.reduce((sum, m) => sum + m.viewsCount, 0)
+   259→  const totalCaptures = models.reduce((sum, m) => sum + (m.capturesCount || 0), 0)
+   260→  const totalModels = models.length
+   261→  const enabledModels = models.filter(m => m.isEnabled).length
+   262→  const optimizedModels = models.filter(m => m.optimizedForMobile).length
+   263→
+   264→  return (
+   265→    <div className="space-y-6">
+   266→      {/* Header */}
+   267→      <div className="flex items-center justify-between">
+   268→        <div>
+   269→          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
+   270→            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center">
+   271→              <Box className="w-5 h-5 text-white" />
+   272→            </div>
+   273→            AR Model Management
+   274→          </h1>
+   275→          <p className="text-sm text-gray-500 mt-1">
+   276→            Manage 3D models for augmented reality product viewing
+   277→          </p>
+   278→        </div>
+   279→
+   280→        <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
+   281→          <DialogTrigger asChild>
+   282→            <Button className="gap-2">
+   283→              <Plus className="w-4 h-4" />
+   284→              Upload Model
+   285→            </Button>
+   286→          </DialogTrigger>
+   287→          <DialogContent className="max-w-2xl">
+   288→            <DialogHeader>
+   289→              <DialogTitle>Upload New AR Model</DialogTitle>
+   290→            </DialogHeader>
+   291→            <ARModelUploader 
+   292→              onSuccess={() => {
+   293→                setShowUploadDialog(false)
+   294→              }}
+   295→            />
+   296→          </DialogContent>
+   297→        </Dialog>
+   298→      </div>
+   299→
+   300→      {/* Stats Cards */}
+   301→      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+   302→        <Card>
+   303→          <CardContent className="pt-6">
+   304→            <div className="flex items-center justify-between">
+   305→              <div>
+   306→                <p className="text-sm text-gray-500">Total Models</p>
+   307→                <p className="text-2xl font-bold">{totalModels}</p>
+   308→              </div>
+   309→              <Box className="w-10 h-10 text-purple-500 bg-purple-100 rounded-lg p-2" />
+   310→            </div>
+   311→          </CardContent>
+   312→        </Card>
+   313→
+   314→        <Card>
+   315→          <CardContent className="pt-6">
+   316→            <div className="flex items-center justify-between">
+   317→              <div>
+   318→                <p className="text-sm text-gray-500">Active</p>
+   319→                <p className="text-2xl font-bold">{enabledModels}</p>
+   320→              </div>
+   321→              <CheckCircle2 className="w-10 h-10 text-green-500 bg-green-100 rounded-lg p-2" />
+   322→            </div>
+   323→          </CardContent>
+   324→        </Card>
+   325→
+   326→        <Card>
+   327→          <CardContent className="pt-6">
+   328→            <div className="flex items-center justify-between">
+   329→              <div>
+   330→                <p className="text-sm text-gray-500">Total Views</p>
+   331→                <p className="text-2xl font-bold">{totalViews.toLocaleString()}</p>
+   332→              </div>
+   333→              <Eye className="w-10 h-10 text-blue-500 bg-blue-100 rounded-lg p-2" />
+   334→            </div>
+   335→          </CardContent>
+   336→        </Card>
+   337→
+   338→        <Card>
+   339→          <CardContent className="pt-6">
+   340→            <div className="flex items-center justify-between">
+   341→              <div>
+   342→                <p className="text-sm text-gray-500">Captures</p>
+   343→                <p className="text-2xl font-bold">{totalCaptures.toLocaleString()}</p>
+   344→              </div>
+   345→              <Camera className="w-10 h-10 text-orange-500 bg-orange-100 rounded-lg p-2" />
+   346→            </div>
+   347→          </CardContent>
+   348→        </Card>
+   349→
+   350→        <Card>
+   351→          <CardContent className="pt-6">
+   352→            <div className="flex items-center justify-between">
+   353→              <div>
+   354→                <p className="text-sm text-gray-500">Optimized</p>
+   355→                <p className="text-2xl font-bold">{optimizedModels}/{totalModels}</p>
+   356→              </div>
+   357→              <Zap className="w-10 h-10 text-yellow-500 bg-yellow-100 rounded-lg p-2" />
+   358→            </div>
+   359→          </CardContent>
+   360→        </Card>
+   361→      </div>
+   362→
+   363→      {/* Main Content */}
+   364→      <Tabs defaultValue="models">
+   365→        <TabsList>
+   366→          <TabsTrigger value="models">All Models ({totalModels})</TabsTrigger>
+   367→          <TabsTrigger value="queue">Optimization Queue ({optimizationQueue.length})</TabsTrigger>
+   368→          <TabsTrigger value="analytics">Analytics</TabsTrigger>
+   369→          <TabsTrigger value="settings">CDN Settings</TabsTrigger>
+   370→        </TabsList>
+   371→
+   372→        {/* Models Tab */}
+   373→        <TabsContent value="models" className="mt-4">
+   374→          <Card>
+   375→            <CardHeader className="pb-4">
+   376→              <div className="flex items-center justify-between">
+   377→                <CardTitle className="text-lg">3D Models Library</CardTitle>
+   378→                
+   379→                <div className="flex items-center gap-2">
+   380→                  <div className="relative">
+   381→                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+   382→                    <Input
+   383→                      placeholder="Search models..."
+   384→                      value={searchQuery}
+   385→                      onChange={(e) => setSearchQuery(e.target.value)}
+   386→                      className="pl-9 w-64"
+   387→                    />
+   388→                  </div>
+   389→
+   390→                  <Button variant="outline" size="icon">
+   391→                    <Filter className="w-4 h-4" />
+   392→                  </Button>
+   393→                </div>
+   394→              </div>
+   395→            </CardHeader>
+   396→
+   397→            <CardContent>
+   398→              {isLoading ? (
+   399→                <div className="flex items-center justify-center py-12">
+   400→                  <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+   401→                </div>
+   402→              ) : filteredModels.length === 0 ? (
+   403→                <div className="text-center py-12">
+   404→                  <Box className="w-16 h-16 mx-auto text-gray-300 mb-4" />
+   405→                  <h3 className="text-lg font-medium text-gray-700 mb-2">No models found</h3>
+   406→                  <p className="text-sm text-gray-500 mb-4">
+   407→                    {searchQuery ? 'Try a different search term' : 'Upload your first 3D model'}
+   408→                  </p>
+   409→                  {!searchQuery && (
+   410→                    <Button onClick={() => setShowUploadDialog(true)}>
+   411→                      <Plus className="w-4 h-4 mr-2" />
+   412→                      Upload Model
+   413→                    </Button>
+   414→                  )}
+   415→                </div>
+   416→              ) : (
+   417→                <Table>
+   418→                  <TableHeader>
+   419→                    <TableRow>
+   420→                      <TableHead>Product / Model</TableHead>
+   421→                      <TableHead>Format</TableHead>
+   422→                      <TableHead>Size</TableHead>
+   423→                      <TableHead>Polygons</TableHead>
+   424→                      <TableHead>Optimized</TableHead>
+   425→                      <TableHead>Views</TableHead>
+   426→                      <TableHead>Captures</TableHead>
+   427→                      <TableHead>Status</TableHead>
+   428→                      <TableHead>Uploaded</TableHead>
+   429→                      <TableHead className="text-right">Actions</TableHead>
+   430→                    </TableRow>
+   431→                  </TableHeader>
+   432→                  <TableBody>
+   433→                    {filteredModels.map((model) => (
+   434→                      <TableRow key={model.id}>
+   435→                        <TableCell>
+   436→                          <div className="flex items-center gap-3">
+   437→                            {model.thumbnailUrl ? (
+   438→                              <img
+   439→                                src={model.thumbnailUrl}
+   440→                                alt={model.name}
+   441→                                className="w-10 h-10 rounded object-cover bg-gray-100"
+   442→                              />
+   443→                            ) : (
+   444→                              <div className="w-10 h-10 rounded bg-purple-100 flex items-center justify-center">
+   445→                                <Box className="w-5 h-5 text-purple-500" />
+   446→                              </div>
+   447→                            )}
+   448→                            <div>
+   449→                              <span className="font-medium block">{model.productName}</span>
+   450→                              <code className="text-xs text-gray-500">{model.name}</code>
+   451→                            </div>
+   452→                          </div>
+   453→                        </TableCell>
+   454→                        <TableCell>
+   455→                          <Badge variant="outline" className={
+   456→                            model.format === 'USDZ' ? 'border-blue-300 text-blue-600' :
+   457→                            model.format === 'GLB' ? 'border-green-300 text-green-600' :
+   458→                            'border-gray-300'
+   459→                          }>
+   460→                            {model.format}
+   461→                          </Badge>
+   462→                        </TableCell>
+   463→                        <TableCell>{formatFileSize(model.fileSize)}</TableCell>
+   464→                        <TableCell className="font-mono text-sm">
+   465→                          {(model.polygonCount / 1000).toFixed(0)}K
+   466→                        </TableCell>
+   467→                        <TableCell>
+   468→                          {model.optimizedForMobile ? (
+   469→                            <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">
+   470→                              <Zap className="w-3 h-3 mr-1" />Yes
+   471→                            </Badge>
+   472→                          ) : (
+   473→                            <Badge variant="secondary">No</Badge>
+   474→                          )}
+   475→                        </TableCell>
+   476→                        <TableCell>{model.viewsCount.toLocaleString()}</TableCell>
+   477→                        <TableCell>{(model.capturesCount || 0).toLocaleString()}</TableCell>
+   478→                        <TableCell>
+   479→                          <Badge 
+   480→                            variant={model.isEnabled ? 'default' : 'secondary'}
+   481→                            className={model.isEnabled ? 'bg-green-500' : ''}
+   482→                          >
+   483→                            {model.isEnabled ? 'Active' : 'Disabled'}
+   484→                          </Badge>
+   485→                        </TableCell>
+   486→                        <TableCell className="text-sm text-gray-500">
+   487→                          {new Date(model.createdAt).toLocaleDateString('fr-FR', {
+   488→                            day: '2-digit',
+   489→                            month: 'short'
+   490→                          })}
+   491→                        </TableCell>
+   492→                        <TableCell className="text-right">
+   493→                          <DropdownMenu>
+   494→                            <DropdownMenuTrigger asChild>
+   495→                              <Button variant="ghost" size="icon">
+   496→                                <MoreVertical className="w-4 h-4" />
+   497→                              </Button>
+   498→                            </DropdownMenuTrigger>
+   499→                            <DropdownMenuContent align="end">
+   500→                              <DropdownMenuItem
+   501→                                onClick={() => {
+   502→                                  setSelectedModel(model)
+   503→                                  setShowPreviewDialog(true)
+   504→                                }}
+   505→                              >
+   506→                                <Eye className="w-4 h-4 mr-2" />
+   507→                                Preview
+   508→                              </DropdownMenuItem>
+   509→                              <DropdownMenuItem
+   510→                                onClick={() => handleToggleEnabled(model)}
+   511→                              >
+   512→                                <Edit className="w-4 h-4 mr-2" />
+   513→                                {model.isEnabled ? 'Disable' : 'Enable'}
+   514→                              </DropdownMenuItem>
+   515→                              {model.cdnUrl && (
+   516→                                <DropdownMenuItem>
+   517→                                  <Globe className="w-4 h-4 mr-2" />
+   518→                                  Copy CDN URL
+   519→                                </DropdownMenuItem>
+   520→                              )}
+   521→                              <DropdownMenuItem
+   522→                                onClick={() => handleDelete(model.id)}
+   523→                                className="text-red-600 focus:text-red-600"
+   524→                              >
+   525→                                <Trash2 className="w-4 h-4 mr-2" />
+   526→                                Delete
+   527→                              </DropdownMenuItem>
+   528→                            </DropdownMenuContent>
+   529→                          </DropdownMenu>
+   530→                        </TableCell>
+   531→                      </TableRow>
+   532→                    ))}
+   533→                  </TableBody>
+   534→                </Table>
+   535→              )}
+   536→            </CardContent>
+   537→          </Card>
+   538→        </TabsContent>
+   539→
+   540→        {/* Optimization Queue Tab */}
+   541→        <TabsContent value="queue" className="mt-4">
+   542→          <Card>
+   543→            <CardHeader className="pb-4">
+   544→              <CardTitle className="text-lg flex items-center gap-2">
+   545→                <Loader2 className="w-5 h-5 text-orange-500" />
+   546→                Optimization Queue
+   547→              </CardTitle>
+   548→              <CardDescription>
+   549→                Models waiting to be optimized or converted
+   550→              </CardDescription>
+   551→            </CardHeader>
+   552→            
+   553→            <CardContent>
+   554→              {optimizationQueue.length === 0 ? (
+   555→                <div className="text-center py-8">
+   556→                  <CheckCircle2 className="w-12 h-12 mx-auto text-green-300 mb-3" />
+   557→                  <h3 className="text-lg font-medium text-gray-700 mb-2">Queue Empty</h3>
+   558→                  <p className="text-sm text-gray-500">
+   559→                    All models have been processed
+   560→                  </p>
+   561→                </div>
+   562→              ) : (
+   563→                <div className="space-y-4">
+   564→                  {optimizationQueue.map((item) => (
+   565→                    <div key={item.id} className={`p-4 rounded-lg border ${
+   566→                      item.status === 'PROCESSING' ? 'bg-blue-50 border-blue-200' :
+   567→                      item.status === 'FAILED' ? 'bg-red-50 border-red-200' :
+   568→                      'bg-gray-50 border-gray-200'
+   569→                    }`}>
+   570→                      <div className="flex items-start justify-between gap-4">
+   571→                        <div className="flex items-center gap-4">
+   572→                          <Box className="w-10 h-10 text-purple-500 bg-purple-100 rounded-lg p-2" />
+   573→                          <div>
+   574→                            <p className="font-semibold">{item.modelName}</p>
+   575→                            <p className="text-sm text-gray-500">{item.format} • Original: {formatFileSize(item.originalSize)}</p>
+   576→                          </div>
+   577→                        </div>
+   578→                        
+   579→                        <div className="flex items-center gap-4">
+   580→                          <div className="w-32">
+   581→                            {item.status === 'PROCESSING' && (
+   582→                              <>
+   583→                                <Progress value={item.progress} className="h-2 mb-1" />
+   584→                                <p className="text-xs text-gray-500">{item.progress}% complete</p>
+   585→                              </>
+   586→                            )}
+   587→                            {item.status === 'PENDING' && (
+   588→                              <Badge variant="secondary">Pending</Badge>
+   589→                            )}
+   590→                            {item.status === 'COMPLETED' && (
+   591→                              <Badge className="bg-green-100 text-green-700">Completed</Badge>
+   592→                            )}
+   593→                            {item.status === 'FAILED' && (
+   594→                              <Badge variant="destructive">Failed</Badge>
+   595→                            )}
+   596→                          </div>
+   597→                          
+   598→                          {item.status === 'PROCESSING' && (
+   599→                            <Loader2 className="w-5 h-5 text-blue-500 animate-spin" />
+   600→                          )}
+   601→                        </div>
+   602→                      </div>
+   603→                      
+   604→                      {item.startedAt && (
+   605→                        <p className="text-xs text-gray-400 mt-2 ml-14">
+   606→                          Started: {new Date(item.startedAt).toLocaleString()}
+   607→                        </p>
+   608→                      )}
+   609→                    </div>
+   610→                  ))}
+   611→                </div>
+   612→              )}
+   613→            </CardContent>
+   614→          </Card>
+   615→        </TabsContent>
+   616→
+   617→        {/* Analytics Tab */}
+   618→        <TabsContent value="analytics" className="mt-4 space-y-6">
+   619→          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+   620→            {/* Top Viewed Models */}
+   621→            <Card>
+   622→              <CardHeader className="pb-3">
+   623→                <CardTitle className="text-base flex items-center gap-2">
+   624→                  <BarChart3 className="w-5 h-5 text-blue-500" />
+   625→                  Most Viewed Models
+   626→                </CardTitle>
+   627→              </CardHeader>
+   628→              <CardContent className="space-y-3">
+   629→                {[...models]
+   630→                  .sort((a, b) => b.viewsCount - a.viewsCount)
+   631→                  .slice(0, 5)
+   632→                  .map((model, idx) => (
+   633→                    <div key={model.id} className="flex items-center gap-3">
+   634→                      <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+   635→                        idx === 0 ? 'bg-yellow-100 text-yellow-700' :
+   636→                        idx === 1 ? 'bg-gray-200 text-gray-700' :
+   637→                        idx === 2 ? 'bg-orange-100 text-orange-700' :
+   638→                        'bg-gray-100 text-gray-500'
+   639→                      }`}>
+   640→                        {idx + 1}
+   641→                      </span>
+   642→                      <div className="flex-1 min-w-0">
+   643→                        <p className="font-medium text-sm truncate">{model.productName}</p>
+   644→                        <p className="text-xs text-gray-500">{model.name}</p>
+   645→                      </div>
+   646→                      <span className="font-semibold text-sm">{model.viewsCount.toLocaleString()} views</span>
+   647→                    </div>
+   648→                  ))}
+   649→              </CardContent>
+   650→            </Card>
+   651→
+   652→            {/* Capture Rate */}
+   653→            <Card>
+   654→              <CardHeader className="pb-3">
+   655→                <CardTitle className="text-base flex items-center gap-2">
+   656→                  <Camera className="w-5 h-5 text-orange-500" />
+   657→                  Highest Capture Rates
+   658→                </CardTitle>
+   659→              </CardHeader>
+   660→              <CardContent className="space-y-3">
+   661→                {[...models]
+   662→                  .filter(m => m.capturesCount > 0)
+   663→                  .sort((a, b) => (b.capturesCount || 0) / b.viewsCount - (a.capturesCount || 0) / a.viewsCount)
+   664→                  .slice(0, 5)
+   665→                  .map((model) => {
+   666→                    const captureRate = ((model.capturesCount || 0) / model.viewsCount * 100).toFixed(1)
+   667→                    return (
+   668→                      <div key={model.id} className="flex items-center justify-between p-2 hover:bg-gray-50 rounded">
+   669→                        <div className="flex-1 min-w-0">
+   670→                          <p className="font-medium text-sm truncate">{model.productName}</p>
+   671→                        </div>
+   672→                        <div className="flex items-center gap-3">
+   673→                          <span className="text-sm text-gray-500">{model.capturesCount} caps</span>
+   674→                          <Badge variant="outline" className="text-orange-600">{captureRate}%</Badge>
+   675→                        </div>
+   676→                      </div>
+   677→                    )
+   678→                  })}
+   679→              </CardContent>
+   680→            </Card>
+   681→
+   682→            {/* Format Distribution */}
+   683→            <Card>
+   684→              <CardHeader className="pb-3">
+   685→                <CardTitle className="text-base flex items-center gap-2">
+   686→                  <Settings className="w-5 h-5 text-purple-500" />
+   687→                  Format Distribution
+   688→                </CardTitle>
+   689→              </CardHeader>
+   690→              <CardContent className="space-y-3">
+   691→                {['GLB', 'USDZ', 'GLTF', 'FBX'].map((format) => {
+   692→                  const count = models.filter(m => m.format === format).length
+   693→                  const percent = (count / models.length) * 100
+   694→                  return (
+   695→                    <div key={format} className="space-y-1">
+   696→                      <div className="flex justify-between text-sm">
+   697→                        <span className="font-medium">{format}</span>
+   698→                        <span className="text-gray-500">{count} models ({percent.toFixed(0)}%)</span>
+   699→                      </div>
+   700→                      <Progress value={percent} className="h-2" />
+   701→                    </div>
+   702→                  )
+   703→                })}
+   704→              </CardContent>
+   705→            </Card>
+   706→
+   707→            {/* Average View Duration */}
+   708→            <Card>
+   709→              <CardHeader className="pb-3">
+   710→                <CardTitle className="text-base flex items-center gap-2">
+   711→                  <Clock className="w-5 h-5 text-teal-500" />
+   712→                  Avg. View Duration
+   713→                </CardTitle>
+   714→              </CardHeader>
+   715→              <CardContent className="space-y-3">
+   716→                {[...models]
+   717→                  .sort((a, b) => b.avgViewDuration - a.avgViewDuration)
+   718→                  .slice(0, 5)
+   719→                  .map((model) => (
+   720→                    <div key={model.id} className="flex items-center justify-between p-2 hover:bg-gray-50 rounded">
+   721→                      <span className="font-medium text-sm truncate flex-1">{model.productName}</span>
+   722→                      <span className="font-mono text-sm ml-4">{model.avgViewDuration}s avg</span>
+   723→                    </div>
+   724→                  ))}
+   725→              </CardContent>
+   726→            </Card>
+   727→          </div>
+   728→        </TabsContent>
+   729→
+   730→        {/* CDN Settings Tab */}
+   731→        <TabsContent value="settings" className="mt-4">
+   732→          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+   733→            <Card>
+   734→              <CardHeader className="pb-3">
+   735→                <CardTitle className="text-base flex items-center gap-2">
+   736→                  <Globe className="w-5 h-5 text-blue-500" />
+   737→                  CDN Configuration
+   738→                </CardTitle>
+   739→                <CardDescription>Content delivery network settings for AR models</CardDescription>
+   740→              </CardHeader>
+   741→              <CardContent className="space-y-4">
+   742→                <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+   743→                  <div className="flex items-center gap-2 mb-2">
+   744→                    <CheckCircle2 className="w-5 h-5 text-green-600" />
+   745→                    <span className="font-semibold text-green-800">CDN Active</span>
+   746→                  </div>
+   747→                  <p className="text-sm text-green-700">cdn.algeriatrade.dz</p>
+   748→                </div>
+   749→
+   750→                <div className="space-y-3">
+   751→                  <div className="flex justify-between py-2 border-b">
+   752→                    <span className="text-sm text-gray-500">Base URL</span>
+   753→                    <code className="text-sm bg-gray-100 px-2 py-1 rounded">https://cdn.algeriatrade.dz/ar/</code>
+   754→                  </div>
+   755→                  <div className="flex justify-between py-2 border-b">
+   756→                    <span className="text-sm text-gray-500">Cache TTL</span>
+   757→                    <span className="font-medium text-sm">30 days</span>
+   758→                  </div>
+   759→                  <div className="flex justify-between py-2 border-b">
+   760→                    <span className="text-sm text-gray-500">Compression</span>
+   761→                    <span className="font-medium text-sm">Gzip Enabled</span>
+   762→                  </div>
+   763→                  <div className="flex justify-between py-2">
+   764→                    <span className="text-sm text-gray-500">SSL Certificate</span>
+   765→                    <Badge className="bg-green-100 text-green-700">Valid</Badge>
+   766→                  </div>
+   767→                </div>
+   768→
+   769→                <Button variant="outline" className="w-full mt-4">
+   770→                  <Settings className="mr-2 h-4 w-4" />
+   771→                  Configure CDN Settings
+   772→                </Button>
+   773→              </CardContent>
+   774→            </Card>
+   775→
+   776→            <Card>
+   777→              <CardHeader className="pb-3">
+   778→                <CardTitle className="text-base flex items-center gap-2">
+   779→                  <Zap className="w-5 h-5 text-yellow-500" />
+   780→                  Optimization Settings
+   781→                </CardTitle>
+   782→                <CardDescription>Default optimization options for new uploads</CardDescription>
+   783→              </CardHeader>
+   784→              <CardContent className="space-y-4">
+   785→                <div className="space-y-3">
+   786→                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+   787→                    <div>
+   788→                      <p className="font-medium text-sm">Auto-optimize on upload</p>
+   789→                      <p className="text-xs text-gray-500">Automatically optimize for mobile</p>
+   790→                    </div>
+   791→                    <div className="w-10 h-6 bg-green-500 rounded-full relative cursor-pointer">
+   792→                      <div className="absolute right-1 top-1 w-4 h-4 bg-white rounded-full"></div>
+   793→                    </div>
+   794→                  </div>
+   795→
+   796→                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+   797→                    <div>
+   798→                      <p className="font-medium text-sm">Generate USDZ version</p>
+   799→                      <p className="text-xs text-gray-500">Create iOS compatible version</p>
+   800→                    </div>
+   801→                    <div className="w-10 h-6 bg-green-500 rounded-full relative cursor-pointer">
+   802→                      <div className="absolute right-1 top-1 w-4 h-4 bg-white rounded-full"></div>
+   803→                    </div>
+   804→                  </div>
+   805→
+   806→                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+   807→                    <div>
+   808→                      <p className="font-medium text-sm">Max polygon count</p>
+   809→                      <p className="text-xs text-gray-500">Target for optimization</p>
+   810→                    </div>
+   811→                    <span className="font-mono text-sm bg-gray-200 px-2 py-1 rounded">100K</span>
+   812→                  </div>
+   813→
+   814→                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+   815→                    <div>
+   816→                      <p className="font-medium text-sm">Max texture size</p>
+   817→                      <p className="text-xs text-gray-500">Resolution limit</p>
+   818→                    </div>
+   819→                    <span className="font-mono text-sm bg-gray-200 px-2 py-1 rounded">2048px</span>
+   820→                  </div>
+   821→                </div>
+   822→
+   823→                <Button className="w-full mt-4">
+   824→                  <Save className="mr-2 h-4 w-4" />
+   825→                  Save Settings
+   826→                </Button>
+   827→              </CardContent>
+   828→            </Card>
+   829→          </div>
+   830→        </TabsContent>
+   831→      </Tabs>
+   832→
+   833→      {/* Preview Dialog */}
+   834→      <Dialog open={showPreviewDialog} onOpenChange={setShowPreviewDialog}>
+   835→        <DialogContent className="max-w-4xl max-h-[90vh] overflow-auto">
+   836→          <DialogHeader>
+   837→            <DialogTitle>Model Preview</DialogTitle>
+   838→          </DialogHeader>
+   839→          {selectedModel && (
+   840→            <ARModelPreview 
+   841→              productId={selectedModel.productId}
+   842→              modelName={selectedModel.name}
+   843→            />
+   844→          )}
+   845→        </DialogContent>
+   846→      </Dialog>
+   847→    </div>
+   848→  )
+   849→}
+   850→

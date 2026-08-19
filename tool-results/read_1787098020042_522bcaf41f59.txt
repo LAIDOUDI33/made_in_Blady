@@ -1,0 +1,826 @@
+     1→'use client'
+     2→
+     3→import React, { useState } from 'react'
+     4→import { 
+     5→  DollarSign,
+     6→  RefreshCw,
+     7→  Download,
+     8→  Upload,
+     9→  Settings,
+    10→  History,
+    11→  Globe2,
+    12→  AlertTriangle,
+    13→  CheckCircle2,
+    14→  XCircle,
+    15→  Clock,
+    16→  Edit3,
+    17→  Save,
+    18→  Eye,
+    19→  TrendingUp,
+    20→  TrendingDown,
+    21→  Minus,
+    22→  MoreVertical,
+    23→  FileText,
+    24→  Zap
+    25→} from 'lucide-react'
+    26→import { Button } from '@/components/ui/button'
+    27→import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+    28→import { Badge } from '@/components/ui/badge'
+    29→import { Progress } from '@/components/ui/progress'
+    30→import { Input } from '@/components/ui/input'
+    31→import { Label } from '@/components/ui/label'
+    32→import {
+    33→  Table,
+    34→  TableBody,
+    35→  TableCell,
+    36→  TableHead,
+    37→  TableHeader,
+    38→  TableRow,
+    39→} from '@/components/ui/table'
+    40→import {
+    41→  Dialog,
+    42→  DialogContent,
+    43→  DialogHeader,
+    44→  DialogTitle,
+    45→  DialogTrigger,
+    46→  DialogFooter,
+    47→} from '@/components/ui/dialog'
+    48→import {
+    49→  DropdownMenu,
+    50→  DropdownMenuContent,
+    51→  DropdownMenuItem,
+    52→  DropdownMenuTrigger,
+    53→} from '@/components/ui/dropdown-menu'
+    54→import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+    55→import { Switch } from '@/components/ui/switch'
+    56→import { Separator } from '@/components/ui/separator'
+    57→
+    58→// Types
+    59→interface Currency {
+    60→  code: string
+    61→  name: string
+    62→  symbol: string
+    63→  flag: string
+    64→  rateToDZD: number
+    65→  previousRate: number
+    66→  status: 'ACTIVE' | 'DISABLED' | 'MAINTENANCE'
+    67→  isManualOverride: boolean
+    68→  lastUpdated: string
+    69→  updatedBy: string
+    70→  decimalPlaces: number
+    71→}
+    72→
+    73→interface RateProvider {
+    74→  name: string
+    75→  fullName: string
+    76→  status: 'OPERATIONAL' | 'DEGRADED' | 'DOWN'
+    77→  lastSync: string
+    78→  latency: string
+    79→}
+    80→
+    81→interface ConversionLog {
+    82→  id: number
+    83→  timestamp: string
+    84→  fromCurrency: string
+    85→  toCurrency: string
+    86→  amount: number
+    87→  result: number
+    88→  rateUsed: number
+    89→  userId: string
+    90→}
+    91→
+    92→interface AuditLog {
+    93→  id: number
+    94→  timestamp: string
+    95→  action: string
+    96→  user: string
+    97→  details: string
+    98→  previousValue?: string
+    99→  newValue?: string
+   100→}
+   101→
+   102→// Mock Data - 8 currencies with realistic rates to DZD
+   103→const mockCurrencies: Currency[] = [
+   104→  {
+   105→    code: 'DZD', name: 'Algerian Dinar', symbol: 'د.ج', flag: '🇩🇿',
+   106→    rateToDZD: 1, previousRate: 1, status: 'ACTIVE',
+   107→    isManualOverride: false, lastUpdated: '2025-01-20T10:00:00',
+   108→    updatedBy: 'System', decimalPlaces: 2
+   109→  },
+   110→  {
+   111→    code: 'USD', name: 'US Dollar', symbol: '$', flag: '🇺🇸',
+   112→    rateToDZD: 135.45, previousRate: 134.82, status: 'ACTIVE',
+   113→    isManualOverride: false, lastUpdated: '2025-01-20T10:00:00',
+   114→    updatedBy: 'Auto (Fixer)', decimalPlaces: 2
+   115→  },
+   116→  {
+   117→    code: 'EUR', name: 'Euro', symbol: '€', flag: '🇪🇺',
+   118→    rateToDZD: 146.78, previousRate: 145.93, status: 'ACTIVE',
+   119→    isManualOverride: false, lastUpdated: '2025-01-20T10:00:00',
+   120→    updatedBy: 'Auto (ECB)', decimalPlaces: 2
+   121→  },
+   122→  {
+   123→    code: 'GBP', name: 'British Pound', symbol: '£', flag: '🇬🇧',
+   124→    rateToDZD: 170.23, previousRate: 169.15, status: 'ACTIVE',
+   125→    isManualOverride: false, lastUpdated: '2025-01-20T10:00:00',
+   126→    updatedBy: 'Auto (Fixer)', decimalPlaces: 2
+   127→  },
+   128→  {
+   129→    code: 'TND', name: 'Tunisian Dinar', symbol: 'د.ت', flag: '🇹🇳',
+   130→    rateToDZD: 43.56, previousRate: 43.48, status: 'ACTIVE',
+   131→    isManualOverride: false, lastUpdated: '2025-01-20T10:00:00',
+   132→    updatedBy: 'Auto (Fixer)', decimalPlaces: 3
+   133→  },
+   134→  {
+   135→    code: 'MAD', name: 'Moroccan Dirham', symbol: 'MAD', flag: '🇲🇦',
+   136→    rateToDZD: 13.42, previousRate: 13.38, status: 'ACTIVE',
+   137→    isManualOverride: false, lastUpdated: '2025-01-20T10:00:00',
+   138→    updatedBy: 'Auto (Fixer)', decimalPlaces: 3
+   139→  },
+   140→  {
+   141→    code: 'XAF', name: 'CFA Franc BEAC', symbol: 'FCFA', flag: '🇨🇲',
+   142→    rateToDZD: 0.224, previousRate: 0.223, status: 'DISABLED',
+   143→    isManualOverride: true, lastUpdated: '2025-01-18T14:30:00',
+   144→    updatedBy: 'Admin User', decimalPlaces: 3
+   145→  },
+   146→  {
+   147→    code: 'SAR', name: 'Saudi Riyal', symbol: '﷼', flag: '🇸🇦',
+   148→    rateToDZD: 36.12, previousRate: 35.98, status: 'MAINTENANCE',
+   149→    isManualOverride: false, lastUpdated: '2025-01-19T08:00:00',
+   150→    updatedBy: 'Auto (OER)', decimalPlaces: 2
+   151→  }
+   152→]
+   153→
+   154→const mockRateProviders: RateProvider[] = [
+   155→  { name: 'Fixer.io', fullName: 'Fixer.io API', status: 'OPERATIONAL', lastSync: '2 min ago', latency: '45ms' },
+   156→  { name: 'ECB', fullName: 'European Central Bank', status: 'OPERATIONAL', lastSync: '5 min ago', latency: '120ms' },
+   157→  { name: 'OER', fullName: 'Open Exchange Rates', status: 'DEGRADED', lastSync: '15 min ago', latency: '890ms' }
+   158→]
+   159→
+   160→const mockConversionLog: ConversionLog[] = [
+   161→  { id: 1, timestamp: '2025-01-20T17:45:12', fromCurrency: 'USD', toCurrency: 'DZD', amount: 1000, result: 135450, rateUsed: 135.45, userId: 'user_001' },
+   162→  { id: 2, timestamp: '2025-01-20T17:30:05', fromCurrency: 'EUR', toCurrency: 'DZD', amount: 500, result: 73390, rateUsed: 146.78, userId: 'user_002' },
+   163→  { id: 3, timestamp: '2025-01-20T17:15:33', fromCurrency: 'GBP', toCurrency: 'DZD', amount: 250, result: 42557.5, rateUsed: 170.23, userId: 'user_001' },
+   164→  { id: 4, timestamp: '2025-01-20T17:00:21', fromCurrency: 'DZD', toCurrency: 'USD', amount: 500000, result: 3691.73, rateUsed: 0.00738, userId: 'user_003' },
+   165→  { id: 5, timestamp: '2025-01-20T16:45:44', fromCurrency: 'TND', toCurrency: 'DZD', amount: 1000, result: 43560, rateUsed: 43.56, userId: 'user_004' },
+   166→  { id: 6, timestamp: '2025-01-20T16:30:18', fromCurrency: 'MAD', toCurrency: 'DZD', amount: 2000, result: 26840, rateUsed: 13.42, userId: 'user_002' },
+   167→  { id: 7, timestamp: '2025-01-20T16:15:09', fromCurrency: 'EUR', toCurrency: 'USD', amount: 300, result: 325.67, rateUsed: 1.0856, userId: 'user_005' },
+   168→  { id: 8, timestamp: '2025-01-20T16:00:55', fromCurrency: 'USD', toCurrency: 'EUR', amount: 150, result: 138.24, rateUsed: 0.9216, userId: 'user_001' }
+   169→]
+   170→
+   171→const mockAuditLog: AuditLog[] = [
+   172→  { id: 1, timestamp: '2025-01-18T14:30:00', action: 'RATE_OVERRIDE', user: 'Admin User', details: 'XAF rate manually set', previousValue: '0.223', newValue: '0.224' },
+   173→  { id: 2, timestamp: '2025-01-17T10:15:00', action: 'CURRENCY_DISABLED', user: 'Admin User', details: 'XAF currency disabled for maintenance', previousValue: 'ACTIVE', newValue: 'DISABLED' },
+   174→  { id: 3, timestamp: '2025-01-16T09:00:00', action: 'AUTO_UPDATE', user: 'System', details: 'Scheduled rate update completed', newValue: '6 currencies updated' },
+   175→  { id: 4, timestamp: '2025-01-15T16:45:00', action: 'PROVIDER_SWITCH', user: 'System', details: 'Switched to backup provider', previousValue: 'OER Primary', newValue: 'Fixer.io Backup' },
+   176→  { id: 5, timestamp: '2025-01-14T11:20:00', action: 'RATE_OVERRIDE', user: 'Super Admin', details: 'SAR rate adjusted due to market volatility', previousValue: '35.50', newValue: '36.12' }
+   177→]
+   178→
+   179→// Mock rate history data (last 30 days)
+   180→const generateRateHistory = () => {
+   181→  const data = []
+   182→  const baseDate = new Date('2025-01-20')
+   183→  
+   184→  for (let i = 29; i >= 0; i--) {
+   185→    const date = new Date(baseDate)
+   186→    date.setDate(date.getDate() - i)
+   187→    
+   188→    data.push({
+   189→      date: date.toISOString().split('T')[0],
+   190→      USD: 133 + Math.random() * 5,
+   191→      EUR: 144 + Math.random() * 5,
+   192→      GBP: 167 + Math.random() * 6,
+   193→      TND: 43 + Math.random() * 1,
+   194→      MAD: 13 + Math.random() * 0.8
+   195→    })
+   196→  }
+   197→  
+   198→  return data
+   199→}
+   200→
+   201→const rateHistoryData = generateRateHistory()
+   202→
+   203→export default function CurrencyAdminPage() {
+   204→  const [currencies, setCurrencies] = useState<Currency[]>(mockCurrencies)
+   205→  const [selectedCurrency, setSelectedCurrency] = useState<Currency | null>(null)
+   206→  const [showRateDialog, setShowRateDialog] = useState(false)
+   207→  const [newRate, setNewRate] = useState('')
+   208→  const [overrideReason, setOverrideReason] = useState('')
+   209→  const [isRefreshing, setIsRefreshing] = useState(false)
+   210→
+   211→  const handleToggleStatus = (currencyCode: string) => {
+   212→    setCurrencies(prev => prev.map(c => 
+   213→      c.code === currencyCode 
+   214→        ? { ...c, status: c.status === 'ACTIVE' ? 'DISABLED' as const : 'ACTIVE' as const }
+   215→        : c
+   216→    ))
+   217→  }
+   218→
+   219→  const handleRateOverride = () => {
+   220→    if (!selectedCurrency || !newRate) return
+   221→    
+   222→    setCurrencies(prev => prev.map(c =>
+   223→      c.code === selectedCurrency.code
+   224→        ? {
+   225→            ...c,
+   226→            rateToDZD: parseFloat(newRate),
+   227→            isManualOverride: true,
+   228→            lastUpdated: new Date().toISOString(),
+   229→            updatedBy: 'Admin User'
+   230→          }
+   231→        : c
+   232→    ))
+   233→    
+   234→    setShowRateDialog(false)
+   235→    setNewRate('')
+   236→    setOverrideReason('')
+   237→    setSelectedCurrency(null)
+   238→  }
+   239→
+   240→  const handleRefreshRates = async () => {
+   241→    setIsRefreshing(true)
+   242→    await new Promise(resolve => setTimeout(resolve, 1500))
+   243→    
+   244→    // Simulate rate updates
+   245→    setCurrencies(prev => prev.map(c => ({
+   246→      ...c,
+   247→      rateToDZD: c.rateToDZD * (1 + (Math.random() - 0.5) * 0.002), // Small random change
+   248→      previousRate: c.rateToDZD,
+   249→      lastUpdated: new Date().toISOString(),
+   250→      ...(c.isManualOverride ? {} : { updatedBy: 'Auto (Fixer)' })
+   251→    })))
+   252→    
+   253→    setIsRefreshing(false)
+   254→  }
+   255→
+   256→  const getStatusBadge = (status: Currency['status']) => {
+   257→    switch (status) {
+   258→      case 'ACTIVE':
+   259→        return <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">Active</Badge>
+   260→      case 'DISABLED':
+   261→        return <Badge className="bg-gray-100 text-gray-700 border-gray-200">Disabled</Badge>
+   262→      case 'MAINTENANCE':
+   263→        return <Badge className="bg-yellow-100 text-yellow-700 border-yellow-200">Maintenance</Badge>
+   264→      default:
+   265→        return <Badge variant="secondary">{status}</Badge>
+   266→    }
+   267→  }
+   268→
+   269→  const getProviderStatusIcon = (status: RateProvider['status']) => {
+   270→    switch (status) {
+   271→      case 'OPERATIONAL':
+   272→        return <CheckCircle2 className="w-4 h-4 text-green-500" />
+   273→      case 'DEGRADED':
+   274→        return <AlertTriangle className="w-4 h-4 text-yellow-500" />
+   275→      case 'DOWN':
+   276→        return <XCircle className="w-4 h-4 text-red-500" />
+   277→    }
+   278→  }
+   279→
+   280→  const getRateChangeIcon = (current: number, previous: number) => {
+   281→    const change = ((current - previous) / previous) * 100
+   282→    if (change > 0) return <TrendingUp className="w-4 h-4 text-emerald-500" />
+   283→    if (change < 0) return <TrendingDown className="w-4 h-4 text-red-500" />
+   284→    return <Minus className="w-4 h-4 text-gray-400" />
+   285→  }
+   286→
+   287→  const formatNumber = (num: number, decimals: number = 2) => {
+   288→    return num.toLocaleString('fr-FR', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
+   289→  }
+   290→
+   291→  const formatDate = (dateStr: string) => {
+   292→    return new Date(dateStr).toLocaleString('fr-FR', {
+   293→      day: '2-digit',
+   294→      month: 'short',
+   295→      hour: '2-digit',
+   296→      minute: '2-digit'
+   297→    })
+   298→  }
+   299→
+   300→  return (
+   301→    <div className="space-y-6">
+   302→      {/* Header */}
+   303→      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+   304→        <div>
+   305→          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
+   306→            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-green-600 to-teal-600 flex items-center justify-center">
+   307→              <Globe2 className="w-5 h-5 text-white" />
+   308→            </div>
+   309→            Currency Management
+   310→          </h1>
+   311→          <p className="text-sm text-gray-500 mt-1">
+   312→            Configure exchange rates and supported currencies
+   313→          </p>
+   314→        </div>
+   315→
+   316→        <div className="flex items-center gap-2">
+   317→          <Button variant="outline" size="sm" onClick={handleRefreshRates} disabled={isRefreshing}>
+   318→            <RefreshCw className={`mr-2 h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+   319→            {isRefreshing ? 'Updating...' : 'Refresh Rates'}
+   320→          </Button>
+   321→          <Button variant="outline" size="sm">
+   322→            <Download className="mr-2 h-4 w-4" />
+   323→            Export
+   324→          </Button>
+   325→        </div>
+   326→      </div>
+   327→
+   328→      {/* Main Content */}
+   329→      <Tabs defaultValue="currencies" className="space-y-6">
+   330→        <TabsList>
+   331→          <TabsTrigger value="currencies">Currencies</TabsTrigger>
+   332→          <TabsTrigger value="rates">Exchange Rates</TabsTrigger>
+   333→          <TabsTrigger value="history">Rate History</TabsTrigger>
+   334→          <TabsTrigger value="conversions">Conversions</TabsTrigger>
+   335→          <TabsTrigger value="audit">Audit Log</TabsTrigger>
+   336→          <TabsTrigger value="settings">Settings</TabsTrigger>
+   337→        </TabsList>
+   338→
+   339→        {/* Currencies Tab */}
+   340→        <TabsContent value="currencies" className="space-y-6">
+   341→          <Card>
+   342→            <CardHeader className="pb-4">
+   343→              <CardTitle className="text-lg flex items-center gap-2">
+   344→                <DollarSign className="w-5 h-5 text-green-500" />
+   345→                Supported Currencies
+   346→              </CardTitle>
+   347→              <CardDescription>
+   348→                Manage which currencies are available on the platform
+   349→              </CardDescription>
+   350→            </CardHeader>
+   351→
+   352→            <CardContent>
+   353→              <Table>
+   354→                <TableHeader>
+   355→                  <TableRow>
+   356→                    <TableHead>Flag & Code</TableHead>
+   357→                    <TableHead>Name</TableHead>
+   358→                    <TableHead>Symbol</TableHead>
+   359→                    <TableHead className="text-right">Rate to DZD</TableHead>
+   360→                    <TableHead>Change</TableHead>
+   361→                    <TableHead>Status</TableHead>
+   362→                    <TableHead>Last Updated</TableHead>
+   363→                    <TableHead>Actions</TableHead>
+   364→                  </TableRow>
+   365→                </TableHeader>
+   366→                <TableBody>
+   367→                  {currencies.map((currency) => (
+   368→                    <TableRow key={currency.code}>
+   369→                      <TableCell>
+   370→                        <div className="flex items-center gap-2">
+   371→                          <span className="text-2xl">{currency.flag}</span>
+   372→                          <code className="font-mono font-medium">{currency.code}</code>
+   373→                        </div>
+   374→                      </TableCell>
+   375→                      <TableCell>{currency.name}</TableCell>
+   376→                      <TableCell className="font-mono">{currency.symbol}</TableCell>
+   377→                      <TableCell className="text-right font-semibold">
+   378→                        {formatNumber(currency.rateToDZD, currency.decimalPlaces)}
+   379→                        {currency.isManualOverride && (
+   380→                          <Badge variant="outline" className="ml-2 text-xs text-orange-600 border-orange-300">
+   381→                            Manual
+   382→                          </Badge>
+   383→                        )}
+   384→                      </TableCell>
+   385→                      <TableCell>
+   386→                        <div className="flex items-center gap-1">
+   387→                          {getRateChangeIcon(currency.rateToDZD, currency.previousRate)}
+   388→                          <span className={`text-sm ${
+   389→                            currency.rateToDZD > currency.previousRate ? 'text-emerald-600' :
+   390→                            currency.rateToDZD < currency.previousRate ? 'text-red-600' : 'text-gray-500'
+   391→                          }`}>
+   392→                            {Math.abs(((currency.rateToDZD - currency.previousRate) / currency.previousRate) * 100).toFixed(3)}%
+   393→                          </span>
+   394→                        </div>
+   395→                      </TableCell>
+   396→                      <TableCell>{getStatusBadge(currency.status)}</TableCell>
+   397→                      <TableCell className="text-sm text-gray-500">
+   398→                        {formatDate(currency.lastUpdated)}
+   399→                      </TableCell>
+   400→                      <TableCell>
+   401→                        <DropdownMenu>
+   402→                          <DropdownMenuTrigger asChild>
+   403→                            <Button variant="ghost" size="icon" className="h-8 w-8">
+   404→                              <MoreVertical className="h-4 w-4" />
+   405→                            </Button>
+   406→                          </DropdownMenuTrigger>
+   407→                          <DropdownMenuContent align="end">
+   408→                            <DropdownMenuItem onClick={() => {
+   409→                              setSelectedCurrency(currency)
+   410→                              setNewRate(String(currency.rateToDZD))
+   411→                              setShowRateDialog(true)
+   412→                            }}>
+   413→                              <Edit3 className="mr-2 h-4 w-4" />
+   414→                              Override Rate
+   415→                            </DropdownMenuItem>
+   416→                            <DropdownMenuItem onClick={() => handleToggleStatus(currency.code)}>
+   417→                              {currency.status === 'ACTIVE' ? (
+   418→                                <>
+   419→                                  <XCircle className="mr-2 h-4 w-4" />
+   420→                                  Disable
+   421→                                </>
+   422→                              ) : (
+   423→                                <>
+   424→                                  <CheckCircle2 className="mr-2 h-4 w-4" />
+   425→                                  Enable
+   426→                                </>
+   427→                              )}
+   428→                            </DropdownMenuItem>
+   429→                            <DropdownMenuItem>
+   430→                              <Eye className="mr-2 h-4 w-4" />
+   431→                              View Details
+   432→                            </DropdownMenuItem>
+   433→                          </DropdownMenuContent>
+   434→                        </DropdownMenu>
+   435→                      </TableCell>
+   436→                    </TableRow>
+   437→                  ))}
+   438→                </TableBody>
+   439→              </Table>
+   440→            </CardContent>
+   441→          </Card>
+   442→        </TabsContent>
+   443→
+   444→        {/* Exchange Rates Tab */}
+   445→        <TabsContent value="rates" className="space-y-6">
+   446→          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+   447→            {/* Provider Status */}
+   448→            <Card>
+   449→              <CardHeader className="pb-3">
+   450→                <CardTitle className="text-base flex items-center gap-2">
+   451→                  <Zap className="w-5 h-5 text-blue-500" />
+   452→                  Rate Providers
+   453→                </CardTitle>
+   454→                <CardDescription>External exchange rate data sources</CardDescription>
+   455→              </CardHeader>
+   456→              <CardContent className="space-y-4">
+   457→                {mockRateProviders.map((provider) => (
+   458→                  <div key={provider.name} className={`p-4 rounded-lg border ${
+   459→                    provider.status === 'OPERATIONAL' ? 'bg-green-50 border-green-200' :
+   460→                    provider.status === 'DEGRADED' ? 'bg-yellow-50 border-yellow-200' :
+   461→                    'bg-red-50 border-red-200'
+   462→                  }`}>
+   463→                    <div className="flex items-center justify-between mb-2">
+   464→                      <div className="flex items-center gap-2">
+   465→                        {getProviderStatusIcon(provider.status)}
+   466→                        <span className="font-medium">{provider.fullName}</span>
+   467→                      </div>
+   468→                      <Badge variant={
+   469→                        provider.status === 'OPERATIONAL' ? 'default' :
+   470→                        provider.status === 'DEGRADED' ? 'secondary' : 'destructive'
+   471→                      }>
+   472→                        {provider.status}
+   473→                      </Badge>
+   474→                    </div>
+   475→                    <div className="flex justify-between text-sm text-gray-600">
+   476→                      <span>Last sync: {provider.lastSync}</span>
+   477→                      <span>Latency: {provider.latency}</span>
+   478→                    </div>
+   479→                  </div>
+   480→                ))}
+   481→              </CardContent>
+   482→            </Card>
+   483→
+   484→            {/* Quick Stats */}
+   485→            <Card>
+   486→              <CardHeader className="pb-3">
+   487→                <CardTitle className="text-base flex items-center gap-2">
+   488→                  <TrendingUp className="w-5 h-5 text-purple-500" />
+   489→                  Rate Summary
+   490→                </CardTitle>
+   491→              </CardHeader>
+   492→              <CardContent className="space-y-4">
+   493→                <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200">
+   494→                  <p className="text-sm text-green-700 mb-1">Base Currency</p>
+   495→                  <p className="text-2xl font-bold text-green-800">🇩🇿 DZD (Algerian Dinar)</p>
+   496→                </div>
+   497→                
+   498→                <div className="grid grid-cols-2 gap-3">
+   499→                  <div className="p-3 bg-gray-50 rounded-lg">
+   500→                    <p className="text-xs text-gray-500">Active Currencies</p>
+   501→                    <p className="text-xl font-bold">{currencies.filter(c => c.status === 'ACTIVE').length}</p>
+   502→                  </div>
+   503→                  <div className="p-3 bg-gray-50 rounded-lg">
+   504→                    <p className="text-xs text-gray-500">Manual Overrides</p>
+   505→                    <p className="text-xl font-bold text-orange-600">
+   506→                      {currencies.filter(c => c.isManualOverride).length}
+   507→                    </p>
+   508→                  </div>
+   509→                  <div className="p-3 bg-gray-50 rounded-lg">
+   510→                    <p className="text-xs text-gray-500">Last Update</p>
+   511→                    <p className="text-sm font-medium">Just now</p>
+   512→                  </div>
+   513→                  <div className="p-3 bg-gray-50 rounded-lg">
+   514→                    <p className="text-xs text-gray-500">Update Frequency</p>
+   515→                    <p className="text-sm font-medium">Every 5 min</p>
+   516→                  </div>
+   517→                </div>
+   518→              </CardContent>
+   519→            </Card>
+   520→          </div>
+   521→        </TabsContent>
+   522→
+   523→        {/* Rate History Tab */}
+   524→        <TabsContent value="history" className="space-y-6">
+   525→          <Card>
+   526→            <CardHeader className="pb-4">
+   527→              <CardTitle className="text-lg flex items-center gap-2">
+   528→                <History className="w-5 h-5 text-indigo-500" />
+   529→                Rate History (Last 30 Days)
+   530→              </CardTitle>
+   531→              <CardDescription>Historical exchange rate data visualization</CardDescription>
+   532→            </CardHeader>
+   533→            
+   534→            <CardContent>
+   535→              {/* Simplified chart representation */}
+   536→              <div className="border rounded-lg p-6 bg-gray-50">
+   537→                <div className="flex items-end justify-between h-64 gap-2">
+   538→                  {rateHistoryData.slice(-14).map((day, idx) => (
+   539→                    <div key={idx} className="flex-1 flex flex-col items-center gap-1">
+   540→                      <div className="w-full flex flex-col gap-0.5">
+   541→                        <div 
+   542→                          className="bg-blue-500 rounded-t"
+   543→                          style={{ height: `${(day.USD / 140) * 80}px`, opacity: 0.8 }}
+   544→                          title={`USD: ${day.USD.toFixed(2)}`}
+   545→                        ></div>
+   546→                        <div 
+   547→                          className="bg-purple-500"
+   548→                          style={{ height: `${(day.EUR / 155) * 70}px`, opacity: 0.8 }}
+   549→                          title={`EUR: ${day.EUR.toFixed(2)}`}
+   550→                        ></div>
+   551→                      </div>
+   552→                      <span className="text-xs text-gray-500 transform -rotate-45 origin-left mt-2">
+   553→                        {day.date.slice(5)}
+   554→                      </span>
+   555→                    </div>
+   556→                  ))}
+   557→                </div>
+   558→                
+   559→                <div className="flex justify-center gap-6 mt-6">
+   560→                  <div className="flex items-center gap-2">
+   561→                    <div className="w-3 h-3 bg-blue-500 rounded"></div>
+   562→                    <span className="text-sm">USD/DZD</span>
+   563→                  </div>
+   564→                  <div className="flex items-center gap-2">
+   565→                    <div className="w-3 h-3 bg-purple-500 rounded"></div>
+   566→                    <span className="text-sm">EUR/DZD</span>
+   567→                  </div>
+   568→                </div>
+   569→              </div>
+   570→              
+   571→              {/* Recent rates table */}
+   572→              <div className="mt-6 overflow-x-auto">
+   573→                <Table>
+   574→                  <TableHeader>
+   575→                    <TableRow>
+   576→                      <TableHead>Date</TableHead>
+   577→                      <TableHead className="text-right">USD</TableHead>
+   578→                      <TableHead className="text-right">EUR</TableHead>
+   579→                      <TableHead className="text-right">GBP</TableHead>
+   580→                      <TableHead className="text-right">TND</TableHead>
+   581→                      <TableHead className="text-right">MAD</TableHead>
+   582→                    </TableRow>
+   583→                  </TableHeader>
+   584→                  <TableBody>
+   585→                    {rateHistoryData.slice(-7).map((day, idx) => (
+   586→                      <TableRow key={idx}>
+   587→                        <TableCell className="font-mono text-sm">{day.date}</TableCell>
+   588→                        <TableCell className="text-right">{day.USD.toFixed(2)}</TableCell>
+   589→                        <TableCell className="text-right">{day.EUR.toFixed(2)}</TableCell>
+   590→                        <TableCell className="text-right">{day.GBP.toFixed(2)}</TableCell>
+   591→                        <TableCell className="text-right">{day.TND.toFixed(3)}</TableCell>
+   592→                        <TableCell className="text-right">{day.MAD.toFixed(3)}</TableCell>
+   593→                      </TableRow>
+   594→                    ))}
+   595→                  </TableBody>
+   596→                </Table>
+   597→              </div>
+   598→            </CardContent>
+   599→          </Card>
+   600→        </TabsContent>
+   601→
+   602→        {/* Conversions Tab */}
+   603→        <TabsContent value="conversions" className="space-y-6">
+   604→          <Card>
+   605→            <CardHeader className="pb-4">
+   606→              <CardTitle className="text-lg flex items-center gap-2">
+   607→                <RefreshCw className="w-5 h-5 text-cyan-500" />
+   608→                Recent Conversions
+   609→              </CardTitle>
+   610→              <CardDescription>Latest currency conversion requests</CardDescription>
+   611→            </CardHeader>
+   612→            
+   613→            <CardContent>
+   614→              <Table>
+   615→                <TableHeader>
+   616→                  <TableRow>
+   617→                    <TableHead>Timestamp</TableHead>
+   618→                    <TableHead>User ID</TableHead>
+   619→                    <TableHead>From</TableHead>
+   620→                    <TableHead>To</TableHead>
+   621→                    <TableHead className="text-right">Amount</TableHead>
+   622→                    <TableHead className="text-right">Result</TableHead>
+   623→                    <TableHead className="text-right">Rate Used</TableHead>
+   624→                  </TableRow>
+   625→                </TableHeader>
+   626→                <TableBody>
+   627→                  {mockConversionLog.map((log) => (
+   628→                    <TableRow key={log.id}>
+   629→                      <TableCell className="text-sm text-gray-500">
+   630→                        {formatDate(log.timestamp)}
+   631→                      </TableCell>
+   632→                      <TableCell><code className="text-xs">{log.userId}</code></TableCell>
+   633→                      <TableCell><Badge variant="outline">{log.fromCurrency}</Badge></TableCell>
+   634→                      <TableCell><Badge variant="outline">{log.toCurrency}</Badge></TableCell>
+   635→                      <TableCell className="text-right font-mono">{formatNumber(log.amount)}</TableCell>
+   636→                      <TableCell className="text-right font-semibold">{formatNumber(log.result)}</TableCell>
+   637→                      <TableCell className="text-right text-sm text-gray-500">{formatNumber(log.rateUsed, 4)}</TableCell>
+   638→                    </TableRow>
+   639→                  ))}
+   640→                </TableBody>
+   641→              </Table>
+   642→            </CardContent>
+   643→          </Card>
+   644→        </TabsContent>
+   645→
+   646→        {/* Audit Log Tab */}
+   647→        <TabsContent value="audit" className="space-y-6">
+   648→          <Card>
+   649→            <CardHeader className="pb-4">
+   650→              <CardTitle className="text-lg flex items-center gap-2">
+   651→                <FileText className="w-5 h-5 text-orange-500" />
+   652→                Audit Log
+   653→              </CardTitle>
+   654→              <CardDescription>Track all changes to exchange rates and settings</CardDescription>
+   655→            </CardHeader>
+   656→            
+   657→            <CardContent>
+   658→              <div className="space-y-4">
+   659→                {mockAuditLog.map((log) => (
+   660→                  <div key={log.id} className="flex gap-4 p-4 bg-gray-50 rounded-lg">
+   661→                    <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center flex-shrink-0">
+   662→                      <FileText className="w-5 h-5 text-orange-600" />
+   663→                    </div>
+   664→                    <div className="flex-1 min-w-0">
+   665→                      <div className="flex items-start justify-between gap-4">
+   666→                        <div>
+   667→                          <p className="font-medium text-sm">{log.action.replace('_', ' ')}</p>
+   668→                          <p className="text-sm text-gray-600 mt-1">{log.details}</p>
+   669→                          {(log.previousValue || log.newValue) && (
+   670→                            <div className="flex items-center gap-2 mt-2 text-xs">
+   671→                              {log.previousValue && (
+   672→                                <span className="line-through text-red-600">{log.previousValue}</span>
+   673→                              )}
+   674→                              {log.previousValue && log.newValue && <span>→</span>}
+   675→                              {log.newValue && (
+   676→                                <span className="text-emerald-600 font-medium">{log.newValue}</span>
+   677→                              )}
+   678→                            </div>
+   679→                          )}
+   680→                        </div>
+   681→                        <div className="text-right flex-shrink-0">
+   682→                          <p className="text-sm font-medium">{log.user}</p>
+   683→                          <p className="text-xs text-gray-500">{formatDate(log.timestamp)}</p>
+   684→                        </div>
+   685→                      </div>
+   686→                    </div>
+   687→                  </div>
+   688→                ))}
+   689→              </div>
+   690→            </CardContent>
+   691→          </Card>
+   692→        </TabsContent>
+   693→
+   694→        {/* Settings Tab */}
+   695→        <TabsContent value="settings" className="space-y-6">
+   696→          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+   697→            <Card>
+   698→              <CardHeader className="pb-3">
+   699→                <CardTitle className="text-base flex items-center gap-2">
+   700→                  <Settings className="w-5 h-5 text-gray-500" />
+   701→                  Auto-Detection Settings
+   702→                </CardTitle>
+   703→              </CardHeader>
+   704→              <CardContent className="space-y-4">
+   705→                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+   706→                  <div>
+   707→                    <p className="font-medium text-sm">Auto-detect user currency</p>
+   708→                    <p className="text-xs text-gray-500">Based on IP geolocation</p>
+   709→                  </div>
+   710→                  <Switch defaultChecked />
+   711→                </div>
+   712→                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+   713→                  <div>
+   714→                    <p className="font-medium text-sm">Browser language detection</p>
+   715→                    <p className="text-xs text-gray-500">Use Accept-Language header</p>
+   716→                  </div>
+   717→                  <Switch defaultChecked />
+   718→                </div>
+   719→                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+   720→                  <div>
+   721→                    <p className="font-medium text-sm">Remember user preference</p>
+   722→                    <p className="text-xs text-gray-500">Store in cookies/localStorage</p>
+   723→                  </div>
+   724→                  <Switch defaultChecked />
+   725→                </div>
+   726→              </CardContent>
+   727→            </Card>
+   728→
+   729→            <Card>
+   730→              <CardHeader className="pb-3">
+   731→                <CardTitle className="text-base flex items-center gap-2">
+   732→                  <Globe2 className="w-5 h-5 text-blue-500" />
+   733→                  Regional Defaults
+   734→                </CardTitle>
+   735→              </CardHeader>
+   736→              <CardContent className="space-y-4">
+   737→                <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+   738→                  <p className="font-medium text-sm text-blue-800">🇩🇿 Algeria Region</p>
+   739→                  <p className="text-sm text-blue-600 mt-1">Default: DZD | Fallback: USD, EUR</p>
+   740→                </div>
+   741→                <div className="p-3 bg-gray-50 rounded-lg">
+   742→                  <p className="font-medium text-sm">🌍 International / Other</p>
+   743→                  <p className="text-sm text-gray-600 mt-1">Default: USD | Fallback: EUR, GBP</p>
+   744→                </div>
+   745→                <div className="p-3 bg-gray-50 rounded-lg">
+   746→                  <p className="font-medium text-sm">🇹🇳 Tunisia Region</p>
+   747→                  <p className="text-sm text-gray-600 mt-1">Default: TND | Fallback: DZD, EUR</p>
+   748→                </div>
+   749→                <div className="p-3 bg-gray-50 rounded-lg">
+   750→                  <p className="font-medium text-sm">🇲🇦 Morocco Region</p>
+   751→                  <p className="text-sm text-gray-600 mt-1">Default: MAD | Fallback: DZD, EUR</p>
+   752→                </div>
+   753→              </CardContent>
+   754→            </Card>
+   755→          </div>
+   756→        </TabsContent>
+   757→      </Tabs>
+   758→
+   759→      {/* Rate Override Dialog */}
+   760→      <Dialog open={showRateDialog} onOpenChange={setShowRateDialog}>
+   761→        <DialogContent className="max-w-md">
+   762→          <DialogHeader>
+   763→            <DialogTitle>Override Exchange Rate</DialogTitle>
+   764→          </DialogHeader>
+   765→          
+   766→          {selectedCurrency && (
+   767→            <div className="space-y-4 py-4">
+   768→              <div className="p-3 bg-gray-50 rounded-lg">
+   769→                <div className="flex items-center gap-3">
+   770→                  <span className="text-3xl">{selectedCurrency.flag}</span>
+   771→                  <div>
+   772→                    <p className="font-semibold">{selectedCurrency.name}</p>
+   773→                    <p className="text-sm text-gray-500">{selectedCurrency.code} • Current: {formatNumber(selectedCurrency.rateToDZD, selectedCurrency.decimalPlaces)}</p>
+   774→                  </div>
+   775→                </div>
+   776→              </div>
+   777→
+   778→              <div>
+   779→                <Label htmlFor="new-rate">New Rate to DZD</Label>
+   780→                <Input
+   781→                  id="new-rate"
+   782→                  type="number"
+   783→                  step="0.0001"
+   784→                  value={newRate}
+   785→                  onChange={(e) => setNewRate(e.target.value)}
+   786→                  placeholder="Enter new rate..."
+   787→                  className="mt-1"
+   788→                />
+   789→              </div>
+   790→
+   791→              <div>
+   792→                <Label htmlFor="reason">Reason for Override</Label>
+   793→                <textarea
+   794→                  id="reason"
+   795→                  className="w-full mt-1 px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-green-500 resize-none"
+   796→                  rows={3}
+   797→                  placeholder="Explain why this override is necessary..."
+   798→                  value={overrideReason}
+   799→                  onChange={(e) => setOverrideReason(e.target.value)}
+   800→                ></textarea>
+   801→              </div>
+   802→
+   803→              <div className="p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+   804→                <p className="text-sm text-yellow-800 flex items-start gap-2">
+   805→                  <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+   806→                  Manual overrides will be logged in the audit trail. Auto-updates will be paused until manually re-enabled.
+   807→                </p>
+   808→              </div>
+   809→
+   810→              <DialogFooter>
+   811→                <Button variant="outline" onClick={() => setShowRateDialog(false)}>
+   812→                  Cancel
+   813→                </Button>
+   814→                <Button onClick={handleRateOverride}>
+   815→                  <Save className="mr-2 h-4 w-4" />
+   816→                  Apply Override
+   817→                </Button>
+   818→              </DialogFooter>
+   819→            </div>
+   820→          )}
+   821→        </DialogContent>
+   822→      </Dialog>
+   823→    </div>
+   824→  )
+   825→}
+   826→

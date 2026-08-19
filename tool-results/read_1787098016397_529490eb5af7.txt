@@ -1,0 +1,699 @@
+     1→'use client'
+     2→
+     3→import React, { useState } from 'react'
+     4→import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+     5→import { Button } from '@/components/ui/button'
+     6→import { Badge } from '@/components/ui/badge'
+     7→import { Progress } from '@/components/ui/progress'
+     8→import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+     9→import {
+    10→  Users,
+    11→  UserPlus,
+    12→  Handshake,
+    13→  DollarSign,
+    14→  TrendingUp,
+    15→  TrendingDown,
+    16→  Phone,
+    17→  Mail,
+    18→  Calendar,
+    19→  Clock,
+    20→  ArrowUpRight,
+    21→  ArrowDownRight,
+    22→  Plus,
+    23→  Filter,
+    24→  Download,
+    25→  RefreshCw,
+    26→  Target,
+    27→  Zap,
+    28→  Eye,
+    29→  MessageSquare,
+    30→  FileText,
+    31→  CheckCircle2,
+    32→  AlertCircle,
+    33→  Activity,
+    34→  Building2,
+    35→  Globe,
+    36→  Star,
+    37→  BarChart3,
+    38→  PieChart,
+    39→} from 'lucide-react'
+    40→
+    41→// Types
+    42→interface DashboardStats {
+    43→  totalContacts: number
+    44→  totalLeads: number
+    45→  activeDeals: number
+    46→  pipelineValue: number
+    47→  conversionRate: number
+    48→  avgDealSize: number
+    49→}
+    50→
+    51→interface LeadSource {
+    52→  name: string
+    53→  count: number
+    54→  percentage: number
+    55→  color: string
+    56→}
+    57→
+    58→interface RecentActivity {
+    59→  id: string
+    60→  type: 'contact' | 'lead' | 'deal' | 'task' | 'call' | 'email' | 'meeting'
+    61→  title: string
+    62→  description: string
+    63→  timestamp: Date
+    64→  user: string
+    65→  icon: React.ElementType
+    66→}
+    67→
+    68→interface ConversionMetric {
+    69→  month: string
+    70→  contacts: number
+    71→  leads: number
+    72→  deals: number
+    73→  conversionRate: number
+    74→}
+    75→
+    76→// Mock Data
+    77→const dashboardStats: DashboardStats = {
+    78→  totalContacts: 1247,
+    79→  totalLeads: 384,
+    80→  activeDeals: 89,
+    81→  pipelineValue: 28500000,
+    82→  conversionRate: 23.5,
+    83→  avgDealSize: 320000,
+    84→}
+    85→
+    86→const leadSources: LeadSource[] = [
+    87→  { name: 'Site Web', count: 142, percentage: 37, color: 'bg-emerald-500' },
+    88→  { name: 'Réseaux Sociaux', count: 98, percentage: 25.5, color: 'bg-blue-500' },
+    89→  { name: 'Salons/Événements', count: 67, percentage: 17.4, color: 'bg-purple-500' },
+    90→  { name: 'Recommandation', count: 45, percentage: 11.7, color: 'bg-orange-500' },
+    91→  { name: 'Appels Froids', count: 22, percentage: 5.7, color: 'bg-gray-500' },
+    92→  { name: 'Autres', count: 10, percentage: 2.6, color: 'bg-pink-500' },
+    93→]
+    94→
+    95→const recentActivities: RecentActivity[] = [
+    96→  {
+    97→    id: '1',
+    98→    type: 'contact',
+    99→    title: 'Nouveau contact ajouté',
+   100→    description: 'Karim Benali - CEO de AlgerTech Solutions',
+   101→    timestamp: new Date(Date.now() - 10 * 60000),
+   102→    user: 'Amina M.',
+   103→    icon: UserPlus,
+   104→  },
+   105→  {
+   106→    id: '2',
+   107→    type: 'deal',
+   108→    title: 'Affaire avancée au stade Négociation',
+   109→    description: 'Contrat Sonatrach - Valeur: 2.5M DZD',
+   110→    timestamp: new Date(Date.now() - 25 * 60000),
+   111→    user: 'Youssef K.',
+   112→    icon: Handshake,
+   113→  },
+   114→  {
+   115→    id: '3',
+   116→    type: 'lead',
+   117→    title: 'Lead qualifié automatiquement',
+   118→    description: 'Sara Hamadi - Score: 85 (Chaud)',
+   119→    timestamp: new Date(Date.now() - 45 * 60000),
+   120→    user: 'Système',
+   121→    icon: Zap,
+   122→  },
+   123→  {
+   124→    id: '4',
+   125→    type: 'call',
+   126→    title: "Appel terminé avec Cevital",
+   127→    description: 'Discussion sur la nouvelle commande d\'équipements',
+   128→    timestamp: new Date(Date.now() - 60 * 60000),
+   129→    user: 'Mohamed B.',
+   130→    icon: Phone,
+   131→  },
+   132→  {
+   133→    id: '5',
+   134→    type: 'email',
+   135→    title: 'Email envoyé à Naftal',
+   136→    description: 'Proposition commerciale pour projet pétrolier',
+   137→    timestamp: new Date(Date.now() - 90 * 60000),
+   138→    user: 'Fatima Z.',
+   139→    icon: Mail,
+   140→  },
+   141→  {
+   142→    id: '6',
+   143→    type: 'meeting',
+   144→    title: 'Réunion planifiée avec Condor',
+   145→    description: 'Demain à 14h - Salle de conférence A',
+   146→    timestamp: new Date(Date.now() - 120 * 60000),
+   147→    user: 'Amina M.',
+   148→    icon: Calendar,
+   149→  },
+   150→  {
+   151→    id: '7',
+   152→    type: 'task',
+   153→    title: 'Tâche complétée',
+   154→    description: 'Préparer rapport mensuel CRM',
+   155→    timestamp: new Date(Date.now() - 180 * 60000),
+   156→    user: 'Youssef K.',
+   157→    icon: CheckCircle2,
+   158→  },
+   159→  {
+   160→    id: '8',
+   161→    type: 'deal',
+   162→    title: 'Affaire gagnée!',
+   163→    description: 'IFRI - Contrat distribution nationale - 850K DZD',
+   164→    timestamp: new Date(Date.now() - 240 * 60000),
+   165→    user: 'Équipe Commerciale',
+   166→    icon: Star,
+   167→  },
+   168→]
+   169→
+   170→const conversionMetrics: ConversionMetric[] = [
+   171→  { month: 'Jan', contacts: 145, leads: 42, deals: 8, conversionRate: 19.0 },
+   172→  { month: 'Fév', contacts: 168, leads: 51, deals: 12, conversionRate: 23.5 },
+   173→  { month: 'Mar', contacts: 192, leads: 58, deals: 15, conversionRate: 25.9 },
+   174→  { month: 'Avr', contacts: 178, leads: 52, deals: 11, conversionRate: 21.2 },
+   175→  { month: 'Mai', contacts: 215, leads: 68, deals: 18, conversionRate: 26.5 },
+   176→  { month: 'Jun', contacts: 238, leads: 72, deals: 20, conversionRate: 27.8 },
+   177→  { month: 'Jul', contacts: 198, leads: 61, deals: 14, conversionRate: 23.0 },
+   178→  { month: 'Aoû', contacts: 245, leads: 78, deals: 22, conversionRate: 28.2 },
+   179→]
+   180→
+   181→const quickActions = [
+   182→  { label: 'Ajouter Contact', icon: UserPlus, href: '/admin/crm/contacts', color: 'bg-emerald-500' },
+   183→  { label: 'Créer Lead', icon: Target, href: '/admin/crm/leads', color: 'bg-blue-500' },
+   184→  { label: 'Nouvelle Affaire', icon: Handshake, href: '/admin/crm/deals', color: 'bg-purple-500' },
+   185→  { label: 'Ajouter Tâche', icon: Plus, href: '/admin/crm/tasks', color: 'bg-orange-500' },
+   186→]
+   187→
+   188→export default function CRMDashboard() {
+   189→  const [activeTab, setActiveTab] = useState('overview')
+   190→  const [selectedPeriod, setSelectedPeriod] = useState('month')
+   191→
+   192→  const formatCurrency = (value: number) => {
+   193→    return new Intl.NumberFormat('fr-DZ', {
+   194→      style: 'currency',
+   195→      currency: 'DZD',
+   196→      minimumFractionDigits: 0,
+   197→      maximumFractionDigits: 0,
+   198→    }).format(value)
+   199→  }
+   200→
+   201→  const formatRelativeTime = (date: Date) => {
+   202→    const now = new Date()
+   203→    const diffMs = now.getTime() - date.getTime()
+   204→    const diffMins = Math.floor(diffMs / 60000)
+   205→    
+   206→    if (diffMins < 1) return 'À l\'instant'
+   207→    if (diffMins < 60) return `Il y a ${diffMins} min`
+   208→    if (diffMins < 1440) return `Il y a ${Math.floor(diffMins / 60)}h`
+   209→    return `Il y a ${Math.floor(diffMins / 1440)}j`
+   210→  }
+   211→
+   212→  const getActivityIconBg = (type: string) => {
+   213→    switch (type) {
+   214→      case 'contact': return 'bg-emerald-100 text-emerald-600'
+   215→      case 'lead': return 'bg-blue-100 text-blue-600'
+   216→      case 'deal': return 'bg-purple-100 text-purple-600'
+   217→      case 'task': return 'bg-green-100 text-green-600'
+   218→      case 'call': return 'bg-orange-100 text-orange-600'
+   219→      case 'email': return 'bg-pink-100 text-pink-600'
+   220→      case 'meeting': return 'bg-indigo-100 text-indigo-600'
+   221→      default: return 'bg-gray-100 text-gray-600'
+   222→    }
+   223→  }
+   224→
+   225→  const getScoreColor = (score: number) => {
+   226→    if (score >= 80) return 'text-emerald-600 bg-emerald-50 border-emerald-200'
+   227→    if (score >= 50) return 'text-yellow-600 bg-yellow-50 border-yellow-200'
+   228→    return 'text-red-600 bg-red-50 border-red-200'
+   229→  }
+   230→
+   231→  return (
+   232→    <div className="min-h-screen bg-gray-50">
+   233→      {/* Header */}
+   234→      <header className="bg-white border-b sticky top-0 z-40">
+   235→        <div className="px-4 sm:px-6 lg:px-8 py-4">
+   236→          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+   237→            <div className="flex items-center gap-3">
+   238→              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-600 to-purple-600 flex items-center justify-center">
+   239→                <BarChart3 className="w-5 h-5 text-white" />
+   240→              </div>
+   241→              <div>
+   242→                <h1 className="text-xl font-bold text-gray-900">Tableau de Bord CRM</h1>
+   243→                <p className="text-sm text-gray-500">AlgeriaTrade.dz - Gestion Relation Client</p>
+   244→              </div>
+   245→            </div>
+   246→
+   247→            <div className="flex items-center gap-3">
+   248→              <Button variant="outline" size="sm">
+   249→                <Download className="mr-2 h-4 w-4" />
+   250→                Exporter
+   251→              </Button>
+   252→              <Button variant="outline" size="sm" onClick={() => window.location.reload()}>
+   253→                <RefreshCw className="mr-2 h-4 w-4" />
+   254→                Actualiser
+   255→              </Button>
+   256→            </div>
+   257→          </div>
+   258→        </div>
+   259→      </header>
+   260→
+   261→      {/* Main Content */}
+   262→      <main className="px-4 sm:px-6 lg:px-8 py-6">
+   263→        {/* Stats Overview */}
+   264→        <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-4 mb-6">
+   265→          <Card className="col-span-1">
+   266→            <CardContent className="pt-4 pb-3">
+   267→              <div className="flex items-center justify-between mb-2">
+   268→                <Users className="h-5 w-5 text-blue-500" />
+   269→                <Badge variant="secondary" className="text-xs bg-blue-50 text-blue-700">
+   270→                  +12%
+   271→                </Badge>
+   272→              </div>
+   273→              <p className="text-2xl font-bold">{dashboardStats.totalContacts.toLocaleString()}</p>
+   274→              <p className="text-xs text-gray-500">Contacts Totaux</p>
+   275→            </CardContent>
+   276→          </Card>
+   277→
+   278→          <Card className="col-span-1">
+   279→            <CardContent className="pt-4 pb-3">
+   280→              <div className="flex items-center justify-between mb-2">
+   281→                <Target className="h-5 w-5 text-purple-500" />
+   282→                <Badge variant="secondary" className="text-xs bg-purple-50 text-purple-700">
+   283→                  +8%
+   284→                </Badge>
+   285→              </div>
+   286→              <p className="text-2xl font-bold">{dashboardStats.totalLeads}</p>
+   287→              <p className="text-xs text-gray-500">Leads Actifs</p>
+   288→            </CardContent>
+   289→          </Card>
+   290→
+   291→          <Card className="col-span-1">
+   292→            <CardContent className="pt-4 pb-3">
+   293→              <div className="flex items-center justify-between mb-2">
+   294→                <Handshake className="h-5 w-5 text-emerald-500" />
+   295→                <Badge variant="secondary" className="text-xs bg-emerald-50 text-emerald-700">
+   296→                  +5
+   297→                </Badge>
+   298→              </div>
+   299→              <p className="text-2xl font-bold">{dashboardStats.activeDeals}</p>
+   300→              <p className="text-xs text-gray-500">Affaires Actives</p>
+   301→            </CardContent>
+   302→          </Card>
+   303→
+   304→          <Card className="col-span-1 sm:col-span-2 lg:col-span-3">
+   305→            <CardContent className="pt-4 pb-3">
+   306→              <div className="flex items-center justify-between mb-2">
+   307→                <DollarSign className="h-5 w-5 text-green-500" />
+   308→                <div className="flex items-center gap-1 text-emerald-600">
+   309→                  <ArrowUpRight className="h-4 w-4" />
+   310→                  <span className="text-xs font-medium">+18.5%</span>
+   311→                </div>
+   312→              </div>
+   313→              <p className="text-2xl font-bold">{formatCurrency(dashboardStats.pipelineValue)}</p>
+   314→              <p className="text-xs text-gray-500">Valeur du Pipeline</p>
+   315→            </CardContent>
+   316→          </Card>
+   317→
+   318→          <Card className="col-span-2 lg:col-span-2">
+   319→            <CardContent className="pt-4 pb-3">
+   320→              <div className="flex items-center justify-between mb-2">
+   321→                <TrendingUp className="h-5 w-5 text-orange-500" />
+   322→                <div className="flex items-center gap-1 text-emerald-600">
+   323→                  <ArrowUpRight className="h-4 w-4" />
+   324→                  <span className="text-xs font-medium">+2.3%</span>
+   325→                </div>
+   326→              </div>
+   327→              <p className="text-2xl font-bold">{dashboardStats.conversionRate}%</p>
+   328→              <p className="text-xs text-gray-500">Taux de Conversion</p>
+   329→            </CardContent>
+   330→          </Card>
+   331→        </div>
+   332→
+   333→        {/* Quick Actions */}
+   334→        <Card className="mb-6">
+   335→          <CardHeader className="pb-3">
+   336→            <CardTitle className="text-base flex items-center gap-2">
+   337→              <Zap className="h-5 w-5 text-yellow-500" />
+   338→              Actions Rapides
+   339→            </CardTitle>
+   340→          </CardHeader>
+   341→          <CardContent>
+   342→            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+   343→              {quickActions.map((action, idx) => (
+   344→                <Button
+   345→                  key={idx}
+   346→                  variant="outline"
+   347→                  className="h-auto py-4 px-4 flex flex-col items-center gap-2 hover:bg-gray-50"
+   348→                  onClick={() => window.location.href = action.href}
+   349→                >
+   350→                  <div className={`w-10 h-10 rounded-lg ${action.color} flex items-center justify-center`}>
+   351→                    <action.icon className="h-5 w-5 text-white" />
+   352→                  </div>
+   353→                  <span className="text-sm font-medium">{action.label}</span>
+   354→                </Button>
+   355→              ))}
+   356→            </div>
+   357→          </CardContent>
+   358→        </Card>
+   359→
+   360→        {/* Main Content Grid */}
+   361→        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+   362→          {/* Left Column - Lead Sources & Conversions */}
+   363→          <div className="lg:col-span-2 space-y-6">
+   364→            {/* Lead Sources */}
+   365→            <Card>
+   366→              <CardHeader className="pb-3">
+   367→                <div className="flex items-center justify-between">
+   368→                  <CardTitle className="text-base flex items-center gap-2">
+   369→                    <PieChart className="h-5 w-5 text-blue-500" />
+   370→                    Sources des Leads
+   371→                  </CardTitle>
+   372→                  <Button variant="ghost" size="sm">
+   373→                    <Filter className="h-4 w-4 mr-1" />
+   374→                    Filtrer
+   375→                  </Button>
+   376→                </div>
+   377→              </CardHeader>
+   378→              <CardContent>
+   379→                <div className="space-y-4">
+   380→                  {leadSources.map((source, idx) => (
+   381→                    <div key={idx} className="space-y-2">
+   382→                      <div className="flex items-center justify-between text-sm">
+   383→                        <span className="font-medium">{source.name}</span>
+   384→                        <span className="text-gray-500">{source.count} ({source.percentage}%)</span>
+   385→                      </div>
+   386→                      <Progress value={source.percentage} className="h-2" />
+   387→                    </div>
+   388→                  ))}
+   389→                </div>
+   390→                
+   391→                {/* Visual Legend */}
+   392→                <div className="mt-6 pt-4 border-t">
+   393→                  <div className="flex flex-wrap gap-3">
+   394→                    {leadSources.map((source, idx) => (
+   395→                      <div key={idx} className="flex items-center gap-1.5">
+   396→                        <div className={`w-3 h-3 rounded-full ${source.color}`} />
+   397→                        <span className="text-xs text-gray-600">{source.name}</span>
+   398→                      </div>
+   399→                    ))}
+   400→                  </div>
+   401→                </div>
+   402→              </CardContent>
+   403→            </Card>
+   404→
+   405→            {/* Conversion Metrics */}
+   406→            <Card>
+   407→              <CardHeader className="pb-3">
+   408→                <CardTitle className="text-base flex items-center gap-2">
+   409→                  <TrendingUp className="h-5 w-5 text-emerald-500" />
+   410→                    Métriques de Conversion
+   411→                </CardTitle>
+   412→                <CardDescription>Performance mensuelle des 8 derniers mois</CardDescription>
+   413→              </CardHeader>
+   414→              <CardContent>
+   415→                <div className="overflow-x-auto">
+   416→                  <table className="w-full text-sm">
+   417→                    <thead>
+   418→                      <tr className="border-b">
+   419→                        <th className="text-left py-2 px-2 font-medium text-gray-600">Mois</th>
+   420→                        <th className="text-right py-2 px-2 font-medium text-gray-600">Contacts</th>
+   421→                        <th className="text-right py-2 px-2 font-medium text-gray-600">Leads</th>
+   422→                        <th className="text-right py-2 px-2 font-medium text-gray-600">Affaires</th>
+   423→                        <th className="text-right py-2 px-2 font-medium text-gray-600">Conversion</th>
+   424→                      </tr>
+   425→                    </thead>
+   426→                    <tbody>
+   427→                      {conversionMetrics.slice(-5).map((metric, idx) => (
+   428→                        <tr key={idx} className="border-b last:border-0 hover:bg-gray-50">
+   429→                          <td className="py-2 px-2 font-medium">{metric.month}</td>
+   430→                          <td className="py-2 px-2 text-right">{metric.contacts}</td>
+   431→                          <td className="py-2 px-2 text-right">{metric.leads}</td>
+   432→                          <td className="py-2 px-2 text-right">{metric.deals}</td>
+   433→                          <td className="py-2 px-2 text-right">
+   434→                            <Badge 
+   435→                              variant="outline" 
+   436→                              className={`${getScoreColor(metric.conversionRate)}`}
+   437→                            >
+   438→                              {metric.conversionRate}%
+   439→                            </Badge>
+   440→                          </td>
+   441→                        </tr>
+   442→                      ))}
+   443→                    </tbody>
+   444→                  </table>
+   445→                </div>
+   446→                
+   447→                {/* Mini Chart Visualization */}
+   448→                <div className="mt-4 pt-4 border-t">
+   449→                  <div className="flex items-end gap-1 h-16">
+   450→                    {conversionMetrics.map((metric, idx) => (
+   451→                      <div key={idx} className="flex-1 flex flex-col items-center gap-1">
+   452→                        <div 
+   453→                          className="w-full bg-gradient-to-t from-violet-500 to-purple-400 rounded-t-sm transition-all hover:opacity-80"
+   454→                          style={{ height: `${(metric.deals / 25) * 100}%` }}
+   455→                          title={`${metric.month}: ${metric.deals} affaires`}
+   456→                        />
+   457→                        <span className="text-[10px] text-gray-500">{metric.month}</span>
+   458→                      </div>
+   459→                    ))}
+   460→                  </div>
+   461→                </div>
+   462→              </CardContent>
+   463→            </Card>
+   464→          </div>
+   465→
+   466→          {/* Right Column - Activities & Pipeline */}
+   467→          <div className="space-y-6">
+   468→            {/* Pipeline Summary */}
+   469→            <Card>
+   470→              <CardHeader className="pb-3">
+   471→                <CardTitle className="text-base flex items-center gap-2">
+   472→                  <Activity className="h-5 w-5 text-purple-500" />
+   473→                  Résumé Pipeline
+   474→                </CardTitle>
+   475→              </CardHeader>
+   476→              <CardContent>
+   477→                <div className="space-y-3">
+   478→                  {[
+   479→                    { stage: 'Prospect', count: 24, value: 4200000, color: 'bg-gray-400' },
+   480→                    { stage: 'Qualifié', count: 18, value: 6500000, color: 'bg-blue-400' },
+   481→                    { stage: 'Proposition', count: 22, value: 8900000, color: 'bg-yellow-400' },
+   482→                    { stage: 'Négociation', count: 15, value: 5800000, color: 'bg-orange-400' },
+   483→                    { stage: 'Gagné', count: 8, value: 2600000, color: 'bg-emerald-400' },
+   484→                    { stage: 'Perdu', count: 2, value: 500000, color: 'bg-red-400' },
+   485→                  ].map((stage, idx) => (
+   486→                    <div key={idx} className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50">
+   487→                      <div className="flex items-center gap-2">
+   488→                        <div className={`w-2 h-8 rounded-full ${stage.color}`} />
+   489→                        <div>
+   490→                          <p className="text-sm font-medium">{stage.stage}</p>
+   491→                          <p className="text-xs text-gray-500">{stage.count} affaires</p>
+   492→                        </div>
+   493→                      </div>
+   494→                      <div className="text-right">
+   495→                        <p className="text-sm font-semibold">{formatCurrency(stage.value)}</p>
+   496→                      </div>
+   497→                    </div>
+   498→                  ))}
+   499→                </div>
+   500→              </CardContent>
+   501→            </Card>
+   502→
+   503→            {/* Recent Activities Feed */}
+   504→            <Card>
+   505→              <CardHeader className="pb-3">
+   506→                <div className="flex items-center justify-between">
+   507→                  <CardTitle className="text-base flex items-center gap-2">
+   508→                    <Clock className="h-5 w-5 text-orange-500" />
+   509→                    Activité Récente
+   510→                  </CardTitle>
+   511→                  <Button variant="ghost" size="sm" className="text-xs">
+   512→                    Voir tout
+   513→                  </Button>
+   514→                </div>
+   515→              </CardHeader>
+   516→              <CardContent>
+   517→                <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
+   518→                  {recentActivities.map((activity) => (
+   519→                    <div key={activity.id} className="flex items-start gap-3">
+   520→                      <div className={`p-2 rounded-full ${getActivityIconBg(activity.type)}`}>
+   521→                        <activity.icon className="h-4 w-4" />
+   522→                      </div>
+   523→                      <div className="flex-1 min-w-0">
+   524→                        <p className="text-sm font-medium truncate">{activity.title}</p>
+   525→                        <p className="text-xs text-gray-500 line-clamp-1">{activity.description}</p>
+   526→                        <div className="flex items-center gap-2 mt-1">
+   527→                          <span className="text-[10px] text-gray-400">{formatRelativeTime(activity.timestamp)}</span>
+   528→                          <span className="text-[10px] text-gray-400">•</span>
+   529→                          <span className="text-[10px] text-gray-400">{activity.user}</span>
+   530→                        </div>
+   531→                      </div>
+   532→                    </div>
+   533→                  ))}
+   534→                </div>
+   535→              </CardContent>
+   536→            </Card>
+   537→          </div>
+   538→        </div>
+   539→
+   540→        {/* Top Leads & Deals Row */}
+   541→        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+   542→          {/* Hot Leads */}
+   543→          <Card>
+   544→            <CardHeader className="pb-3">
+   545→              <div className="flex items-center justify-between">
+   546→                <CardTitle className="text-base flex items-center gap-2">
+   547→                  <Zap className="h-5 w-5 text-red-500" />
+   548→                  Leads Chauds
+   549→                </CardTitle>
+   550→                <Button variant="ghost" size="sm" onClick={() => window.location.href = '/admin/crm/leads'}>
+   551→                  Voir tout →
+   552→                </Button>
+   553→              </div>
+   554→            </CardHeader>
+   555→            <CardContent>
+   556→              <div className="space-y-3">
+   557→                {[
+   558→                  { name: 'Sara Hamadi', company: 'Condor Algérie', score: 92, value: 1250000, source: 'Salon' },
+   559→                  { name: 'Karim Benali', company: 'AlgerTech Solutions', score: 88, value: 980000, source: 'Web' },
+   560→                  { name: 'Nadia Cherif', company: 'Naftal', score: 85, value: 2100000, source: 'Recommandation' },
+   561→                  { name: 'Omar Boudiaf', company: 'Cevital Group', score: 81, value: 1750000, source: 'Appel' },
+   562→                  { name: 'Lina Messaoudi', company: 'IFRI', score: 78, value: 650000, source: 'Web' },
+   563→                ].map((lead, idx) => (
+   564→                  <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer">
+   565→                    <div className="flex items-center gap-3">
+   566→                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-red-400 to-orange-400 flex items-center justify-center text-white font-semibold text-sm">
+   567→                        {lead.name.split(' ').map(n => n[0]).join('')}
+   568→                      </div>
+   569→                      <div>
+   570→                        <p className="text-sm font-medium">{lead.name}</p>
+   571→                        <p className="text-xs text-gray-500">{lead.company}</p>
+   572→                      </div>
+   573→                    </div>
+   574→                    <div className="text-right">
+   575→                      <div className="flex items-center gap-2">
+   576→                        <Badge className={`${getScoreColor(lead.score)} text-xs`}>
+   577→                          {lead.score}
+   578→                        </Badge>
+   579→                        <span className="text-sm font-semibold">{formatCurrency(lead.value)}</span>
+   580→                      </div>
+   581→                      <p className="text-[10px] text-gray-400 mt-0.5">{lead.source}</p>
+   582→                    </div>
+   583→                  </div>
+   584→                ))}
+   585→              </div>
+   586→            </CardContent>
+   587→          </Card>
+   588→
+   589→          {/* Top Deals */}
+   590→          <Card>
+   591→            <CardHeader className="pb-3">
+   592→              <div className="flex items-center justify-between">
+   593→                <CardTitle className="text-base flex items-center gap-2">
+   594→                  <Star className="h-5 w-5 text-yellow-500" />
+   595→                  Affaires Prioritaires
+   596→                </CardTitle>
+   597→                <Button variant="ghost" size="sm" onClick={() => window.location.href = '/admin/crm/deals'}>
+   598→                  Voir tout →
+   599→                </Button>
+   600→              </div>
+   601→            </CardHeader>
+   602→            <CardContent>
+   603→              <div className="space-y-3">
+   604→                {[
+   605→                  { name: 'Projet Sonatrach Phase II', client: 'Sonatrach', stage: 'Négociation', value: 4500000, prob: 75, closeDate: '2024-02-15' },
+   606→                  { name: 'Renouvellement Cevital', client: 'Cevital Group', stage: 'Proposition', value: 2800000, prob: 60, closeDate: '2024-03-01' },
+   607→                  { name: 'Contrat Distribution IFRI', client: 'IFRI', stage: 'Gagné', value: 1650000, prob: 100, closeDate: '2024-01-20' },
+   608→                  { name: 'Équipement Naftal', client: 'Naftal', stage: 'Qualifié', value: 2100000, prob: 40, closeDate: '2024-04-10' },
+   609→                  { name: 'Partenariat Condor', client: 'Condor Algérie', stage: 'Proposition', value: 1900000, prob: 55, closeDate: '2024-03-15' },
+   610→                ].map((deal, idx) => (
+   611→                  <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer">
+   612→                    <div className="flex-1 min-w-0 mr-3">
+   613→                      <p className="text-sm font-medium truncate">{deal.name}</p>
+   614→                      <p className="text-xs text-gray-500">{deal.client}</p>
+   615→                      <div className="flex items-center gap-2 mt-1">
+   616→                        <Badge 
+   617→                          variant="outline" 
+   618→                          className={`text-[10px] ${
+   619→                            deal.stage === 'Gagné' ? 'border-emerald-300 text-emerald-700' :
+   620→                            deal.stage === 'Négociation' ? 'border-orange-300 text-orange-700' :
+   621→                            deal.stage === 'Proposition' ? 'border-yellow-300 text-yellow-700' :
+   622→                            'border-blue-300 text-blue-700'
+   623→                          }`}
+   624→                        >
+   625→                          {deal.stage}
+   626→                        </Badge>
+   627→                        <span className="text-[10px] text-gray-400">{deal.prob}% prob.</span>
+   628→                      </div>
+   629→                    </div>
+   630→                    <div className="text-right">
+   631→                      <p className="text-sm font-bold">{formatCurrency(deal.value)}</p>
+   632→                      <p className="text-[10px] text-gray-400">{deal.closeDate}</p>
+   633→                    </div>
+   634→                  </div>
+   635→                ))}
+   636→              </div>
+   637→            </CardContent>
+   638→          </Card>
+   639→        </div>
+   640→
+   641→        {/* Upcoming Tasks Preview */}
+   642→        <Card className="mt-6">
+   643→          <CardHeader className="pb-3">
+   644→            <div className="flex items-center justify-between">
+   645→              <CardTitle className="text-base flex items-center gap-2">
+   646→                <CheckCircle2 className="h-5 w-5 text-green-500" />
+   647→                Tâches à Venir
+   648→              </CardTitle>
+   649→              <Button variant="ghost" size="sm" onClick={() => window.location.href = '/admin/crm/tasks'}>
+   650→                Gérer les tâches →
+   651→              </Button>
+   652→            </div>
+   653→          </CardHeader>
+   654→          <CardContent>
+   655→            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+   656→              {[
+   657→                { task: 'Appeler Sara Hamadi', due: 'Aujourd\'hui', priority: 'high', assignee: 'Moi' },
+   658→                { task: 'Préparer proposition Cevital', due: 'Demain', priority: 'high', assignee: 'Youssef K.' },
+   659→                { task: 'Suivi email Naftal', due: 'Dans 2 jours', priority: 'medium', assignee: 'Fatima Z.' },
+   660→                { task: 'Réunion équipe commerciale', due: 'Ven 26 Jan', priority: 'medium', assignee: 'Équipe' },
+   661→                { task: 'Rapport mensuel Q1', due: 'Lun 29 Jan', priority: 'low', assignee: 'Amina M.' },
+   662→                { task: 'Mise à jour base contacts', due: 'Mar 30 Jan', priority: 'low', assignee: 'Mohamed B.' },
+   663→              ].map((item, idx) => (
+   664→                <div key={idx} className="flex items-center gap-3 p-3 border rounded-lg hover:border-gray-300 transition-colors">
+   665→                  <div className={`w-2 h-2 rounded-full ${
+   666→                    item.priority === 'high' ? 'bg-red-500' :
+   667→                    item.priority === 'medium' ? 'bg-yellow-500' : 'bg-green-500'
+   668→                  }`} />
+   669→                  <div className="flex-1 min-w-0">
+   670→                    <p className="text-sm font-medium truncate">{item.task}</p>
+   671→                    <p className="text-xs text-gray-500">{item.due} • {item.assignee}</p>
+   672→                  </div>
+   673→                </div>
+   674→              ))}
+   675→            </div>
+   676→          </CardContent>
+   677→        </Card>
+   678→      </main>
+   679→
+   680→      {/* Footer */}
+   681→      <footer className="border-t mt-12 py-6 bg-white">
+   682→        <div className="px-4 sm:px-6 lg:px-8">
+   683→          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-gray-600">
+   684→            <div className="flex items-center gap-2">
+   685→              <Building2 className="w-4 h-4 text-violet-600" />
+   686→              <span>AlgeriaTrade.dz CRM Module</span>
+   687→            </div>
+   688→            
+   689→            <div className="flex items-center gap-6">
+   690→              <span>Dernière synchronisation: Il y a 5 min</span>
+   691→              <span>v2.1.0</span>
+   692→            </div>
+   693→          </div>
+   694→        </div>
+   695→      </footer>
+   696→    </div>
+   697→  )
+   698→}
+   699→

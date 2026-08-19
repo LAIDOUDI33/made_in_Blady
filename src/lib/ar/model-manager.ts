@@ -133,12 +133,14 @@ export async function validateModelFormat(file: File): Promise<{
   const bytes = new Uint8Array(buffer)
 
   // GLB detection (magic: glTF + version)
-  if (
-    bytes[0] === 0x67 && // g
-    bytes[1] === 0x6c && // l
-    bytes[2] === 0x54 && // T
-    bytes[3] === 0x46 && // F
-  ) {
+  const isGLB = (
+    bytes[0] === 0x67 &&
+    bytes[1] === 0x6c &&
+    bytes[2] === 0x54 &&
+    bytes[3] === 0x46
+  )
+  
+  if (isGLB) {
     const version = view.getUint32(4, true)
     return {
       format: 'glb',

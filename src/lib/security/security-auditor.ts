@@ -1208,22 +1208,10 @@ class SecurityAuditor {
         };
 
         if (!result.passed) {
-          audit.categories
-            .find(c => c.id === 'custom') || c.name === 'Custom Checks')
-            ?.findings.push({
-              id: checkResult.id,
-              categoryId: 'custom',
-              categoryName: 'Custom Checks',
-              severity: check.severity,
-              title: `Custom Check Failed: ${check.name}`,
-              description: checkResult.message || 'Custom security check did not pass',
-              location: { type: 'custom', value: check.name },
-              impact: 'Custom security check failure',
-              remediation: [],
-              references: [],
-              discoveredAt: new Date().toISOString(),
-            }) ||
-            category.findings.push({
+          const customCategory = audit.categories
+            .find(c => c.id === 'custom' || c.name === 'Custom Checks');
+          if (customCategory) {
+            customCategory.findings.push({
               id: checkResult.id,
               categoryId: 'custom',
               categoryName: 'Custom Checks',
@@ -1236,6 +1224,7 @@ class SecurityAuditor {
               references: [],
               discoveredAt: new Date().toISOString(),
             });
+          }
         }
 
         category.passedChecks.push(checkResult);

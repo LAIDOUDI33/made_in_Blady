@@ -95,7 +95,7 @@ async function fetchFromBinance(crypto: SupportedCrypto): Promise<{ dzdRate: num
     
     if (!response.ok) {
       console.warn(`Binance API error for ${crypto}: ${response.status}`)
-      return null null
+      return null
     }
     
     const data = await response.json()

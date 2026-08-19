@@ -1,0 +1,1020 @@
+     1→'use client'
+     2→
+     3→import React, { useState, useEffect } from 'react'
+     4→import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+     5→import { Button } from '@/components/ui/button'
+     6→import { Badge } from '@/components/ui/badge'
+     7→import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+     8→import {
+     9→  Table,
+    10→  TableBody,
+    11→  TableCell,
+    12→  TableHead,
+    13→  TableHeader,
+    14→  TableRow,
+    15→} from '@/components/ui/table'
+    16→import {
+    17→  DollarSign,
+    18→  Users,
+    19→  ShoppingCart,
+    20→  TrendingUp,
+    21→  CreditCard,
+    22→  Wallet,
+    23→  Bitcoin,
+    24→  Calendar,
+    25→  AddressBook,
+    26→  MessageSquare,
+    27→  FileText,
+    28→  Receipt,
+    29→  Database,
+    30→  Video,
+    31→  Box,
+    32→  RefreshCw,
+    33→  Activity,
+    34→  Bell,
+    35→  Settings,
+    36→  Search,
+    37→  Download,
+    38→  Eye,
+    39→  ArrowUpRight,
+    40→  ArrowDownRight,
+    41→  CheckCircle2,
+    42→  AlertTriangle,
+    43→  Clock,
+    44→  Zap,
+    45→  Shield,
+    46→  Globe,
+    47→  Package,
+    48→  BarChart3,
+    49→  PieChart,
+    50→  LineChart,
+    51→  LayoutDashboard,
+    52→  UserCheck,
+    53→  CreditCardIcon,
+    54→  HandshakeIcon,
+    55→  FileSpreadsheet,
+    56→  Link2,
+    57→  FileBarChart,
+    58→  MoreHorizontal,
+    59→  ExternalLink,
+    60→  Phone,
+    61→  Mail,
+    62→  MapPin,
+    63→  Star,
+    64→  Filter
+    65→} from 'lucide-react'
+    66→import Link from 'next/link'
+    67→
+    68→// Types
+    69→interface KPICard {
+    70→  title: string
+    71→  value: string
+    72→  change?: string
+    73→  icon: React.ComponentType<{ className?: string }>
+    74→  color: string
+    75→  status?: string
+    76→}
+    77→
+    78→interface ActivityItem {
+    79→  id: string
+    80→  type: 'payment' | 'negotiation' | 'order' | 'user' | 'system' | 'contract' | 'invoice' | 'erp'
+    81→  description: string
+    82→  details: string
+    83→  timestamp: string
+    84→  amount?: string
+    85→  status: 'success' | 'pending' | 'warning' | 'error'
+    86→}
+    87→
+    88→interface QuickLink {
+    89→  title: string
+    90→  href: string
+    91→  icon: React.ComponentType<{ className?: string }>
+    92→  color: string
+    93→  count?: number
+    94→}
+    95→
+    96→// KPI Data - Comprehensive Phase 8 Features
+    97→const kpiCards: KPICard[] = [
+    98→  // Primary Business Metrics
+    99→  { title: "Today's Revenue", value: "2,345,678 د.ج", change: "+12.5%", icon: DollarSign, color: "green" },
+   100→  { title: "Active Users", value: "1,234", change: "+23", icon: Users, color: "blue" },
+   101→  { title: "Pending Orders", value: "89", change: "-5", icon: ShoppingCart, color: "yellow" },
+   102→  { title: "Conversion Rate", value: "4.56%", change: "+0.3%", icon: TrendingUp, color: "purple" },
+   103→  
+   104→  // Payment Methods Status (Phase 8)
+   105→  { title: "SATIM Transactions", value: "234", status: "active", icon: CreditCard, color: "emerald" },
+   106→  { title: "Stripe Payments", value: "89", status: "active", icon: Wallet, color: "indigo" },
+   107→  { title: "Crypto Payments", value: "45", status: "active", icon: Bitcoin, color: "orange" },
+   108→  { title: "DPA Plans Active", value: "12", status: "active", icon: Calendar, color: "teal" },
+   109→  
+   110→  // Business Tools (Phase 8)
+   111→  { title: "CRM Contacts", value: "1,567", icon: AddressBook, color: "rose" },
+   112→  { title: "Active Negotiations", value: "34", icon: MessageSquare, color: "amber" },
+   113→  { title: "Contracts Pending", value: "23", icon: FileText, color: "cyan" },
+   114→  { title: "Invoices Issued", value: "456", icon: Receipt, color: "lime" },
+   115→  
+   116→  // Technical Integrations (Phase 8)
+   117→  { title: "ERP Connectors", value: "8", status: "synced", icon: Database, color: "violet" },
+   118→  { title: "Active Calls", value: "12", icon: Video, color: "fuchsia" },
+   119→  { title: "AR Models", value: "234", icon: Box, color: "sky" },
+   120→  { title: "Currency Rates", value: "8", status: "current", icon: RefreshCw, color: "stone" }
+   121→]
+   122→
+   123→// Revenue by Payment Method Data
+   124→const revenueByPaymentMethod = [
+   125→  { name: 'SATIM/CIB', value: 1245000, percentage: 52, color: '#006233' },
+   126→  { name: 'Stripe', value: 567000, percentage: 24, color: '#635BFF' },
+   127→  { name: 'CCP/BaridiMob', value: 356000, percentage: 15, color: '#00A651' },
+   128→  { name: 'Crypto', value: 178000, percentage: 7, color: '#F7931A' },
+   129→  { name: 'Bank Transfer', value: 156000, percentage: 2, color: '#3B82F6' }
+   130→]
+   131→
+   132→// Orders trend data (30 days)
+   133→const ordersTrendData = Array.from({ length: 30 }, (_, i) => ({
+   134→  day: i + 1,
+   135→  orders: Math.floor(Math.random() * 50) + 20 + (i * 0.5),
+   136→  revenue: Math.floor(Math.random() * 100000) + 50000
+   137→}))
+   138→
+   139→// Currency Distribution Data
+   140→const currencyDistribution = [
+   141→  { currency: 'DZD', amount: 2845000, transactions: 1234, flag: '🇩🇿' },
+   142→  { currency: 'USD', amount: 18900, transactions: 89, flag: '🇺🇸' },
+   143→  { currency: 'EUR', amount: 15600, transactions: 67, flag: '🇪🇺' },
+   144→  { currency: 'USDT', value: 45000, transactions: 45, flag: '💱' },
+   145→  { currency: 'BTC', value: 0.85, transactions: 12, flag: '₿' }
+   146→]
+   147→
+   148→// CRM Pipeline Funnel Data
+   149→const crmPipelineStages = [
+   150→  { stage: 'Leads', count: 456, conversion: 100, color: '#94a3b8' },
+   151→  { stage: 'Qualified', count: 234, conversion: 51, color: '#3b82f6' },
+   152→  { stage: 'Proposal', count: 123, conversion: 27, color: '#8b5cf6' },
+   153→  { stage: 'Negotiation', count: 67, conversion: 15, color: '#f59e0b' },
+   154→  { stage: 'Closed Won', count: 34, conversion: 7.5, color: '#22c55e' }
+   155→]
+   156→
+   157→// Recent Activity Data
+   158→const recentActivities: ActivityItem[] = [
+   159→  {
+   160→    id: '1',
+   161→    type: 'payment',
+   162→    description: 'SATIM Payment Received',
+   163→    details: 'Order #ORD-2024-1234 from Cevital Group',
+   164→    timestamp: '2 minutes ago',
+   165→    amount: '125,000 د.ج',
+   166→    status: 'success'
+   167→  },
+   168→  {
+   169→    id: '2',
+   170→    type: 'negotiation',
+   171→    description: 'New Negotiation Started',
+   172→    details: 'Ifri Industries ↔ Sonatrach - Steel Pipes Contract',
+   173→    timestamp: '15 minutes ago',
+   174→    status: 'pending'
+   175→  },
+   176→  {
+   177→    id: '3',
+   178→    type: 'order',
+   179→    description: 'Bulk Order Placed',
+   180→    details: 'Condor Algeria - 500 units Home Appliances',
+   181→    timestamp: '32 minutes ago',
+   182→    amount: '890,000 د.ج',
+   183→    status: 'success'
+   184→  },
+   185→  {
+   186→    id: '4',
+   187→    type: 'contract',
+   188→    description: 'Contract Awaiting Signature',
+   189→    details: 'Nassel Motors - Distribution Agreement #CT-789',
+   190→    timestamp: '1 hour ago',
+   191→    status: 'warning'
+   192→  },
+   193→  {
+   194→    id: '5',
+   195→    type: 'erp',
+   196→    description: 'SAP Sync Completed',
+   197→    details: 'Inventory sync: 1,234 products updated',
+   198→    timestamp: '1 hour ago',
+   199→    status: 'success'
+   200→  },
+   201→  {
+   202→    id: '6',
+   203→    type: 'invoice',
+   204→    description: 'Invoice Generated',
+   205→    details: 'INV-2024-0567 for Saidal Group - Pharmaceuticals',
+   206→    timestamp: '2 hours ago',
+   207→    amount: '456,000 د.ج',
+   208→    status: 'success'
+   209→  },
+   210→  {
+   211→    id: '7',
+   212→    type: 'user',
+   213→    description: 'New Supplier Verified',
+   214→    details: 'Groupe Vitall - Pharmaceutical Distributor (Algiers)',
+   215→    timestamp: '3 hours ago',
+   216→    status: 'success'
+   217→  },
+   218→  {
+   219→    id: '8',
+   220→    type: 'crypto',
+   221→    description: 'USDT Payment Confirmed',
+   222→    details: 'International order #INT-456 - Blockchain verified',
+   223→    timestamp: '4 hours ago',
+   224→    amount: '$2,450 USDT',
+   225→    status: 'success'
+   226→  },
+   227→  {
+   228→    id: '9',
+   229→    type: 'system',
+   230→    description: 'Currency Rate Updated',
+   231→    details: 'EUR/DZD: 145.23 (+0.12%)',
+   232→    timestamp: '5 hours ago',
+   233→    status: 'success'
+   234→  },
+   235→  {
+   236→    id: '10',
+   237→    type: 'payment',
+   238→    description: 'DPA Installment Due',
+   239→    details: 'Plan #DPA-123 - Naftal Corporation',
+   240→    timestamp: '6 hours ago',
+   241→    amount: '67,000 د.ج',
+   242→    status: 'warning'
+   243→  }
+   244→]
+   245→
+   246→// Quick Links
+   247→const quickLinks: QuickLink[] = [
+   248→  { title: 'Manage Products', href: '/admin/products', icon: Package, color: 'bg-blue-500', count: 1234 },
+   249→  { title: 'View Orders', href: '/admin/orders', icon: ShoppingCart, color: 'bg-green-500', count: 89 },
+   250→  { title: 'Users Management', href: '/admin/users', icon: Users, color: 'bg-purple-500', count: 1567 },
+   251→  { title: 'Payment Settings', href: '/admin/payments', icon: CreditCard, color: 'bg-emerald-500' },
+   252→  { title: 'CRM Dashboard', href: '/admin/crm', icon: AddressBook, color: 'bg-rose-500', count: 34 },
+   253→  { title: 'Invoices', href: '/admin/invoices', icon: Receipt, color: 'bg-amber-500', count: 456 },
+   254→  { title: 'ERP Connectors', href: '/admin/erp', icon: Database, color: 'bg-cyan-500', count: 8 },
+   255→  { title: 'Reports & Analytics', href: '/admin/reports', icon: BarChart3, color: 'bg-indigo-500' }
+   256→]
+   257→
+   258→// Helper functions
+   259→const getColorClasses = (color: string): string => {
+   260→  const colors: Record<string, string> = {
+   261→    green: 'bg-green-50 border-green-200 text-green-700',
+   262→    blue: 'bg-blue-50 border-blue-200 text-blue-700',
+   263→    yellow: 'bg-yellow-50 border-yellow-200 text-yellow-700',
+   264→    purple: 'bg-purple-50 border-purple-200 text-purple-700',
+   265→    emerald: 'bg-emerald-50 border-emerald-200 text-emerald-700',
+   266→    indigo: 'bg-indigo-50 border-indigo-200 text-indigo-700',
+   267→    orange: 'bg-orange-50 border-orange-200 text-orange-700',
+   268→    teal: 'bg-teal-50 border-teal-200 text-teal-700',
+   269→    rose: 'bg-rose-50 border-rose-200 text-rose-700',
+   270→    amber: 'bg-amber-50 border-amber-200 text-amber-700',
+   271→    cyan: 'bg-cyan-50 border-cyan-200 text-cyan-700',
+   272→    lime: 'bg-lime-50 border-lime-200 text-lime-700',
+   273→    violet: 'bg-violet-50 border-violet-200 text-violet-700',
+   274→    fuchsia: 'bg-fuchsia-50 border-fuchsia-200 text-fuchsia-700',
+   275→    sky: 'bg-sky-50 border-sky-200 text-sky-700',
+   276→    stone: 'bg-stone-50 border-stone-200 text-stone-700'
+   277→  }
+   278→  return colors[color] || 'bg-gray-50 border-gray-200 text-gray-700'
+   279→}
+   280→
+   281→const getIconColor = (color: string): string => {
+   282→  const colors: Record<string, string> = {
+   283→    green: 'text-green-600 bg-green-100',
+   284→    blue: 'text-blue-600 bg-blue-100',
+   285→    yellow: 'text-yellow-600 bg-yellow-100',
+   286→    purple: 'text-purple-600 bg-purple-100',
+   287→    emerald: 'text-emerald-600 bg-emerald-100',
+   288→    indigo: 'text-indigo-600 bg-indigo-100',
+   289→    orange: 'text-orange-600 bg-orange-100',
+   290→    teal: 'text-teal-600 bg-teal-100',
+   291→    rose: 'text-rose-600 bg-rose-100',
+   292→    amber: 'text-amber-600 bg-amber-100',
+   293→    cyan: 'text-cyan-600 bg-cyan-100',
+   294→    lime: 'text-lime-600 bg-lime-100',
+   295→    violet: 'text-violet-600 bg-violet-100',
+   296→    fuchsia: 'text-fuchsia-600 bg-fuchsia-100',
+   297→    sky: 'text-sky-600 bg-sky-100',
+   298→    stone: 'text-stone-600 bg-stone-100'
+   299→  }
+   300→  return colors[color] || 'text-gray-600 bg-gray-100'
+   301→}
+   302→
+   303→const getActivityIcon = (type: string) => {
+   304→  const icons: Record<string, React.ComponentType<{ className?: string }>> = {
+   305→    payment: CreditCard,
+   306→    negotiation: MessageSquare,
+   307→    order: ShoppingCart,
+   308→    user: Users,
+   309→    system: Settings,
+   310→    contract: FileText,
+   311→    invoice: Receipt,
+   312→    erp: Database,
+   313→    crypto: Bitcoin
+   314→  }
+   315→  return icons[type] || Activity
+   316→}
+   317→
+   318→const getActivityColor = (type: string) => {
+   319→  const colors: Record<string, string> = {
+   320→    payment: 'bg-green-100 text-green-600',
+   321→    negotiation: 'bg-blue-100 text-blue-600',
+   322→    order: 'bg-purple-100 text-purple-600',
+   323→    user: 'bg-indigo-100 text-indigo-600',
+   324→    system: 'bg-gray-100 text-gray-600',
+   325→    contract: 'bg-amber-100 text-amber-600',
+   326→    invoice: 'bg-cyan-100 text-cyan-600',
+   327→    erp: 'bg-violet-100 text-violet-600',
+   328→    crypto: 'bg-orange-100 text-orange-600'
+   329→  }
+   330→  return colors[type] || 'bg-gray-100 text-gray-600'
+   331→}
+   332→
+   333→const getStatusBadge = (status: string) => {
+   334→  switch (status) {
+   335→    case 'success':
+   336→      return <Badge className="bg-green-100 text-green-700 border-green-200"><CheckCircle2 className="w-3 h-3 mr-1" />Success</Badge>
+   337→    case 'pending':
+   338→      return <Badge className="bg-yellow-100 text-yellow-700 border-yellow-200"><Clock className="w-3 h-3 mr-1" />Pending</Badge>
+   339→    case 'warning':
+   340→      return <Badge className="bg-orange-100 text-orange-700 border-orange-200"><AlertTriangle className="w-3 h-3 mr-1" />Warning</Badge>
+   341→    case 'error':
+   342→      return <Badge variant="destructive"><AlertTriangle className="w-3 h-3 mr-1" />Error</Badge>
+   343→    default:
+   344→      return <Badge variant="secondary">{status}</Badge>
+   345→  }
+   346→}
+   347→
+   348→// Donut Chart Component (SVG-based)
+   349→function DonutChart({ data }: { data: typeof revenueByPaymentMethod }) {
+   350→  const radius = 80
+   351→  const innerRadius = 50
+   352→  const centerX = 100
+   353→  const centerY = 100
+   354→
+   355→  // Calculate cumulative angles without mutation
+   356→  const calculateArcs = () => {
+   357→    let cumulativeAngle = 0
+   358→    return data.map((item) => {
+   359→      const angle = (item.percentage / 100) * 360
+   360→      const startAngle = cumulativeAngle
+   361→      const endAngle = cumulativeAngle + angle
+   362→      cumulativeAngle = endAngle
+   363→
+   364→      const startRad = (startAngle - 90) * Math.PI / 180
+   365→      const endRad = (endAngle - 90) * Math.PI / 180
+   366→
+   367→      const x1 = centerX + radius * Math.cos(startRad)
+   368→      const y1 = centerY + radius * Math.sin(startRad)
+   369→      const x2 = centerX + radius * Math.cos(endRad)
+   370→      const y2 = centerY + radius * Math.sin(endRad)
+   371→
+   372→      const ix1 = centerX + innerRadius * Math.cos(startRad)
+   373→      const iy1 = centerY + innerRadius * Math.sin(startRad)
+   374→      const ix2 = centerX + innerRadius * Math.cos(endRad)
+   375→      const iy2 = centerY + innerRadius * Math.sin(endRad)
+   376→
+   377→      const largeArc = angle > 180 ? 1 : 0
+   378→
+   379→      return {
+   380→        color: item.color,
+   381→        pathD: `M ${x1} ${y1} A ${radius} ${radius} 0 ${largeArc} 1 ${x2} ${y2} L ${ix2} ${iy2} A ${innerRadius} ${innerRadius} 0 ${largeArc} 0 ${ix1} ${iy1} Z`
+   382→      }
+   383→    })
+   384→  }
+   385→
+   386→  const arcs = calculateArcs()
+   387→
+   388→  return (
+   389→    <div className="flex items-center justify-center">
+   390→      <svg width="200" height="200" viewBox="0 0 200 200">
+   391→        {arcs.map((arc, index) => (
+   392→          <g key={index}>
+   393→            <path
+   394→              d={arc.pathD}
+   395→              fill={arc.color}
+   396→              className="hover:opacity-80 transition-opacity cursor-pointer"
+   397→            />
+   398→          </g>
+   399→        ))}
+   400→        <text x={centerX} y={centerY - 5} textAnchor="middle" className="fill-gray-700 font-bold text-sm">Total</text>
+   401→        <text x={centerX} y={centerY + 15} textAnchor="middle" className="fill-gray-500 text-xs">2.5M د.ج</text>
+   402→      </svg>
+   403→    </div>
+   404→  )
+   405→}
+   406→
+   407→// Simple Bar Chart Component
+   408→function MiniBarChart({ data }: { data: typeof ordersTrendData }) {
+   409→  const maxValue = Math.max(...data.map(d => d.orders))
+   410→  const displayData = data.slice(-14) // Last 14 days
+   411→
+   412→  return (
+   413→    <div className="flex items-end gap-1 h-40 px-2">
+   414→      {displayData.map((item, index) => {
+   415→        const height = (item.orders / maxValue) * 100
+   416→        return (
+   417→          <div key={index} className="flex-1 flex flex-col items-center gap-1">
+   418→            <div 
+   419→              className="w-full bg-gradient-to-t from-emerald-600 to-emerald-400 rounded-t-sm hover:from-emerald-500 hover:to-emerald-300 transition-colors cursor-pointer min-h-[4px]"
+   420→              style={{ height: `${height}%` }}
+   421→              title={`Day ${item.day}: ${item.orders} orders`}
+   422→            />
+   423→            <span className="text-[9px] text-gray-500">{item.day}</span>
+   424→          </div>
+   425→        )
+   426→      })}
+   427→    </div>
+   428→  )
+   429→}
+   430→
+   431→// Currency Bar Chart Component
+   432→function CurrencyBarChart({ data }: { data: typeof currencyDistribution }) {
+   433→  const maxAmount = Math.max(...data.map(d => d.amount || d.value || 0))
+   434→
+   435→  return (
+   436→    <div className="space-y-3 p-2">
+   437→      {data.map((item, index) => {
+   438→        const value = item.amount || item.value || 0
+   439→        const percentage = (value / maxAmount) * 100
+   440→        return (
+   441→          <div key={index} className="space-y-1">
+   442→            <div className="flex items-center justify-between text-sm">
+   443→              <span className="flex items-center gap-2">
+   444→                <span>{item.flag}</span>
+   445→                <span className="font-medium">{item.currency}</span>
+   446→              </span>
+   447→              <span className="text-gray-500">{item.transactions} txns</span>
+   448→            </div>
+   449→            <div className="h-6 bg-gray-100 rounded-full overflow-hidden">
+   450→              <div
+   451→                className="h-full rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 transition-all duration-500"
+   452→                style={{ width: `${percentage}%` }}
+   453→              />
+   454→            </div>
+   455→          </div>
+   456→        )
+   457→      })}
+   458→    </div>
+   459→  )
+   460→}
+   461→
+   462→// Pipeline Funnel Component
+   463→function PipelineFunnel({ stages }: { stages: typeof crmPipelineStages }) {
+   464→  const maxWidth = 100
+   465→  
+   466→  return (
+   467→    <div className="space-y-2 p-4">
+   468→      {stages.map((stage, index) => {
+   469→        const width = (stage.conversion / 100) * maxWidth
+   470→        const colors = ['bg-slate-400', 'bg-blue-500', 'bg-violet-500', 'bg-amber-500', 'bg-green-500']
+   471→        
+   472→        return (
+   473→          <div key={index} className="relative">
+   474→            <div 
+   475→              className={`${colors[index]} h-10 rounded-lg flex items-center justify-between px-4 text-white font-medium mx-auto transition-all duration-300 hover:brightness-110 cursor-pointer`}
+   476→              style={{ width: `${width}%` }}
+   477→            >
+   478→              <span>{stage.stage}</span>
+   479→              <span className="bg-white/20 px-2 py-0.5 rounded-full text-sm">{stage.count}</span>
+   480→            </div>
+   481→            {index < stages.length - 1 && (
+   482→              <div className="flex justify-center my-1">
+   483→                <ArrowDownRight className="w-4 h-4 text-gray-400 rotate-[-90deg]" />
+   484→              </div>
+   485→            )}
+   486→          </div>
+   487→        )
+   488→      })}
+   489→    </div>
+   490→  )
+   491→}
+   492→
+   493→// Main Dashboard Component
+   494→export default function AdminDashboardPage() {
+   495→  const [currentTime, setCurrentTime] = useState<string>('')
+   496→  const [currentDate, setCurrentDate] = useState<string>('')
+   497→
+   498→  useEffect(() => {
+   499→    const updateTime = () => {
+   500→      const now = new Date()
+   501→      // Algerian timezone (UTC+1)
+   502→      const options: Intl.DateTimeFormatOptions = {
+   503→        timeZone: 'Africa/Algiers',
+   504→        hour: '2-digit',
+   505→        minute: '2-digit',
+   506→        second: '2-digit',
+   507→        hour12: false
+   508→      }
+   509→      const dateOptions: Intl.DateTimeFormatOptions = {
+   510→        timeZone: 'Africa/Algiers',
+   511→        weekday: 'long',
+   512→        year: 'numeric',
+   513→        month: 'long',
+   514→        day: 'numeric'
+   515→      }
+   516→      setCurrentTime(now.toLocaleTimeString('fr-FR', options))
+   517→      setCurrentDate(now.toLocaleDateString('fr-FR', dateOptions))
+   518→    }
+   519→
+   520→    updateTime()
+   521→    const interval = setInterval(updateTime, 1000)
+   522→    return () => clearInterval(interval)
+   523→  }, [])
+   524→
+   525→  return (
+   526→    <div className="space-y-6">
+   527→      {/* Header Section */}
+   528→      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+   529→        <div className="space-y-1">
+   530→          <div className="flex items-center gap-3">
+   531→            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-200">
+   532→              <LayoutDashboard className="w-6 h-6 text-white" />
+   533→            </div>
+   534→            <div>
+   535→              <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
+   536→              <p className="text-sm text-gray-500">AlgeriaTrade.dz - Phase 8 Enterprise Control Center</p>
+   537→            </div>
+   538→          </div>
+   539→        </div>
+   540→
+   541→        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+   542→          {/* Date/Time Display */}
+   543→          <div className="bg-white border rounded-xl px-4 py-3 shadow-sm">
+   544→            <div className="flex items-center gap-3">
+   545→              <Clock className="w-5 h-5 text-emerald-600" />
+   546→              <div>
+   547→                <p className="text-lg font-semibold text-gray-900 font-mono">{currentTime}</p>
+   548→                <p className="text-xs text-gray-500 capitalize">{currentDate}</p>
+   549→              </div>
+   550→            </div>
+   551→          </div>
+   552→
+   553→          {/* System Health */}
+   554→          <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-xl px-4 py-3">
+   555→            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+   556→            <span className="text-sm font-medium text-green-700">All Systems Operational</span>
+   557→          </div>
+   558→
+   559→          {/* Quick Actions */}
+   560→          <div className="flex items-center gap-2">
+   561→            <Button variant="outline" size="sm" className="gap-2">
+   562→              <Download className="w-4 h-4" />
+   563→              Export
+   564→            </Button>
+   565→            <Button size="sm" className="gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700">
+   566→              <Settings className="w-4 h-4" />
+   567→              Quick Actions
+   568→            </Button>
+   569→          </div>
+   570→        </div>
+   571→      </div>
+   572→
+   573→      {/* KPI Cards Grid - 16 Cards in 4 Columns */}
+   574→      <Tabs defaultValue="overview" className="space-y-4">
+   575→        <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-flex">
+   576→          <TabsTrigger value="overview" className="gap-2">
+   577→            <BarChart3 className="w-4 h-4" />
+   578→            Overview
+   579→          </TabsTrigger>
+   580→          <TabsTrigger value="payments" className="gap-2">
+   581→            <CreditCard className="w-4 h-4" />
+   582→            Payments
+   583→          </TabsTrigger>
+   584→          <TabsTrigger value="business" className="gap-2">
+   585→            <HandshakeIcon className="w-4 h-4" />
+   586→            Business
+   587→          </TabsTrigger>
+   588→          <TabsTrigger value="technical" className="gap-2">
+   589→            <Database className="w-4 h-4" />
+   590→            Technical
+   591→          </TabsTrigger>
+   592→        </TabsList>
+   593→
+   594→        {/* Overview Tab - Main KPIs */}
+   595→        <TabsContent value="overview" className="space-y-4">
+   596→          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+   597→            {kpiCards.slice(0, 4).map((kpi, index) => (
+   598→              <Card key={index} className="hover:shadow-lg transition-shadow border-0 shadow-sm">
+   599→                <CardContent className="pt-6">
+   600→                  <div className="flex items-start justify-between">
+   601→                    <div className="space-y-2">
+   602→                      <p className="text-sm font-medium text-gray-500">{kpi.title}</p>
+   603→                      <p className="text-2xl font-bold text-gray-900">{kpi.value}</p>
+   604→                      {kpi.change && (
+   605→                        <div className="flex items-center gap-1">
+   606→                          {kpi.change.startsWith('+') ? (
+   607→                            <ArrowUpRight className="w-4 h-4 text-green-500" />
+   608→                          ) : (
+   609→                            <ArrowDownRight className="w-4 h-4 text-red-500" />
+   610→                          )}
+   611→                          <span className={`text-sm font-medium ${
+   612→                            kpi.change.startsWith('+') ? 'text-green-600' : 'text-red-600'
+   613→                          }`}>
+   614→                            {kpi.change}
+   615→                          </span>
+   616→                          <span className="text-xs text-gray-400">vs yesterday</span>
+   617→                        </div>
+   618→                      )}
+   619→                    </div>
+   620→                    <div className={`p-3 rounded-xl ${getIconColor(kpi.color)}`}>
+   621→                      <kpi.icon className="w-5 h-5" />
+   622→                    </div>
+   623→                  </div>
+   624→                </CardContent>
+   625→              </Card>
+   626→            ))}
+   627→          </div>
+   628→        </TabsContent>
+   629→
+   630→        {/* Payments Tab - Payment Methods Status */}
+   631→        <TabsContent value="payments" className="space-y-4">
+   632→          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+   633→            {kpiCards.slice(4, 8).map((kpi, index) => (
+   634→              <Card key={index} className="hover:shadow-lg transition-shadow border-0 shadow-sm">
+   635→                <CardContent className="pt-6">
+   636→                  <div className="flex items-start justify-between">
+   637→                    <div className="space-y-2">
+   638→                      <p className="text-sm font-medium text-gray-500">{kpi.title}</p>
+   639→                      <p className="text-2xl font-bold text-gray-900">{kpi.value}</p>
+   640→                      <Badge 
+   641→                        variant="outline" 
+   642→                        className={
+   643→                          kpi.status === 'active' 
+   644→                            ? 'border-green-200 bg-green-50 text-green-700' 
+   645→                            : 'border-gray-200 bg-gray-50 text-gray-600'
+   646→                        }
+   647→                      >
+   648→                        <CheckCircle2 className="w-3 h-3 mr-1" />
+   649→                        {kpi.status === 'active' ? 'Active' : kpi.status}
+   650→                      </Badge>
+   651→                    </div>
+   652→                    <div className={`p-3 rounded-xl ${getIconColor(kpi.color)}`}>
+   653→                      <kpi.icon className="w-5 h-5" />
+   654→                    </div>
+   655→                  </div>
+   656→                </CardContent>
+   657→              </Card>
+   658→            ))}
+   659→          </div>
+   660→          
+   661→          {/* Payment Methods Summary */}
+   662→          <Card className="border-0 shadow-sm">
+   663→            <CardHeader className="pb-3">
+   664→              <CardTitle className="text-base">Payment Gateway Health</CardTitle>
+   665→              <CardDescription>Real-time status of all payment integrations</CardDescription>
+   666→            </CardHeader>
+   667→            <CardContent>
+   668→              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+   669→                <div className="flex items-center gap-3 p-3 bg-green-50 rounded-lg border border-green-200">
+   670→                  <Shield className="w-8 h-8 text-green-600" />
+   671→                  <div>
+   672→                    <p className="font-medium text-green-800">SATIM Gateway</p>
+   673→                    <p className="text-sm text-green-600">Latency: 45ms • Uptime: 99.98%</p>
+   674→                  </div>
+   675→                </div>
+   676→                <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+   677→                  <Shield className="w-8 h-8 text-blue-600" />
+   678→                  <div>
+   679→                    <p className="font-medium text-blue-800">Stripe API</p>
+   680→                    <p className="text-sm text-blue-600">Latency: 120ms • Uptime: 99.95%</p>
+   681→                  </div>
+   682→                </div>
+   683→                <div className="flex items-center gap-3 p-3 bg-orange-50 rounded-lg border border-orange-200">
+   684→                  <Bitcoin className="w-8 h-8 text-orange-600" />
+   685→                  <div>
+   686→                    <p className="font-medium text-orange-800">Crypto Node</p>
+   687→                    <p className="text-sm text-orange-600">Confirmations: 3/3 • Synced</p>
+   688→                  </div>
+   689→                </div>
+   690→              </div>
+   691→            </CardContent>
+   692→          </Card>
+   693→        </TabsContent>
+   694→
+   695→        {/* Business Tab - CRM & Contracts */}
+   696→        <TabsContent value="business" className="space-y-4">
+   697→          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+   698→            {kpiCards.slice(8, 12).map((kpi, index) => (
+   699→              <Card key={index} className="hover:shadow-lg transition-shadow border-0 shadow-sm">
+   700→                <CardContent className="pt-6">
+   701→                  <div className="flex items-start justify-between">
+   702→                    <div className="space-y-2">
+   703→                      <p className="text-sm font-medium text-gray-500">{kpi.title}</p>
+   704→                      <p className="text-2xl font-bold text-gray-900">{kpi.value}</p>
+   705→                    </div>
+   706→                    <div className={`p-3 rounded-xl ${getIconColor(kpi.color)}`}>
+   707→                      <kpi.icon className="w-5 h-5" />
+   708→                    </div>
+   709→                  </div>
+   710→                </CardContent>
+   711→              </Card>
+   712→            ))}
+   713→          </div>
+   714→        </TabsContent>
+   715→
+   716→        {/* Technical Tab - ERP, AR, etc. */}
+   717→        <TabsContent value="technical" className="space-y-4">
+   718→          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+   719→            {kpiCards.slice(12, 16).map((kpi, index) => (
+   720→              <Card key={index} className="hover:shadow-lg transition-shadow border-0 shadow-sm">
+   721→                <CardContent className="pt-6">
+   722→                  <div className="flex items-start justify-between">
+   723→                    <div className="space-y-2">
+   724→                      <p className="text-sm font-medium text-gray-500">{kpi.title}</p>
+   725→                      <p className="text-2xl font-bold text-gray-900">{kpi.value}</p>
+   726→                      {kpi.status && (
+   727→                        <Badge 
+   728→                          variant="outline"
+   729→                          className={
+   730→                            kpi.status === 'synced' || kpi.status === 'current'
+   731→                              ? 'border-green-200 bg-green-50 text-green-700'
+   732→                              : 'border-yellow-200 bg-yellow-50 text-yellow-700'
+   733→                          }
+   734→                        >
+   735→                          <RefreshCw className="w-3 h-3 mr-1" />
+   736→                          {kpi.status}
+   737→                        </Badge>
+   738→                      )}
+   739→                    </div>
+   740→                    <div className={`p-3 rounded-xl ${getIconColor(kpi.color)}`}>
+   741→                      <kpi.icon className="w-5 h-5" />
+   742→                    </div>
+   743→                  </div>
+   744→                </CardContent>
+   745→              </Card>
+   746→            ))}
+   747→          </div>
+   748→        </TabsContent>
+   749→      </Tabs>
+   750→
+   751→      {/* Charts Section - 2x2 Grid */}
+   752→      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+   753→        {/* Chart 1: Revenue by Payment Method (Donut) */}
+   754→        <Card className="border-0 shadow-sm">
+   755→          <CardHeader className="pb-2">
+   756→            <div className="flex items-center justify-between">
+   757→              <div>
+   758→                <CardTitle className="text-base flex items-center gap-2">
+   759→                  <PieChart className="w-5 h-5 text-emerald-600" />
+   760→                  Revenue by Payment Method
+   761→                </CardTitle>
+   762→                <CardDescription>Distribution of today's revenue</CardDescription>
+   763→              </div>
+   764→              <Badge variant="outline" className="text-emerald-600 border-emerald-200">
+   765→                Today
+   766→              </Badge>
+   767→            </div>
+   768→          </CardHeader>
+   769→          <CardContent>
+   770→            <div className="flex flex-col md:flex-row items-center gap-6">
+   771→              <DonutChart data={revenueByPaymentMethod} />
+   772→              <div className="space-y-3 flex-1">
+   773→                {revenueByPaymentMethod.map((item, index) => (
+   774→                  <div key={index} className="flex items-center justify-between">
+   775→                    <div className="flex items-center gap-2">
+   776→                      <div 
+   777→                        className="w-3 h-3 rounded-full" 
+   778→                        style={{ backgroundColor: item.color }}
+   779→                      />
+   780→                      <span className="text-sm text-gray-600">{item.name}</span>
+   781→                    </div>
+   782→                    <div className="text-right">
+   783→                      <span className="text-sm font-semibold">{(item.value / 1000).toFixed(0)}K</span>
+   784→                      <span className="text-xs text-gray-400 ml-2">{item.percentage}%</span>
+   785→                    </div>
+   786→                  </div>
+   787→                ))}
+   788→              </div>
+   789→            </div>
+   790→          </CardContent>
+   791→        </Card>
+   792→
+   793→        {/* Chart 2: Orders Trend (Line/Bar) */}
+   794→        <Card className="border-0 shadow-sm">
+   795→          <CardHeader className="pb-2">
+   796→            <div className="flex items-center justify-between">
+   797→              <div>
+   798→                <CardTitle className="text-base flex items-center gap-2">
+   799→                  <LineChart className="w-5 h-5 text-blue-600" />
+   800→                  Orders Trend (Last 30 Days)
+   801→                </CardTitle>
+   802→                <CardDescription>Daily order volume</CardDescription>
+   803→              </div>
+   804→              <div className="flex items-center gap-2">
+   805→                <Badge variant="outline" className="text-blue-600 border-blue-200">
+   806→                  +18.5%
+   807→                </Badge>
+   808→                <Button variant="ghost" size="sm">
+   809→                  <MoreHorizontal className="w-4 h-4" />
+   810→                </Button>
+   811→              </div>
+   812→            </div>
+   813→          </CardHeader>
+   814→          <CardContent>
+   815→            <MiniBarChart data={ordersTrendData} />
+   816→            <div className="flex items-center justify-between mt-4 pt-3 border-t text-sm text-gray-500">
+   817→              <span>Last 14 days shown</span>
+   818→              <div className="flex items-center gap-4">
+   819→                <span className="flex items-center gap-1">
+   820→                  <div className="w-3 h-3 rounded bg-gradient-to-t from-emerald-600 to-emerald-400" />
+   821→                  Orders
+   822→                </span>
+   823→                <span>Avg: 42/day</span>
+   824→              </div>
+   825→            </div>
+   826→          </CardContent>
+   827→        </Card>
+   828→
+   829→        {/* Chart 3: Currency Distribution */}
+   830→        <Card className="border-0 shadow-sm">
+   831→          <CardHeader className="pb-2">
+   832→            <div className="flex items-center justify-between">
+   833→              <div>
+   834→                <CardTitle className="text-base flex items-center gap-2">
+   835→                  <Globe className="w-5 h-5 text-violet-600" />
+   836→                  Currency Distribution
+   837→                </CardTitle>
+   838→                <CardDescription>Transaction volume by currency</CardDescription>
+   839→              </div>
+   840→              <Badge variant="outline" className="text-violet-600 border-violet-200">
+   841→                Multi-Currency
+   842→              </Badge>
+   843→            </div>
+   844→          </CardHeader>
+   845→          <CardContent>
+   846→            <CurrencyBarChart data={currencyDistribution} />
+   847→          </CardContent>
+   848→        </Card>
+   849→
+   850→        {/* Chart 4: CRM Pipeline Funnel */}
+   851→        <Card className="border-0 shadow-sm">
+   852→          <CardHeader className="pb-2">
+   853→            <div className="flex items-center justify-between">
+   854→              <div>
+   855→                <CardTitle className="text-base flex items-center gap-2">
+   856→                  <Filter className="w-5 h-5 text-amber-600" />
+   857→                  CRM Sales Pipeline
+   858→                </CardTitle>
+   859→                <CardDescription>Lead conversion funnel</CardDescription>
+   860→              </div>
+   861→              <Badge variant="outline" className="text-amber-600 border-amber-200">
+   862→                7.5% Close Rate
+   863→              </Badge>
+   864→            </div>
+   865→          </CardHeader>
+   866→          <CardContent>
+   867→            <PipelineFunnel stages={crmPipelineStages} />
+   868→          </CardContent>
+   869→        </Card>
+   870→      </div>
+   871→
+   872→      {/* Recent Activity Table */}
+   873→      <Card className="border-0 shadow-sm">
+   874→        <CardHeader className="pb-3">
+   875→          <div className="flex items-center justify-between">
+   876→            <div>
+   877→              <CardTitle className="text-base flex items-center gap-2">
+   878→                <Activity className="w-5 h-5 text-rose-600" />
+   879→                Recent Activity
+   880→              </CardTitle>
+   881→              <CardDescription>Latest transactions and events across all modules</CardDescription>
+   882→            </div>
+   883→            <div className="flex items-center gap-2">
+   884→              <Button variant="outline" size="sm" className="gap-2">
+   885→                <Eye className="w-4 h-4" />
+   886→                View All
+   887→              </Button>
+   888→            </div>
+   889→          </div>
+   890→        </CardHeader>
+   891→        <CardContent className="p-0">
+   892→          <Table>
+   893→            <TableHeader>
+   894→              <TableRow className="hover:bg-transparent">
+   895→                <TableHead className="w-[50px]">Type</TableHead>
+   896→                <TableHead>Description</TableHead>
+   897→                <TableHead>Details</TableHead>
+   898→                <TableHead className="text-right">Amount</TableHead>
+   899→                <TableHead className="text-right">Status</TableHead>
+   900→                <TableHead className="w-[120px]">Time</TableHead>
+   901→              </TableRow>
+   902→            </TableHeader>
+   903→            <TableBody>
+   904→              {recentActivities.map((activity) => {
+   905→                const IconComponent = getActivityIcon(activity.type)
+   906→                return (
+   907→                  <TableRow key={activity.id} className="cursor-pointer hover:bg-gray-50/50">
+   908→                    <TableCell>
+   909→                      <div className={`p-2 rounded-lg inline-flex ${getActivityColor(activity.type)}`}>
+   910→                        <IconComponent className="w-4 h-4" />
+   911→                      </div>
+   912→                    </TableCell>
+   913→                    <TableCell>
+   914→                      <div className="space-y-0.5">
+   915→                        <p className="font-medium text-sm">{activity.description}</p>
+   916→                        <p className="text-xs text-gray-500 truncate max-w-[300px]">{activity.details}</p>
+   917→                      </div>
+   918→                    </TableCell>
+   919→                    <TableCell>
+   920→                      <span className="text-xs text-gray-500">{activity.details.split(' - ')[0]}</span>
+   921→                    </TableCell>
+   922→                    <TableCell className="text-right">
+   923→                      {activity.amount && (
+   924→                        <span className="font-mono text-sm font-medium">{activity.amount}</span>
+   925→                      )}
+   926→                    </TableCell>
+   927→                    <TableCell className="text-right">
+   928→                      {getStatusBadge(activity.status)}
+   929→                    </TableCell>
+   930→                    <TableCell>
+   931→                      <span className="text-xs text-gray-500 whitespace-nowrap">{activity.timestamp}</span>
+   932→                    </TableCell>
+   933→                  </TableRow>
+   934→                )
+   935→              })}
+   936→            </TableBody>
+   937→          </Table>
+   938→        </CardContent>
+   939→      </Card>
+   940→
+   941→      {/* Quick Links Grid */}
+   942→      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+   943→        {quickLinks.map((link, index) => (
+   944→          <Link key={index} href={link.href}>
+   945→            <Card className="hover:shadow-md hover:border-primary/20 transition-all cursor-pointer group border-0 shadow-sm h-full">
+   946→              <CardContent className="pt-6 pb-4">
+   947→                <div className="flex flex-col items-center text-center space-y-3">
+   948→                  <div className={`p-3 rounded-xl ${link.color} text-white group-hover:scale-110 transition-transform shadow-lg`}>
+   949→                    <link.icon className="w-6 h-6" />
+   950→                  </div>
+   951→                  <div className="space-y-1">
+   952→                    <p className="font-medium text-sm text-gray-900">{link.title}</p>
+   953→                    {link.count !== undefined && (
+   954→                      <Badge variant="secondary" className="text-xs">
+   955→                        {link.count} items
+   956→                      </Badge>
+   957→                    )}
+   958→                  </div>
+   959→                  <ExternalLink className="w-4 h-4 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+   960→                </div>
+   961→              </CardContent>
+   962→            </Card>
+   963→          </Link>
+   964→        ))}
+   965→      </div>
+   966→
+   967→      {/* Bottom Stats Summary */}
+   968→      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+   969→        <Card className="bg-gradient-to-br from-emerald-500 to-teal-600 border-0 text-white">
+   970→          <CardContent className="pt-6 pb-4">
+   971→            <div className="flex items-center gap-3">
+   972→              <Zap className="w-8 h-8 opacity-80" />
+   973→              <div>
+   974→                <p className="text-2xl font-bold">99.98%</p>
+   975→                <p className="text-emerald-100 text-sm">System Uptime</p>
+   976→              </div>
+   977→            </div>
+   978→          </CardContent>
+   979→        </Card>
+   980→        
+   981→        <Card className="bg-gradient-to-br from-blue-500 to-indigo-600 border-0 text-white">
+   982→          <CardContent className="pt-6 pb-4">
+   983→            <div className="flex items-center gap-3">
+   984→              <Globe className="w-8 h-8 opacity-80" />
+   985→              <div>
+   986→                <p className="text-2xl font-bold">58</p>
+   987→                <p className="text-blue-100 text-sm">Wilayas Covered</p>
+   988→              </div>
+   989→            </div>
+   990→          </CardContent>
+   991→        </Card>
+   992→        
+   993→        <Card className="bg-gradient-to-br from-purple-500 to-pink-600 border-0 text-white">
+   994→          <CardContent className="pt-6 pb-4">
+   995→            <div className="flex items-center gap-3">
+   996→              <Package className="w-8 h-8 opacity-80" />
+   997→              <div>
+   998→                <p className="text-2xl font-bold">12,456</p>
+   999→                <p className="text-purple-100 text-sm">Products Listed</p>
+  1000→              </div>
+  1001→            </div>
+  1002→          </CardContent>
+  1003→        </Card>
+  1004→        
+  1005→        <Card className="bg-gradient-to-br from-amber-500 to-orange-600 border-0 text-white">
+  1006→          <CardContent className="pt-6 pb-4">
+  1007→            <div className="flex items-center gap-3">
+  1008→              <Star className="w-8 h-8 opacity-80" />
+  1009→              <div>
+  1010→                <p className="text-2xl font-bold">4.8/5</p>
+  1011→                <p className="text-amber-100 text-sm">User Satisfaction</p>
+  1012→              </div>
+  1013→            </div>
+  1014→          </CardContent>
+  1015→        </Card>
+  1016→      </div>
+  1017→    </div>
+  1018→  )
+  1019→}
+  1020→
