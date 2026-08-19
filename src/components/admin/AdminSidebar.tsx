@@ -45,7 +45,16 @@ import {
   Box,
   Database,
   RefreshCw,
-  UsersRound
+  UsersRound,
+  // Phase 9 Icons
+  Brain,
+  Link2,
+  ShieldAlert,
+  Smartphone,
+  Globe2,
+  Code2,
+  Zap,
+  Gauge
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -266,6 +275,46 @@ const navigation: NavSection[] = [
         title: 'Devises (Multi-devise)',
         href: '/admin/currency',
         icon: <RefreshCw className="h-5 w-5" />,
+      },
+    ],
+  },
+  {
+    title: '🌟 Modules Phase 9',
+    items: [
+      {
+        title: 'IA & Business Intelligence',
+        href: '/admin/ai-intelligence',
+        icon: <Brain className="h-5 w-5" />,
+      },
+      {
+        title: 'Blockchain Supply Chain',
+        href: '/admin/blockchain',
+        icon: <Link2 className="h-5 w-5" />,
+      },
+      {
+        title: 'Analytics Avancés',
+        href: '/admin/analytics-advanced',
+        icon: <BarChart3 className="h-5 w-5" />,
+      },
+      {
+        title: 'Conformité & Compliance',
+        href: '/admin/compliance',
+        icon: <ShieldAlert className="h-5 w-5" />,
+      },
+      {
+        title: 'Mobile (PWA+)',
+        href: '/admin/mobile',
+        icon: <Smartphone className="h-5 w-5" />,
+      },
+      {
+        title: 'Portail Développeur API',
+        href: '/admin/developer-portal',
+        icon: <Code2 className="h-5 w-5" />,
+      },
+      {
+        title: 'Performance & CDN',
+        href: '/admin/performance',
+        icon: <Gauge className="h-5 w-5" />,
       },
     ],
   },

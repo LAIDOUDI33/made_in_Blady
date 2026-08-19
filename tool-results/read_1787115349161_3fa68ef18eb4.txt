@@ -1,0 +1,662 @@
+     1→'use client';
+     2→
+     3→import React, { useState, useEffect } from 'react';
+     4→import { QRCodeSVG } from 'qrcode.react';
+     5→import {
+     6→  Card,
+     7→  CardContent,
+     8→  CardDescription,
+     9→  CardHeader,
+    10→  CardTitle,
+    11→} from '@/components/ui/card';
+    12→import { Button } from '@/components/ui/button';
+    13→import { Input } from '@/components/ui/input';
+    14→import { Badge } from '@/components/ui/badge';
+    15→import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+    16→import { Separator } from '@/components/ui/separator';
+    17→import { ProvenanceTracker } from '@/components/blockchain/ProvenanceTracker';
+    18→import type {
+    19→  ProvenanceRecord,
+    20→  VerificationResult,
+    21→  SupplyChainEvent,
+    22→  Certificate
+    23→} from '@/lib/blockchain/types';
+    24→import {
+    25→  EVENT_TYPE_LABELS,
+    26→  CATEGORY_LABELS,
+    27→  CERTIFICATE_TYPE_LABELS
+    28→} from '@/lib/blockchain/types';
+    29→import {
+    30→  Shield,
+    31→  Package,
+    32→  Search,
+    33→  QrCode,
+    34→  CheckCircle2,
+    35→  AlertTriangle,
+    36→  XCircle,
+    37→  Clock,
+    38→  MapPin,
+    39→  Factory,
+    40→  Ship,
+    41→  Truck,
+    42→  Warehouse,
+    43→  Award,
+    44→  FileText,
+    45→  ChevronRight,
+    46→  ExternalLink,
+    47→  ArrowRight,
+    48→  Zap,
+    49→  Lock,
+    50→  Globe,
+    51→  Barcode,
+    52→  Fingerprint
+    53→} from 'lucide-react';
+    54→
+    55→// Featured product card for demo
+    56→function FeaturedProductCard({ 
+    57→  record, 
+    58→  onSelect 
+    59→}: { 
+    60→  record: ProvenanceRecord; 
+    61→  onSelect: () => void;
+    62→}) {
+    63→  const categoryIcons: Record<string, string> = {
+    64→    dates: '🌴',
+    65→    olive_oil: '🫒',
+    66→    pharmaceutical: '💊',
+    67→    steel: '⚙️',
+    68→    cement: '🏗️',
+    69→    food_beverage: '🍅',
+    70→    textile: '🧵',
+    71→    chemicals: '🧪'
+    72→  };
+    73→  
+    74→  return (
+    75→    <Card 
+    76→      className="hover:shadow-lg transition-all cursor-pointer group overflow-hidden border-l-4 border-l-primary"
+    77→      onClick={onSelect}
+    78→    >
+    79→      <CardContent className="p-5">
+    80→        <div className="flex items-start gap-4">
+    81→          {/* Icon */}
+    82→          <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center text-2xl shrink-0">
+    83→            {categoryIcons[record.category] || '📦'}
+    84→          </div>
+    85→          
+    86→          {/* Content */}
+    87→          <div className="flex-1 min-w-0">
+    88→            <h3 className="font-semibold text-lg group-hover:text-primary transition-colors truncate">
+    89→              {record.productName}
+    90→            </h3>
+    91→            <p className="text-sm text-muted-foreground mt-1">
+    92→              {CATEGORY_LABELS[record.category]}
+    93→            </p>
+    94→            
+    95→            <div className="flex flex-wrap items-center gap-2 mt-3">
+    96→              <Badge variant="secondary" className="text-xs font-mono">
+    97→                {record.batchNumber}
+    98→              </Badge>
+    99→              <Badge 
+   100→                variant="outline" 
+   101→                className={`text-xs ${
+   102→                  record.currentStatus === 'verified' 
+   103→                    ? 'bg-green-50 text-green-700 border-green-200' 
+   104→                    : 'bg-yellow-50 text-yellow-700 border-yellow-200'
+   105→                }`}
+   106→              >
+   107→                {record.currentStatus === 'verified' ? (
+   108→                  <CheckCircle2 className="w-3 h-3 mr-1" />
+   109→                ) : (
+   110→                  <Clock className="w-3 h-3 mr-1" />
+   111→                )}
+   112→                {record.currentStatus}
+   113→              </Badge>
+   114→              {record.isSealed && (
+   115→                <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+   116→                  <Lock className="w-3 h-3 mr-1" />
+   117→                  Sealed
+   118→                </Badge>
+   119→              )}
+   120→            </div>
+   121→            
+   122→            {/* Location & Events */}
+   123→            <div className="flex items-center gap-4 mt-3 text-xs text-muted-foreground">
+   124→              <span className="flex items-center gap-1">
+   125→                <MapPin className="w-3 h-3" />
+   126→                {record.currentLocation.city}, {record.currentLocation.wilaya}
+   127→              </span>
+   128→              <span className="flex items-center gap-1">
+   129→                <Package className="w-3 h-3" />
+   130→                {record.events.length} events
+   131→              </span>
+   132→            </div>
+   133→          </div>
+   134→          
+   135→          {/* Arrow */}
+   136→          <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all shrink-0 mt-8" />
+   137→        </div>
+   138→      </CardContent>
+   139→    </Card>
+   140→  );
+   141→}
+   142→
+   143→// Verification input component
+   144→function VerifyInput({ onVerify }: { onVerify: (id: string) => void }) {
+   145→  const [input, setInput] = useState('');
+   146→  
+   147→  return (
+   148→    <div className="relative max-w-xl mx-auto">
+   149→      <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+   150→      <Input
+   151→        placeholder="Enter Product ID, Batch Number, or scan QR Code..."
+   152→        value={input}
+   153→        onChange={(e) => setInput(e.target.value)}
+   154→        onKeyDown={(e) => e.key === 'Enter' && onVerify(input)}
+   155→        className="pl-12 pr-24 h-14 text-base rounded-xl border-2 focus:border-primary/50"
+   156→      />
+   157→      <Button 
+   158→        className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg"
+   159→        size="sm"
+   160→        onClick={() => onVerify(input)}
+   161→      >
+   162→        Verify
+   163→      </Button>
+   164→    </div>
+   165→  );
+   166→}
+   167→
+   168→// Feature highlight cards
+   169→function FeatureCard({ 
+   170→  icon: Icon, 
+   171→  title, 
+   172→  description 
+   173→}: { 
+   174→  icon: React.ElementType; 
+   175→  title: string; 
+   176→  description: string;
+   177→}) {
+   178→  return (
+   179→    <Card className="hover:shadow-md transition-shadow h-full">
+   180→      <CardContent className="p-6 text-center">
+   181→        <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+   182→          <Icon className="w-7 h-7 text-primary" />
+   183→        </div>
+   184→        <h3 className="font-semibold mb-2">{title}</h3>
+   185→        <p className="text-sm text-muted-foreground">{description}</p>
+   186→      </CardContent>
+   187→    </Card>
+   188→  );
+   189→}
+   190→
+   191→// Main Page Component
+   192→export default function BlockchainSupplyChainPage() {
+   193→  const [records, setRecords] = useState<ProvenanceRecord[]>([]);
+   194→  const [selectedRecord, setSelectedRecord] = useState<ProvenanceRecord | null>(null);
+   195→  const [verification, setVerification] = useState<VerificationResult | null>(null);
+   196→  const [isLoading, setIsLoading] = useState(true);
+   197→  const [activeTab, setActiveTab] = useState('home');
+   198→  const [isVerifying, setIsVerifying] = useState(false);
+   199→  
+   200→  // Load mock data on mount
+   201→  useEffect(() => {
+   202→    const loadData = async () => {
+   203→      try {
+   204→        // Seed and fetch data
+   205→        await fetch('/api/blockchain/provenance?seed=true');
+   206→        
+   207→        const response = await fetch('/api/blockchain/provenance');
+   208→        const result = await response.json();
+   209→        
+   210→        if (result.success && result.data) {
+   211→          setRecords(result.data);
+   212→        }
+   213→      } catch (error) {
+   214→        console.error('Failed to load data:', error);
+   215→      } finally {
+   216→        setIsLoading(false);
+   217→      }
+   218→    };
+   219→    
+   220→    loadData();
+   221→  }, []);
+   222→  
+   223→  // Handle verification
+   224→  const handleVerify = async (identifier: string) => {
+   225→    if (!identifier.trim()) return;
+   226→    
+   227→    setIsVerifying(true);
+   228→    setActiveTab('result');
+   229→    
+   230→    try {
+   231→      const response = await fetch(`/api/blockchain/verify/${encodeURIComponent(identifier.trim())}`);
+   232→      const result = await response.json();
+   233→      
+   234→      if (result.success) {
+   235→        setVerification(result.data);
+   236→        setSelectedRecord(result.data.record);
+   237→      }
+   238→    } catch (error) {
+   239→      console.error('Verification failed:', error);
+   240→    } finally {
+   241→      setIsVerifying(false);
+   242→    }
+   243→  };
+   244→  
+   245→  // Handle selecting a featured product
+   246→  const handleSelectRecord = (record: ProvenanceRecord) => {
+   247→    setSelectedRecord(record);
+   248→    setVerification(null);
+   249→    setActiveTab('result');
+   250→  };
+   251→  
+   252→  if (isLoading) {
+   253→    return (
+   254→      <div className="min-h-screen flex items-center justify-center bg-background">
+   255→        <div className="text-center space-y-4">
+   256→          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-primary mx-auto"></div>
+   257→          <p className="text-muted-foreground">Loading blockchain supply chain...</p>
+   258→        </div>
+   259→      </div>
+   260→    );
+   261→  }
+   262→  
+   263→  return (
+   264→    <div className="min-h-screen bg-background">
+   265→      {/* Hero Section */}
+   266→      <section className="relative overflow-hidden bg-gradient-to-br from-primary/5 via-background to-primary/5 py-16 lg:py-24">
+   267→        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiMwMDAiIGZpbGwtb3BhY2l0eT0iMC4wMyI+PHBhdGggZD0iTTM2IDM0djItSDJ2LTJoMzR6TTAgMzBoMzZ2MkgweiIvPjwvZz48L2c+PC9zdmc+')] opacity-50"></div>
+   268→        
+   269→        <div className="container mx-auto px-4 relative">
+   270→          <div className="max-w-4xl mx-auto text-center space-y-6">
+   271→            {/* Logo / Brand */}
+   272→            <div className="inline-flex items-center gap-3 px-4 py-2 rounded-full bg-primary/10 border border-primary/20">
+   273→              <Shield className="w-5 h-5 text-primary" />
+   274→              <span className="text-sm font-medium">AlgeriaTrade.dz</span>
+   275→              <Badge variant="secondary" className="text-xs">Blockchain Powered</Badge>
+   276→            </div>
+   277→            
+   278→            <h1 className="text-4xl lg:text-6xl font-bold tracking-tight">
+   279→              Supply Chain{' '}
+   280→              <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-primary/60">
+   281→                Provenance
+   282→              </span>
+   283→              {' '}Tracking
+   284→            </h1>
+   285→            
+   286→            <p className="text-lg lg:text-xl text-muted-foreground max-w-2xl mx-auto">
+   287→              Trace Algerian products from origin to destination with blockchain-powered 
+   288→              authenticity verification. Secure, transparent, immutable.
+   289→            </p>
+   290→            
+   291→            {/* Verify Input */}
+   292→            <VerifyInput onVerify={handleVerify} />
+   293→            
+   294→            {/* Quick Stats */}
+   295→            <div className="flex flex-wrap items-center justify-center gap-6 pt-4 text-sm text-muted-foreground">
+   296→              <span className="flex items-center gap-2">
+   297→                <Fingerprint className="w-4 h-4 text-primary" />
+   298→                SHA-256 Encrypted
+   299→              </span>
+   300→              <span className="flex items-center gap-2">
+   301→                <Lock className="w-4 h-4 text-primary" />
+   302→                Immutable Records
+   303→              </span>
+   304→              <span className="flex items-center gap-2">
+   305→                <QrCode className="w-4 h-4 text-primary" />
+   306→                QR Verified
+   307→              </span>
+   308→              <span className="flex items-center gap-2">
+   309→                <Globe className="w-4 h-4 text-primary" />
+   310→                Made in Algeria 🇩🇿
+   311→              </span>
+   312→            </div>
+   313→          </div>
+   314→        </div>
+   315→      </section>
+   316→      
+   317→      {/* Main Content */}
+   318→      <main className="container mx-auto px-4 py-12">
+   319→        <Tabs value={activeTab} onValueChange={setActiveTab}>
+   320→          {/* Tab Navigation (hidden for home/result views) */}
+   321→          {(activeTab === 'products' || activeTab === 'about') && (
+   322→            <TabsList className="mb-8 w-fit mx-auto">
+   323→              <TabsTrigger value="home">Home</TabsTrigger>
+   324→              <TabsTrigger value="products">Products</TabsTrigger>
+   325→              <TabsTrigger value="about">About</TabsTrigger>
+   326→              {selectedRecord && <TabsTrigger value="result">View Record</TabsTrigger>}
+   327→            </TabsList>
+   328→          )}
+   329→          
+   330→          {/* Home Tab */}
+   331→          <TabsContent value="home" className="space-y-16">
+   332→            {/* Features Section */}
+   333→            <section>
+   334→              <div className="text-center mb-10">
+   335→                <h2 className="text-3xl font-bold mb-3">How It Works</h2>
+   336→                <p className="text-muted-foreground max-w-2xl mx-auto">
+   337→                  Our blockchain system ensures complete traceability of Algerian products 
+   338→                  through every step of their journey.
+   339→                </p>
+   340→              </div>
+   341→              
+   342→              <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+   343→                <FeatureCard
+   344→                  icon={Factory}
+   345→                  title="Manufacturing"
+   346→                  description="Products are registered at source with manufacturer verification and initial quality checks."
+   347→                />
+   348→                <FeatureCard
+   349→                  icon={Ship}
+   350→                  title="Shipping & Transit"
+   351→                  description="Every movement is logged with timestamps, locations, and responsible parties."
+   352→                />
+   353→                <FeatureCard
+   354→                  icon={Shield}
+   355→                  title="Verification"
+   356→                  description="Cryptographic hashes ensure data integrity. Any tampering is immediately detectable."
+   357→                />
+   358→                <FeatureCard
+   359→                  icon={Award}
+   360→                  title="Certification"
+   361→                  description="Digital certificates issued for authenticity, origin, quality, and compliance."
+   362→                />
+   363→              </div>
+   364→            </section>
+   365→            
+   366→            {/* Featured Products Section */}
+   367→            <section>
+   368→              <div className="flex items-center justify-between mb-8">
+   369→                <div>
+   370→                  <h2 className="text-3xl font-bold mb-2">Tracked Products</h2>
+   371→                  <p className="text-muted-foreground">
+   372→                    Explore Algerian products with full supply chain transparency
+   373→                  </p>
+   374→                </div>
+   375→                <Button 
+   376→                  variant="outline"
+   377→                  onClick={() => setActiveTab('products')}
+   378→                >
+   379→                  View All
+   380→                  <ArrowRight className="w-4 h-4 ml-2" />
+   381→                </Button>
+   382→              </div>
+   383→              
+   384→              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+   385→                {records.slice(0, 6).map((record) => (
+   386→                  <FeaturedProductCard
+   387→                    key={record.id}
+   388→                    record={record}
+   389→                    onSelect={() => handleSelectRecord(record)}
+   390→                  />
+   391→                ))}
+   392→              </div>
+   393→              
+   394→              {records.length > 6 && (
+   395→                <div className="text-center mt-8">
+   396→                  <Button 
+   397→                    variant="outline" 
+   398→                    size="lg"
+   399→                    onClick={() => setActiveTab('products')}
+   400→                  >
+   401→                    View All {records.length} Tracked Products
+   402→                    <ArrowRight className="w-4 h-4 ml-2" />
+   403→                  </Button>
+   404→                </div>
+   405→              )}
+   406→            </section>
+   407→            
+   408→            {/* Technology Section */}
+   409→            <section className="py-12 px-8 rounded-2xl bg-gradient-to-br from-primary/5 to-transparent border">
+   410→              <div className="grid lg:grid-cols-2 gap-12 items-center">
+   411→                <div className="space-y-6">
+   412→                  <h2 className="text-3xl font-bold">Blockchain Technology</h2>
+   413→                  <p className="text-muted-foreground leading-relaxed">
+   414→                    Our supply chain tracking uses cryptographic hashing to create an immutable 
+   415→                    audit trail. Each event is chained to the previous one using SHA-256 hashes, 
+   416→                    making any alteration immediately detectable.
+   417→                  </p>
+   418→                  
+   419→                  <div className="space-y-4">
+   420→                    <div className="flex items-start gap-3">
+   421→                      <CheckCircle2 className="w-5 h-5 text-green-600 mt-0.5 shrink-0" />
+   422→                      <div>
+   423→                        <p className="font-medium">SHA-256 Hashing</p>
+   424→                        <p className="text-sm text-muted-foreground">Military-grade encryption for all records</p>
+   425→                      </div>
+   426→                    </div>
+   427→                    <div className="flex items-start gap-3">
+   428→                      <CheckCircle2 className="w-5 h-5 text-green-600 mt-0.5 shrink-0" />
+   429→                      <div>
+   430→                        <p className="font-medium">Proof-of-Work Consensus</p>
+   431→                        <p className="text-sm text-muted-foreground">Computational proof ensures chain integrity</p>
+   432→                      </div>
+   433→                    </div>
+   434→                    <div className="flex items-start gap-3">
+   435→                      <CheckCircle2 className="w-5 h-5 text-green-600 mt-0.5 shrink-0" />
+   436→                      <div>
+   437→                        <p className="font-medium">Merkle Root Verification</p>
+   438→                        <p className="text-sm text-muted-foreground">Efficient integrity checking for entire chains</p>
+   439→                      </div>
+   440→                    </div>
+   441→                    <div className="flex items-start gap-3">
+   442→                      <CheckCircle2 className="w-5 h-5 text-green-600 mt-0.5 shrink-0" />
+   443→                      <div>
+   444→                        <p className="font-medium">QR Code Integration</p>
+   445→                        <p className="text-sm text-muted-foreground">Instant mobile verification at point of sale</p>
+   446→                      </div>
+   447→                    </div>
+   448→                  </div>
+   449→                </div>
+   450→                
+   451→                {/* Visual representation of blockchain */}
+   452→                <div className="hidden lg:block">
+   453→                  <div className="space-y-4">
+   454→                    {[0, 1, 2, 3].map((idx) => (
+   455→                      <div key={idx} className="flex items-center gap-4">
+   456→                        <div className={`w-16 h-16 rounded-lg flex items-center justify-center ${
+   457→                          idx === 0 ? 'bg-primary text-white' : 'bg-muted'
+   458→                        }`}>
+   459→                          {idx === 0 ? (
+   460→                            <Factory className="w-7 h-7" />
+   461→                          ) : idx === 1 ? (
+   462→                            <Truck className="w-7 h-7 text-primary" />
+   463→                          ) : idx === 2 ? (
+   464→                            <Warehouse className="w-7 h-7 text-primary" />
+   465→                          ) : (
+   466→                            <Package className="w-7 h-7 text-primary" />
+   467→                          )}
+   468→                        </div>
+   469→                        
+   470→                        <div className="flex-1 p-4 rounded-lg bg-card border">
+   471→                          <div className="flex items-center justify-between mb-2">
+   472→                            <span className="font-medium text-sm">
+   473→                              {['Genesis Block', 'Transit Event', 'Customs Clearance', 'Delivery'][idx]}
+   474→                            </span>
+   475→                            <Badge variant="outline" className="text-xs">#{idx}</Badge>
+   476→                          </div>
+   477→                          <code className="text-xs text-muted-foreground block truncate">
+   478→                            {idx === 0 ? '0000...0000 (64 chars)' : `0x${Math.random().toString(16).slice(2, 18)}...`}
+   479→                          </code>
+   480→                          <code className="text-xs text-muted-foreground block truncate mt-1">
+   481→                            → {idx < 3 ? `0x${Math.random().toString(16).slice(2, 18)}...` : 'Chain Complete ✓'}
+   482→                          </code>
+   483→                        </div>
+   484→                        
+   485→                        {idx < 3 && (
+   486→                          <ArrowRight className="w-5 h-5 text-muted-foreground shrink-0" />
+   487→                        )}
+   488→                      </div>
+   489→                    ))}
+   490→                    
+   491→                    <div className="ml-20 pl-4 border-l-2 border-dashed border-primary/30 pt-4">
+   492→                      <div className="flex items-center gap-2 text-sm text-primary">
+   493→                        <Lock className="w-4 h-4" />
+   494→                        <span>Sealed & Immutable</span>
+   495→                      </div>
+   496→                    </div>
+   497→                  </div>
+   498→                </div>
+   499→              </div>
+   500→            </section>
+   501→            
+   502→            {/* CTA Section */}
+   503→            <section className="text-center py-12 rounded-2xl bg-primary text-primary-foreground">
+   504→              <h2 className="text-3xl font-bold mb-4">Ready to Track Your Products?</h2>
+   505→              <p className="text-primary-foreground/80 max-w-xl mx-auto mb-8">
+   506→                Enter any product identifier above or browse our catalog of tracked Algerian products.
+   507→              </p>
+   508→              <div className="flex flex-wrap items-center justify-center gap-4">
+   509→                <Button 
+   510→                  size="lg" 
+   511→                  variant="secondary"
+   512→                  onClick={() => document.querySelector('input')?.focus()}
+   513→                >
+   514→                  <QrCode className="w-5 h-5 mr-2" />
+   515→                  Verify Product Now
+   516→                </Button>
+   517→                <Button 
+   518→                  size="lg" 
+   519→                  variant="outline" 
+   520→                  className="border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/10"
+   521→                  onClick={() => window.open('/admin/blockchain', '_blank')}
+   522→                >
+   523→                  <ExternalLink className="w-5 h-5 mr-2" />
+   524→                  Admin Dashboard
+   525→                </Button>
+   526→              </div>
+   527→            </section>
+   528→          </TabsContent>
+   529→          
+   530→          {/* Products Tab */}
+   531→          <TabsContent value="products" className="space-y-6">
+   532→            <div className="flex items-center justify-between">
+   533→              <div>
+   534→                <h2 className="text-2xl font-bold">All Tracked Products</h2>
+   535→                <p className="text-muted-foreground">{records.length} products with provenance records</p>
+   536→              </div>
+   537→              <Button variant="outline" onClick={() => setActiveTab('home')}>
+   538→                Back to Home
+   539→              </Button>
+   540→            </div>
+   541→            
+   542→            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+   543→              {records.map((record) => (
+   544→                <FeaturedProductCard
+   545→                  key={record.id}
+   546→                  record={record}
+   547→                  onSelect={() => handleSelectRecord(record)}
+   548→                />
+   549→              ))}
+   550→            </div>
+   551→          </TabsContent>
+   552→          
+   553→          {/* Result Tab - Selected Record */}
+   554→          <TabsContent value="result" className="space-y-6">
+   555→            <div className="flex items-center gap-4 mb-6">
+   556→              <Button variant="ghost" onClick={() => setActiveTab('home')}>
+   557→                ← Back
+   558→              </Button>
+   559→              <Separator orientation="vertical" className="h-6" />
+   560→              <h2 className="text-xl font-semibold">
+   561→                {verification ? 'Verification Result' : 'Product Details'}
+   562→              </h2>
+   563→            </div>
+   564→            
+   565→            {isVerifying ? (
+   566→              <Card>
+   567→                <CardContent className="py-16 text-center">
+   568→                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+   569→                  <p className="text-muted-foreground">Verifying product authenticity...</p>
+   570→                </CardContent>
+   571→              </Card>
+   572→            ) : (
+   573→              <ProvenanceTracker
+   574→                record={selectedRecord}
+   575→                verification={verification}
+   576→                onVerify={handleVerify}
+   577→              />
+   578→            )}
+   579→          </TabsContent>
+   580→          
+   581→          {/* About Tab */}
+   582→          <TabsContent value="about" className="space-y-8">
+   583→            <div className="max-w-3xl mx-auto">
+   584→              <Card>
+   585→                <CardHeader className="text-center pb-8">
+   586→                  <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+   587→                    <Shield className="w-10 h-10 text-primary" />
+   588→                  </div>
+   589→                  <CardTitle className="text-2xl">About AlgeriaTrade Blockchain</CardTitle>
+   590→                  <CardDescription className="text-base mt-2">
+   591→                    Securing Algeria's supply chain with cutting-edge technology
+   592→                  </CardDescription>
+   593→                </CardHeader>
+   594→                <CardContent className="space-y-6">
+   595→                  <Separator />
+   596→                  
+   597→                  <div className="prose prose-neutral dark:prose-invert max-w-none">
+   598→                    <h3 className="text-xl font-semibold">Our Mission</h3>
+   599→                    <p className="text-muted-foreground leading-relaxed">
+   600→                      AlgeriaTrade.dz's blockchain supply chain system provides unprecedented 
+   601→                      transparency for Algerian products. From the palm groves of Biskra producing 
+   602→                      world-famous Deglet Nour dates to pharmaceutical facilities in Annaba 
+   603→                      manufacturing life-saving medicines — every product's journey is recorded 
+   604→                      immutably.
+   605→                    </p>
+   606→                    
+   607→                    <h3 className="text-xl font-semibold mt-8">Supported Categories</h3>
+   608→                    <div className="grid sm:grid-cols-2 gap-3 not-prose">
+   609→                      {Object.entries(CATEGORY_LABELS).slice(0, 8).map(([key, label]) => (
+   610→                        <div key={key} className="flex items-center gap-2 p-3 rounded-lg bg-muted">
+   611→                          <CheckCircle2 className="w-4 h-4 text-green-600" />
+   612→                          <span className="text-sm">{label}</span>
+   613→                        </div>
+   614→                      ))}
+   615→                    </div>
+   616→                    
+   617→                    <h3 className="text-xl font-semibold mt-8">Certificate Types</h3>
+   618→                    <div className="grid sm:grid-cols-2 gap-3 not-prose">
+   619→                      {Object.entries(CERTIFICATE_TYPE_LABELS).map(([key, label]) => (
+   620→                        <div key={key} className="flex items-center gap-2 p-3 rounded-lg bg-muted">
+   621→                          <Award className="w-4 h-4 text-primary" />
+   622→                          <span className="text-sm">{label}</span>
+   623→                        </div>
+   624→                      ))}
+   625→                    </div>
+   626→                    
+   627→                    <h3 className="text-xl font-semibold mt-8">Algerian Coverage</h3>
+   628→                    <p className="text-muted-foreground leading-relaxed">
+   629→                      Our system covers all 58 Algerian wilayas (provinces), from Adrar in the south 
+   630→                      to Tlemcen in the north, ensuring nationwide supply chain visibility.
+   631→                    </p>
+   632→                  </div>
+   633→                  
+   634→                  <Separator />
+   635→                  
+   636→                  <div className="text-center pt-4">
+   637→                    <Button size="lg" onClick={() => setActiveTab('home')}>
+   638→                      Start Verifying Products
+   639→                      <ArrowRight className="w-4 h-4 ml-2" />
+   640→                    </Button>
+   641→                  </div>
+   642→                </CardContent>
+   643→              </Card>
+   644→            </div>
+   645→          </TabsContent>
+   646→        </Tabs>
+   647→      </main>
+   648→      
+   649→      {/* Footer */}
+   650→      <footer className="border-t py-8 mt-12">
+   651→        <div className="container mx-auto px-4 text-center text-sm text-muted-foreground">
+   652→          <p>© 2024 AlgeriaTrade.dz — Blockchain Supply Chain Tracking System</p>
+   653→          <p className="mt-2 flex items-center justify-center gap-2">
+   654→            <Lock className="w-4 h-4" />
+   655→            Secured by SHA-256 Cryptography • Made with 🇩🇿 in Algeria
+   656→          </p>
+   657→        </div>
+   658→      </footer>
+   659→    </div>
+   660→  );
+   661→}
+   662→
