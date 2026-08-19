@@ -1,0 +1,377 @@
+# =============================================================================
+# AlgeriaTrade.dz API Developer Portal - Prometheus Alerting Rules
+# Règles d'Alerte pour la Surveillance Production
+# =============================================================================
+
+groups:
+  # ===========================================================================
+  # API Health & Availability Alerts
+  # ===========================================================================
+  - name: algeriatrade_api_health
+    interval: 15s
+    rules:
+      # High Error Rate Alert
+      - alert: APIHighErrorRate
+        expr: |
+          sum(rate(http_requests_total{status=~"5.."}[5m])) 
+          / sum(rate(http_requests_total[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          team: platform
+          service: api-portal
+        annotations:
+          summary: "Taux d'erreur API élevé - AlgeriaTrade"
+          description: |
+            Le taux d'erreur est de {{ $value | humanizePercentage }} 
+            (seuil: 5%) depuis plus de 5 minutes.
+            
+            Vérifier:
+            - Logs application: journalctl -u algeriatrade-api-portal
+            - Base de données PostgreSQL
+            - Connexions externes
+            
+            Runbook: https://runbooks.algeriatrade.dz/api-errors
+          dashboard_url: "https://grafana.algeriatrade.dz/d/algeriatrade-api-portal"
+
+      # Complete Service Down
+      - alert: APIServiceDown
+        expr: up{job="api-portal"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          team: platform
+          service: api-portal
+          pagerduty: "high"
+        annotations:
+          summary: "Service API Portal indisponible"
+          description: |
+            Le service API Portal ne répond plus aux health checks.
+            
+            Actions immédiates:
+            1. Vérifier le statut des containers: docker ps
+            2. Consulter les logs: docker logs api-gateway
+            3. Redémarrer si nécessaire: docker restart api-gateway
+
+      # Slow Response Time p99
+      - alert: APISlowResponseP99
+        expr: |
+          histogram_quantile(0.99, rate(http_request_duration_seconds_bucket[5m])) > 2
+        for: 10m
+        labels:
+          severity: warning
+          team: platform
+          service: api-portal
+        annotations:
+          summary: "Latence P99 élevée - {{ $value }}s"
+          description: |
+            La latence P99 dépasse 2 secondes depuis 10 minutes.
+            Les utilisateurs peuvent ressentir des lenteurs.
+
+  # ===========================================================================
+  # SLO Breach Alerts
+  # ===========================================================================
+  - name: algeriatrade_slos
+    interval: 30s
+    rules:
+      # Availability SLO < 99.5%
+      - alert: AvailabilitySLOBreach
+        expr: |
+          (1 - sum_over_time(http_requests_total{status=~"5.."}[7d]) 
+          / sum_over_time(http_requests_total[7d])) < 0.995
+        for: 2h
+        labels:
+          severity: warning
+          team: sre
+          service: api-portal
+        annotations:
+          summary: "SLO Disponibilité en risque (< 99.5%)"
+          description: |
+            La disponibilité sur 7 jours est de {{ $value | humanizePercentage }}.
+            Seuil SLO Pro: 99.5%
+            
+            Temps restant avant breach: calculer basé sur le trend actuel.
+
+      # Latency SLO p95 > 500ms
+      - alert: LatencySLOBreach
+        expr: |
+          histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[24h])) > 0.5
+        for: 6h
+        labels:
+          severity: warning
+          team: sre
+          service: api-portal
+        annotations:
+          summary: "SLO Latence P95 en risque (> 500ms)"
+          description: |
+            La latence P95 sur 24h est de {{ $value }}s.
+            Seuil SLO: 500ms
+
+  # ===========================================================================
+  # Rate Limiting & Abuse Detection
+  # ===========================================================================
+  - name: algeriatrade_security
+    interval: 10s
+    rules:
+      # Unusual Traffic Spike (> 3x baseline)
+      - alert: UnusualTrafficSpike
+        expr: |
+          sum(rate(http_requests_total[5m])) 
+          > (sum(rate(http_requests_total[1h])) / 12) * 3
+        for: 5m
+        labels:
+          severity: warning
+          team: security
+          service: api-portal
+        annotations:
+          summary: "Pic de trafic inhabituel détecté"
+          description: |
+            Le trafic a augmenté de plus de 3x par rapport à la moyenne horaire.
+            Possible attaque DDoS ou pic d'activité légitime.
+            
+            Trafic actuel: {{ $value }} req/s
+            
+            Actions:
+            1. Vérifier les sources IP principales
+            2. Confirmer si événement marketing prévu
+            3. Préparer scaling horizontal si nécessaire
+
+      # Rate Limit Exhaustion by Key
+      - alert: DeveloperRateLimitExhaustion
+        expr: |
+          rate(rate_limit_exceeded_total{api_key!=""}[5m]) > 10
+        for: 5m
+        labels:
+          severity: info
+          team: support
+          service: api-portal
+        annotations:
+          summary: "Développeur(s) atteignant limites de taux"
+          description: |
+            Plusieurs clés API épuisent leur quota de rate limiting.
+            Cela peut indiquer une intégration incorrecte ou un pic d'usage.
+
+      # Brute Force Authentication Attempts
+      - alert: AuthBruteForceDetected
+        expr: |
+          rate(auth_failures_total[5m]) > 20
+        for: 2m
+        labels:
+          severity: critical
+          team: security
+          service: api-portal
+        annotations:
+          summary: "Tentatives brute-force auth détectées"
+          description: |
+            Plus de 20 échecs d'authentification par seconde.
+            Possibilité d'attaque par force brute.
+            
+            Actions:
+            1. Bloquer IPs suspectes via WAF
+            2. Augmenter délai entre tentatives
+            3. Notifier comptes affectés
+
+  # ===========================================================================
+  # Infrastructure Resource Alerts
+  # ===========================================================================
+  - name: algeriatrade_infrastructure
+    interval: 30s
+    rules:
+      # High Memory Usage
+      - alert: HighMemoryUsage
+        expr: |
+          (process_resident_memory_bytes{job="api-portal"} 
+          / node_memory_MemTotal_bytes) > 0.85
+        for: 10m
+        labels:
+          severity: warning
+          team: platform
+          service: api-portal
+        annotations:
+          summary: "Utilisation mémoire élevée ({{ $value | humanizePercentage }})"
+          description: |
+            L'application utilise plus de 85% de la mémoire disponible.
+            Risque de OOM kill imminent.
+
+      # Database Connection Pool Exhaustion
+      - alert: DatabasePoolExhaustion
+        expr: |
+          pg_stat_activity_count / pg_settings_max_connections > 0.9
+        for: 5m
+        labels:
+          severity: critical
+          team: platform
+          service: postgresql
+        annotations:
+          summary: "Pool connexions PostgreSQL presque épuisé"
+          description: |
+            Plus de 90% des connexions PostgreSQL sont utilisées.
+            Nouvelles requêtes risquent d'être rejetées.
+
+      # Redis Memory Warning
+      - alert: RedisHighMemoryUsage
+        expr: |
+          redis_used_memory_bytes / redis_memory_max_bytes > 0.9
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+          service: redis
+        annotations:
+          summary: "Redis utilisation mémoire critique ({{ $value | humanizePercentage }})"
+          description: |
+            Redis approche sa limite de mémoire configurée.
+            Considérer augmenter maxmemory ou purger les clés inutilisées.
+
+      # Disk Space Low
+      - alert: DiskSpaceLow
+        expr: |
+          (node_filesystem_avail_bytes{mountpoint="/"} 
+          / node_filesystem_size_bytes{mountpoint="/"}) < 0.2
+        for: 30m
+        labels:
+          severity: warning
+          team: platform
+          service: infrastructure
+        annotations:
+          summary: "Espace disque faible ({{ $value | humanizePercentage }} libre)"
+          description: |
+            Moins de 20% d'espace disque disponible.
+            Nettoyer les logs/backups anciens ou étendre le volume.
+
+  # ===========================================================================
+  # Business Metrics Alerts
+  # ===========================================================================
+  - name: algeriatrade_business
+    interval: 60s
+    rules:
+      # No New Signups (Business Impact)
+      - alert: NoDeveloperSignups
+        expr: |
+          increase(developer_signups_total[4h]) == 0
+        for: 4h
+        labels:
+          severity: warning
+          team: product
+          service: api-portal
+        annotations:
+          summary: "Aucune inscription développeur depuis 4h"
+          description: |
+            Normalement nous avons des inscriptions régulières.
+            Vérifier si le formulaire d'inscription fonctionne.
+
+      # Payment Processing Failures
+      - alert: PaymentProcessingFailures
+        expr: |
+          rate(payment_failures_total[15m]) / rate(payment_attempts_total[15m]) > 0.1
+        for: 10m
+        labels:
+          severity: critical
+          team: payments
+          service: api-portal
+          pagerduty: "high"
+        annotations:
+          summary: "Taux d'échec paiements > 10%"
+          description: |
+            Plus de 10% des transactions échouent.
+            Impact financier direct et expérience utilisateur dégradée.
+            
+            Vérifier:
+            - Intégration CCP/BaridiMob
+            - Configuration webhooks paiement
+            - Logs erreurs spécifiques
+
+      # Enterprise Plan Usage Anomaly
+      - alert: EnterprisePlanAnomaly
+        expr: |
+          abs(api_requests_by_plan{plan="enterprise"} 
+          - avg_over_time(api_requests_by_plan{plan="enterprise"}[7d])) 
+          / avg_over_time(api_requests_by_plan{plan="enterprise"}[7d]) > 2
+        for: 1h
+        labels:
+          severity: info
+          team: success
+          service: api-portal
+        annotations:
+          summary: "Anomalie usage plan Enterprise détectée"
+          description: |
+            L'usage du plan Enterprise varie significativement de la normale.
+            Peut indiquer nouveau client important ou problème intégration.
+
+  # ===========================================================================
+  # Certificate & Security Alerts
+  # ===========================================================================
+  - name: algeriatrade_certificates
+    interval: 1h
+    rules:
+      # SSL Certificate Expiring Soon
+      - alert: SSLCertificateExpiringSoon
+        expr: |
+          (node_ssl_certificate_expiry_seconds{}) < 86400 * 14
+        for: 0m
+        labels:
+          severity: warning
+          team: platform
+          service: nginx
+        annotations:
+          summary: "Certificat SSL expire dans moins de 14 jours"
+          description: |
+            Le certificat pour {{ $labels.domain }} expire le {{ $value | humanizeTimestamp }}.
+            Renouveler avec certbot avant expiration!
+
+      # SSL Certificate Expired
+      - alert: SSLCertificateExpired
+        expr: |
+          (node_ssl_certificate_expiry_seconds{}) <= 0
+        for: 0m
+        labels:
+          severity: critical
+          team: platform
+          service: nginx
+          pagerduty: "critical"
+        annotations:
+          summary: "Certificat SSL EXPIRÉ!"
+          description: |
+            Le certificat pour {{ $labels.domain }} est EXPIRÉ!
+            Action IMMÉDIATE requise pour éviter interruption service.
+
+  # ===========================================================================
+  # Custom Recording Rules (for Dashboard Efficiency)
+  # ===========================================================================
+  - name: algeriatrade_recording_rules
+    interval: 30s
+    rules:
+      # Pre-compute error rate
+      - record: api:error_rate_5m
+        expr: |
+          sum(rate(http_requests_total{status=~"5.."}[5m])) 
+          / sum(rate(http_requests_total[5m]))
+
+      # Pre-compute request rate per endpoint
+      - record: api:requests_per_endpoint_5m
+        expr: |
+          sum by (endpoint) (rate(http_requests_total[5m]))
+
+      # Pre-compute latency percentiles
+      - record: api:latency_p50_5m
+        expr: |
+          histogram_quantile(0.50, rate(http_request_duration_seconds_bucket[5m]))
+
+      - record: api:latency_p95_5m
+        expr: |
+          histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))
+
+      - record: api:latency_p99_5m
+        expr: |
+          histogram_quantile(0.99, rate(http_request_duration_seconds_bucket[5m]))
+
+      # Active developers count (API keys with recent activity)
+      - record: api:active_developers_1h
+        expr: |
+          count(api_last_request_timestamp_seconds < (time() - 3600))
+
+      # Cache hit ratio
+      - record: api:cache_hit_ratio_5m
+        expr: |
+          rate(cache_hits_total[5m]) 
+          / (rate(cache_hits_total[5m]) + rate(cache_misses_total[5m]))

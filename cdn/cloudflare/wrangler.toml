@@ -1,0 +1,255 @@
+# =============================================================================
+# Cloudflare Workers/Pages Configuration for AlgeriaTrade.dz
+# =============================================================================
+# Optimized for MENA region with focus on Algeria
+# Primary PoPs: Algiers, Oran, Constantine (sub-50ms latency)
+# Secondary: Tunisia, Morocco, France (<100ms)
+# Global: Rest of world (<200ms)
+# =============================================================================
+
+name = "algeriatrade-edge"
+main = "src/edge/index.ts"
+compatibility_date = "2024-12-01"
+compatibility_flags = ["nodejs_compat", "streams_enable_constructors"]
+
+# Account configuration
+account_id = "${CLOUDFLARE_ACCOUNT_ID}"
+
+# Environment configurations
+[env.production]
+name = "algeriatrade-edge-prod"
+routes = [
+  { pattern = "algeriatrade.dz/*", zone_id = "${CLOUDFLARE_ZONE_ID}" },
+  { pattern = "www.algeriatrade.dz/*", zone_id = "${CLOUDFLARE_ZONE_ID}" },
+  { pattern = "api.algeriatrade.dz/*", zone_id = "${CLOUDFLARE_ZONE_ID}" },
+  { pattern = "cdn.algeriatrade.dz/*", zone_id = "${CLOUDFLARE_ZONE_ID}" },
+  { pattern = "static.algeriatrade.dz/*", zone_id = "${CLOUDFLARE_ZONE_ID}" }
+]
+
+[env.staging]
+name = "algeriatrade-edge-staging"
+routes = [
+  { pattern = "staging.algeriatrade.dz/*", zone_id = "${CLOUDFLARE_STAGING_ZONE_ID}" }
+]
+
+[env.development]
+name = "algeriatrade-edge-dev"
+routes = [
+  { pattern = "dev.algeriatrade.dz/*", zone_id = "${CLOUDFLARE_DEV_ZONE_ID}" }
+]
+
+# KV Namespace Bindings - Edge Caching
+[[kv_namespaces]]
+binding = "CACHE_KV"
+id = "${KV_CACHE_NAMESPACE}"
+preview_id = "${KV_CACHE_NAMESPACE_PREVIEW}"
+
+[[kv_namespaces]]
+binding = "SESSION_KV"
+id = "${KV_SESSION_NAMESPACE}"
+preview_id = "${KV_SESSION_NAMESPACE_PREVIEW}"
+
+[[kv_namespaces]]
+binding = "RATE_LIMIT_KV"
+id = "${KV_RATE_LIMIT_NAMESPACE}"
+preview_id = "${KV_RATE_LIMIT_NAMESPACE_PREVIEW}"
+
+[[kv_namespaces]]
+binding = "FEATURE_FLAGS"
+id = "${KV_FEATURE_FLAGS_NAMESPACE}"
+preview_id = "${KV_FEATURE_FLAGS_PREVIEW}"
+
+# D1 Database - Edge Analytics
+[[d1_databases]]
+binding = "EDGE_ANALYTICS"
+database_name = "algeriatrade-analytics"
+database_id = "${D1_ANALYTICS_DB_ID}"
+
+# Durable Objects for real-time features
+[[durable_objects.bindings]]
+name = "COUNTER"
+class_name = "RateCounter"
+
+[[durable_objects.bindings]]
+name = "WEBSOCKET_HUB"
+class_name = "WebSocketHub"
+
+# Queue bindings for async processing
+[[queues.producers]]
+queue = "analytics-events"
+binding = "ANALYTICS_QUEUE"
+
+[[queues.consumers]]
+queue = "analytics-events"
+max_batch_size = 100
+max_batch_timeout = 30
+max_concurrency = 10
+
+# R2 Storage for assets
+[[r2_buckets]]
+binding = "ASSETS_BUCKET"
+bucket_name = "algeriatrade-assets"
+
+# Service bindings for micro-communication
+[services]
+binding = "AUTH_SERVICE"
+service = "auth-worker"
+entrypoint = "AuthService"
+
+# Variables Configuration
+[vars]
+ENVIRONMENT = "production"
+PLATFORM_NAME = "AlgeriaTrade"
+DEFAULT_LOCALE = "ar-DZ"
+SUPPORTED_LOCALES = "ar-DZ,fr-FR,en-US"
+PRIMARY_REGION = "africa-nw1"  # North Africa West region
+TIMEZONE = "Africa/Algiers"
+ENABLE_EDGE_CACHING = "true"
+ENABLE_IMAGE_OPTIMIZATION = "true"
+COMPRESSION_BROTLI = "true"
+COMPRESSION_GZIP = "true"
+
+# MENA Region Specific Settings
+MENA_CACHE_TTL = "180"           # 3 minutes for MENA users
+GLOBAL_CACHE_TTL = "60"          # 1 minute for global users
+ALGERIA_PRIORITY = "1"           # Highest priority routing
+MENA_COUNTRIES = "DZ,TN,MA,LY,TG,MR,EG"
+
+# Image Optimization Defaults
+IMAGE_FORMATS = "webp,avif"
+IMAGE_QUALITY = "80"
+IMAGE_MAX_WIDTH = "1920"
+IMAGE_MAX_HEIGHT = "1080"
+
+# Security Settings
+RATE_LIMIT_ENABLED = "true"
+WAF_ENABLED = "true"
+BOT_PROTECTION = "true"
+CORS_ORIGIN = "https://algeriatrade.dz,https://www.algeriatrade.dz"
+
+# Production-specific variables
+[env.production.vars]
+ENVIRONMENT = "production"
+LOG_LEVEL = "info"
+DEBUG_MODE = "false"
+ORIGIN_URL = "https://origin.algeriatrade.internal"
+HEALTH_CHECK_PATH = "/api/health"
+
+# Staging-specific variables
+[env.staging.vars]
+ENVIRONMENT = "staging"
+LOG_LEVEL = "debug"
+DEBUG_MODE = "true"
+ORIGIN_URL = "https://staging-origin.algeriatrade.internal"
+
+# Development-specific variables
+[env.development.vars]
+ENVIRONMENT = "development"
+LOG_LEVEL = "debug"
+DEBUG_MODE = "true"
+ORIGIN_URL = "http://localhost:3000"
+
+# Triggers for scheduled jobs
+[triggers]
+crons = [
+  # Cache warming every 15 minutes during peak hours (8AM-11PM Algeria time)
+  "*/15 7-22 * * *",
+  # Analytics aggregation every hour
+  "0 * * * *",
+  # Daily cleanup at 3 AM Algiers time
+  "0 3 * * *"
+]
+
+# Limits and quotas
+[limits]
+cpu_ms = 50              # CPU time limit per request (milliseconds)
+worker_memory_mb = 128   # Memory limit
+
+# Build configuration
+[build]
+command = "npm run build:edge"
+watch_dir = "src/edge"
+uploaded_dir = "dist/edge"
+
+# Minification settings
+[minify]
+minify_js = true
+minify_css = true
+minify_html = true
+
+# Static Assets Routing - Versioned cache
+[[static_assets]]
+glob = "**/*.js"
+not_glob = "**/*.test.js"
+fallthrough = false
+
+[[static_assets]]
+glob = "**/*.css"
+fallthrough = false
+
+[[static_assets]]
+glob = "**/*.woff2"
+fallthrough = false
+
+[[static_assets]]
+glob = "**/*.png"
+fallthrough = false
+
+[[static_assets]]
+glob = "**/*.jpg"
+fallthrough = false
+
+[[static_assets]]
+glob = "**/*.webp"
+fallthrough = false
+
+[[static_assets]]
+glob = "**/*.avif"
+fallthrough = false
+
+# Edge Function Routes Configuration
+# These routes bypass cache and execute at the edge
+[[route_rules]]
+pattern = "/api/auth/*"
+custom_response = { status_code = 403, content = "Authentication endpoints must go directly to origin" }
+
+[[route_rules]]
+pattern = "/api/payments/*"
+custom_response = { status_code = 403, content = "Payment endpoints must go directly to origin" }
+
+[[route_rules]]
+pattern = "/api/webhooks/*"
+custom_response = { status_code = 403, content = "Webhook endpoints must go directly to origin" }
+
+# Geographic-based routing rules for MENA optimization
+[[route_rules]]
+pattern = "/*"
+zone_override = "primary"
+expression = 'geo(ip.country) eq "DZ"'
+action = { type = "route", description = "Algeria direct routing" }
+
+[[route_rules]]
+pattern = "/*"
+zone_override = "mena"
+expression = 'geo(ip.country) in {"TN","MA","LY","EG","MR","TG"}'
+action = { type = "route", description = "MENA regional routing" }
+
+[[route_rules]]
+pattern = "/*"
+zone_override = "europe"
+expression = 'geo(ip.continent) eq "EU"'
+action = { type = "route", description = "Europe routing" }
+
+# Error responses customization
+[error_responses]
+404 = { body = "<!DOCTYPE html><html><head><title>Page Not Found | AlgeriaTrade</title></head><body><h1>404 - Page Not Found</h1><p>The page you are looking for does not exist.</p></body></html>", content_type = "text/html; charset=utf-8" }
+500 = { body = "<!DOCTYPE html><html><head><title>Server Error | AlgeriaTrade</head></head><body><h1>500 - Internal Server Error</h1><p>An unexpected error occurred. Please try again later.</p></body></html>", content_type = "text/html; charset=utf-8" }
+502 = { body = "<!DOCTYPE html><html><head><title>Bad Gateway | AlgeriaTrade</head></head><body><h1>502 - Bad Gateway</h1><p>The server is temporarily unavailable. Please try again shortly.</p></body></html>", content_type = "text/html; charset=utf-8" }
+503 = { body = "<!DOCTYPE html><html><head><title>Service Unavailable | AlgeriaTrade</head></head><body><h1>503 - Service Unavailable</h1><p>We're performing maintenance. Please try again in a few minutes.</p></body></html>", content_type = "text/html; charset=utf-8" }
+
+# Observability
+[observability]
+enabled = true
+head_sampling_rate = 1  # Sample 1% of requests for tracing
+logpush = true
+logpush_dataset = "algeriatrade-edges"

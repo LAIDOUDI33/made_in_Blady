@@ -1,0 +1,346 @@
+# =============================================================================
+# AlgeriaTrade.dz API Developer Portal - Docker Compose Configuration
+# Production Deployment Package
+# =============================================================================
+
+version: '3.8'
+
+services:
+  # ===========================================================================
+  # API Gateway / Next.js Application
+  # ===========================================================================
+  api-gateway:
+    build:
+      context: ../../
+      dockerfile: Dockerfile.portal
+      args:
+        - NODE_ENV=production
+        - NEXT_PUBLIC_API_URL=https://api.algeriatrade.dz
+    container_name: algeriatrade-api-portal
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_APP_URL=https://portal.algeriatrade.dz
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/algeriatrade_portal
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASS=${SMTP_PASS}
+      - EMAIL_FROM=noreply@algeriatrade.dz
+      - SENTRY_DSN=${SENTRY_DSN}
+      - LOG_LEVEL=info
+      - RATE_LIMIT_WINDOW_MS=60000
+      - RATE_LIMIT_MAX_REQUESTS=100
+      - WEBHOOK_SECRET=${WEBHOOK_SECRET}
+      - CCP_API_KEY=${CCP_API_KEY}
+      - BARIDIMOB_MERCHANT_ID=${BARIDIMOB_MERCHANT_ID}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - api-portal-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+  # ===========================================================================
+  # PostgreSQL Database for Developer Data
+  # ===========================================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: algeriatrade-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=algeriatrade_portal
+      - POSTGRES_USER=${POSTGRES_USER:-apiportal}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - PGDATA=/var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d
+      - ./backups:/backups
+    networks:
+      - api-portal-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-apiportal} -d algeriatrade_portal"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+  # ===========================================================================
+  # Redis for Rate Limiting & Caching
+  # ===========================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: algeriatrade-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: >
+      redis-server
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+      --appendonly yes
+      --appendfsync everysec
+      --requirepass ${REDIS_PASSWORD}
+      --save 60 1000
+      --save 300 100
+    volumes:
+      - redis_data:/data
+    networks:
+      - api-portal-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "2"
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+
+  # ===========================================================================
+  # Nginx Reverse Proxy with SSL Termination
+  # ===========================================================================
+  nginx:
+    image: nginx:alpine
+    container_name: algeriatrade-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/api-portal.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - ./nginx/snippets:/etc/nginx/snippets:ro
+      - nginx_logs:/var/log/nginx
+      - ./static:/var/www/static:ro
+    depends_on:
+      - api-gateway
+    networks:
+      - api-portal-network
+    logging:
+      driver: json-file
+      options:
+        max-size: "30m"
+        max-file: "5"
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+
+  # ===========================================================================
+  # Prometheus - Metrics Collection
+  # ===========================================================================
+  prometheus:
+    image: prom/prometheus:v2.48.0
+    container_name: algeriatrade-prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/prometheus-rules.yml:/etc/prometheus/rules.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.enable-lifecycle'
+    networks:
+      - monitoring-network
+      - api-portal-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  # ===========================================================================
+  # Grafana - Visualization Dashboard
+  # ===========================================================================
+  grafana:
+    image: grafana/grafana:10.2.0
+    container_name: algeriatrade-grafana
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SERVER_ROOT_URL=https://grafana.algeriatrade.dz
+      - GF_SERVER_DOMAIN=grafana.algeriatrade.dz
+      - GF_AUTH_ANONYMOUS_ENABLED=false
+      - GF_INSTALL_PLUGINS=grafana-piechart-panel,grafana-worldmap-panel
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana-provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana-api-portal.json:/var/lib/grafana/dashboards/api-portal.json:ro
+    depends_on:
+      - prometheus
+    networks:
+      - monitoring-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  # ===========================================================================
+  # ELK Stack - Log Aggregation (Lightweight)
+  # ===========================================================================
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    container_name: algeriatrade-elasticsearch
+    restart: unless-stopped
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=true
+      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - cluster.name=algeriatrade-logs
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    ports:
+      - "9200:9200"
+    networks:
+      - monitoring-network
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:8.11.0
+    container_name: algeriatrade-logstash
+    restart: unless-stopped
+    environment:
+      - "LS_JAVA_OPTS=-Xms256m -Xmx256m"
+      - XPACK_MONITORING_ENABLED=false
+    volumes:
+      - ./monitoring/logstash.conf:/usr/share/logstash/pipeline/logstash.conf:ro
+      - nginx_logs:/var/log/nginx:ro
+    depends_on:
+      - elasticsearch
+    networks:
+      - monitoring-network
+      - api-portal-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.11.0
+    container_name: algeriatrade-kibana
+    restart: unless-stopped
+    ports:
+      - "5601:5601"
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - ELASTICSEARCH_USERNAME=elastic
+      - ELASTICSEARCH_PASSWORD=${ELASTIC_PASSWORD}
+      - SERVER_NAME=kibana.algeriatrade.dz
+    depends_on:
+      - elasticsearch
+    networks:
+      - monitoring-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+# =============================================================================
+# Volumes
+# =============================================================================
+volumes:
+  postgres_data:
+    driver: local
+    name: algeriatrade_postgres_data
+  redis_data:
+    driver: local
+    name: algeriatrade_redis_data
+  prometheus_data:
+    driver: local
+    name: algeriatrade_prometheus_data
+  grafana_data:
+    driver: local
+    name: algeriatrade_grafana_data
+  elasticsearch_data:
+    driver: local
+    name: algeriatrade_elasticsearch_data
+  nginx_logs:
+    driver: local
+    name: algeriatrade_nginx_logs
+
+# =============================================================================
+# Networks
+# =============================================================================
+networks:
+  api-portal-network:
+    driver: bridge
+    name: algeriatrade_api_portal
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+  monitoring-network:
+    driver: bridge
+    name: algeriatrade_monitoring
+    ipam:
+      config:
+        - subnet: 172.29.0.0/16

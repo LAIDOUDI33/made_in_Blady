@@ -1,0 +1,2002 @@
+     1→# Guide de Formation : Moteur de Conformité et Compliance
+     2→## AlgeriaTrade.dz - Phase 9 : IA Business Intelligence et Conformité
+     3→### Manuel de Formation Complet pour les Équipes Conformité
+     4→
+     5→---
+     6→
+     7→**Version:** 9.0.0  
+     8→**Date de Publication:** Janvier 2025  
+     9→**Classification:** Interne - Formation Conformité  
+    10→**Langue:** Français (avec termes arabes)  
+    11→**الإصدار:** ٩.٠.٠  
+    12→**تاريخ النشر:** يناير ٢٠٢٥  
+    13→**التصنيف:** داخلي - تدريب الامتثال
+    14→
+    15→---
+    16→
+    17→## Table des Matières (جدول المحتويات)
+    18→
+    19→1. [Introduction à la Conformité Phase 9](#introduction)
+    20→2. [Module 1: Cadre Légal Algérien](#module-1)
+    21→3. [Module 2: Utilisation du Compliance Checker](#module-2)
+    22→4. [Module 3: Conformité Fiscale TVA](#module-3)
+    23→5. [Module 4: Screening des Sanctions](#module-4)
+    24→6. [Module 5: Gestion Documentaire](#module-5)
+    25→7. [Scénarios de Conformité](#scenarios)
+    26→8. [Arbres de Décision](#decision-trees)
+    27→9. [Procédures d'Escalade](#escalation)
+    28→10. [Checkliste Préparation Audit](#audit-checklist)
+    29→11. [Annexes et Références](#annexes)
+    30→
+    31→---
+    32→
+    33→<a id="introduction"></a>
+    34→
+    35→## Introduction à la Conformité Phase 9
+    36→### مقدمة للامتثال في المرحلة ٩
+    37→
+    38→### Vue d'Ensemble du Moteur de Conformية (نظرة عامة على محرك الامتثال)
+    39→
+    40→Le **Moteur de Conformité** d'AlgeriaTrade.dz est un système automatisé qui vérifie en temps réel le respect des réglementations algériennes et internationales applicables aux transactions B2B sur la plateforme.
+    41→
+    42→```
+    43→┌──────────────────────────────────────────────────────────────────────────┐
+    44→│              ARCHITECTURE DU MOTEUR DE CONFORMITÉ                        │
+    45→├──────────────────────────────────────────────────────────────────────────┤
+    46→│                                                                          │
+    47→│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌────────────┐  │
+    48→│  │   MODULE     │  │   MODULE     │  │   MODULE     │  │   MODULE   │  │
+    49→│  │  COMMERCIAL  │  │    FISCAL    │  │   TRADE      │  │  PRIVACY   │  │
+    50→│  │  (Commerce)  │  │    (TVA)     │  │ (Douanes)    │  │(Données)   │  │
+    51→│  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘  └─────┬─────┘  │
+    52→│         │                │                │                │          │
+    53→│         └────────────────┼────────────────┼────────────────┘          │
+    54→│                          │                                         │    │
+    55→│                          ▼                                         │    │
+    56→│  ┌───────────────────────────────────────────────────────────────┐   │   │
+    57→│  │                    MOTEUR DE RÈGLES CENTRAL                    │   │   │
+    58→│  │  • Validation automatique • Scoring conformité • Alertes       │   │   │
+    59→│  └───────────────────────────────────────────────────────────────┘   │   │
+    60→│                              │                                       │   │
+    61→│                              ▼                                       │   │
+    62→│  ┌───────────────────────────────────────────────────────────────┐   │   │
+    63→│  │                 MODULE SANCTIONS SCREENING                     │   │   │
+    64→│  │  OFAC / UE / ONU / Liste Nationale DZ                         │   │   │
+    65→│  └───────────────────────────────────────────────────────────────┘   │   │
+    66→│                              │                                       │   │
+    67→│                              ▼                                       │   │
+    68→│  ┌─────────────────────────────────────────────────────────────────┐│   │
+    69→│  │                  TABLEAU DE BORD CONFORMITÉ                      ││   │
+    70→│  │  Scores • Alertes • Rapports • Audit Trail                      ││   │
+    71→│  └─────────────────────────────────────────────────────────────────┘│   │
+    72→└──────────────────────────────────────────────────────────────────────────┘
+    73→```
+    74→
+    75→### Modules du Moteur de Conformité (وحدات محرك الامتثال)
+    76→
+    77→| Module | Réglementation | Vérifications Automatisées |
+    78→|--------|---------------|---------------------------|
+    79→| **Commercial** | Code de Commerce 75-59 | Immatriculation RC, statut juridique, pouvoirs |
+    80→| **Fiscal/TVA** | Code TVA 76-147 | Taux applicables, facturation, déclarations |
+    81→| **Trade Extérieur** | Loi 03-01 | Licences import/export, certificats d'origine |
+    82→| **Protection Données** | Loi 18-07 | Consentement, droits SUJT, transferts |
+    83→| **Sanctions** | OFAC/EU/UN/DZ | Screening parties, transactions bloquantes |
+    84→
+    85→### Objectifs Pédagogiques (الأهداف التعليمية)
+    86→
+    87→À la fin de cette formation, vous serez capable de :
+    88→
+    89→1. ✅ Identifier les exigences légales algériennes applicables aux transactions B2B
+    90→2. ✅ Utiliser le Compliance Checker pour évaluer une transaction ou un partenaire
+    91→3. ✅ Appliquer correctement les taux de TVA selon les règles algériennes
+    92→4. ✅ Effectuer un screening des sanctions et interpréter les résultats
+    93→5. ✅ Gérer le cycle de vie des documents de conformité
+    94→6. ✅ Réagir appropriément aux alertes de conformité
+    95→
+    96→### Rôles et Responsabilités (الأدوار والمسؤوليات)
+    97→
+    98→| Rôle | Responsabilités Principales | Accès Système |
+    99→|------|---------------------------|---------------|
+   100→| **Opérateur Conformité** | Traitement quotidien alertes, vérifications | Lecture + Validation |
+   101→| **Senior Compliance** | Cas complexes, escalades, exceptions | Validation + Approbation |
+   102→| **Compliance Manager** | Politiques, reporting autorités, audits | Administration complète |
+   103→| **DPO (Data Protection Officer)** | Protection données, privacy | Module Privacy uniquement |
+   104→
+   105→---
+   106→
+   107→<a id="module-1"></a>
+   108→
+   109→## Module 1: Cadre Légal Algérien
+   110→### الوحدة الأولى: الإطار القانوني الجزائري
+   111→
+   112→---
+   113→
+   114→### 1.1 Code de Commerce (قانون التجارة)
+   115→
+   116→#### 1.1.1 Ordonnance 75-59 du 26 septembre 1975 (المرسوم ٧٥-٥٩)
+   117→
+   118→Le Code de Commerce algérien constitue le fondement légal des activités commerciales en Algérie.
+   119→
+   120→**[CAPTURE D'ÉCRAN RÉFÉRENCE: legal-framework-overview.png]**
+   121→
+   122→**Points Clés pour la Conformité B2B:**
+   123→
+   124→| Exigence | Description | Vérification Platforme |
+   125→|----------|-------------|----------------------|
+   126→| **Immatriculation RC** | Registre du Commerce obligatoire | Vérification numéro RC valide |
+   127→| **Statut Juridique** | SARL, EURL, SPA, SNC, etc. | Correspondance documents/statuts |
+   128→| **Siège Social** | Adresse déclarée au RC | Cohérence avec profil plateforme |
+   129→| **Capital Social** | Montant minimum selon forme | Vérification pour certains seuils |
+   130→| **Gérant/Dirigeant** | Identité des personnes habilitées | Pouvoirs de signature |
+   131→| **Objet Social** | Activités autorisées | Alignement avec transactions proposées |
+   132→
+   133→#### 1.1.2 Formes Juridiques Reconues (الأشكال القانونية المعترف بها)
+   134→
+   135→| Forme | Capital Minimum | Dirigeants | Responsabilité | Notes Conformité |
+   136→|-------|-----------------|------------|----------------|------------------|
+   137→| **EURL** | 100,000 DZD | 1 associé-gérant | Limitée au capital | Vérification identité unique |
+   138→| **SARL** | 100,000 DZD | 1-25 associés | Limitée au capital | Gérance collective ou unique |
+   139→| **SPA** | 5,000,000 DZD | 7 actionnaires min. | Limitée aux actions | Conseil d'administration obligatoire |
+   140→| **SNC** | Pas de minimum | 2+ associés | Solidaire illimitée | Attention risque conformité |
+   141→| **SCS** | Pas de minimum | Commandités + commanditaires | Mixte | Vérification répartition |
+   142→| **Groupement d'Intérêt Économie (GIE)** | Pas de capital | Personnes morales/physiques | Pas de personnalité | Cas particulier |
+   143→
+   144→#### 1.1.3 Documents Requis par Type d'Entité (المستندات المطلوبة حسب نوع الكيان)
+   145→
+   146→```
+   147→CHECKLISTE DOCUMENTS CODE COMMERCE:
+   148→
+   149→ENTREPRISE INDIVIDUELLE / EURL:
+   150→├── ☑ Copie Registre Commerce (RC) - datée < 3 mois
+   151→├── ☑ Carte Nationale d'Identité gérant
+   152→├── ☑ Attestation existence fiscal (NIF, NIS, AI)
+   153→├── ☑ Statuts (pour EURL)
+   154→└── ☑ Pouvoir signature (si signataire ≠ gérant)
+   155→
+   156→SARL:
+   157→├── ☑ Copie RC - datée < 3 mois
+   158→├── ☑ Statuts mis à jour (toutes modifications)
+   159→├── ☑ PV assemblée générale désignant gérant(s)
+   160→├── ☑ CNI des gérants
+   161→├── ☑ Attestations fiscales (NIF, NIS, AI)
+   162→├── ☑ Registre des bénéficiaires effectifs
+   163→└── ☑ Pouvoirs de signature
+   164→
+   165→SPA / Grande Entreprise:
+   166→├── Tous documents SARL +
+   167→├── ☑ PV Conseil d'Administration
+   168→├── ☑ Liste actionnaires (si > 25%)
+   169→├── ☑ États financiers certifiés (si requis)
+   170→└── ☑ Attestation conformité comptable
+   171→```
+   172→
+   173→#### 1.1.4 Cas Pratique: Vérification RC (مثال عملي: التحقق من السجل التجاري)
+   174→
+   175→**Scénario:** Nouveau fournisseur "MetalPro DZ" soumet son dossier.
+   176→
+   177→```
+   178→VÉRIFICATION AUTOMATISÉE RC:
+   179→
+   180→┌─────────────────────────────────────────────────────────────┐
+   181→│  VÉFICATION REGISTRE DU COMMERCE                            │
+   182→├─────────────────────────────────────────────────────────────┤
+   183→│                                                             │
+   184→│  Entité: METALPRO DZ                                        │
+   185→│  N° RC: 16B0012345 (Wilaya 16 - Alger)                     │
+   186→│                                                             │
+   187→│  RÉSULTAT VÉRFICATION:                                      │
+   188→│  ┌─────────────────────────────────────────────────────┐   │
+   189→│  │ ✅ Numéro RC: Valide (format correct)                │   │
+   190→│  │ ✅ Existence: Confirmée (source: CNRC)               │   │
+   191→│  │ ⚠️ Date extrait: Il y a 45 jours (seuil: 30 jours)  │   │
+   192→│  │ ✅ Statut: Actif (non radié, non suspendu)           │   │
+   193→│  │ ✅ Siège social: Coordonnées cohérentes              │   │
+   194→│  │ ✅ Forme juridique: SARL (cohérent)                  │   │
+   195→│  │ ✅ Activité: Fabrication métal (aligné besoin)        │   │
+   196→│  └─────────────────────────────────────────────────────┘   │
+   197→│                                                             │
+   198→│  ACTION REQUISE:                                            │
+   199→│  → Demander extrait RC actualisé (< 30 jours)              │
+   200→│  → Bloquer transactions > 500,000 DZD jusqu'à mise à jour  │
+   201→│                                                             │
+   202→│  SCORE CONFORMITÉ COMMERCIALE: 85/100                      │
+   203→│  (Pénalité: -15 points document périmé)                    │
+   204→│                                                             │
+   205→└─────────────────────────────────────────────────────────────┘
+   206→```
+   207→
+   208→---
+   209→
+   210→### 1.2 Code TVA - Taxe sur la Valeur Ajoutée (ضريبة القيمة المضافة)
+   211→
+   212→#### 1.2.1 Ordonnance 76-147 du 30 décembre 1976 (المرسوم ٧٦-١٤٧)
+   213→
+   214→La TVA est un impôt indirect sur la consommation, applicable à la plupart des transactions commerciales en Algérie.
+   215→
+   216→**Structure des Taux TVA (هيكل أسعار الضريبة):**
+   217→
+   218→```
+   219→TAUX TVA EN ALGÉRIE - STRUCTURE COMPLÈTE:
+   220→═════════════════════════════════════════════════════════════════
+   221→
+   222→TAUX NORMAL: 19%
+   223→├── Application: Par défaut, tous biens/services non spécifiés
+   224→├── Exemples: Électronique, textile, machines, services B2B
+   225→└── Base de calcul: Prix HT × 19% = TVA
+   226→
+   227→TAUX RÉDUIT: 9%
+   228→├── Biens de première nécessité:
+   229→│   ├── Produits alimentaires de base (farine, huile, lait, sucre)
+   230→│   ├── Médicaments et produits pharmaceutiques
+   231→│   ├── Produits agricoles non transformés
+   232→│   ├── Livres et fournitures scolaires
+   233→│   └── Certains équipements agricoles
+   234→└── Services sociaux de base:
+   235→    ├── Transport public de voyageurs
+   236→    ├── Hébergement touristique simple
+   237→    └── Eau et assainissement
+   238→
+   239→TAUX PARTICULIER: 0% (EXONÉRATION)
+   240→├── Exportations de biens et services
+   241→├── Livraisons intracommunautaires (si applicable futur)
+   242→├── Opérations financières bancaires spécifiques
+   243→├── Produits phytosanitaires et engrais
+   244→├── Journaux et publications périodiques
+   245→└── Opérations de livraison à soi-même (certaines)
+   246→
+   247→OPÉRATIONS EXONÉRÉES SPÉCIFIQUES:
+   248→├── Transports internationaux
+   249→├── Ambassades et organisations internationales
+   250→├── Zones franches (sous conditions)
+   251→└── Réimportations après exportation
+   252→```
+   253→
+   254→#### 1.2.2 Matrice des Taux par Catégorie de Produits (مصفوفة الأسعار حسب فئة المنتجات)
+   255→
+   256→| Catégorie Produit | Taux TVA | Base Légale | Exemples |
+   257→|-------------------|----------|-------------|----------|
+   258→| **Alimentation luxe** | 19% | Art. Code TVA | Chocolat, confiserie, boissons sucrées |
+   259→| **Alimentation de base** | 9% | Art. Code TVA | Farine, huile table, lait, semoule |
+   260→| **Médicaments** | 9% | Art. Code TVA | Tous médicaments humains et vétérinaires |
+   261→| **Produits pharmaceutiques** | 9% | Art. Code TVA | Matières premières pharmacie |
+   262→| **Textile/Habillement** | 19% | Art. Code TVA | Tous vêtements, tissus |
+   263→| **Chaussures** | 19% | Art. Code TVA | Toutes chaussures |
+   264→| **Électroménager** | 19% | Art. Code TVA | Appareils électroménagers |
+   265→| **Électronique** | 19% | Art. Code TVA | Informatique, téléphonie |
+   266→| **Matériaux construction** | 19% | Art. Code TVA | Ciment, fer, peintures |
+   267→| **Machines industrielles** | 19% | Art. Code TVA | Équipements production |
+   268→| **Véhicules < 5 ans** | 19% | Art. Code TVA | Voitures particulières |
+   269→| **Carburants** | 19% | Art. Code TVA | Essence, gasoil |
+   270→| **Produits agricoles frais** | 9% | Art. Code TVA | Fruits, légumes frais |
+   271→| **Engrais/Pesticides** | 0% | Art. Code TVA exonéré | Intrants agriculture |
+   272→| **Livres/Fournitures scolaires** | 9% | Art. Code TVA | Papeterie scolaire |
+   273→| **Exportations** | 0% | Art. Code TVA export | Tous produits exportés |
+   274→| **Services numériques** | 19% | Interprétation DGI | SaaS, logiciels cloud |
+   275→
+   276→#### 1.2.3 Calcul TVA - Exemples Pratics (أمثلة عملية على حساب الضريبة)
+   277→
+   278→**Exemple 1: Transaction Standard (TVA 19%)**
+   279→
+   280→```
+   281→FACTURE TYPE - TVA 19%
+   282→
+   283→Désignation: Machine industrielle CNC
+   284→Quantité: 1 unité
+   285→Prix Unitaire HT: 5,000,000 DZD
+   286→
+   287→CALCUL:
+   288→├── Montant HT:        5,000,000 DZD
+   289→├── TVA (19%):            950,000 DZD
+   290→└── Total TTC:          5,950,000 DZD
+   291→
+   292→FORMULE: TTC = HT × 1.19
+   293→```
+   294→
+   295→**Exemple 2: Produit à Taux Réduit (TVA 9%)**
+   296→
+   297→```
+   298→FACTURE TYPE - TVA 9%
+   299→
+   300→Désignation: Lot médicaments génériques
+   301→Quantité: 500 boîtes
+   302→Prix Unitaire HT: 800 DZD
+   303→
+   304→CALCUL:
+   305→├── Montant HT:          400,000 DZD
+   306→├── TVA (9%):             36,000 DZD
+   307→└── Total TTC:           436,000 DZD
+   308→
+   309→FORMULE: TTC = HT × 1.09
+   310→```
+   311→
+   312→**Exemple 3: Exportation (TVA 0%)**
+   313→
+   314→```
+   315→FACTURE EXPORT - TVA 0%
+   316→
+   317→Désignation: Dates séchées conditionnées
+   318→Quantité: 10 tonnes
+   319→Prix Unitaire HT: 850,000 DZD/tonne
+   320→
+   321→CALCUL:
+   322→├── Montant HT:        8,500,000 DZD
+   323→├── TVA (0%):                   0 DZD
+   324→└── Total TTC:          8,500,000 DZD
+   325→
+   326→CONDITIONS EXPORT TVA 0%:
+   327→☑ Preuve exportation (douane)
+   328→☑ Client étranger (hors Algérie)
+   329→☑ Incoterm export (FOB, CIF, etc.)
+   330→☑ Documentation douanière complète
+   331→```
+   332→
+   333→---
+   334→
+   335→### 1.3 Loi 18-07: Protection des Données Personnelles (قانون حماية البيانات الشخصية)
+   336→
+   337→#### 1.3.1 Cadre Législatif (الإطار التشريعي)
+   338→
+   339→La Loi 18-07 du 10 juin 2018 établit le cadre de protection des données personnelles en Algérie, inspiré du RGPD européen mais adapté au contexte national.
+   340→
+   341→**Principes Fondamentaux (المبادئ الأساسية):**
+   342→
+   343→| Principe | Définition | Application Plateforme |
+   344→|----------|-----------|----------------------|
+   345→| **Licéité** | Collecte fondée sur base légale | Consentement utilisateur |
+   346→| **Finalité** | Données utilisées pour objectif défini | Limité aux services souscrits |
+   347→| **Minimisation** | Collecte limitée au nécessaire | Seuls champs requis collectés |
+   348→| **Exactitude** | Données exactes et à jour | Procédure correction utilisateur |
+   349→| **Limitation conservation** | Durée définie de rétention | Règles de retention par type |
+   350→| **Intégrité/Confidentialité** | Sécurité appropriée | Chiffrement, accès contrôlé |
+   351→
+   352→#### 1.3.2 Droits des Personnes Concernées (حقوق الأشخاص المعنيين)
+   353→
+   354→```
+   355→DROITS SUJET (DATA SUBJECT RIGHTS) - LOI 18-07:
+   356→
+   357→┌─────────────────────────────────────────────────────────────┐
+   358→│  DROITS DES UTILISATEURS ALGERIATRADE.DZ                    │
+   359→├─────────────────────────────────────────────────────────────┤
+   360→│                                                             │
+   361→│  1. DROIT D'ACCÈS (حق الوصول)                              │
+   362→│     → Demander copie de ses données personnelles            │
+   363→│     → Délai réponse: 30 jours maximum                       │
+   364→│                                                             │
+   365→│  2. DROIT DE RECTIFICATION (حق التصحيح)                    │
+   366→│     → Corriger données inexactes ou incomplètes             │
+   367→│     → Mise à jour dans les 15 jours de la demande          │
+   368→│                                                             │
+   369→│  3. DROIT À L'OUBLI (حق النسيان)                           │
+   370→│     → Suppression données (sous conditions)                 │
+   371→│     → Exceptions: obligations légales, contrats en cours    │
+   372→│                                                             │
+   373→│  4. DROIT D'OPPOSITION (حق الاعتراض)                       │
+   374→│     → S'opposer au traitement pour marketing                │
+   375→│     → Limiter certains traitements                          │
+   376→│                                                             │
+   377→│  5. DROIT À LA PORTABILITÉ (حق النقل)                      │
+   378→│     → Recevoir ses données en format structuré              │
+   379→│     → Transférer vers un autre prestataire                  │
+   380→│                                                             │
+   381→│  6. DROIT AU LIMITATION TRAITEMENT (حق تقييد المعالجة)      │
+   382→│     → Suspendre traitement sous certaines conditions         │
+   383→│                                                             │
+   384→└─────────────────────────────────────────────────────────────┘
+   385→```
+   386→
+   387→#### 1.3.3 Obligations d'AlgeriaTrade.dz (التزامات الجزائر تريد)
+   388→
+   389→| Obligation | Description | Mise en Œuvre |
+   390→|------------|-------------|--------------|
+   391→| **Registre des traitements** | Documenter tous traitements de données | Maintenu par DPO |
+   392→| **Notification ANPD** | Déclarer traitements sensibles | Avant mise en production |
+   393→| **Analyse d'impact (AIPD)** | Pour traitements à risques élevés | Avant déploiement nouveau module |
+   394→| **Sécurité** | Mesures techniques et organisationnelles | Chiffrement, authentification forte |
+   395→| **Violation données** | Notifier ANPD sous 72h | Procédure incident sécurité |
+   396→| **DPO désigné** | Officier protection données | Contact visible plateforme |
+   397→
+   398→---
+   399→
+   400→### 1.4 Réglementation Commerce Extérieur (Loi 03-01) (تنظيم التجارة الخارجية)
+   401→
+   402→#### 1.4.1 Loi 03-02 du 26 février 2003 (القانون ٠٣-٠١)
+   403→
+   404→Cette loi encadre les opérations d'importation et d'exportation en Algérie.
+   405→
+   406→**Opérations Contrôlées (العمليات الخاضعة للرقابة):**
+   407→
+   408→| Type d'Opération | Autorisation Requise | Organisme Compétent |
+   409→|------------------|---------------------|---------------------|
+   410→| Import biens consommation courante | Licence import (cas par cas) | Ministère Commerce |
+   411→| Import matières premières | Agrément professionnel | Secteur concerné |
+   412→| Export hydrocarbures | Licence Sonatrach | Ministère Énergie |
+   413→| Export produits agricoles | Certificat ONPPM | Ministère Agriculture |
+   414→| Import équipements industriels | Technologie validée | Ministère Industrie |
+   415→| Transit marchandises | Autorisation transit | Douanes algériennes |
+   416→
+   417→#### 1.4.2 Documents Commerce Extérieur (مستندات التجارة الخارجique)
+   418→
+   419→```
+   420→DOCUMENTATION IMPORT/EXPORT - CHECKLISTE:
+   421→
+   422→IMPORTATION:
+   423→├── ☑ Licence d'importation (si requise)
+   424→├── ☑ Certificat d'origine (COO)
+   425→├── ☑ Facture proforma/finale
+   426→├── ☑ Connaissement maritime/Bill of lading
+   427→├── ☑ Manifeste cargo
+   428→├── ☑ Police assurance transport
+   429→├── ☑ Permis sectoriels (si applicable)
+   430→├── ☑ Attestation conformité (si produit réglementé)
+   431→└── ☑ Preuve origine (rules of origin)
+   432→
+   433→EXPORTATION:
+   434→├── ☑ Déclaration export douanière
+   435→├── ☑ Certificat d'origine algérien
+   436→├── ☑ Facture commerciale export
+   437→├── ☑ Liste de colisage (packing list)
+   438→├── ☑ Preuve paiement (si advance payment)
+   439→├── ☑ Attestation qualité (si requis par client)
+   440→└── ☑ Licences export (produits stratégiques)
+   441→```
+   442→
+   443→---
+   444→
+   445→### 1.5 Loi Concurrence (قانون المنافسة)
+   446→
+   447→#### 1.5.1 Cadre Concurrentiel (الإطار التنافسي)
+   448→
+   449→| Texte | Objet | Autorité |
+   450→|-------|-------|----------|
+   451→| Loi 03-03 | Pratiques anticoncurrentielles | Conseil Concurrence |
+   452→| Ordonnance 95-06 | Prix et concurrence | Ministère Commerce |
+   453→| Réglementation sectorielle | Monopoles publics | Divers régulateurs |
+   454→
+   455→**Pratiques Prohibées (الممارسات المحظورة):**
+   456→- Ententes sur prix entre concurrents
+   457→- Abus de position dominante
+   458→- Pratiques discriminatoires
+   459→- Vent liées abusives
+   460→
+   461→**Application B2B Platforme:**
+   462→- Détection algorithmique des ententes potentielles
+   463→- Monitoring prix anormalement alignés
+   464→- Alertes si coordination suspecte détectée
+   465→
+   466→---
+   467→
+   468→### Résumé du Module 1 (ملخص الوحدة الأولى)
+   469→
+   470→**Cadre Législatif Algérien - Points Clés:**
+   471→
+   472→1. 📋 **Code de Commerce 75-59**: Immatriculation RC obligatoire, formes juridiques définies
+   473→2. 💰 **Code TVA 76-147**: Trois taux principaux (19%/9%/0%) selon nature bien/service
+   474→3. 🔒 **Loi 18-07**: Protection données personnelles style RGPD, droits SUJT étendus
+   475→4. 🌍 **Loi 03-01**: Contrôle import/export, documentation douanière
+   476→5. ⚖️ **Loi Concurrence**: Surveillance pratiques anticoncurrentielles
+   477→
+   478→**Termes Arabes Essentiels (المصطلحات العربية الأساسية):**
+   479→
+   480→| Français | Arabe | Translittération |
+   481→|----------|-------|------------------|
+   482→| Conformity | امتثال | Imtilāḥ |
+   483→| Taxe sur Valeur Ajoutée | ضريبة القيمة المضافة | Ḍarībat al-Qīma al-Muḍāfa |
+   484→| Registre du Commerce | السجل التجاري | al-Sijil at-Tijārī |
+   485→| Données Personnelles | البيانات الشخصية | al-Bayānāt ash-Shakhsiyya |
+   486→| Sanctions | عقوبات | 'Uqūbāt |
+   487→| Import/Export | استيراد/تصدير | Istīrād/Taṣdīr |
+   488→| Douane | الجمارك | al-Jumāruk |
+   489→
+   490→---
+   491→
+   492→<a id="module-2"></a>
+   493→
+   494→## Module 2: Utilisation du Compliance Checker
+   495→### الوحدة الثانية: استخدام أداة فحص الامتثال
+   496→
+   497→---
+   498→
+   499→### 2.1 Interface du Compliance Checker (واجهة أداة الفحص)
+   500→
+   501→#### 2.1.1 Accès et Navigation (الوصول والتنقل)
+   502→
+   503→**[CAPTURE D'ÉCRAN RÉFÉRENCE: compliance-checker-main.png]**
+   504→*Emplacement: Menu Principal > Compliance > Checker*
+   505→
+   506→```
+   507→┌──────────────────────────────────────────────────────────────────────────┐
+   508→│  ⚖️ COMPLIANCE CHECKER - ALGERIATRADE.DZ                       [v9.0]  │
+   509→├──────────────────────────────────────────────────────────────────────────┤
+   510→│                                                                          │
+   511→│  ┌────────────────────────────────────────────────────────────────────┐  │
+   512→│  │  ENTITÉ À VÉRIFIER                                                │  │
+   513→│  │                                                                    │  │
+   514→│  │  [Recherche par:]  (●) Nom entreprise  ( ) N° RC  ( ) NIF        │  │
+   515→│  │                                                                    │  │
+   516→│  │  ┌──────────────────────────────────┐  [🔍 Vérifier]             │  │
+   517→│  │  │ Entrez nom ou numéro...          │                             │  │
+   518→│  │  └──────────────────────────────────┘                             │  │
+   519→│  │                                                                    │  │
+   520→│  │  Recherches récentes:                                             │  │
+   521→│  │  • Cevital SPA - Vérifié il y a 2h                                │  │
+   522→│  │  • Groupe Hamoud SARL - Vérifié hier                              │  │
+   523→│  │  • Nouveau fournisseur inconnu                                    │  │
+   524→│  └────────────────────────────────────────────────────────────────────┘  │
+   525→│                                                                          │
+   526→│  ┌─────────────────────┐  ┌──────────────────────────────────────────┐  │
+   527→│  │  VÉRIFICATIONS      │  │  TABLEAU DE BORD PERSONNEL               │  │
+   528→│  │  RAPIDES            │  │                                          │  │
+   529→│  │                     │  │  Pending:  12  │  En cours:  5           │  │
+   530→│  │  ├─ Nouveau         │  │  Approuvés: 234  │  Rejetés: 18          │  │
+   531→│  │  │  fournisseur     │  │  Alertes:   3   │  Expirant: 7           │  │
+   532→│  │  ├─ Transaction     │  │                                          │  │
+   533→│  │  │  inhabituelle    │  │  [Voir tout]  [Alertes actives]          │  │
+   534→│  │  ├─ Renouvellement  │  │                                          │  │
+   535→│  │  │  documents       │  │                                          │  │
+   536→│  │  └─ Screening       │  │                                          │  │
+   537→│  │     sanctions       │  │                                          │  │
+   538→│  └─────────────────────┘  └──────────────────────────────────────────┘  │
+   539→│                                                                          │
+   540→└──────────────────────────────────────────────────────────────────────────┘
+   541→```
+   542→
+   543→#### 2.1.2 Barre d'Outils et Actions (شريط الأدوات والإجراءات)
+   544→
+   545→| Action | Icône | Raccourci | Description |
+   546→|--------|-------|-----------|-------------|
+   547→| Nouvelle vérification | ➕ | `Ctrl+N` | Lancer check complet |
+   548→| Historique | 📋 | `Ctrl+H` | Voir vérifications passées |
+   549→| Export rapport | 📄 | `Ctrl+E` | PDF/Excel du rapport |
+   550→| Partager | 🔗 | `Ctrl+Shift+L` | Lien sécurisé (24h valide) |
+   551→| Escalader | ⬆️ | `Ctrl+Shift+E` | Transmettre au senior |
+   552→| Approuver | ✅ | `Ctrl+Enter` | Valider conformité |
+   553→| Rejeter | ❌ | `Ctrl+Shift+R` | Refuser avec motif |
+   554→| Mettre en attente | ⏸️ | `Ctrl+Shift+P` | Besoin informations supplémentaires |
+   555→
+   556→---
+   557→
+   558→### 2.2 Lecture des Scores de Conformité (قراءة درجات الامتثال)
+   559→
+   560→#### 2.2.1 Échelle Globale 0-100 (المقياس العالمي ٠-١٠٠)
+   561→
+   562→**[CAPTURE D'ÉCRAN RÉFÉRENCE: compliance-score-gauge.png]**
+   563→
+   564→Le score de conformité global est calculé sur une échelle de 0 à 100 :
+   565→
+   566→```
+   567→ÉCHELLE SCORE CONFORMITÉ GLOBAL:
+   568→
+   569→┌─────────────────────────────────────────────────────────────────────────┐
+   570→│                                                                         │
+   571→│   0 ──┬───┬───┬───┬───┬───┬───┬───┬───┬───┬── 100                    │
+   572→│       │       │       │       │       │                               │
+   573→│   CRITIQUE   FAIBLE  ACCEPTABLE   BON      EXCELLENT                   │
+   574→│    🔴        🟠       🟡          🟢        🟢                          │
+   575→│                                                                         │
+   576→│   0-39      40-59    60-74        75-89     90-100                     │
+   577→│                                                                         │
+   578→│  Signification:                                                         │
+   579→│  ─────────────                                                          │
+   580→│  0-39:   Blocage recommandé - Risque significatif                      │
+   581→│  40-59:  Attention requise - Vérifications approfondies nécessaires     │
+   582→│  60-74:  Acceptable avec réserves - Monitoring renforcé                │
+   583→│  75-89:  Bon - Procédure standard                                     │
+   584→│  90-100: Excellent - Processus allégé possible                         │
+   585→│                                                                         │
+   586→└─────────────────────────────────────────────────────────────────────────┘
+   587→```
+   588→
+   589→#### 2.2.2 Score par Module (الدرجة حسب الوحدة)
+   590→
+   591→Le score global est composé de 5 sous-scores correspondant aux modules de conformité :
+   592→
+   593→```
+   594→DÉCOMPOSITION SCORE - EXEMPLE:
+   595→
+   596→┌─────────────────────────────────────────────────────────────┐
+   597→│  SCORE CONFORMITÉ GLOBAL: 78/100  ████████████████████░░░░  │
+   598→│  STATUT: BON ✓                                             │
+   599→├─────────────────────────────────────────────────────────────┤
+   600→│                                                             │
+   601→│  ┌─────────────────────────────────────────────────────┐   │
+   602→│  │ COMMERCIAL    │████████████████████│ 85/100  ✅      │   │
+   603→│  │ (Code Comm.)  │                    │        OK       │   │
+   604→│  ├─────────────────────────────────────────────────────┤   │
+   605→│  │ FISCAL/TVA    │█████████████████░░│ 72/100  ⚠️      │   │
+   606→│  │ (Code TVA)    │                    │    VÉRIFIER    │   │
+   607→│  ├─────────────────────────────────────────────────────┤   │
+   608→│  │ TRADE         │████████████████████│ 91/100  ✅      │   │
+   609→│  │ (Comm. Ext.)  │                    │        OK       │   │
+   610→│  ├─────────────────────────────────────────────────────┤   │
+   611→│  │ PRIVACY       │██████████████████░░│ 82/100  ✅      │   │
+   612→│  │ (Données)     │                    │        OK       │   │
+   613→│  ├─────────────────────────────────────────────────────┤   │
+   614→│  │ SANCTIONS     │████████████████████│ 95/100  ✅      │   │
+   615→│  │ (Screening)   │                    │        OK       │   │
+   616→│  └─────────────────────────────────────────────────────┘   │
+   617→│                                                             │
+   618→│  POINT D'ATTENTION:                                        │
+   619→│  → Module Fiscal: TVA rate mismatch detected               │
+   620→│  → Action: Review invoice line items                       │
+   621→│                                                             │
+   622→└─────────────────────────────────────────────────────────────┘
+   623→```
+   624→
+   625→#### 2.2.3 Pondération des Modules (وزن الوحدات)
+   626→
+   627→| Module | Pondération | Justification |
+   628→|--------|-------------|---------------|
+   629→| Commercial | 20% | Fondamental pour identité partie |
+   630→| Fiscal/TVA | 25% | Impact financier et légal direct |
+   631→| Trade | 15% | Critique seulement pour opérations extérieures |
+   632→| Privacy | 15% | Important RGPD-like, moins critique B2B |
+   633→| Sanctions | 25% | Blocage obligatoire si match positif |
+   634→
+   635→---
+   636→
+   637→### 2.3 Breakdown par Module (تفصيل حسب الوحدة)
+   638→
+   639→#### 2.3.1 Module Commercial - Détails (تفاصيل وحدة التجارة)
+   640→
+   641→**[CAPTURE D'ÉCRAN RÉFÉRENCE: commercial-module-detail.png]**
+   642→
+   643→```
+   644→MODULE COMMERCIAL - ANALYSE DÉTAILLÉE:
+   645→═════════════════════════════════════════════════════════════════
+   646→
+   647→Entité: Groupe SIM SARL
+   648→Score Commercial: 85/100
+   649→
+   650→VÉRIFICATIONS EFFECTUÉES:
+   651→
+   652→┌─────────────────────────────────────────────────────────────┐
+   653→│ ✅ REGISTRE DU COMMERCE                                    │
+   654→│    Numéro: 16A0019876 (Valide)                             │
+   655→│    Date extrait: 08/01/2025 (✓ < 30 jours)                │
+   656→│    Wilaya: 16 - Alger                                      │
+   657→│    Statut: Actif                                           │
+   658→│                                                             │
+   659→│ ✅ FORME JURIDIQUE                                         │
+   660→│    Type: SARL (Cohérent avec activité)                     │
+   661→│    Capital: 1,000,000 DZD (≥ minimum 100,000)             │
+   662→│                                                             │
+   663→│ ✅ SIÈGE SOCIAL                                            │
+   664→│    Adresse déclarée: Rue Didouche Mourad, Alger            │
+   665→│    Adresse plateforme: Cohérente ✓                         │
+   666→│    Géolocalisation: Vérifiée                               │
+   667→│                                                             │
+   668→│ ✅ DIRIGEANTS                                              │
+   669→│    Gérant: Mohamed K. (CNI vérifiée)                       │
+   670→│    Pouvoirs: Signature validée                              │
+   671→│                                                             │
+   672→│ ⚠️ OBJET SOCIAL                                            │
+   673→│    Déclaré: Commerce général                                │
+   674→│    Activité réelle: Import distribution                    │
+   675→│    Note: Compatible mais large                              │
+   676→│                                                             │
+   677→│ ✅ BÉNÉFICIAIRES EFFECTIFS                                 │
+   678→│    Associés déclarés: 3                                    │
+   679→│    Transparency: OK                                        │
+   680→│                                                             │
+   681→└─────────────────────────────────────────────────────────────┘
+   682→
+   683→POINTS: 85/100 (-15 objet social large, pas pénalisant)
+   684→```
+   685→
+   686→#### 2.3.2 Module Fiscal/TVA - Détails (تفاصيل الوحدة الضريبية)
+   687→
+   688→```
+   689→MODULE FISCAL/TVA - ANALYSE DÉTAILLÉE:
+   690→═════════════════════════════════════════════════════════════════
+   691→
+   692→Score Fiscal: 72/100 ⚠️ ATTENTION REQUISE
+   693→
+   694→┌─────────────────────────────────────────────────────────────┐
+   695→│ ✅ IDENTIFICATION FISCALE                                  │
+   696→│    NIF: 00161234567890 (Format valide)                     │
+   697→│    NIS: 000161234567890 (Format valide)                    │
+   698→│    AI: 1612345678 (Format valide)                          │
+   699→│    Source: Attestation DGI (validée)                       │
+   700→│                                                             │
+   701→│ ✅ RÉGIME D'IMPOSITION                                     │
+   702→│    Régime: Réel (Cohérent CA prévu)                        │
+   703→│    TVA: Assujetti                                         │
+   704→│                                                             │
+   705→│ ⚠️ TAUX TVA APPLIQUÉS HISTORIQUEMENT                       │
+   706→│    ┌──────────────┬────────┬────────┬────────┐             │
+   707→│    │ Transaction  │ Taux   │ Attendu│ Status │             │
+   708→│    ├──────────────┼────────┼────────┼────────┤             │
+   709→│    │ #12345       │ 19%    │ 19%    │ ✅     │             │
+   710→│    │ #12346       │ 9%     │ 19%    │ ❌     │             │
+   711→│    │ #12347       │ 19%    │ 19%    │ ✅     │             │
+   712→│    │ #12348       │ 0%     │ 0%     │ ✅     │             │
+   713→│    └──────────────┴────────┴────────┴────────┘             │
+   714→│                                                             │
+   715→│    ANOMALIE: Transaction #1246 - Taux 9% appliqué           │
+   716→│    sur produit normalement à 19%                           │
+   717→│    → Investigation requise                                │
+   718→│                                                             │
+   719→│ ✅ ATTESTATION FISCALE                                     │
+   720→│    Validité: 15/06/2025 (✓ En cours de validité)          │
+   721→│    Situation: À jour des obligations fiscales              │
+   722→│                                                             │
+   723→└─────────────────────────────────────────────────────────────┘
+   724→
+   725→POINTS: 72/100 (-28 anomalie taux TVA)
+   726→ACTION: Contacter comptabilité + vérifier facture #12346
+   727→```
+   728→
+   729→#### 2.3.3 Module Trade Extérieur - Détails (تفاصيل وحدة التجارة الخارجية)
+   730→
+   731→```
+   732→MODULE TRADE EXTÉRIEUR - ANALYSE DÉTAILLÉE:
+   733→═════════════════════════════════════════════════════════════════
+   734→
+   735→Score Trade: 91/100 ✅
+   736→
+   737→┌─────────────────────────────────────────────────────────────┐
+   738→│ OPÉRATIONS DE COMMERCE EXTÉRIEUR DÉTECTÉES:                │
+   739→│                                                             │
+   740→│  IMPORTATIONS (12 derniers mois):                           │
+   741→│  ├── 8 déclarations douanières                              │
+   742→│  ├── Valeur totale CIF: 12,450,000 DZD                     │
+   743→│  ├── Origines: Chine (60%), France (25%), Turquie (15%)    │
+   744→│  └── Produits: Électronique, textile, pièces mécaniques    │
+   745→│                                                             │
+   746→│  LICENCES ET AUTORISATIONS:                                 │
+   747→│  ├── ☑ Licence import générale (valide jusqu' 31/12/2025) │
+   748→│  ├── ☑ Agrément ministère secteur (si applicable)          │
+   749→│  └── ☐ Certificat conformity (non requis pour ces produits)│
+   750→│                                                             │
+   751→│  DOCUMENTATION DOUANIÈRE:                                   │
+   752→│  ├── Taux de reddition: 98% (bon)                          │
+   753→│  ├── Aucun contentieux douanier                            │
+   754→│  └── Délais moyens clearance: 3.2 jours (acceptable)       │
+   755→│                                                             │
+   756→│  PARTENAIRES ÉTRANGERS:                                     │
+   757→│  ├── 4 fournisseurs étrangers actifs                        │
+   758→│  ├── Screening OFAC/EU: Clean                              │
+   759→│  └── Pays à risque: Aucun                                  │
+   760→│                                                             │
+   761→└─────────────────────────────────────────────────────────────┘
+   762→
+   763→POINTS: 91/100 (-9 délais customs améliorables)
+   764→```
+   765→
+   766→#### 2.3.4 Module Privacy (Données Personnelles) - Détails (تفاصيل وحدة الخصوصية)
+   767→
+   768→```
+   769→MODULE PRIVACY - ANALYSE DÉTAILLÉE:
+   770→═════════════════════════════════════════════════════════════════
+   771→
+   772→Score Privacy: 82/100 ✅
+   773→
+   774→┌─────────────────────────────────────────────────────────────┐
+   775→│ TRAITEMENTS DONNÉES PERSONNELLES:                           │
+   776→│                                                             │
+   777→│  COLLECTE:                                                  │
+   778→│  ├── Consentement obtenu: ✅ Oui (date: 15/01/2025)        │
+   779→│  ├── Finalité déclarée: Relations commerciales B2B         │
+   780→│  ├── Base légale: Exécution contrat + consentement         │
+   781→│  └── Données sensibles: Aucune (catégorie standard)        │
+   782→│                                                             │
+   783→│  DROITS EXERCÉS:                                            │
+   784→│  ├── Demandes d'accès reçues: 2                            │
+   785→│  ├── Demandes traitées: 2 (délai moyen: 5 jours)           │
+   786→│  ├── Demandes de suppression: 0                             │
+   787→│  └── Réclamations: 0                                       │
+   788→│                                                             │
+   789→│  SÉCURITÉ:                                                  │
+   790→│  ├── Chiffrement données: AES-256 activé                   │
+   791→│  ├── Accès logs: Conservés 12 mois                          │
+   792→│  ├── Violations signalées: Aucune                          │
+   793→│  └── Formation personnel: À jour                           │
+   794→│                                                             │
+   795→│  TRANSFERTS:                                                │
+   796→│  ├── Transferts hors Algérie: Non (données locales)        │
+   797→│  ├── Sous-traitants: Aucun accès données personnelles      │
+   798→│  └── Clauses contractuelles: Présentes                     │
+   799→│                                                             │
+   800→└─────────────────────────────────────────────────────────────┘
+   801→
+   802→POINTS: 82/100 (-18 formation personnel à renouveler Q2)
+   803→```
+   804→
+   805→#### 2.3.5 Module Sanctions - Détails (تفصيل وحدة العقوبات)
+   806→
+   807→```
+   808→MODULE SANCTIONS SCREENING - ANALYSE DÉTAILLÉE:
+   809→═════════════════════════════════════════════════════════════════
+   810→
+   811→Score Sanctions: 95/100 ✅ EXCELLENT
+   812→
+   813→┌─────────────────────────────────────────────────────────────┐
+   814→│ SCREENING LISTES SANCTIONS:                                 │
+   815→│                                                             │
+   816→│  LISTES VÉRIFIÉES (mise à jour: aujourd'hui):              │
+   817→│  ├── ☑ OFAC SDN List (USA) - Dernière MAJ: Aujourd'hui    │
+   818→│  ├── ☑ EU Consolidated List (UE) - Dernière MAJ: Hier     │
+   819→│  ├── ☑ UN Security Council (ONU) - Dernière MAJ: Hier     │
+   820→│  └── ☑ Liste Nationale DZ - Dernière MAJ: Semaine dernière│
+   821→│                                                             │
+   822→│  RÉSULTATS SCREENING:                                       │
+   823→│  ┌────────────────┬────────┬──────────┬──────────┐         │
+   824→│  │ Liste          │ Match  │ Score    │ Résultat │         │
+   825→│  ├────────────────┼────────┼──────────┼──────────┤         │
+   826→│  │ OFAC SDN       │ None   │ 0%       │ ✅ CLEAN │         │
+   827→│  │ EU Consolidated│ None   │ 0%       │ ✅ CLEAN │         │
+   828→│  │ UN Security    │ None   │ 0%       │ ✅ CLEAN │         │
+   829→│  │ National DZ    │ None   │ 0%       │ ✅ CLEAN │         │
+   830→│  └────────────────┴────────┴──────────┴──────────┘         │
+   831→│                                                             │
+   832→│  PEP (Politically Exposed Persons):                         │
+   833→│  ├── Screening PEP: Effectué                                │
+   834→│  ├── Match: Aucun                                          │
+   835→│  └── Risk Level: Minimal                                   │
+   836→│                                                             │
+   837→│  ADRESSES ET ENTITTES LIÉES:                                │
+   838→│  ├── Adresses vérifiées: 3                                 │
+   839→│  ├── Entités liées: 2 (filiales)                           │
+   840→│  ├── Screening étendu: Clean                               │
+   841→│  └── Media/adverse news: Aucun résultat négatif           │
+   842→│                                                             │
+   843→└─────────────────────────────────────────────────────────────┘
+   844→
+   845→POINTS: 95/100 (-5 routine, score parfait rare)
+   846→```
+   847→
+   848→---
+   849→
+   850→### 2.4 Niveaux de Gravité des Violations (مستويات خطورة الانتهاكات)
+   851→
+   852→#### 2.4.1 Classification des Violations (تصنيف الانتهاكات)
+   853→
+   854→| Niveau | Code Couleur | Score Impact | Exemple | Délai Réponse |
+   855→|--------|-------------|-------------|---------|--------------|
+   856→| **CRITIQUE** | 🔴 Rouge | -50 à -100 | Match sanction, fraude avérée | Immédiat (< 1h) |
+   857→| **MAJEUR** | 🟠 Orange | -25 à -49 | Document falsifié, TVA grave erreur | < 24 heures |
+   858→| **MODÉRÉ** | 🟡 Jaune | -10 à -24 | Document expiré, incohérence mineure | < 72 heures |
+   859→| **MINEUR** | 🔵 Bleu | -1 à -9 | Format incorrect, information manquante | < 7 jours |
+   860→| **INFO** | ⚪ Blanc | 0 | Observation, recommandation | Prochaine revue |
+   861→
+   862→#### 2.4.2 Matrice de Réponse par Sévérité (مصفوفة الاستجابة حسب الخطورة)
+   863→
+   864→```
+   865→MATRICE ACTION PAR NIVEAU VIOLATION:
+   866→
+   867→┌─────────────────────────────────────────────────────────────┐
+   868→│  🔴 VIOLATION CRITIQUE                                     │
+   869→│  ─────────────────────────────────────────────────────────  │
+   870→│  Actions immédiates:                                        │
+   871→│  1. SUSPENDRE transaction/partie en cours                   │
+   872→│  2. Notifier Compliance Manager + Direction                 │
+   873→│  3. Documenter thoroughly (screenshots, preuves)            │
+   874→│  4. Ne PAS prendre contact avec l'entité soupçonnée        │
+   875→│  5. Escalader aux autorités si requis (CTF, ANPD, etc.)   │
+   876→│                                                             │
+   877→│  Délai max intervention: 1 HEURE                            │
+   878→└─────────────────────────────────────────────────────────────┘
+   879→
+   880→┌─────────────────────────────────────────────────────────────┐
+   881→│  🟠 VIOLATION MAJEURE                                       │
+   882→│  ─────────────────────────────────────────────────────────  │
+   883→│  Actions requises:                                          │
+   884→│  1. Marquer dossier "Attention élevée"                      │
+   885→│  2. Demander corrections/explications à l'entité            │
+   886→│  3. Limiter transactions pendant investigation              │
+   887→│  4. Assigner à Senior Compliance pour review                │
+   888→│  5. Planifier audit approfondi                              │
+   889→│                                                             │
+   890→│  Délai max intervention: 24 HEURES                           │
+   891→└─────────────────────────────────────────────────────────────┘
+   892→
+   893→┌─────────────────────────────────────────────────────────────┐
+   894→│  🟡 VIOLATION MODÉRÉE                                       │
+   895→│  ─────────────────────────────────────────────────────────  │
+   896→│  Actions requises:                                          │
+   897→│  1. Notifier entité (email automatique possible)            │
+   898→│  2. Demande de régularisation (délai 14 jours)             │
+   899→│  3. Suivi dans file active                                 │
+   900→│  4. Pas de blocage mais monitoring renforcé                 │
+   901→│                                                             │
+   902→│  Délai max intervention: 72 HEURES                           │
+   903→└─────────────────────────────────────────────────────────────┘
+   904→
+   905→┌─────────────────────────────────────────────────────────────┐
+   906→│  🔵 VIOLATION MINEURE                                       │
+   907→│  ─────────────────────────────────────────────────────────  │
+   908→│  Actions requises:                                          │
+   909→│  1. Note interne au dossier                                 │
+   910→│  2. Notification lors prochain contact                      │
+   911→│  3. Correction à la prochaine opportunité                   │
+   912→│                                                             │
+   913→│  Délai max intervention: 7 JOURS                             │
+   914→└─────────────────────────────────────────────────────────────┘
+   915→```
+   916→
+   917→---
+   918→
+   919→### 2.5 Workflow de Validation Documentaire (سير العمل للتحقق من المستندات)
+   920→
+   921→#### 2.5.1 Processus de Validation (عملية التحقق)
+   922→
+   923→**[CAPTURE D'ÉCRAN RÉFÉRENCE: document-validation-workflow.png]**
+   924→
+   925→```
+   926→WORKFLOW VALIDATION DOCUMENTS CONFORMITÉ:
+   927→
+   928→┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐
+   929→│ SOUMISSION│ → │  OCR &   │ → │ VERIF    │ → │ DECISION │
+   930→│ DOCUMENT │    │ EXTRACTION│   │ AUTO     │   │         │
+   931→└──────────┘    └──────────┘    └──────────┘    └──────────┘
+   932→      ↓               ↓              ↓              ↓
+   933→  Utilisateur     IA lit         Règles        Humain
+   934→  upload fichier  contenu        appliquées     confirme
+   935→                  (texte,        (dates,
+   936→                   dates,        formats,
+   937→                   montants)     cohérence)
+   938→
+   939→ÉTAPES DÉTAILLÉES:
+   940→
+   941→ETAPE 1: SOUMISSION
+   942→├── Formats acceptés: PDF, JPG, PNG (max 10Mo)
+   943→├── Types: RC, NIF, passeport, statutes, etc.
+   944→├── Upload: Drag & drop ou sélection fichier
+   945→└── Hash stocké pour intégrité
+   946→
+   947→ETAPE 2: OCR & EXTRACTION (automatique)
+   948→├── Reconnaissance texte (arabe + français)
+   949→├── Extraction champs clés:
+   950→│   ├── Numéros (RC, NIF, dates)
+   951→│   ├── Noms (entreprise, dirigeants)
+   952→│   ├── Montants (capital)
+   953→│   └── Adresses
+   954→├── Score confiance OCR affiché
+   955→└── Si OCR faible → flag pour revue manuelle
+   956→
+   957→ETAPE 3: VÉRIFICATION AUTOMATIQUE
+   958→├── Format validation (regex patterns)
+   959→├── Date checks (péremption, fraîcheur)
+   960→├── Cross-reference bases de données
+   961→├── Calcul score conformité partiel
+   962→└── Flag anomalies détectées
+   963→
+   964→ETAPE 4: DÉCISION HUMAINE
+   965→├── Review résultats automatisés
+   966→├── Validation/rejet/modification
+   967→├── Ajout notes commentaires
+   968→├── Approbation finale
+   969→└── Audit trail complet conservé
+   970→```
+   971→
+   972→#### 2.5.2 Checkliste Validation par Type de Document (قائمة التحقق حسب نوع المستند)
+   973→
+   974→| Document | Champs à Vérifier | Erreurs Courantes | Action si Problème |
+   975→|----------|------------------|-------------------|-------------------|
+   976→| **Extrait RC** | N° RC, date, statut, adresse, gérant | Date > 30j, photocopie illisible | Demander nouveau |
+   977→| **Attestation NIF** | NIF valide, date validité, nom cohérent | NIF erroné, expiré | Vérifier DGI |
+   978→| **Statuts** | Forme juridique, capital, objet, associés | Version ancienne | Demander MAJ notariée |
+   979→| **CNI Passeport** | Numéro, date expiration, photo | Expiré, mauvais format | Nouveau document |
+   980→| **Facture** | N° facture, TVA, montant, TVA correcte | Taux erroné, sans timbre | Refuser, corriger |
+   981→| **Licence import** | N° licence, produits couverts, validité | Hors périmètre, expirée | Vérifier ministère |
+   982→
+   983→---
+   984→
+   985→### Résumé du Module 2 (ملخص الوحدة الثانية)
+   986→
+   987→**Points Clés à Retenir:**
+   988→
+   989→1. 🔍 Le Compliance Checker centralise toutes les vérifications en un outil
+   990→2. 📊 Le score 0-100 reflète la conformité globale (sous-scores par module)
+   991→3. 🚨 Les violations sont classées par sévérité (Critique → Mineure)
+   992→4. 📋 La validation documentaire combine OCR automatique + revue humaine
+   993→5. ⏱️ Les délais de réponse varient selon le niveau de gravité
+   994→
+   995→**Raccourcis Clavier (اختصارات لوحة المفاتيح):**
+   996→
+   997→| Action | Raccourci |
+   998→|--------|-----------|
+   999→| Nouvelle vérification | `Ctrl+N` |
+  1000→| Historique | `Ctrl+H` |
+  1001→| Export rapport | `Ctrl+E` |
+  1002→| Approuver | `Ctrl+Enter` |
+  1003→| Rejeter | `Ctrl+Shift+R` |
+  1004→| Escalader | `Ctrl+Shift+E` |
+  1005→
+  1006→---
+  1007→
+  1008→<a id="module-3"></a>
+  1009→## Module 3: Conformité Fiscale TVA
+  1010→### الوحدة الثالثة: الامتثال الضريبي ضريبة القيمة المضافة
+  1011→
+  1012→---
+  1013→
+  1014→### 3.1 Application Correcte des Taux TVA (التطبيق الصحيح لأسعار الضريبة)
+  1015→
+  1016→#### 3.1.1 Arbre de Décision Taux TVA (شجرة قرار سعر الضريبة)
+  1017→
+  1018→**[CAPTURE D'ÉCRAN RÉFÉRENCE: tva-decision-tree.png]**
+  1019→
+  1020→```
+  1021→ARBRE DÉCISION - QUEL TAUX TVA APPLIQUER?
+  1022→
+  1023→START: Quel type de produit/service?
+  1024→         │
+  1025→         ├─→ BIEN/SERVICE STANDARD (non listé ci-dessous)
+  1026→         │     └─→ TAUX: 19% (taux normal)
+  1027→         │
+  1028→         ├─→ PRODUIT ALIMENTAIRE?
+  1029→         │     ├─→ De base (farine, huile, lait, sucre, semoule)?
+  1030→         │     │     └─→ TAUX: 9%
+  1031→         │     └─→ De luxe/confiserie/chocolat/boissons sucrées?
+  1032→         │           └─→ TAUX: 19%
+  1033→         │
+  1034→         ├─→ MÉDICAMENT OU PRODUIT PHARMACEUTIQUE?
+  1035→         │     └─→ TAUX: 9%
+  1036→         │
+  1037→         ├─→ PRODUIT AGRICOLE?
+  1038→         │     ├─→ Frais (fruits, légumes non transformés)?
+  1039→         │     │     └─→ TAUX: 9%
+  1040→         │     └─→ Intrant agricole (engrais, pesticides)?
+  1041→         │           └─→ TAUX: 0% (exonéré)
+  1042→         │
+  1043→         ├─→ LIVRE OU FOURNITURE SCOLAIRE?
+  1044→         │     └─→ TAUX: 9%
+  1045→         │
+  1046→         ├─→ EXPORTATION (client hors Algérie)?
+  1047→         │     └─→ TAUX: 0% (exonéré)
+  1048→         │
+  1049→         ├─→ TRANSPORT INTERNATIONAL?
+  1050→         │     └─→ TAUX: 0% (exonéré)
+  1051→         │
+  1052→         └─→ SERVICE NUMÉRIQUE (SaaS, Cloud)?
+  1053→               └─→ TAUX: 19% (interprétation DGI)
+  1054→```
+  1055→
+  1056→#### 3.1.2 Cas Particiers et Exceptions (حالات خاصة واستثناءات)
+  1057→
+  1058→| Situation | Taux TVA | Condition | Référence |
+  1059→|-----------|----------|-----------|-----------|
+  1060→| Vente à une ambassade | Exonéré | Accord diplomatique | Convention Vienna |
+  1061→| Livraison zone franche | Exonéré | Documentation zone | Loi zones franches |
+  1062→| Réimportation après export | Exonéré | Preuve export initial | Code TVA art. |
+  1063→| Occasion (biens usagés) | Sur marge | Particulier→professionnel | Pratique DGI |
+  1064→| Autoconsommation | TVA récupérable | Livraison à soi-même | Code TVA art. |
+  1065→| Échantillons gratuits | TVA applicable | Valeur déclarée | Pratique DGI |
+  1066→
+  1067→---
+  1068→
+  1069→### 3.2 Checklist Validation Facture (قائمة التحقق من الفاتورة)
+  1070→
+  1071→#### 3.2.1 Éléments Obligatoires d'une Facture (العناصر الإلزامية للفاتورة)
+  1072→
+  1073→**Référence: Article du Code TVA + Arrêté Ministériel Facturation**
+  1074→
+  1075→```
+  1076→CHECKLISTE FACTURE CONFORME TVA - ALGÉRIE:
+  1077→
+  1078→┌─────────────────────────────────────────────────────────────┐
+  1079→│  ✅ MENTIONS OBLIGATOIRES FACTURE                           │
+  1080→├─────────────────────────────────────────────────────────────┤
+  1081→│                                                             │
+  1082→│  IDENTIFICATION VENDEUR:                                    │
+  1083→│  ├── ☑ Nom ou raison sociale complète                      │
+  1084→│  ├── ☑ Numéro RC (Registre Commerce)                       │
+  1085→│  ├── ☑ NIF (Numéro Identification Fiscale)                 │
+  1086→│  ├── ☑ NIS (Numéro Identification Statistique)             │
+  1087→│  ├── ☑ AI (Artificial Identifiant)                         │
+  1088→│  ├── ☑ Adresse postale complète                            │
+  1089→│  └── ☑ Coordonnées bancaires (si paiement par virement)    │
+  1090→│                                                             │
+  1091→│  IDENTIFICATION ACHETEUR:                                   │
+  1092→│  ├── ☑ Nom ou raison sociale                                │
+  1093→│  ├── ☑ NIF acheteur (obligatoire si assujetti TVA)         │
+  1094→│  └── ☑ Adresse (si différente livraison)                   │
+  1095→│                                                             │
+  1096→│  DÉTAILS TRANSACTION:                                       │
+  1097→│  ├── ☑ Numéro de facture (unique et séquentiel)            │
+  1098→│  ├── ☑ Date de la facture                                  │
+  1099→│  ├── ☑ Date de la livraison (si différente)                │
+  1100→│  ├── ☑ Désignation détaillée produits/services             │
+  1101→│  ├── ☑ Quantité par ligne                                  │
+  1102→│  ├── ☑ Prix unitaire hors taxes                             │
+  1103→│  ├── ☑ Taux TVA par ligne (ou mention "TVA non applicable")│
+  1104→│  ├── ☑ Montant TVA par ligne                               │
+  1105→│  ├── ☑ Total hors taxes (HT)                               │
+  1106→│  ├── ☑ Total TVA                                          │
+  1107→│  ├── ☑ Total toutes taxes comprises (TTC)                  │
+  1108→│  └── ☑ Devise (si pas DZD) + taux change utilisé          │
+  1109→│                                                             │
+  1110→│  ÉLÉMENTS ADDITIONNELS RECOMMANDÉS:                         │
+  1111→│  ├── ☑ Conditions de vente (paiement, livraison)           │
+  1112→│  ├── ☑ Références bon commande/devis                       │
+  1113→│  ├── ☑ Timbre fiscal (si physique)                         │
+  1114→│  └── ☑ Signature/cachet (si facture papier)                │
+  1115→│                                                             │
+  1116→└─────────────────────────────────────────────────────────────┘
+  1117→```
+  1118→
+  1119→#### 3.2.2 Erreurs Courantes sur Factures (أخطاء شائعة في الفواتير)
+  1120→
+  1121→| Erreur | Fréquence | Conséquence | Correction |
+  1122→|--------|-----------|-------------|------------|
+  1123→| Taux TVA erroné | Très fréquente | Redressement fiscal | Recalculer, facture rectificative |
+  1124→| NIF manquant acheteur | Fréquente | Non-déductibilité TVA | Compléter facture |
+  1125→| Sans timbre fiscal | Modérée | Amende mineure | Apposer timbre |
+  1126→| Double facturation | Rare | Litige, redressement | Annuler duplicata |
+  1127→| HT/TTC confondu | Fréquente | TVA impayée | Clarifier montants |
+  1128→| Date future/impossible | Rare | Facture invalide | Corriger date |
+  1129→| Absence numéro séquentiel | Modérée | Difficulté comptabilité | Numéroter correctement |
+  1130→
+  1131→---
+  1132→
+  1133→### 3.3 Régimes de Déclaration (أنظمة الإعلان)
+  1134→
+  1135→#### 3.3.1 Régime Mensuel vs Trimestriel (النظام الشهري مقابل ربع سنوي)
+  1136→
+  1137→| Critère | Régime Mensuel | Régime Trimestriel |
+  1138→|----------|---------------|-------------------|
+  1139→| **Seuil CA annuel** | > 30,000,000 DZD | ≤ 30,000,000 DZD |
+  1140→| **Déclaration TVA** | Chaque mois avant le 21ème | Chaque trimestre avant le 21ème |
+  1141→| **Versement** | Mensuel | Trimestriel |
+  1142→| **Option possible** | Oui (volontaire) | Par défaut si seuil respecté |
+  1143→| **Accomptes provisionnels** | Non requis | Peut être requis |
+  1144→
+  1145→**Détermination du régime:**
+  1146→
+  1147→```
+  1148→COMMENT SAVOIR LE RÉGIME D'UN FOURNISSEUR?
+  1149→
+  1150→1. Vérifier l'attestation fiscale (mentionne le régime)
+  1151→2. Demander directement au fournisseur
+  1152→3. Consulter portail DGI (si accès)
+  1153→4. Observer les factures précédentes (périodicité TVA indiquée)
+  1154→
+  1155→⚠️ IMPORTANT: Le régime du vendeur n'affecte pas votre déduction TVA
+  1156→   en tant qu'acheteur, tant que la facture est conforme.
+  1157→```
+  1158→
+  1159→#### 3.3.2 Calendrier Déclaratif (تقويم الإعلانات)
+  1160→
+  1161→```
+  1162→CALENDRIER TVA 2025 - DATES CLÉS:
+  1163→
+  1164→MOIS       LIMITE DÉCLARATION MENSUELLE  LIMITE DÉCLARATION TRIMESTRIELLE
+  1165→───────────────────────────────────────────────────────────────────────────
+  1166→Janvier    21 février 2025               -
+  1167→Février    21 mars 2025                  -
+  1168→Mars       21 avril 2025                 21 avril 2025 (Q1)
+  1169→Avril      21 mai 2025                   -
+  1170→Mai        21 juin 2025                  -
+  1171→Juin       21 juillet 2025               21 juillet 2025 (Q2)
+  1172→Juillet    21 août 2025                  -
+  1173→Août       21 septembre 2025             -
+  1174→Septembre  20 octobre 2025*              20 octobre 2025 (Q3)
+  1175→Octobre    21 novembre 2025              -
+  1176→Novembre   21 décembre 2025              -
+  1177→Décembre   20 janvier 2026*             20 janvier 2026* (Q4)
+  1178→
+  1179→* = Date ajustée si tombe weekend/férié
+  1180→```
+  1181→
+  1182→---
+  1183→
+  1184→### 3.4 Retenue à la Source (الاقتطاع من المصدر)
+  1185→
+  1186→#### 3.4.1 Taux de Retenue Applicables (أسعار الاقتطاع المطبقة)
+  1187→
+  1188→| Situation | Taux Retenue | Base de Calcul | Référence Légale |
+  1189→|-----------|-------------|---------------|------------------|
+  1190→| **Prestation service local** | 24% | Montant HT | Art. IRG Code Impôts Directs |
+  1191→| **Prestation service non-résident** | 24% | Montant brut | Convention fiscale |
+  1192→| **Honoraires, commissions** | 24% | Montant brut | Art. IRG |
+  1193→| **Cession droit bail, redevances** | 24% | Montant brut | Art. IRG |
+  1194→| **Dividendes** | 10% | Montant brut | Art. IBS |
+  1195→| **Intérêts bancaires | 10% | Montant intérêt | Art. IRG |
+  1196→| **Importation (droits douane)** | Selon tarif douanier | Valeur douane | Code douanier |
+  1197→
+  1198→#### 3.4.2 Mécanisme Retenue à la Source (آلية الاقتطاع من المصدر)
+  1199→
+  1200→```
+  1201→CALCUL RETENUE À LA SOURCE - EXEMPLE PRATIQUE:
+  1202→
+  1203→SCÉNARIO: Prestation service consultant local
+  1204→
+  1205→Facture consultant: 500,000 DZD (HT)
+  1206→TVA (19%): 95,000 DZD
+  1207→Total TTC: 595,000 DZD
+  1208→
+  1209→RETENUE IRG À EFFECTUER:
+  1210→├── Base retenue: 500,000 DZD (montant HT)
+  1211→├── Taux: 24%
+  1212→├── Montant retenu: 120,000 DZD
+  1213→└── Net à payer: 475,000 DZD (+ TVA 95,000 = 570,000 DZD)
+  1214→
+  1215→FACTURATION CORRECTE:
+  1216→┌─────────────────────────────────────────────┐
+  1217→│ Montant HT:        500,000 DZD             │
+  1218→│ TVA (19%):           95,000 DZD             │
+  1219→│ Retenue IRG (24%):  120,000 DZD            │
+  1220→│ NET À PAYER:        475,000 DZD             │
+  1221→│ TOTAL TTC:          570,000 DZD             │
+  1222→└─────────────────────────────────────────────┘
+  1223→
+  1224→OBLIGATIONS ACHETEUR (reteneur):
+  1225→1. Déclarer la retenue (bulletin n°...)
+  1226→2. Verser au Trésor dans les 30 jours
+  1227→3. Remettre attestation de versement au fournisseur
+  1228→```
+  1229→
+  1230→---
+  1231→
+  1232→### 3.5 Erreurs Courantes et Comment les Éviter (أخطاء شائعة وكيفية تجنبها)
+  1233→
+  1234→#### 3.5. Top 10 Erreurs TVA (أعلى 10 أخطاء ضريبية)
+  1235→
+  1236→| # | Erreur | Impact | Prévention |
+  1237→|---|--------|--------|------------|
+  1238→| 1 | Mauvais taux TVA appliqué | Redressement + pénalités | Utiliser tableau décisionnel |
+  1239→| 2 | TVA non déduite alors que possible | Perte financière | Vérifier éligibilité |
+  1240→| 3 | Facture sans mentions obligatoires | Rejet déduction | Checklist systématique |
+  1241→| 4 | Confusion HT/TTC | Sous-paiement TVA | Formation comptable |
+  1242→| 5 | Oubli TVA sur importation | Douane + TVA | Rappel procédure |
+  1243→| 6 | TVA reversée en retard | Pénalités de retard | Calendrier rigoureux |
+  1244→| 7 | Mauvais régime déclaré | Contrôle fiscal | Vérifier seuils |
+  1245→| 8 | Retenue source non effectuée | Responsabilité solidaire | Automatisation paie |
+  1246→| 9 | Non-respect territorialité | TVA indue | Analyse opération |
+  1247→| 10 | Documentation insuffisante | Rejet en cas contrôle | Archivage complet |
+  1248→
+  1249→#### 3.5.2 Bonnes Pratiques TVA (الممارسات الجيدة للضريبة)
+  1250→
+  1251→```
+  1252→BONNES PRATIQUES - CONFORMITÉ TVA:
+  1253→
+  1254→QUOTIDIEN:
+  1255→├── Vérifier taux TVA avant émission facture
+  1256→├── Utiliser modèle facture conforme (template validé)
+  1257→├── Conserver preuves de toutes transactions
+  1258→└── Former nouveaux employés processus TVA
+  1259→
+  1260→HEBDOMADAIRE:
+  1261→├── Réconcilier TVA collectée vs déclarée
+  1262→├── Vérifier factures fournisseurs (mentions complètes?)
+  1263→├── Suivre les crédits de TVA
+  1264→└── Review anomalies détectées par système
+  1265→
+  1266→MENSUELLEMENT/TRIMESTRIELLEMENT:
+  1267→├── Préparer déclaration en avance (pas last minute)
+  1268→├── Faire revue croisée (deuxième personne)
+  1269→├── Archiver déclaration + justificatifs
+  1270→└── Analyser écarts vs période précédente
+  1271→
+  1272→ANNUELLEMENT:
+  1273→├── Audit interne conformité TVA
+  1274→├── Former/mettre à jour équipe
+  1275→├── Review processus suite à changements législatifs
+  1276→└── Préparer documentation contrôle fiscal potentiel
+  1277→```
+  1278→
+  1279→---
+  1280→
+  1281→### Résumé du Module 3 (ملخص الوحدة الثالثة)
+  1282→
+  1283→**Conformité TVA - Points Clés:**
+  1284→
+  1285→1. 💰 Trois taux principaux: 19% (normal), 9% (réduit), 0% (exonéré)
+  1286→2. 📋 La facture doit contenir toutes mentions obligatoires pour être valide
+  1287→3. 📅 Le régime (mensuel/trimestriel) dépend du chiffre d'affaires (>30M DZD = mensuel)
+  1288→4. 💳 La retenue à la source (24%) s'applique aux prestations de services
+  1289→5. ✅ La prévention des erreurs passe par des checklists et la formation
+  1290→
+  1291→---
+  1292→
+  1293→<a id="module-4"></a>
+  1294→## Module 4: Screening des Sanctions
+  1295→### الوحدة الرابعة: فحص العقوبات
+  1296→
+  1297→---
+  1298→
+  1299→### 4.1 Compréhension des Scores de Risque (فهم درجات المخاطر)
+  1300→
+  1301→#### 4.1.1 Niveaux de Match (مستويات المطابقة)
+  1302→
+  1303→Le screening des sanctions compare les entités contre plusieurs listes et attribue un niveau de correspondance :
+  1304→
+  1305→```
+  1306→NIVEAUX DE MATCH - SCREENING SANCTIONS:
+  1307→
+  1308→┌─────────────────────────────────────────────────────────────┐
+  1309→│  ÉCHELLE DE CORRESPONDANCE (MATCH LEVELS)                  │
+  1310→├─────────────────────────────────────────────────────────────┤
+  1311→│                                                             │
+  1312→│  🔴 EXACT MATCH (Correspondance Exacte)                    │
+  1313→│  ─────────────────────────────────────────────────────────  │
+  1314→│  Score: 100%                                               │
+  1315→│  Signification: L'entité est IDENTIQUE à une liste sanction │
+  1316→│  Action: BLOQUAGE IMMÉDIAT - Interdiction de traiter      │
+  1317→│  Exemple: "Mohamed Ben Ali" = "Mohamed Ben Ali" même date  │
+  1318→│                                                             │
+  1319→│  🟠 HIGH PROBABILITY MATCH (Probabilité Élevée)            │
+  1320→│  ─────────────────────────────────────────────────────────  │
+  1321→│  Score: 75-99%                                              │
+  1322→│  Signification: Forte probabilité qu'il s'agit de la même  │
+  1323→│             personne/entity avec variations mineures       │
+  1324→│  Action: BLOQUAGE + INVESTIGATION APPROFONDIE obligatoire  │
+  1325→│  Exemple: "M. Ben Ali" vs "Mohamed Benali" (même DOB)      │
+  1326→│                                                             │
+  1327→│  🟡 MEDIUM PROBABILITY MATCH (Probabilité Moyenne)         │
+  1328→│  ─────────────────────────────────────────────────────────  │
+  1329→│  Score: 40-74%                                              │
+  1330→│  Signification: Similarités mais ambiguïtés significatives │
+  1331→│  Action: PAUSE + Revue manuelle requise                    │
+  1332→│  Exemple: "M. Ali" vs "Mohamed Ben Ali" (nom commun)       │
+  1333→│                                                             │
+  1334→│  🟢 LOW PROBABILITY MATCH (Probabilité Faible)             │
+  1335→│  ─────────────────────────────────────────────────────────  │
+  1336→│  Score: 1-39%                                               │
+  1337→│  Signification: Quelques similarités mais très probablement│
+  1338→│             pas la même personne                           │
+  1339→│  Action: Documenter + Continuer avec surveillance          │
+  1340→│  Exemple: "Ahmed Ali" vs "Mohamed Ben Ali" (différent)     │
+  1341→│                                                             │
+  1342→│  ⚪ NO MATCH (Pas de Correspondance)                        │
+  1343→│  ─────────────────────────────────────────────────────────  │
+  1344→│  Score: 0%                                                  │
+  1345→│  Signification: Aucune similarité significative            │
+  1346→│  Action: CLEAR - Procéder normalement                      │
+  1347→│                                                             │
+  1348→└─────────────────────────────────────────────────────────────┘
+  1349→```
+  1350→
+  1351→#### 4.1.2 Facteurs Influençant le Score (العوامل المؤثرة على الدرجة)
+  1352→
+  1353→| Facteur | Poids | Exemple |
+  1354→|---------|-------|---------|
+  1355→| **Nom exact** | 35% | "Benmouna" = "Benmouna" |
+  1356→| **Variation phonétique** | 15% | "Ben Moussa" ≈ "Bin Musa" |
+  1357→| **Date de naissance** | 20% | DOB identique = fort signal |
+  1358→| **Nationalité** | 10% | Même pays = renforce |
+  1359→| **Adresse** | 10% | Adresse similaire = indice |
+  1360→| **Alias/AKA** | 10% | Nom alternatif connu |
+  1361→
+  1362→---
+  1363→
+  1364→### 4.2 Identification des Faux Positifs (تحديد الإيجابيات الكاذبة)
+  1365→
+  1366→#### 4.2.1 Causes Courantes de Faux Positifs (أسباب شائعة للإيجابيات الكاذبة)
+  1367→
+  1368→Un faux positif survient quand le système signale un match qui n'est pas réellement une sanctioned entity.
+  1369→
+  1370→| Cause | Exemple | Fréquence | Résolution |
+  1371→|-------|---------|-----------|------------|
+  1372→| **Nom commun** | "Mohamed Ali" - des milliers en Algérie | Très fréquent | Documents ID supplémentaires |
+  1373→| **Homonyme parfait** | Même nom, personne différente | Fréquent | Date lieu naissance |
+  1374→| **Variation transcription** | "Ben" vs "Bin" vs "Ibn" | Occasionnel | Règles de matching ajustées |
+  1375→| **Nom marital/famille** | Changement nom après mariage | Occasionnel | Documents justificatifs |
+  1376→| **Traduction** | Nom arabe translittéré différemment | Fréquent | Multiple spellings |
+  1377→| **Erreur liste** | Entrée incorrecte sur liste sanction | Rare | Signaler à l'autorité |
+  1378→
+  1379→#### 4.2.2 Procédure de Résolution Faux Positif (إجراء حل الإيجابي الكاذب)
+  1380→
+  1381→```
+  1382→WORKFLOW RÉSOLUTION FAUX POSITIF:
+  1383→
+  1384→┌─────────────────────────────────────────────────────────────┐
+  1385→│  ÉTAPE 1: COLLECTE PREUVES                                  │
+  1386→│  ─────────────────────────────────────────────────────────  │
+  1387→│  Documents à obtenir de l'entité:                           │
+  1388→│  ├── Passeport ou CNI (pages pertinentes)                  │
+  1389→│  ├── Justificatif domicile (facture utils < 3 mois)        │
+  1390→│  ├── Attestation travail/activité                           │
+  1391→│  ├── Etat civil (si nom changé)                             │
+  1392→│  └── Tout document prouvant identité distincte              │
+  1393→│                                                             │
+  1394→│  ÉTAPE 2: ANALYSE COMPARATIVE                               │
+  1395→│  ─────────────────────────────────────────────────────────  │
+  1396→│  Comparer point par point:                                  │
+  1397→│  ├── Nom complet: Différences?                             │
+  1398→│  ├── Date naissance: Identique ou différent?               │
+  1399→│  ├── Lieu naissance: Même ville/pays?                      │
+  1400→│  ├── Nationalité: Différente?                              │
+  1401→│  ├── Adresse: Différente?                                  │
+  1402→│  └── Profession/secteur: Contexte différent?               │
+  1403→│                                                             │
+  1404→│  ÉTAPE 3: DÉCISION ET DOCUMENTATION                         │
+  1405→│  ─────────────────────────────────────────────────────────  │
+  1406→│  Si faux positif confirmé:                                  │
+  1407→│  ├── Documenter raisonnement dans dossier                   │
+  1408→│  ├── Approuver transaction                                 │
+  1409→│  ├── Ajouter whitelist (si approprié et approuvé)          │
+  1410→│  └── Conserver preuves 5 ans (audit trail)                 │
+  1411→│                                                             │
+  1412→│  ÉTAPE 4: REPORTING (si requis)                             │
+  1413→│  ─────────────────────────────────────────────────────────  │
+  1414→│  Certaines juridictions exigent reporting des FP résolus   │
+  1415→│  → Vérifier obligation locale                               │
+  1416→│                                                             │
+  1417→└─────────────────────────────────────────────────────────────┘
+  1418→```
+  1419→
+  1420→---
+  1421→
+  1422→### 4.3 Workflow de Résolution (سير العمل للحل)
+  1423→
+  1424→#### 4.3.1 Options de Décision (خيارات القرار)
+  1425→
+  1426→Pour chaque alerte de screening, quatre décisions possibles :
+  1427→
+  1428→```
+  1429→OPTIONS DE DÉCISION - ALERT SCREENING:
+  1430→
+  1431→┌─────────────────────────────────────────────────────────────┐
+  1432→│                                                             │
+  1433→│  1️⃣  BLOCK (BLOQUER)                                      │
+  1434→│  ─────────────────────────────────────────────────────────  │
+  1435→│  Utilisation: Match exact ou high probability confirmé     │
+  1436→│  Conséquence: Transaction impossible, entité blacklistée   │
+  1437→│  Approbation requise: Senior Compliance ou Compliance Mgr  │
+  1438→│  Reporting: Obligatoire aux autorités (selon seuils)      │
+  1439→│                                                             │
+  1440→│  2️⃣  APPROVE (APPROUVER - VRAIS POSITIF RÉSOLU)          │
+  1441→│  ─────────────────────────────────────────────────────────  │
+  1442→│  Utilisation: Faux positif documenté et prouvé             │
+  1443→│  Conséquence: Transaction autorisée, dossier clos          │
+  1444→│  Approbation requise: Senior Compliance                    │
+  1445→│  Documentation: Complète et archivée                        │
+  1446→│                                                             │
+  1447→│  3️⃣  FALSE POSITIVE (FAUX POSITIF)                        │
+  1448→│  ─────────────────────────────────────────────────────────  │
+  1449→│  Utilisation: Match infirmé par preuves                    │
+  1450→│  Conséquence: Transaction autorisée, ajout whitelist       │
+  1451→│  Approbation requise: Senior Compliance                    │
+  1452→│  Documentation: Preuves conservées, motif documenté         │
+  1453→│                                                             │
+  1454→│  4️⃣  ESCALADER (ESCALADE)                                 │
+  1455→│  ─────────────────────────────────────────────────────────  │
+  1456→│  Utilisation: Cas complexe, incertitude élevée             │
+  1457→│  Conséquence: Transmission à niveau supérieur / expert     │
+  1458→│  Délai cible: Selon urgence (max 24h pour cas standards)  │
+  1459→│                                                             │
+  1460→└─────────────────────────────────────────────────────────────┘
+  1461→```
+  1462→
+  1463→#### 4.3.2 Matrice d'Autorisation (مصفوفة التفويض)
+  1464→
+  1465→| Type de Match | Opérateur | Senior | Manager | Directeur |
+  1466→|---------------|-----------|--------|---------|-----------|
+  1467→| No Match | ✅ Approve | - | - | - |
+  1468→| Low Probability | ✅ Approve | - | - | - |
+  1469→| Medium Probability | ⏸️ Pause | ✅ Approve | - | - |
+  1470→| High Probability | ❌ Block | 👁️ Review | ✅ Approve | - |
+  1471→| Exact Match | ❌ Block | ❌ Block | 👁️ Review | ✅ Decide |
+  1472→| PEP Match | ⏸️ Pause | ⏸️ Pause | ✅ Approve | - |
+  1473→| Government Official | ⏸️ Pause | ⏸️ Pause | ✅ Approve | - |
+  1474→
+  1475→---
+  1476→
+  1477→### 4.4 Obligations de Reporting Réglementaire (التزامات الإبلاغ التنظيمي)
+  1478→
+  1479→#### 4.4.1 Transactions à Déclarer (المعاملات المعلنة)
+  1480→
+  1481→Certaines transactions doivent être déclarées aux autorités algériennes et/ou internationales :
+  1482→
+  1483→| Type de Transaction | Seuil | Autorité | Délai |
+  1484→|--------------------|-------|----------|-------|
+  1485→| **Suspicion blanchiment** | Quelque montant | CTIF (Cellule Traitement Info Financière) | Immédiat |
+  1486→| **Transaction sanctionnée bloquée** | Tout montant | Ministère Finances / Banque d'Algérie | 24-72h |
+  1487→| **Opération suspecte** | ≥ 100,000 USD équivalent | CTIF | 24h |
+  1488→| **Transfert frontieres** | ≥ seuil change | Banque d'Algérie | Selon règles |
+  1489→| **Match OFAC confirmé** | Tout montant | OFAC (via autorité locale) | Selon exigences |
+  1490→
+  1491→#### 4.4.2 Formulaire de Reporting Interne (نموذج الإبلاغ الداخلي)
+  1492→
+  1493→```
+  1494→FORMULAIRE REPORTING SANCTIONS - ALGERIATRADE.DZ:
+  1495→
+  1496→┌─────────────────────────────────────────────────────────────┐
+  1497→│  RAPPORT D'INCIDENT SANCTIONS                               │
+  1498→├─────────────────────────────────────────────────────────────┤
+  1499→│                                                             │
+  1500→│  REFÉRENCE: SAN-2025-XXXX                                   │
+  1501→│  DATE: __/__/______  HEURE: ____:____                       │
+  1502→│                                                             │
+  1503→│  SECTION 1: ENTITÉ CONCERNÉE                                │
+  1504→│  ├── Nom: ____________________________________            │
+  1505→│  ├── Type: ( ) Personne Physique ( ) Personne Morale        │
+  1506→│  ├── Nationalité: _____________________________             │
+  1507→│  ├── N° ID: ____________________________________           │
+  1508→│  └── Adresse: ___________________________________          │
+  1509→│                                                             │
+  1510→│  SECTION 2: NATURE DE L'ALERTE                              │
+  1511→│  ├── Liste source: ( ) OFAC ( ) EU ( ) UN ( ) National DZ   │
+  1512→│  ├── Niveau match: ( ) Exact ( ) High ( ) Med ( ) Low      │
+  1513→│  ├── Entrée liste: _________________________________        │
+  1514→│  └── Score: _____/100                                      │
+  1515→│                                                             │
+  1516→│  SECTION 3: TRANSACTION CONCERNÉE                           │
+  1517→│  ├── Montant: ___________________________________         │
+  1518→│  ├── Devise: _________________________________              │
+  1519→│  ├── Nature: ____________________________________          │
+  1520→│  ├── Contrepartie: _______________________________          │
+  1521→│  └── Date prévue: _________________________________         │
+  1522→│                                                             │
+  1523→│  SECTION 4: DÉCISION PRISE                                  │
+  1524→│  ├── ( ) BLOCK - Transaction bloquée                       │
+  1525→│  ├── ( ) APPROVE - Faux positif documenté                  │
+  1526→│  ├── ( ) ESCALADÉ - En attente décision supérieure         │
+  1527→│  └── Motif: ____________________________________           │
+  1528→│                                                             │
+  1529→│  SECTION 5: REPORTING EXTERNE (si applicable)               │
+  1530→│  ├── ( ) Reporté à CTIF: Date: ________                    │
+  1531→│  ├── ( ) Reporté Banque DZ: Date: ________                 │
+  1532→│  ├── ( ) Autre autorité: ______________________________     │
+  1533→│  └── Référence externe: _________________________           │
+  1534→│                                                             │
+  1535→│  SIGNATURES:                                                │
+  1536→│  Opérateur: _________________ Date: ________               │
+  1537→│  Validateur: ________________ Date: ________               │
+  1538→│                                                             │
+  1539→└─────────────────────────────────────────────────────────────┘
+  1540→```
+  1541→
+  1542→---
+  1543→
+  1544→### 4.5 Différences entre Listes (الاختلافات بين القوائم)
+  1545→
+  1546→#### 4.5.1 Comparaison des Sources de Listes (مقارنة مصادر القوائم)
+  1547→
+  1548→| Caractéristique | **OFAC (USA)** | **Union Européenne** | **ONU (UN)** | **Liste Nationale DZ** |
+  1549→|-----------------|---------------|---------------------|--------------|----------------------|
+  1550→| **Autorité émettrice** | US Treasury | Conseil UE | Secrétaire UN | Gouvernement DZ |
+  1551→| **Portée** | Mondiale (juridiction US) | Territoire UE | Mondiale | Nationale |
+  1552→| **Types de sanctions** | Blocage assets, interdiction commerce | Blocage, restrictions | Embargo, blocage | Variées |
+  1553→| **Mise à jour** | Quotidienne | Hebdomadaire | Régulière | Variable |
+  1554→| **Juridiction DZ** | Indirecte (secondary sanctions) | Via accords | Obligatoire membre ONU | Directe |
+  1555→| **Priorité screening** | Haute (impact international) | Haute (partenaires UE) | Obligatoire | Obligatoire |
+  1556→
+  1557→#### 4.5.2 Spécificités Liste Nationale Algérienne (خصائص القائمة الوطنية الجزائرية)
+  1558→
+  1559→```
+  1560→LISTE NATIONALE DES SANCTIONS - ALGÉRIE:
+  1561→
+  1562→Base légale:
+  1563→├── Décrets présidentiels (sanctions spécifiques)
+  1564→├── Arrêtés ministériels (finance, commerce)
+  1565→├── Instructions Banque d'Algérie
+  1566→└── Résolutions ONU ratifiées (transposition)
+  1567→
+  1568→Catégories typiquement incluses:
+  1569→├── Personnes/entities soutenant terrorisme
+  1570→├── Blanchiment d'argent
+  1571→├── Corruption haute gravité
+  1572→├── Violations embargo international
+  1573→└── Menaces sécurité nationale
+  1574→
+  1575→Particularités:
+  1576→├── Moins de ressources publiques que OFAC/EU
+  1577→├── Mise à jour parfois moins fréquente
+  1578→├── Focus géopolitique régional (Sahel, Maghreb)
+  1579→└── Coordination avec CTF (Comité Terrorisme Financement)
+  1580→
+  1581→ACCÈS LISTE NATIONALE:
+  1582→├── Via portail gouvernemental officiel
+  1583→├── Demande formelle aux autorités compétentes
+  1584→├── Abonnement services privés agréés
+  1585→└── Intégration AlgeriaTrade.dz (automatique)
+  1586→```
+  1587→
+  1588→---
+  1589→
+  1590→### Résumé du Module 4 (ملخص الوحدة الرابعة)
+  1591→
+  1592→**Screening Sanctions - Points Clés:**
+  1593→
+  1594→1. 🎯 5 niveaux de match: Exact, High, Medium, Low, No Match
+  1595→2. 🔴 Un match Exact ou High exige un blocage immédiat
+  1596→3. ✅ Les faux positifs doivent être documentés avec preuves
+  1597→4. 📝 Certaines situations exigent un reporting aux autorités (CTIF)
+  1598→5. 🌍 Plusieurs listes coexistent: OFAC, EU, ONU, Nationale DZ
+  1599→
+  1600→---
+  1601→
+  1602→<a id="module-5"></a>
+  1603→## Module 5: Gestion Documentaire
+  1604→### الوحدة الخامسة: إدارة المستندات
+  1605→
+  1606→---
+  1607→
+  1608→### 5.1 Documents Requis par Type d'Entity (المستندات المطلوبة حسب نوع الكيان)
+  1609→
+  1610→#### 5.1.1 Matrice Complète des Documents (مصفوفة المستندات الكاملة)
+  1611→
+  1612→**[CAPTURE D'ÉCRAN RÉFÉRENCE: document-matrix-by-entity.png]**
+  1613→
+  1614→```
+  1615→MATRICE DOCUMENTS PAR TYPE D'ENTITÉ:
+  1616→═════════════════════════════════════════════════════════════════
+  1617→
+  1618→                         │ ENTREPRISE │ ARTISAN │ ASSOCIATION │ ADMIN │
+  1619→                         │  ALGÉRIENNE │         │    ONG     │PUBLIQUE│
+  1620→─────────────────────────┼───────────┼─────────┼─────────────┼────────┤
+  1621→CODE COMMERCE:            │           │         │             │        │
+  1622→├─ Extrait RC             │    OBL    │    OBL  │     OBL     │   OBL  │
+  1623→├─ Statuts                │    OBL    │    OPT  │     OBL     │   N/A  │
+  1624→├─ PV AG/Gérance          │    OBL    │    OPT  │     OBL     │   OBL  │
+  1625→├─ Registres bénéficiaires│    OBL    │    N/A  │     OBL     │   N/A  │
+  1626→                         │           │         │             │        │
+  1627→FISCAL:                   │           │         │             │        │
+  1628→├─ Attestation NIF/NIS/AI │    OBL    │    OBL  │     OBL     │   OBL  │
+  1629→├─ Attestation régularité │    OBL    │    OBL  │     OBL     │   OBL  │
+  1630→├─ Bilans (si grand)      │    CND    │    N/A  │     OBL     │   OBL  │
+  1631→                         │           │         │             │        │
+  1632→IDENTITÉ:                 │           │         │             │        │
+  1633→├─ CNI Dirigeants         │    OBL    │    OBL  │     OBL     │   OBL  │
+  1634→├─ Passeport (étranger)   │    CND    │    CND  │     CND     │   N/A  │
+  1635→├─ Attestation hébergement │    CND    │    CND  │     CND     │   N/A  │
+  1636→                         │           │         │             │        │
+  1637→ACTIVITÉ SPÉCIFIQUE:      │           │         │             │        │
+  1638→├─ Licence professionnelle│    CND    │    OBL  │     N/A     │   OBL  │
+  1639→├─ Agrément ministère     │    CND    │    N/A  │     CND     │   OBL  │
+  1640→├─ Autorisation spéciale  │    CND    │    CND  │     CND     │   CND  │
+  1641→├─ Certification ISO      │    OPT    │    OPT  │     N/A     │   OPT  │
+  1642→                         │           │         │             │        │
+  1643→BANCAIRE:                 │           │         │             │        │
+  1644→├─ RIB                    │    OBL    │    OBL  │     OBL     │   OBL  │
+  1645→├─ K-bank (si étranger)   │    CND    │    N/A  │     N/A     │   N/A  │
+  1646→                         │           │         │             │        │
+  1647→LÉGENDE:                  │           │         │             │        │
+  1648→  OBL = Obligatoire       │           │         │             │        │
+  1649→  CND = Conditionnel      │           │         │             │        │
+  1650→  OPT = Optionnel/Recommandé│          │         │             │        │
+  1651→  N/A = Non Applicable     │           │         │             │        │
+  1652→```
+  1653→
+  1654→#### 5.1.2 Documents par Secteur d'Activité (المستندات حسب قطاع النشاط)
+  1655→
+  1656→| Secteur | Documents Supplémentaires | Autorité de Délivrance |
+  1657→|---------|--------------------------|----------------------|
+  1658→| **Pharmaceutique** | Agrément Ministry Santé, Bon Practice Distribution | Ministry Santé |
+  1659→| **Alimentaire** | Certificat Hygiène, Analyse laboratoire, Halal (optionnel) | ONppa, ONAA, organisme halal |
+  1660→| **Construction** | Qualification FBC (Fonds Bâtiment), Assurance RC décennale | FBC, assureur |
+  1661→| **Transport** | Licence transport, Autorisation lignes, Carte conducteur | Ministry Transport |
+  1662→| **Import/Export** | Licence import/export, Registre commerçant, Code douanier | Ministry Commerce, Douanes |
+  1663→| **Mines/Pétrole** | Autorisation exploitation, Environnement, Sécurité | Ministry Énergie, ANPM |
+  1664→| **Finance/Banque** | Licence banking, Agreement Banque DZ, Audit externe | Banque DZ, CBC |
+  1665→| **Télécoms** | Licence ARPT, Homologation équipements | ARPT (autorité régulation) |
+  1666→| **Education Privée** | Agrément Ministry Education, Diplomes enseignants | Ministry Education |
+  1667→| **Santé Privée** | Agrément Ministry Santé, Qualification personnel médical | Ministry Santé |
+  1668→
+  1669→---
+  1670→
+  1671→### 5.2 Tracking d'Expiration et Renouvellement (تتبع الانتهاء والتجديد)
+  1672→
+  1673→#### 5.2.1 Système d'Alertes Expiration (نظام تنبيهات الانتهاء)
+  1674→
+  1675→**[CAPTURE D'ÉCRAN RÉFÉRENCE: document-expiry-tracking.png]**
+  1676→
+  1677→```
+  1678→SYSTÈME DE SUIVI EXPIRATION DOCUMENTS:
+  1679→
+  1680→┌─────────────────────────────────────────────────────────────┐
+  1681→│  📅 TABLEAU DE BORD EXPIRATIONS                             │
+  1682→├─────────────────────────────────────────────────────────────┤
+  1683→│                                                             │
+  1684→│  RÉSUMÉ:                                                    │
+  1685→│  ┌─────────────────────────────────────────────────────┐   │
+  1686→│  │ Documents actifs:    1,247                           │   │
+  1687→│  │ Expirant (30j):      23  ⚠️                         │   │
+  1688→│  │ Expirés:              7  🔴                         │   │
+  1689→│  │ En attente renouvel.: 12  ⏳                        │   │
+  1690→│  └─────────────────────────────────────────────────────┘   │
+  1691→│                                                             │
+  1692→│  ALERTES ACTIVES - PRIORITÉ:                               │
+  1693→│                                                             │
+  1694→│  🔴 EXPIRÉ (Action immédiate requise):                     │
+  1695→│  ├── Attestation NIF - Groupe SIM - Exp: 05/01/2025       │
+  1696→│  ├── Licence Import - MetalPro - Exp: 02/01/2025          │
+  1697→│  └─ Assurance RC - Condor Oran - Exp: 10/01/2025          │
+  1698→│                                                             │
+  1699→│  ⚠️ EXPIRANT SOUS 15 JOURS:                                │
+  1700→│  ├── Extrait RC - Naftal Constantine - Exp: 25/01/2025    │
+  1701→│  ├── Attestation Fiscale - Vitam - Exp: 28/01/2025         │
+  1702→│  └─ Certification ISO - PackAlg - Exp: 01/02/2025          │
+  1703→│                                                             │
+  1704→│  ⚠️ EXPIRANT SOUS 30 JOURS:                                │
+  1705→│  ├── Agrément Ministry Santé - PharmDZ - Exp: 12/02/2025  │
+  1706→│  ├── Statuts mis à jour - StartupX - Exp: 15/02/2025       │
+  1707→│  └─ [17 autres documents...]                                │
+  1708→│                                                             │
+  1709→│  [Voir tout]  [Exporter calendrier]  [Configurer alertes]  │
+  1710→│                                                             │
+  1711→└─────────────────────────────────────────────────────────────┘
+  1712→```
+  1713→
+  1714→#### 5.2.2 Calendrier d'Alerte (تقويم التنبيه)
+  1715→
+  1716→| Délai avant Expiration | Type d'Alerte | Action | Destinataire |
+  1717→|-----------------------|---------------|--------|--------------|
+  1718→| **90 jours** | Information | Planifier renouvellement | Entité concernée |
+  1719→| **60 jours** | Rappel | Initier démarche | Entité + Account Manager |
+  1720→| **30 jours** | Alerte | Urgence renouvellement | Entité + Compliance |
+  1721→| **15 jours** | Alerte critique | Dernier délai | Compliance + Management |
+  1722→| **0 jour (expiré)** | Blocage | Suspendre transactions | Automatique + Compliance |
+  1723→| **Post-expiration** | Escalade | Procédure débloquage | Compliance Manager |
+  1724→
+  1725→---
+  1726→
+  1727→### 5.3 Validation OCR et Revue Manuelle (التحقق البصري والمراجعة اليدوية)
+  1728→
+  1729→#### 5.3.1 Processus OCR (عملية التعرف البصري)
+  1730→
+  1731→```
+  1732→PROCESSUS OCR - EXTRACTION AUTOMATIQUE DONNÉES DOCUMENTS:
+  1733→
+  1734→┌─────────────────────────────────────────────────────────────┐
+  1735→│  PIPELINE OCR ALGERIATRADE.DZ                               │
+  1736→├─────────────────────────────────────────────────────────────┤
+  1737→│                                                             │
+  1738→│  INPUT: Document uploadé (PDF/Image)                        │
+  1739→│         ↓                                                  │
+  1740→│  ┌─────────────────────────────────────────────────────┐   │
+  1741→│  │ ETAPE 1: PRÉ-TRAITEMENT                               │   │
+  1742→│  │ • Rotation/auto-correction orientation               │   │
+  1743→│  │ • Nettoyage (bruit, ombres)                          │   │
+  1744→│  │ • Enhancement contraste                              │   │
+  1745→│  │ • Détection langue (FR/AR)                           │   │
+  1746→│  └─────────────────────────────────────────────────────┘   │
+  1747→│         ↓                                                  │
+  1748→│  ┌─────────────────────────────────────────────────────┐   │
+  1749→│  │ ETAPE 2: RECONNAISSANCE (OCR Engine)                 │   │
+  1750→│  │ • Texte français: Tesseract / Azure OCR             │   │
+  1751→│  │ • Texte arabe: Custom Arabic OCR model               │   │
+  1752→│  │ • Chiffres/montants: Spécialized extraction          │   │
+  1753→│  │ • Tableaux: Structure detection                      │   │
+  1754→│  └─────────────────────────────────────────────────────┘   │
+  1755→│         ↓                                                  │
+  1756→│  ┌─────────────────────────────────────────────────────┐   │
+  1757→│  │ ETAPE 3: POST-TRAITEMENT & VALIDATION                │   │
+  1758→│  │ • Confidence scoring per field                       │   │
+  1759→│  │ • Regex validation (formats connus)                  │   │
+  1760→│  │ • Cross-field consistency checks                     │   │
+  1761→│  │ • Flag low-confidence for human review               │   │
+  1762→│  └─────────────────────────────────────────────────────┘   │
+  1763→│         ↓                                                  │
+  1764→│  OUTPUT: Données structurées + Score confiance            │
+  1765→│                                                             │
+  1766→└─────────────────────────────────────────────────────────────┘
+  1767→
+  1768→SCORE CONFIANCE OCR INTERPRÉTATION:
+  1769→├── 95-100%: Acceptation automatique possible
+  1770→├── 80-94%: Vérification rapide recommandée
+  1771→├── 60-79%: Revue manuelle obligatoire
+  1772→└── <60%: Rescan ou saisie manuelle requise
+  1773→```
+  1774→
+  1775→#### 5.3.2 Quand la Revue Manuelle Est Requised (متى تكون المراجعة اليدوية مطلوبة)
+  1776→
+  1777→| Situation | Action | Raison |
+  1778→|-----------|--------|--------|
+  1779→| Score OCR < 70% | Revue manuelle | Risque erreur extraction |
+  1780→| Document abîmé/plié | Rescan + revue | Qualité image insuffisante |
+  1781→| Document manuscrit | Saisie manuelle | OCR peu fiable sur manuscrit |
+  1782→| Langue mixte FR/AR | Revue bilingue | Complexité linguistique |
+  1783→| Format non-standard | Adaptation template | Modèle non reconnu |
+  1784→| Discrepancy détectée | Investigation | Incohérence soupçonnée |
+  1785→| Document sensible | Revue obligatoire | Données critiques |
+  1786→| Contestation entité | Revue approfondie | Litige potentiel |
+  1787→
+  1788→---
+  1789→
+  1790→### 5.4 Bonnes Pratiques Génération Certificats (الممارسات الجيدة لإصدار الشهادات)
+  1791→
+  1792→#### 5.4.1 Types de Certificats Générés (أنواع الشهادات المولدة)
+  1793→
+  1794→| Certificat | Usage | Émetteur | Validité |
+  1795→|------------|-------|----------|----------|
+  1796→| **Certificat Conformité** | Preuve vérification entité | Systeme auto | 3 mois |
+  1797→| **Certificat Screening** | Preuve screening sanctions clean | Systeme auto | 1 mois |
+  1798→| **Attestation TVA** | Confirmation régime TVA | Systeme + data DGI | 1 an |
+  1799→| **Certificat Partenaire Vérifié** | Badge confiance plateforme | Systeme auto | 6 mois |
+  1800→| **Rapport Audit Conformité** | Audit complet entité | Compliance team | Ponctuel |
+  1801→
+  1802→#### 5.4.2 Modèle Certificat Conformité (نموذج شهادة الامتثال)
+  1803→
+  1804→```
+  1805→╔═══════════════════════════════════════════════════════════════╗
+  1806→║                                                               ║
+  1807→║     CERTIFICAT DE CONFORMITÉ                                  ║
+  1808→║     ALGERIATRADE.DZ - PLATEFORME B2B NATIONALE              ║
+  1809→║                                                               ║
+  1810→║     Référence: CERT-2025-XXXXXXXX                            ║
+  1811→║     Date d'émission: JJ/MM/AAAA                              ║
+  1812→║     Valide jusqu'à: JJ/MM/AAAA                               ║
+  1813→║                                                               ║
+  1814→║     ─────────────────────────────────────────                ║
+  1815→║                                                               ║
+  1816→║     CERTIFIONS PAR LA PRÉSENTE que l'entité:                 ║
+  1817→║                                                               ║
+  1818→║     RAISON SOCIALE: _________________________________        ║
+  1819→║     N° RC: _______________________________________           ║
+  1820→║     NIF: ________________________________________            ║
+  1821→║     FORME JURIDIQUE: _____________________________           ║
+  1822→║     SIÈGE: _______________________________________           ║
+  1823→║                                                               ║
+  1824→║     a fait l'objet d'une vérification de conformité          ║
+  1825→║     dont les résultats sont les suivants:                    ║
+  1826→║                                                               ║
+  1827→║     ┌─────────────────────┬──────────┬──────────┐           ║
+  1828→║     │ Module              │ Score    │ Status   │           ║
+  1829→║     ├─────────────────────┼──────────┼──────────┤           ║
+  1830→║     │ Commercial          │   XX/100 │    ✓     │           ║
+  1831→║     │ Fiscal/TVA          │   XX/100 │    ✓     │           ║
+  1832→║     │ Trade Extérieur      │   XX/100 │    ✓     │           ║
+  1833→║     │ Protection Données   │   XX/100 │    ✓     │           ║
+  1834→║     │ Sanctions Screening  │   XX/100 │    ✓     │           ║
+  1835→║     ├─────────────────────┼──────────┼──────────┤           ║
+  1836→║     │ SCORE GLOBAL        │   XX/100 │    ✓     │           ║
+  1837→║     └─────────────────────┴──────────┴──────────┘           ║
+  1838→║                                                               ║
+  1839→║     Ce certificat confirme que l'entité satisfait aux        ║
+  1840→║     exigences de conformité d'AlgeriaTrade.dz pour           ║
+  1841→║     réaliser des transactions sur la plateforme.             ║
+  1842→║                                                               ║
+  1843→║     ─────────────────────────────────────────                ║
+  1844→║                                                               ║
+  1845→║     Émis par: Compliance Department                           ║
+  1846→║     Signature: ____________________                           ║
+  1847→║     Cachet: ALGERIATRADE.DZ COMPLIANCE                       ║
+  1848→║                                                               ║
+  1849→║     Vérifiable en ligne:                                     ║
+  1850→║     https://algeriatrade.dz/verify/CERT-2025-XXXXXXXX       ║
+  1851→║                                                               ║
+  1852→╚═══════════════════════════════════════════════════════════════╝
+  1853→```
+  1854→
+  1855→---
+  1856→
+  1857→### Résumé du Module 5 (ملخص الوحدة الخامسة)
+  1858→
+  1859→**Gestion Documentaire - Points Clés:**
+  1860→
+  1861→1. 📋 Chaque type d'entité a des documents obligatoires spécifiques
+  1862→2. ⏰ Le tracking d'expiration évite les surprises (alertes 90/60/30/15 jours)
+  1863→3. 🔍 L'OCR automatise l'extraction mais la revue humaine reste nécessaire
+  1864→4. 📜 Les certificats de conformité prouvent la vérification auprès des tiers
+  1865→5. 🔄 Le cycle de vie documentaire doit être géré de bout en bout
+  1866→
+  1867→---
+  1868→
+  1869→<a id="scenarios"></a>
+  1870→## Scénarios de Conformité (سيناريوهات الامتثال)
+  1871→
+  1872→### Scénario 1: Nouveau Fournisseur International (سيناريو 1)
+  1873→
+  1874→**Contexte:**
+  1875→Un nouvel inscrit "EuroTech Solutions GmbH" (Allemagne) souhaite vendre des équipements industriels sur AlgeriaTrade.dz.
+  1876→
+  1877→**Données fournies:**
+  1878→- Société allemande, Munich
+  1879→- Équipements automation industrielle
+  1880→- Première commande estimée: 250,000 EUR
+  1881→- Aucun historique en Algérie
+  1882→
+  1883→**Questions d'analyse:**
+  1884→
+  1885→1. Quels modules de conformité sont prioritaires ?
+  1886→2. Quels documents spécifiques demander ?
+  1887→3. Quels risques particuliers identifier ?
+  1888→
+  1889→**Réponse guidée:**
+  1890→
+  1891→> **Modules prioritaires:**
+  1892→> - **Sanctions Screening** (OBIGATOIRE premier) - Vérifier OFAC, EU list
+  1893→> - **Trade Extérieur** - Licence import, certification douane
+  1894→> - **Commercial** - Vérification existence légale (allemande + représentation DZ)
+  1895→> - **Fiscal/TVA** - Identification fiscale (si présence en Algérie)
+  1896→>
+  1897→> **Documents spécifiques:**
+  1898→> - Handelsregisterauszug (extrait K allemand)
+  1899→> - Attestation représentation fiscale en Algérie (ou preuve absence établissement stable)
+  1900→> - Certificat conformité CE pour équipements
+  1901→> - Attestation non-sanction (auto-déclaration)
+  1902→> - Coordonnées banque correspondante en DZ (si exists)
+  1903→>
+  1904→> **Risques particuliers:**
+  1905→> - Sanctions secondaires US (si technologie sensible)
+  1906→> - TVA à l'importation (19% + droits douane)
+  1907→> - Garantie/SAV depuis l'étranger
+  1908→> - Clause choix loi applicable (loi allemande vs algérienne)
+  1909→> - Transfer pricing si filiale existe
+  1910→
+  1911→---
+  1912→
+  1913→### Scénario 2: Anomalie TVA Détectée (سيناريو 2)
+  1914→
+  1915→**Contexte:**
+  1916→Le système détecte une incohérence sur les factures du fournisseur "AgroDZ Supply":
+  1917→
+  1918→| Facture | Produit | Montant HT | TVA Appliquée | TVA Attendue |
+  1919→|---------|---------|-----------|--------------|--------------|
+  1920→| #F-2401 | Riz importé | 500,000 DZD | 47,500 (9.5%) | 45,000 (9%) |
+  1921→| #F-2402 | Huile table | 300,000 DZD | 57,000 (19%) | 27,000 (9%) |
+  1922→| #F-2403 | Sucre blanc | 200,000 DZD | 42,000 (21%) | 18,000 (9%) |
+  1923→
+  1924→**Analyse requise:**
+  1925→
+  1926→1. Quelle est la nature des anomalies ?
+  1927→2. Que pourrait indiquer ce pattern ?
+  1928→3. Quelle action immédiate prendre ?
+  1929→
+  1930→**Réponse guidée:**
+  1931→
+  1932→> **Nature des anomalies:**
+  1933→> - F-2401: Taux 9.5% (n'existe pas) → Erreur de calcul probable
+  1934→> - F-2402: Taux 19% sur huile table (devrait être 9%) → Erreur ou surfacturation
+  1935→> - F-2403: Taux 21% (n'existe pas) + sur sucre (devrait être 9%) → Double anomalie
+  1936→>
+  1937→> **Pattern inquiétant:**
+  1938→> - Les trois factures ont des erreurs différentes
+  1939→> - Deux sur trois surfacturent la TVA (au détrivent de l'acheteur)
+  1940→> - Possibilité d'erreur systémique ou de manipulation volontaire
+  1941→>
+  1942→> **Actions immédiates:**
+  1943→> 1. **Bloquer temporairement** le fournisseur (statut "under review")
+  1944→> 2. **Contacter** AgroDZ Supply pour explications
+  1945→> 3. **Auditer** toutes les factures des 12 derniers mois
+  1946→> 4. **Notifier** les clients ayant reçu ces factures (possibilité de crédit TVA refusé)
+  1947→> 5. **Escalader** au Compliance Manager si explication non satisfaisante
+  1948→
+  1949→---
+  1950→
+  1951→### Scénario 3: Match Sanction "Medium Probability" (سيناريو 3)
+  1952→
+  1953→**Contexte:**
+  1954→Screening d'un nouvel acheteur "Khalil Benzarti" retourne:
+  1955→
+  1956→```
+  1957→SCREENING RESULT:
+  1958→Entrée vérifiée: Khalil Benzarti, DOB 15/03/1985, Tunisien
+  1959→Match trouvé: "K. Benzarti", EU Consolidated List, Nationalité: TN
+  1960→Score: 62% (MEDIUM PROBABILITY)
+  1961→Différences: Prénom complet vs initiale, pas de DOB sur entrée liste
+  1962→```
+  1963→
+  1964→**Processus de résolution:**
+  1965→
+  1966→1. Quelle est la première action ?
+  1967→2. Quelles preuves demander ?
+  1968→3. Comment trancher ?
+  1969→
+  1970→**Réponse guidée:**
+  1971→
+  1972→> **Première action:** PAUSER la transaction (pas bloquer, pas approuver)
+  1973→> - Le score 62% = Medium Probability = revue manuelle obligatoire
+  1974→> - Ne pas informer l'entité du motif précis (ne pas révéler "match sanction")
+  1975→>
+  1976→> **Preuves à demander:**
+  1977→> - Passeport tunisien complet (page identité + visa si applicable)
+  1978→> - Justificatif domicile récent
+  1979→> - CV/profession (contexte)
+  1980→> - Attestation employeur
+  1981→> - Tout document prouvant activités récentes normales
+  1982→>
+  1983→> **Critères de décision:**
+  1984→> - Si DOB différent → Probablement faux positif → Peut approuver avec doc
+  1985→> - Si DOB identique (+/- 1 an) → Haut risque → Escalader/bloquer
+  1986→> - Si entité refuse documents → Suspicious → Bloquer
+  1987→> - Si documents confirment identité distincte → Approuver comme False Positive
+  1988→
+  1989→---
+  1990→
+  1991→### Scénario 4: Document Expiré Post-Transaction (سيناريو 4)
+  1992→
+  1993→**Contexte:**
+  1994→Une transaction de 2M DZD a été validée il y a 2 mois. Aujourd'hui, le système signale que l'attestation fiscale du fournisseur a expiré il y a 3 jours.
+  1995→
+  1996→**Questions:**
+  1997→
+  1998→1. La transaction passée est-elle affectée ?
+  1999→2. Que faire pour les transactions futures/en cours ?
+  2000→3. Comment gérer la relation fournisseur ?
+
+[showing lines 1-2000 of 2573; use offset=2001 with limit to continue reading]

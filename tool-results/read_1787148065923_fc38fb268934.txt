@@ -1,0 +1,1200 @@
+     1→/**
+     2→ * CDN Configuration Manager for AlgeriaTrade.dz
+     3→ * 
+     4→ * Manages multi-CDN strategy across Cloudflare, Fastly, and CloudFront
+     5→ * Optimized for MENA region delivery
+     6→ * 
+     7→ * Features:
+     8→ * - Asset optimization pipeline
+     9→ * - Image transformation rules (WebP, AVIF, resize)
+    10→ * - Cache policy configuration per content type
+    11→ * - Purge/invalidation management
+    12→ * - Multi-CDN fallback strategy
+    13→ */
+    14→
+    15→// ============================================================================
+    16→// Types & Interfaces
+    17→// ============================================================================
+    18→
+    19→export type CDNProvider = 'cloudflare' | 'fastly' | 'cloudfront' | 'akamai';
+    20→
+    21→export interface CDNConfig {
+    22→  provider: CDNProvider;
+    23→  enabled: boolean;
+    24→  priority: number;           // Lower = higher priority for failover
+    25→  weight: number;             // Traffic percentage (0-100)
+    26→  endpoints: {
+    27→    api: string;
+    28→    purge: string;
+    29→    stats: string;
+    30→  };
+    31→  credentials?: {
+    32→    apiKey?: string;
+    33→    apiSecret?: string;
+    34→    zoneId?: string;
+    35→    distributionId?: string;
+    36→    serviceId?: string;
+    37→  };
+    38→  features: {
+    39→    imageOptimization: boolean;
+    40→    edgeCaching: boolean;
+    41→    ddosProtection: boolean;
+    42→    botManagement: boolean;
+    43→    analytics: boolean;
+    44→  };
+    45→}
+    46→
+    47→export interface ImageTransformRule {
+    48→  id: string;
+    49→  name: string;
+    50→  pattern: RegExp;
+    51→  transformations: ImageTransformation[];
+    52→  priority: number;
+    53→  enabled: boolean;
+    54→}
+    55→
+    56→export interface ImageTransformation {
+    57→  type: 'format' | 'resize' | 'quality' | 'crop' | 'rotate' | 'blur';
+    58→  params: Record<string, number | string | boolean>;
+    59→}
+    60→
+    61→export interface CacheRule {
+    62→  id: string;
+    63→  name: string;
+    64→  pattern: RegExp | string;     // URL pattern to match
+    65→  cachePolicy: CachePolicyConfig;
+    66→  priority: number;
+    67→  enabled: boolean;
+    68→  tags?: string[];
+    69→}
+    70→
+    71→export interface CachePolicyConfig {
+    72→  ttl: number;                  // Time-to-live in seconds
+    73→  staleWhileRevalidate: number;
+    74→  staleIfError: number;
+    75→  mustRevalidate: boolean;
+    76→  bypassCache?: boolean;
+    77→  varyOnHeaders?: string[];
+    78→  edgeTTL?: number;
+    79→  browserTTL?: number;
+    80→  respectStrongETag?: boolean;
+    81→  ignoreQueryString?: boolean;
+    82→  queryStringWhitelist?: string[];
+    83→  queryStringBlacklist?: string[];
+    84→}
+    85→
+    86→export interface PurgeRequest {
+    87→  id: string;
+    88→  type: 'url' | 'tag' | 'prefix' | 'hostname' | 'all';
+    89→  target: string[];             // URLs or tags to purge
+    90→  requestedAt: Date;
+    91→  requestedBy: string;
+    92→  status: 'pending' | 'processing' | 'completed' | 'failed';
+    93→  completedAt?: Date;
+    94→  results?: PurgeResult[];
+    95→}
+    96→
+    97→export interface PurgeResult {
+    98→  provider: CDNProvider;
+    99→  success: boolean;
+   100→  purgedUrls?: number;
+   101→  error?: string;
+   102→  durationMs: number;
+   103→}
+   104→
+   105→export interface CDNStats {
+   106→  timestamp: Date;
+   107→  provider: CDNProvider;
+   108→  requests: {
+   109→    total: number;
+   110→    cached: number;
+   111→    uncached: number;
+   112→    hits: number;
+   113→    misses: number;
+   114→    dynamic: number;
+   115→  };
+   116→  bandwidth: {
+   117→    totalBytes: number;
+   118→    cachedBytes: number;
+   119→    uncachedBytes: number;
+   120→  };
+   121→  errors: {
+   122→    total: number;
+   123→    clientErrors: number;
+   124→    serverErrors: number;
+   125→    rateLimited: number;
+   126→  };
+   127→  latency: {
+   128→    avgMs: number;
+   129→    p50: number;
+   130→    p95: number;
+   131→    p99: number;
+   132→  };
+   133→  regions: RegionalStats[];
+   134→}
+   135→
+   136→export interface RegionalStats {
+   137→  region: string;
+   138→  countryCode: string;
+   139→  requests: number;
+   140→  hitRate: number;
+   141→  avgLatencyMs: number;
+   142→  bandwidthBytes: number;
+   143→}
+   144→
+   145→export interface FallbackDecision {
+   146→  primaryProvider: CDNProvider;
+   147→  fallbackProviders: CDNProvider[];
+   148→  reason: string;
+   149→  healthScores: Record<CDNProvider, number>;
+   150→}
+   151→
+   152→// ============================================================================
+   153→// Constants & Configuration
+   154→// ============================================================================
+   155→
+   156→// Default CDN configurations for AlgeriaTrade.dz
+   157→export const DEFAULT_CDN_CONFIGS: Record<CDNProvider, CDNConfig> = {
+   158→  cloudflare: {
+   159→    provider: 'cloudflare',
+   160→    enabled: true,
+   161→    priority: 1,
+   162→    weight: 60,
+   163→    endpoints: {
+   164→      api: 'https://api.cloudflare.com/client/v4',
+   165→      purge: 'https://api.cloudflare.com/client/v4/zones/{zoneId}/purge_cache',
+   166→      stats: 'https://api.cloudflare.com/client/v4/zones/{zoneId}/analytics/dashboard',
+   167→    },
+   168→    features: {
+   169→      imageOptimization: true,
+   170→      edgeCaching: true,
+   171→      ddosProtection: true,
+   172→      botManagement: true,
+   173→      analytics: true,
+   174→    },
+   175→  },
+   176→  fastly: {
+   177→    provider: 'fastly',
+   178→    enabled: true,
+   179→    priority: 2,
+   180→    weight: 25,
+   181→    endpoints: {
+   182→      api: 'https://api.fastly.com',
+   183→      purge: 'https://api.fastly.com/purge',
+   184→      stats: 'https://api.fastly.com/stats/service/{serviceId}',
+   185→    },
+   186→    features: {
+   187→      imageOptimization: true,
+   188→      edgeCaching: true,
+   189→      ddosProtection: true,
+   190→      botManagement: false,
+   191→      analytics: true,
+   192→    },
+   193→  },
+   194→  cloudfront: {
+   195→    provider: 'cloudfront',
+   196→    enabled: true,
+   197→    priority: 3,
+   198→    weight: 15,
+   199→    endpoints: {
+   200→      api: 'https://cloudfront.amazonaws.com',
+   201→      purge: 'https://cloudfront.amazonaws.com/2020-05-26/distribution/{distributionId}/invalidation',
+   202→      stats: 'https://cloudfront.amazonaws.com/2020-05-26/distribution/{distributionId}/statistics',
+   203→    },
+   204→    features: {
+   205→      imageOptimization: false,   // Use Lambda@Edge or separate image service
+   206→      edgeCaching: true,
+   207→      ddosProtection: true,
+   208→      botManagement: false,
+   209→      analytics: true,
+   210→    },
+   211→  },
+   212→  akamai: {
+   213→    provider: 'akamai',
+   214→    enabled: false,               // Disabled by default (enterprise tier)
+   215→    priority: 4,
+   216→    weight: 0,
+   217→    endpoints: {
+   218→      api: 'https://{hostname}.purge.akamaiapis.net',
+   219→      purge: 'https://{hostname}.purge.akamapis.net/ccu/v3/delete',
+   220→      stats: 'https://{hostname}.p.akamaiedge.net/report-api/v1/reports',
+   221→    },
+   222→    features: {
+   223→      imageOptimization: true,
+   224→      edgeCaching: true,
+   225→      ddosProtection: true,
+   226→      botManagement: true,
+   227→      analytics: true,
+   228→    },
+   229→  },
+   230→};
+   231→
+   232→// Default image transformation rules optimized for MENA bandwidth
+   233→export const IMAGE_TRANSFORM_RULES: ImageTransformRule[] = [
+   234→  {
+   235→    id: 'product-images',
+   236→    name: 'Product Images Optimization',
+   237→    pattern: /\/products\/.*\.(jpg|jpeg|png|gif|webp)$/i,
+   238→    transformations: [
+   239→      { type: 'format', params: { format: 'webp', fallback: 'jpg', quality: 85 } },
+   240→      { type: 'resize', params: { width: 800, height: 600, fit: 'contain' } },
+   241→      { type: 'quality', params: { quality: 80, method: 'auto' } },
+   242→    ],
+   243→    priority: 1,
+   244→    enabled: true,
+   245→  },
+   246→  {
+   247→    id: 'thumbnail-images',
+   248→    name: 'Thumbnail Generation',
+   249→    pattern: /\/(products|companies)\/.*\/thumb\.(jpg|jpeg|png|webp)$/i,
+   250→    transformations: [
+   251→      { type: 'format', params: { format: 'webp', quality: 75 } },
+   252→      { type: 'resize', params: { width: 200, height: 150, fit: 'cover' } },
+   253→      { type: 'quality', params: { quality: 70 } },
+   254→    ],
+   255→    priority: 2,
+   256→    enabled: true,
+   257→  },
+   258→  {
+   259→    id: 'gallery-images',
+   260→    name: 'Gallery/Showcase Images',
+   261→    pattern: /\/gallery|showcase\/.*\.(jpg|jpeg|png|webp)$/i,
+   262→    transformations: [
+   263→      { type: 'format', params: { format: 'avif', fallback: 'webp', quality: 82 } },
+   264→      { type: 'resize', params: { width: 1200, height: 900, fit: 'contain' } },
+   265→    ],
+   266→    priority: 3,
+   267→    enabled: true,
+   268→  },
+   269→  {
+   270→    id: 'avatar-images',
+   271→    name: 'User Avatar Optimization',
+   272→    pattern: /\/avatars\/.*\.(jpg|jpeg|png|webp)$/i,
+   273→    transformations: [
+   274→      { type: 'format', params: { format: 'webp', quality: 70 } },
+   275→      { type: 'resize', params: { width: 100, height: 100, fit: 'cover' } },
+   276→      { type: 'crop', params: { gravity: 'center' } },
+   277→    ],
+   278→    priority: 4,
+   279→    enabled: true,
+   280→  },
+   281→  {
+   282→    id: 'banner-images',
+   283→    name: 'Banner/Hero Images',
+   284→    pattern: /\/banners?|hero\/.*\.(jpg|jpeg|png|webp)$/i,
+   285→    transformations: [
+   286→      { type: 'format', params: { format: 'webp', quality: 78 } },
+   287→      { type: 'resize', params: { width: 1920, height: 640, fit: 'cover' } },
+   288→    ],
+   289→    priority: 5,
+   290→    enabled: true,
+   291→  },
+   292→];
+   293→
+   294→// Default cache rules for different content types
+   295→export const CACHE_RULES: CacheRule[] = [
+   296→  // Static assets - aggressive caching
+   297→  {
+   298→    id: 'static-assets-js-css',
+   299→    name: 'JavaScript & CSS Files',
+   300→    pattern: '\\.(js|css)$',
+   301→    cachePolicy: {
+   302→      ttl: 31536000,            // 1 year (cache-busted via filename hash)
+   303→      staleWhileRevalidate: 86400,
+   304→      staleIfError: 604800,
+   305→      mustRevalidate: false,
+   306→      varyOnHeaders: ['Accept-Encoding'],
+   307→      edgeTTL: 86400,
+   308→      browserTTL: 31536000,
+   309→      ignoreQueryString: true,
+   310→    },
+   311→    priority: 1,
+   312→    enabled: true,
+   313→    tags: ['static', 'assets'],
+   314→  },
+   315→  // Font files
+   316→  {
+   317→    id: 'static-assets-fonts',
+   318→    name: 'Font Files',
+   319→    pattern: '\\.(woff2?|ttf|eot|otf)$',
+   320→    cachePolicy: {
+   321→      ttl: 31536000,
+   322→      staleWhileRevalidate: 604800,
+   323→      staleIfError: 2592000,
+   324→      mustRevalidate: false,
+   325→      varyOnHeaders: ['Origin'],
+   326→      edgeTTL: 604800,
+   327→      browserTTL: 31536000,
+   328→      ignoreQueryString: true,
+   329→    },
+   330→    priority: 2,
+   331→    enabled: true,
+   332→    tags: ['static', 'fonts'],
+   333→  },
+   334→  // Images
+   335→  {
+   336→    id: 'images-general',
+   337→    name: 'General Images',
+   338→    pattern: '\\.(jpg|jpeg|png|gif|webp|avif|bmp|ico|svg)$',
+   339→    cachePolicy: {
+   340→      ttl: 2592000,             // 30 days
+   341→      staleWhileRevalidate: 3600,
+   342→      staleIfError: 86400,
+   343→      mustRevalidate: false,
+   344→      varyOnHeaders: ['Accept-Encoding', 'Accept'],
+   345→      edgeTTL: 172800,
+   346→      browserTTL: 2592000,
+   347→      ignoreQueryString: true,
+   348→    },
+   349→    priority: 3,
+   350→    enabled: true,
+   351→    tags: ['static', 'images'],
+   352→  },
+   353→  // API responses - short cache
+   354→  {
+   355→    id: 'api-responses',
+   356→    name: 'API Responses',
+   357→    pattern: '^/api/',
+   358→    cachePolicy: {
+   359→      ttl: 60,                  // 1 minute
+   360→      staleWhileRevalidate: 30,
+   361→      staleIfError: 300,
+   362→      mustRevalidate: true,
+   363→      varyOnHeaders: ['Authorization', 'Accept-Language', 'Cookie'],
+   364→      edgeTTL: 45,
+   365→      browserTTL: 0,
+   366→      ignoreQueryString: false,
+   367→      queryStringBlacklist: ['_', 'timestamp', 'nonce'],
+   368→    },
+   369→    priority: 10,
+   370→    enabled: true,
+   371→    tags: ['dynamic', 'api'],
+   372→  },
+   373→  // HTML pages - ISR style
+   374→  {
+   375→    id: 'html-pages',
+   376→    name: 'HTML Pages (ISR)',
+   377→    pattern: '\\.html$|^/$|^/[a-z]',
+   378→    cachePolicy: {
+   379→      ttl: 300,                 // 5 minutes
+   380→      staleWhileRevalidate: 60,
+   381→      staleIfError: 600,
+   382→      mustRevalidate: true,
+   383→      varyOnHeaders: ['Accept-Encoding', 'Accept-Language', 'Cookie'],
+   384→      edgeTTL: 180,
+   385→      browserTTL: 120,
+   386→      ignoreQueryString: true,
+   387→    },
+   388→    priority: 15,
+   389→    enabled: true,
+   390→    tags: ['dynamic', 'html'],
+   391→  },
+   392→  // Personalized pages - no cache
+   393→  {
+   394→    id: 'personalized-content',
+   395→    name: 'Personalized Content',
+   396→    pattern: '/account|/dashboard|/profile|/cart|/checkout',
+   397→    cachePolicy: {
+   398→      ttl: 0,
+   399→      staleWhileRevalidate: 0,
+   400→      staleIfError: 0,
+   401→      mustRevalidate: true,
+   402→      bypassCache: true,
+   403→      varyOnHeaders: ['Cookie', 'Authorization'],
+   404→      edgeTTL: 0,
+   405→      browserTTL: 0,
+   406→    },
+   407→    priority: 20,
+   408→    enabled: true,
+   409→    tags: ['personalized', 'dynamic'],
+   410→  },
+   411→];
+   412→
+   413→// Health check thresholds
+   414→const HEALTH_CHECK_THRESHOLDS = {
+   415→  maxErrorRate: 0.05,          // 5% error rate threshold
+   416→  maxLatencyP95: 2000,         // 2 seconds P95 latency threshold
+   417→  minAvailability: 99.9,       // 99.9% availability threshold
+   418→  minHitRate: 0.7,             // 70% minimum cache hit rate
+   419→};
+   420→
+   421→// ============================================================================
+   422→// CDN Manager Class
+   423→// ============================================================================
+   424→
+   425→export class CDNManager {
+   426→  private static instance: CDNManager;
+   427→  private configs: Map<CDNProvider, CDNConfig> = new Map();
+   428→  private healthScores: Map<CDNProvider, number> = new Map();
+   429→  private lastHealthCheck: Date | null = null;
+   430→  private purgeHistory: PurgeRequest[] = [];
+   431→  private statsHistory: CDNStats[] = [];
+   432→
+   433→  static getInstance(): CDNManager {
+   434→    if (!CDNManager.instance) {
+   435→      CDNManager.instance = new CDNManager();
+   436→    }
+   437→    return CDNManager.instance;
+   438→  }
+   439→
+   440→  constructor() {
+   441→    // Initialize with default configs
+   442→    Object.entries(DEFAULT_CDN_CONFIGS).forEach(([provider, config]) => {
+   443→      this.configs.set(provider as CDNProvider, config);
+   444→      this.healthScores.set(provider as CDNProvider, 100); // Start healthy
+   445→    });
+   446→  }
+   447→
+   448→  // ==========================================================================
+   449→  // Configuration Management
+   450→  // ==========================================================================
+   451→
+   452→  /**
+   453→   * Get configuration for a specific provider
+   454→   */
+   455→  getConfig(provider: CDNProvider): CDNConfig | undefined {
+   456→    return this.configs.get(provider);
+   457→  }
+   458→
+   459→  /**
+   460→   * Update configuration for a provider
+   461→   */
+   462→  updateConfig(provider: CDNProvider, updates: Partial<CDNConfig>): void {
+   463→    const current = this.configs.get(provider);
+   464→    if (current) {
+   465→      this.configs.set(provider, { ...current, ...updates });
+   466→    }
+   467→  }
+   468→
+   469→  /**
+   470→   * Get all enabled providers sorted by priority
+   471→   */
+   472→  getEnabledProviders(): CDNProvider[] {
+   473→    return Array.from(this.configs.entries())
+   474→      .filter(([, config]) => config.enabled)
+   475→      .sort((a, b) => a[1].priority - b[1].priority)
+   476→      .map(([provider]) => provider);
+   477→  }
+   478→
+   479→  /**
+   480→   * Get traffic weights for load balancing
+   481→   */
+   482→  getTrafficWeights(): Record<CDNProvider, number> {
+   483→    const weights: Partial<Record<CDNProvider, number>> = {};
+   484→    
+   485→    for (const [provider, config] of this.configs.entries()) {
+   486→      if (config.enabled && this.isHealthy(provider)) {
+   487→        weights[provider] = config.weight;
+   488→      }
+   489→    }
+   490→
+   491→    return weights as Record<CDNProvider, number>;
+   492→  }
+   493→
+   494→  // ==========================================================================
+   495→  // Multi-CDN Fallback Strategy
+   496→  // ==========================================================================
+   497→
+   498→  /**
+   499→   * Determine which CDN(s) to use based on health and performance
+   500→   */
+   501→  selectProvider(requestContext?: {
+   502→    ip?: string;
+   503→    path?: string;
+   504→    userAgent?: string;
+   505→  }): FallbackDecision {
+   506→    const enabledProviders = this.getEnabledProviders();
+   507→    const healthEntries = Array.from(this.healthScores.entries());
+   508→
+   509→    // Sort providers by health score (descending), then by priority
+   510→    const rankedProviders = enabledProviders.sort((a, b) => {
+   511→      const healthA = this.healthScores.get(a) || 0;
+   512→      const healthB = this.healthScores.get(b) || 0;
+   513→      if (healthB !== healthA) return healthB - healthA;
+   514→      return (this.configs.get(a)?.priority || 999) - (this.configs.get(b)?.priority || 999);
+   515→    });
+   516→
+   517→    const primaryProvider = rankedProviders[0];
+   518→    const fallbackProviders = rankedProviders.slice(1);
+   519→
+   520→    // Build health scores object
+   521→    const healthScores: Record<CDNProvider, number> = {};
+   522→    for (const [provider, score] of healthEntries) {
+   523→      healthScores[provider] = score;
+   524→    }
+   525→
+   526→    let reason = `Primary: ${primaryProvider} (Health: ${this.healthScores.get(primaryProvider)}%)`;
+   527→    
+   528→    // Check if primary is degraded
+   529→    const primaryHealth = this.healthScores.get(primaryProvider) || 0;
+   530→    if (primaryHealth < 80) {
+   531→      reason = `${primaryProvider} degraded (${primaryHealth}%), using ${fallbackProviders[0]} as backup`;
+   532→    }
+   533→
+   534→    return {
+   535→      primaryProvider,
+   536→      fallbackProviders,
+   537→      reason,
+   538→      healthScores,
+   539→    };
+   540→  }
+   541→
+   542→  /**
+   543→   * Check if a provider is considered healthy
+   544→   */
+   545→  isHealthy(provider: CDNProvider): boolean {
+   546→    const score = this.healthScores.get(provider) ?? 0;
+   547→    return score >= HEALTH_CHECK_THRESHOLDS.minAvailability;
+   548→  }
+   549→
+   550→  /**
+   551→   * Perform health checks on all providers
+   552→   */
+   553→  async performHealthChecks(): Promise<void> {
+   554→    const now = new Date();
+   555→
+   556→    for (const [provider, config] of this.configs.entries()) {
+   557→      if (!config.enabled) continue;
+   558→
+   559→      try {
+   560→        const stats = await this.fetchStats(provider);
+   561→        
+   562→        // Calculate health score based on multiple factors
+   563→        const errorRate = stats.errors.total / Math.max(stats.requests.total, 1);
+   564→        const availability = 100 - (errorRate * 100);
+   565→        const latencyScore = Math.max(0, 100 - ((stats.latency.p95 - 500) / 20));
+   566→        const hitRateScore = (stats.requests.hits / Math.max(stats.requests.cached, 1)) * 100;
+   567→
+   568→        // Weighted average of all factors
+   569→        const healthScore = (
+   570→          availability * 0.4 +
+   571→          latencyScore * 0.35 +
+   572→          hitRateScore * 0.25
+   573→        );
+   574→
+   575→        this.healthScores.set(provider, Math.min(100, Math.max(0, healthScore)));
+   576→
+   577→        // Store stats in history
+   578→        this.statsHistory.push({ ...stats, timestamp: now, provider });
+   579→        
+   580→        // Keep only last 24 hours of history
+   581→        const oneDayAgo = new Date(now.getTime() - 86400000);
+   582→        this.statsHistory = this.statsHistory.filter(s => s.timestamp >= oneDayAgo);
+   583→
+   584→      } catch (error) {
+   585→        console.error(`Health check failed for ${provider}:`, error);
+   586→        // Degrade health score on failure
+   587→        const currentScore = this.healthScores.get(provider) || 100;
+   588→        this.healthScores.set(provider, Math.max(0, currentScore - 20));
+   589→      }
+   590→    }
+   591→
+   592→    this.lastHealthCheck = now;
+   593→  }
+   594→
+   595→  // ==========================================================================
+   596→  // Image Transformation
+   597→  // ==========================================================================
+   598→
+   599→  /**
+   600→   * Apply image transformation rules to a URL
+   601→   */
+   602→  transformImageUrl(originalUrl: string, options?: {
+   603→    width?: number;
+   604→    height?: number;
+   605→    quality?: number;
+   606→    format?: 'webp' | 'avif' | 'jpg' | 'png';
+   607→    fit?: 'contain' | 'cover' | 'fill' | 'crop';
+   608→  }): string {
+   609→    // Find matching rule
+   610→    const matchingRule = IMAGE_TRANSFORM_RULES.find(
+   611→      rule => rule.enabled && rule.pattern.test(originalUrl)
+   612→    );
+   613→
+   614→    if (!matchingRule && !options) {
+   615→      return originalUrl;
+   616→    }
+   617→
+   618→    // Build transformation parameters
+   619→    const params: Record<string, string> = {};
+   620→
+   621→    if (options?.width) params.width = String(options.width);
+   622→    if (options?.height) params.height = String(options.height);
+   623→    if (options?.quality) params.quality = String(options.quality);
+   624→    if (options?.format) params.format = options.format;
+   625→    if (options?.fit) params.fit = options.fit;
+   626→
+   627→    // Merge with rule transformations
+   628→    if (matchingRule) {
+   629→      for (const transform of matchingRule.transformations) {
+   630→        switch (transform.type) {
+   631→          case 'format':
+   632→            if (!params.format && transform.params.format) {
+   633→              params.format = transform.params.format as string;
+   634→            }
+   635→            break;
+   636→          case 'resize':
+   637→            if (!params.width && transform.params.width) {
+   638→              params.width = String(transform.params.width);
+   639→            }
+   640→            if (!params.height && transform.params.height) {
+   641→              params.height = String(transform.params.height);
+   642→            }
+   643→            break;
+   644→          case 'quality':
+   645→            if (!params.quality && transform.params.quality) {
+   646→              params.quality = String(transform.params.quality);
+   647→            }
+   648→            break;
+   649→        }
+   650→      }
+   651→    }
+   652→
+   653→    // Generate transformed URL based on active CDN
+   654→    const activeProvider = this.selectProvider().primaryProvider;
+   655→    return this.buildTransformedUrl(activeProvider, originalUrl, params);
+   656→  }
+   657→
+   658→  /**
+   659→   * Build transformed URL for each CDN provider
+   660→   */
+   661→  private buildTransformedUrl(
+   662→    provider: CDNProvider,
+   663→    originalUrl: string,
+   664→    params: Record<string, string>
+   665→  ): string {
+   666→    const searchParams = new URLSearchParams(params);
+   667→
+   668→    switch (provider) {
+   669→      case 'cloudflare':
+   670→        // Cloudflare Image Resizing: /cdn-cgi/image/<params>/<url>
+   671→        return `/cdn-cgi/image/${searchParams.toString().replace(/&/g, ',')}/${encodeURIComponent(originalUrl)}`;
+   672→      
+   673→      case 'fastly':
+   674→        // Fastly IO: https://<host>/io?<params>&url=<url>
+   675→        searchParams.set('url', originalUrl);
+   676→        return `https://io.fastly.com?${searchParams.toString()}`;
+   677→      
+   678→      case 'cloudfront':
+   679→        // CloudFront requires Lambda@Edge or separate image service
+   680→        searchParams.set('src', originalUrl);
+   681→        return `/_image?${searchParams.toString()}`;
+   682→      
+   683→      default:
+   684→        return originalUrl;
+   685→    }
+   686→  }
+   687→
+   688→  /**
+   689→   * Generate responsive srcset for an image
+   690→   */
+   691→  generateSrcSet(
+   692→    originalUrl: string,
+   693→    widths: number[] = [320, 480, 640, 768, 1024, 1280, 1536]
+   694→  ): string {
+   695→    return widths
+   696→      .map(width => `${this.transformImageUrl(originalUrl, { width })} ${width}w`)
+   697→      .join(', ');
+   698→  }
+   699→
+   700→  /**
+   701→   * Get optimal image format for user agent
+   702→   */
+   703→  getOptimalFormat(userAgent: string): 'avif' | 'webp' | 'jpg' {
+   704→    const ua = userAgent.toLowerCase();
+   705→    
+   706→    if (ua.includes('chrome') && !ua.includes('opera')) {
+   707→      const chromeVersion = parseInt(ua.match(/chrome\/(\d+)/)?.[1] || '0');
+   708→      if (chromeVersion >= 121) return 'avif'; // AVIF support from Chrome 121
+   709→      return 'webp';
+   710→    }
+   711→    
+   712→    if (ua.includes('firefox')) {
+   713→      const firefoxVersion = parseInt(ua.match(/firefox\/(\d+)/)?.[1] || '0');
+   714→      if (firefoxVersion >= 113) return 'avif'; // AVIF support from Firefox 113
+   715→      return 'webp';
+   716→    }
+   717→    
+   718→    if (ua.includes('safari') || ua.includes('mac os x')) {
+   719→      const safariVersion = parseInt(ua.match(/version\/(\d+)/)?.[1] || '0');
+   720→      if (safariVersion >= 16.4) return 'avif'; // AVIF support from Safari 16.4
+   721→      return 'webp';
+   722→    }
+   723→    
+   724→    if (ua.includes('edge') || ua.includes('edg/')) {
+   725→      return 'avif'; // Edge supports AVIF
+   726→    }
+   727→
+   728→    return 'jpg'; // Fallback for older browsers
+   729→  }
+   730→
+   731→  // ==========================================================================
+   732→  // Cache Policy Management
+   733→  // ==========================================================================
+   734→
+   735→  /**
+   736→   * Get cache policy for a URL
+   737→   */
+   738→  getCachePolicy(url: string): CachePolicyConfig | null {
+   739→    // Find matching rule (highest priority first)
+   740→    const sortedRules = [...CACHE_RULES].sort((a, b) => a.priority - b.priority);
+   741→
+   742→    for (const rule of sortedRules) {
+   743→      if (!rule.enabled) continue;
+   744→
+   745→      if (rule.pattern instanceof RegExp) {
+   746→        if (rule.pattern.test(url)) {
+   747→          return rule.cachePolicy;
+   748→        }
+   749→      } else {
+   750→        // String pattern
+   751→        if (url.includes(rule.pattern)) {
+   752→          return rule.cachePolicy;
+   753→        }
+   754→      }
+   755→    }
+   756→
+   757→    return null;
+   758→  }
+   759→
+   760→  /**
+   761→   * Build Cache-Control header value from policy
+   762→   */
+   763→  buildCacheControlHeader(policy: CachePolicyConfig): string {
+   764→    const parts: string[] = [];
+   765→
+   766→    if (policy.bypassCache) {
+   767→      return 'no-store, no-cache, must-revalidate, proxy-revalidate';
+   768→    }
+   769→
+   770→    if (policy.mustRevalidate) {
+   771→      parts.push('must-revalidate');
+   772→    }
+   773→
+   774→    if (policy.ttl > 0) {
+   775→      parts.push(`max-age=${policy.ttl}`);
+   776→    } else {
+   777→      parts.push('no-cache');
+   778→    }
+   779→
+   780→    if (policy.staleWhileRevalidate > 0) {
+   781→      parts.push(`stale-while-revalidate=${policy.staleWhileRevalidate}`);
+   782→    }
+   783→
+   784→    if (policy.staleIfError > 0) {
+   785→      parts.push(`stale-if-error=${policy.staleIfError}`);
+   786→    }
+   787→
+   788→    parts.push('public');
+   789→
+   790→    return parts.join(', ');
+   791→  }
+   792→
+   793→  /**
+   794→   * Get CDN-Cache-Control header (edge TTL)
+   795→   */
+   796→  buildEdgeCacheControlHeader(policy: CachePolicyConfig): string {
+   797→    const sMaxAge = policy.edgeTTL ?? policy.ttl;
+   798→    const parts = [`public`, `s-maxage=${sMaxAge}`];
+   799→
+   800→    if (policy.staleWhileRevalidate > 0) {
+   801→      parts.push(`stale-while-revalidate=${policy.staleWhileRevalidate}`);
+   802→    }
+   803→
+   804→    if (policy.staleIfError > 0) {
+   805→      parts.push(`stale-if-error=${policy.staleIfError}`);
+   806→    }
+   807→
+   808→    return parts.join(', ');
+   809→  }
+   810→
+   811→  // ==========================================================================
+   812→  // Cache Purge/Invalidation
+   813→  // ==========================================================================
+   814→
+   815→  /**
+   816→   * Request cache purge across all CDNs
+   817→   */
+   818→  async purgeCache(request: Omit<PurgeRequest, 'id' | 'status' | 'requestedAt' | 'results'>): Promise<PurgeRequest> {
+   819→    const purgeRequest: PurgeRequest = {
+   820→      ...request,
+   821→      id: `purge-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`,
+   822→      status: 'pending',
+   823→      requestedAt: new Date(),
+   824→    };
+   825→
+   826→    this.purgeHistory.push(purgeRequest);
+   827→
+   828→    try {
+   829→      purgeRequest.status = 'processing';
+   830→      
+   831→      const providers = this.getEnabledProviders();
+   832→      const results: PurgeResult[] = await Promise.all(
+   833→        providers.map(provider => this.purgeFromProvider(provider, request))
+   834→      );
+   835→
+   836→      purgeRequest.results = results;
+   837→      purgeRequest.status = results.every(r => r.success) ? 'completed' : 'failed';
+   838→      purgeRequest.completedAt = new Date();
+   839→
+   840→    } catch (error) {
+   841→      console.error('Purge failed:', error);
+   842→      purgeRequest.status = 'failed';
+   843→      purgeRequest.completedAt = new Date();
+   844→    }
+   845→
+   846→    return purgeRequest;
+   847→  }
+   848→
+   849→  /**
+   850→   * Execute purge on a specific CDN provider
+   851→   */
+   852→  private async purgeFromProvider(
+   853→    provider: CDNProvider,
+   854→    request: Omit<PurgeRequest, 'id' | 'status' | 'requestedAt' | 'results'>
+   855→  ): Promise<PurgeResult> {
+   856→    const startTime = performance.now();
+   857→    const config = this.configs.get(provider);
+   858→
+   859→    if (!config) {
+   860→      return {
+   861→        provider,
+   862→        success: false,
+   863→        error: 'Provider not configured',
+   864→        durationMs: Math.round(performance.now() - startTime),
+   865→      };
+   866→    }
+   867→
+   868→    try {
+   869→      // In production, make actual API calls to each CDN
+   870→      // For demo, simulate the response
+   871→      
+   872→      const result: PurgeResult = {
+   873→        provider,
+   874→        success: true,
+   875→        purgedUrls: request.target.length,
+   876→        durationMs: Math.round(performance.now() - startTime),
+   877→      };
+   878→
+   879→      // Simulate occasional failures for realism
+   880→      if (Math.random() < 0.05) { // 5% simulated failure rate
+   881→        result.success = false;
+   882→        result.error = 'Simulated API timeout';
+   883→      }
+   884→
+   885→      return result;
+   886→
+   887→    } catch (error) {
+   888→      return {
+   889→        provider,
+   890→        success: false,
+   891→        error: error instanceof Error ? error.message : 'Unknown error',
+   892→        durationMs: Math.round(performance.now() - startTime),
+   893→      };
+   894→    }
+   895→  }
+   896→
+   897→  /**
+   898→   * Get purge history
+   899→   */
+   900→  getPurgeHistory(limit: number = 50): PurgeRequest[] {
+   901→    return [...this.purgeHistory]
+   902→      .sort((a, b) => b.requestedAt.getTime() - a.requestedAt.getTime())
+   903→      .slice(0, limit);
+   904→  }
+   905→
+   906→  // ==========================================================================
+   907→  // Statistics & Monitoring
+   908→  // ==========================================================================
+   909→
+   910→  /**
+   911→   * Fetch statistics from a CDN provider
+   912→   */
+   913→  async fetchStats(provider: CDNProvider, period: 'hour' | 'day' | 'week' = 'hour'): Promise<CDNStats> {
+   914→    const config = this.configs.get(provider);
+   915→    
+   916→    if (!config) {
+   917→      throw new Error(`Provider ${provider} not configured`);
+   918→    }
+   919→
+   920→    // In production, fetch actual data from CDN APIs
+   921→    // For demo, generate realistic mock data
+   922→    
+   923→    return this.generateMockStats(provider, period);
+   924→  }
+   925→
+   926→  /**
+   927→   * Generate mock statistics for demonstration
+   928→   */
+   929→  private generateMockStats(provider: CDNProvider, _period: string): CDNStats {
+   930→    const baseRequests = {
+   931→      cloudflare: 500000,
+   932→      fastly: 200000,
+   933→      cloudfront: 100000,
+   934→      akamai: 50000,
+   935→    };
+   936→
+   937→    const total = baseRequests[provider] + Math.round(Math.random() * baseRequests[provider] * 0.2);
+   938→    const hitRate = 0.85 + Math.random() * 0.12; // 85-97%
+   939→    const cached = Math.round(total * hitRate);
+   940→    const uncached = total - cached;
+   941→    const hits = Math.round(cached * 0.98);
+   942→    const misses = cached - hits;
+   943→
+   944→    return {
+   945→      timestamp: new Date(),
+   946→      provider,
+   947→      requests: {
+   948→        total,
+   949→        cached,
+   950→        uncached,
+   951→        hits,
+   952→        misses,
+   953→        dynamic: Math.round(total * 0.15),
+   954→      },
+   955→      bandwidth: {
+   956→        totalBytes: total * 50000 + Math.round(Math.random() * 10000000000),
+   957→        cachedBytes: cached * 45000,
+   958→        uncachedBytes: uncached * 55000,
+   959→      },
+   960→      errors: {
+   961→        total: Math.round(total * 0.002),
+   962→        clientErrors: Math.round(total * 0.001),
+   963→        serverErrors: Math.round(total * 0.0005),
+   964→        rateLimited: Math.round(total * 0.0005),
+   965→      },
+   966→      latency: {
+   967→        avgMs: 45 + Math.round(Math.random() * 100),
+   968→        p50: 30 + Math.round(Math.random() * 40),
+   969→        p95: 100 + Math.round(Math.random() * 300),
+   970→        p99: 200 + Math.round(Math.random() * 500),
+   971→      },
+   972→      regions: this.generateRegionalStats(),
+   973→    };
+   974→  }
+   975→
+   976→  /**
+   977→   * Generate regional statistics for MENA focus
+   978→   */
+   979→  private generateRegionalStats(): RegionalStats[] {
+   980→    return [
+   981→      {
+   982→        region: 'Algiers',
+   983→        countryCode: 'DZ',
+   984→        requests: 250000 + Math.round(Math.random() * 50000),
+   985→        hitRate: 0.92 + Math.random() * 0.06,
+   986→        avgLatencyMs: 12 + Math.round(Math.random() * 18),
+   987→        bandwidthBytes: 12500000000 + Math.round(Math.random() * 2500000000),
+   988→      },
+   989→      {
+   990→        region: 'Oran',
+   991→        countryCode: 'DZ',
+   992→        requests: 85000 + Math.round(Math.random() * 15000),
+   993→        hitRate: 0.88 + Math.random() * 0.08,
+   994→        avgLatencyMs: 22 + Math.round(Math.random() * 28),
+   995→        bandwidthBytes: 4250000000 + Math.round(Math.random() * 750000000),
+   996→      },
+   997→      {
+   998→        region: 'Constantine',
+   999→        countryCode: 'DZ',
+  1000→        requests: 65000 + Math.round(Math.random() * 10000),
+  1001→        hitRate: 0.86 + Math.random() * 0.09,
+  1002→        avgLatencyMs: 32 + Math.round(Math.random() * 33),
+  1003→        bandwidthBytes: 3250000000 + Math.round(Math.random() * 500000000),
+  1004→      },
+  1005→      {
+  1006→        region: 'Paris',
+  1007→        countryCode: 'FR',
+  1008→        requests: 45000 + Math.round(Math.random() * 10000),
+  1009→        hitRate: 0.94 + Math.random() * 0.04,
+  1010→        avgLatencyMs: 28 + Math.round(Math.random() * 22),
+  1011→        bandwidthBytes: 2250000000 + Math.round(Math.random() * 500000000),
+  1012→      },
+  1013→      {
+  1014→        region: 'Tunis',
+  1015→        countryCode: 'TN',
+  1016→        requests: 35000 + Math.round(Math.random() * 8000),
+  1017→        hitRate: 0.84 + Math.random() * 0.1,
+  1018→        avgLatencyMs: 48 + Math.round(Math.random() * 42),
+  1019→        bandwidthBytes: 1750000000 + Math.round(Math.random() * 400000000),
+  1020→      },
+  1021→      {
+  1022→        region: 'Casablanca',
+  1023→        countryCode: 'MA',
+  1024→        requests: 28000 + Math.round(Math.random() * 7000),
+  1025→        hitRate: 0.83 + Math.random() * 0.11,
+  1026→        avgLatencyMs: 68 + Math.round(Math.random() * 52),
+  1027→        bandwidthBytes: 1400000000 + Math.round(Math.random() * 350000000),
+  1028→      },
+  1029→    ];
+  1030→  }
+  1031→
+  1032→  /**
+  1033→   * Get aggregated statistics across all providers
+  1034→   */
+  1035→  async getAggregatedStats(period: 'hour' | 'day' | 'week' = 'hour'): Promise<{
+  1036→    totalRequests: number;
+  1037→    totalBandwidth: number;
+  1038→    overallHitRate: number;
+  1039→    avgLatency: number;
+  1040→    providers: CDNStats[];
+  1041→    savings: {
+  1042→      bandwidthSaved: number;
+  1043→      costSavings: number;
+  1044→      co2Reduction: number; // kg CO2
+  1045→    };
+  1046→  }> {
+  1047→    const providers = this.getEnabledProviders();
+  1048→    const statsArray = await Promise.all(
+  1049→      providers.map(p => this.fetchStats(p, period))
+  1050→    );
+  1051→
+  1052→    const totalRequests = statsArray.reduce((sum, s) => sum + s.requests.total, 0);
+  1053→    const totalHits = statsArray.reduce((sum, s) => sum + s.requests.hits, 0);
+  1054→    const totalCached = statsArray.reduce((sum, s) => sum + s.requests.cached, 0);
+  1055→    const totalBandwidth = statsArray.reduce((sum, s) => sum + s.bandwidth.totalBytes, 0);
+  1056→    const cachedBandwidth = statsArray.reduce((sum, s) => sum + s.bandwidth.cachedBytes, 0);
+  1057→
+  1058→    // Calculate weighted average latency
+  1059→    const weightedLatencySum = statsArray.reduce((sum, s) => {
+  1060→      return sum + s.latency.avgMs * s.requests.total;
+  1061→    }, 0);
+  1062→    const avgLatency = totalRequests > 0 ? Math.round(weightedLatencySum / totalRequests) : 0;
+  1063→
+  1064→    // Calculate savings
+  1065→    const bandwidthSaved = cachedBandwidth * 0.55; // Assume 55% savings from origin
+  1066→    const costSavings = bandwidthSaved * 0.00001; // ~$0.01 per GB saved
+  1067→    const co2Reduction = bandwidthSaved * 0.00000007; // ~70g CO2 per GB transferred
+  1068→
+  1069→    return {
+  1070→      totalRequests,
+  1071→      totalBandwidth,
+  1072→      overallHitRate: totalCached > 0 ? totalHits / totalCached : 0,
+  1073→      avgLatency,
+  1074→      providers: statsArray,
+  1075→      savings: {
+  1076→        bandwidthSaved,
+  1077→        costSavings,
+  1078→        co2Reduction,
+  1079→      },
+  1080→    };
+  1081→  }
+  1082→
+  1083→  /**
+  1084→   * Get health scores for all providers
+  1085→   */
+  1086→  getHealthScores(): Record<CDNProvider, number> {
+  1087→    return Object.fromEntries(this.healthScores.entries()) as Record<CDNProvider, number>;
+  1088→  }
+  1089→
+  1090→  /**
+  1091→   * Get last health check time
+  1092→   */
+  1093→  getLastHealthCheck(): Date | null {
+  1094→    return this.lastHealthCheck;
+  1095→  }
+  1096→
+  1097→  // ==========================================================================
+  1098→  // Utility Methods
+  1099→  // ==========================================================================
+  1100→
+  1101→  /**
+  1102→   * Format bytes to human-readable string
+  1103→   */
+  1104→  static formatBytes(bytes: number): string {
+  1105→    if (bytes === 0) return '0 B';
+  1106→    const k = 1024;
+  1107→    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+  1108→    const i = Math.floor(Math.log(bytes) / Math.log(k));
+  1109→    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  1110→  }
+  1111→
+  1112→  /**
+  1113→   * Format percentage
+  1114→   */
+  1115→  static formatPercent(value: number, decimals: number = 1): string {
+  1116→    return (value * 100).toFixed(decimals) + '%';
+  1117→  }
+  1118→
+  1119→  /**
+  1120→   * Reset manager state (for testing)
+  1121→   */
+  1122→  reset(): void {
+  1123→    this.healthScores.clear();
+  1124→    this.purgeHistory = [];
+  1125→    this.statsHistory = [];
+  1126→    this.lastHealthCheck = null;
+  1127→    
+  1128→    Object.keys(DEFAULT_CDN_CONFIGS).forEach(provider => {
+  1129→      this.healthScores.set(provider as CDNProvider, 100);
+  1130→    });
+  1131→  }
+  1132→}
+  1133→
+  1134→// ============================================================================
+  1135→// Export singleton instance
+  1136→// ============================================================================
+  1137→
+  1138→export const cdnManager = CDNManager.getInstance();
+  1139→
+  1140→// ============================================================================
+  1141→// Utility Functions
+  1142→// ============================================================================
+  1143→
+  1144→/**
+  1145→ * Determine best CDN endpoint for a given region
+  1146→ */
+  1147→export function getBestEndpointForRegion(countryCode: string): string {
+  1148→  const algerianEndpoints = [
+  1149→    'https://cdn.algierstrade.dz',
+  1150→    'https://cdn-algiers.algierstrade.dz',
+  1151→    'https://d123456.cloudfront.net',
+  1152→  ];
+  1153→
+  1154→  const frenchEndpoints = [
+  1155→    'https://eu-cdn.algierstrade.dz',
+  1156→    'https://cdn-paris.algierstrade.dz',
+  1157→  ];
+  1158→
+  1159→  const menaEndpoints = [
+  1160→    'https://mena-cdn.algierstrade.dz',
+  1161→    'https://cdn-dubai.algierstrade.dz',
+  1162→  ];
+  1163→
+  1164→  switch (countryCode.toUpperCase()) {
+  1165→    case 'DZ':
+  1166→      return algerianEndpoints[Math.floor(Math.random() * algerianEndpoints.length)];
+  1167→    case 'FR':
+  1168→    case 'ES':
+  1169→    case 'IT':
+  1170→      return frenchEndpoints[Math.floor(Math.random() * frenchEndpoints.length)];
+  1171→    case 'TN':
+  1172→    case 'MA':
+  1173→    case 'EG':
+  1174→    case 'AE':
+  1175→    case 'SA':
+  1176→      return menaEndpoints[Math.floor(Math.random() * menaEndpoints.length)];
+  1177→    default:
+  1178→      return 'https://global-cdn.algierstrade.dz';
+  1179→  }
+  1180→}
+  1181→
+  1182→/**
+  1183→ * Build CDN URL with appropriate optimizations
+  1184→ */
+  1185→export function buildCDNUrl(path: string, options?: {
+  1186→  version?: string;
+  1187→  format?: string;
+  1188→}): string {
+  1189→  const baseUrl = process.env.CDN_URL || 'https://cdn.algierstrade.dz';
+  1190→  
+  1191→  let url = `${baseUrl}${path.startsWith('/') ? '' : '/'}${path}`;
+  1192→  
+  1193→  // Add cache-busting query param for static assets
+  1194→  if (options?.version) {
+  1195→    url += `?v=${options.version}`;
+  1196→  }
+  1197→  
+  1198→  return url;
+  1199→}
+  1200→

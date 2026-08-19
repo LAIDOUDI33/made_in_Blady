@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="fr" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clé API créée - AlgeriaTrade.dz</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f4f4f7;">
+    
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #f4f4f7;">
+        <tr>
+            <td align="center" style="padding: 40px 20px;">
+                
+                <table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08);">
+                    
+                    <!-- Header -->
+                    <tr>
+                        <td style="background: linear-gradient(135deg, #1e3a5f 0%, #2d5a87 100%); padding: 35px 40px 25px; border-radius: 12px 12px 0 0; text-align: center;">
+                            <img src="https://portal.algeriatrade.dz/logo-white.png" alt="AlgeriaTrade.dz" width="150" style="display: block; margin: 0 auto 15px;">
+                            <h1 style="color: #ffffff; margin: 0; font-size: 24px;">🔑 Nouvelle Clé API Créée</h1>
+                            <p style="color: rgba(255,255,255,0.85); margin: 8px 0 0; font-size: 14px;">Conservez ces informations en sécurité</p>
+                        </td>
+                    </tr>
+                    
+                    <!-- Alert Box -->
+                    <tr>
+                        <td style="padding: 30px 40px 0;">
+                            <table role="presentation" width="100%" cellspacing="0" cellpadding="15" border="0" style="background-color: #fef3c7; border-left: 4px solid #f59e0b; border-radius: 6px; margin-bottom: 25px;">
+                                <tr>
+                                    <td style="color: #92400e; font-size: 14px; line-height: 1.6;">
+                                        <strong>⚠️ Important :</strong> Cette clé ne s'affichera qu'une seule fois. 
+                                        Sauvegardez-la immédiatement dans un gestionnaire de mots de passe sécurisé.
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    
+                    <!-- Key Details -->
+                    <tr>
+                        <td style="padding: 0 40px 30px;">
+                            
+                            <h3 style="color: #1a1a2e; margin: 0 0 20px; font-size: 18px;">Détails de votre Clé API</h3>
+                            
+                            <!-- Key ID -->
+                            <div style="background-color: #f8fafc; padding: 15px 20px; border-radius: 8px; margin-bottom: 15px;">
+                                <label style="color: #64748b; display: block; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 5px;">ID de la Clé</label>
+                                <code style="color: #1e293b; font-size: 16px; background: none; padding: 0;">{{key_id}}</code>
+                            </div>
+                            
+                            <!-- Key Secret (THE IMPORTANT ONE) -->
+                            <div style="background: linear-gradient(135deg, #1e3a5f 0%, #2d5a87 100%); padding: 20px; border-radius: 8px; margin-bottom: 20px; position: relative;">
+                                <label style="color: rgba(255,255,255,0.8); display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">🔐 Secret de la Clé (Confidentiel)</label>
+                                <code id="api-key-secret" style="color: #ffffff; font-size: 18px; background: rgba(255,255,255,0.1); padding: 10px 15px; border-radius: 6px; display: block; word-break: break-all; letter-spacing: 0.5px; font-family: 'Monaco', 'Menlo', monospace;">{{key_secret}}</code>
+                                <p style="color: rgba(255,255,255,0.7); font-size: 12px; margin: 10px 0 0;">Copiez cette valeur maintenant - elle ne sera plus affichée.</p>
+                            </div>
+                            
+                            <!-- Additional Info Table -->
+                            <table role="presentation" width="100%" cellspacing="0" cellpadding="12" border="0" style="border: 1px solid #e2e8f0; border-radius: 8px;">
+                                <tr style="border-bottom: 1px solid #e2e8f0;">
+                                    <td style="width: 45%; color: #64748b; font-size: 13px;"><strong>Nom de la clé</strong></td>
+                                    <td style="color: #1e293b; font-size: 14px;">{{key_name}}</td>
+                                </tr>
+                                <tr style="border-bottom: 1px solid #e2e8f0;">
+                                    <td style="color: #64748b; font-size: 13px;"><strong>Environnement</strong></td>
+                                    <td>
+                                        <span style="background: {{env_color}}; color: white; padding: 3px 10px; border-radius: 12px; font-size: 12px;">{{environment}}</span>
+                                    </td>
+                                </tr>
+                                <tr style="border-bottom: 1px solid #e2e8f0;">
+                                    <td style="color: #64748b; font-size: 13px;"><strong>Permissions</strong></td>
+                                    <td style="color: #1e293b; font-size: 14px;">{{permissions}}</td>
+                                </tr>
+                                <tr>
+                                    <td style="color: #64748b; font-size: 13px;"><strong>Créée le</strong></td>
+                                    <td style="color: #1e293b; font-size: 14px;">{{created_at}}</td>
+                                </tr>
+                            </table>
+                            
+                        </td>
+                    </tr>
+                    
+                    <!-- Usage Guide -->
+                    <tr>
+                        <td style="background-color: #f8fafc; padding: 30px 40px;">
+                            <h3 style="color: #1a1a2e; margin: 0 0 15px; font-size: 16px;">📝 Comment utiliser votre clé</h3>
+                            
+                            <!-- Code Example -->
+                            <pre style="background-color: #1e293b; color: #e2e8f0; padding: 20px; border-radius: 8px; overflow-x: auto; font-size: 13px; line-height: 1.6; margin: 0 0 15px;"><code># Exemple cURL
+curl -X GET "https://api.algeriatrade.dz/v1/products" \
+  -H "X-API-Key: {{key_secret}}" \
+  -H "Accept: application/json"
+
+# Exemple JavaScript
+const response = await fetch(
+  'https://api.algeriatrade.dz/v1/products',
+  {
+    headers: {
+      'X-API-Key': '{{key_secret}}',
+      'Content-Type': 'application/json'
+    }
+  }
+);
+
+# Exemple Python
+import requests
+response = requests.get(
+  'https://api.algeriatrade.dz/v1/products',
+  headers={'X-API-Key': '{{key_secret}}'}
+)</code></pre>
+                            
+                            <p style="color: #64748b; font-size: 13px; margin: 0;">
+                                Consultez la <a href="{{docs_url}}" style="color: #006633; font-weight: 500;">documentation complète</a> pour plus d'exemples.
+                            </p>
+                        </td>
+                    </tr>
+                    
+                    <!-- Security Tips -->
+                    <tr>
+                        <td style="padding: 0 40px 35px;">
+                            <h4 style="color: #dc2626; margin: 0 0 12px; font-size: 14px;">🛡️ Conseils de Sécurité</h4>
+                            <ul style="color: #4a5568; font-size: 13px; line-height: 1.8; margin: 0; padding-left: 20px;">
+                                <li>Ne partagez JAMAIS votre clé secrète publiquement</li>
+                                <li>Ne la stockez pas dans votre code source (utilisez des variables d'environnement)</li>
+                                <li>Utilisez des clés différentes pour développement et production</li>
+                                <li>Régénérez la clé si vous pensez qu'elle a été compromise</li>
+                            </ul>
+                        </td>
+                    </tr>
+                    
+                </table>
+                
+                <!-- Footer -->
+                <table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" style="margin-top: 20px;">
+                    <tr>
+                        <td align="center" style="color: #94a3b8; font-size: 12px; line-height: 1.5;">
+                            <p style="margin: 0;">
+                                Cet email a été envoyé automatiquement depuis 
+                                <a href="{{portal_url}}" style="color: #64748b;">AlgeriaTrade.dz API Portal</a>.
+                            </p>
+                            <p style="margin: 5px 0 0;">
+                                Si vous n'avez pas créé cette clé, 
+                                <a href="{{revoke_url}}" style="color: #ef4444; font-weight: 500;">révoquez-la immédiatement</a>.
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+                
+            </td>
+        </tr>
+    </table>
+    
+</body>
+</html>

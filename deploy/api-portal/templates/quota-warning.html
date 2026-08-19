@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="fr" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alerte Quota API - AlgeriaTrade.dz</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f4f4f7;">
+    
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #f4f4f7;">
+        <tr>
+            <td align="center" style="padding: 40px 20px;">
+                
+                <table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08);">
+                    
+                    <!-- Warning Header -->
+                    <tr>
+                        <td style="background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%); padding: 35px 40px 25px; border-radius: 12px 12px 0 0; text-align: center;">
+                            <span style="font-size: 48px;">⚠️</span>
+                            <h1 style="color: #ffffff; margin: 15px 0 5px; font-size: 24px;">Alerte Quota d'API</h1>
+                            <p style="color: rgba(255,255,255,0.9); margin: 0; font-size: 15px;">Vous approchez de votre limite mensuelle</p>
+                        </td>
+                    </tr>
+                    
+                    <!-- Usage Stats -->
+                    <tr>
+                        <td style="padding: 40px;">
+                            
+                            <!-- Progress Visualization -->
+                            <div style="text-align: center; margin-bottom: 30px;">
+                                <div style="position: relative; display: inline-block;">
+                                    <!-- Circle Progress -->
+                                    <svg width="180" height="180" viewBox="0 0 180 180" style="transform: rotate(-90deg);">
+                                        <circle cx="90" cy="90" r="80" fill="none" stroke="#e2e8f0" stroke-width="12"/>
+                                        <circle cx="90" cy="90" r="80" fill="none" stroke="{{progress_color}}" stroke-width="12"
+                                                stroke-dasharray="{{usage_percent * 5.03}} {{503 - (usage_percent * 5.03)}}"
+                                                stroke-linecap="round"/>
+                                    </svg>
+                                    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center;">
+                                        <span style="font-size: 36px; font-weight: 700; color: {{progress_color}};">{{usage_percent}}%</span>
+                                        <span style="display: block; font-size: 13px; color: #64748b;">utilisé</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Stats Grid -->
+                            <table role="presentation" width="100%" cellspacing="0" cellpadding="15" border="0" style="margin-bottom: 25px;">
+                                <tr>
+                                    <td style="width: 33.33%; text-align: center; background-color: #f8fafc; border-radius: 8px; padding: 20px 10px;">
+                                        <span style="font-size: 28px; font-weight: 700; color: #1e293b;">{{requests_used}}</span>
+                                        <span style="display: block; font-size: 12px; color: #64748b; margin-top: 5px;">Requêtes utilisées</span>
+                                    </td>
+                                    <td style="width: 33.33%; text-align: center; background-color: #f8fafc; border-radius: 8px; padding: 20px 10px;">
+                                        <span style="font-size: 28px; font-weight: 700; color: #006633;">{{requests_remaining}}</span>
+                                        <span style="display: block; font-size: 12px; color: #64748b; margin-top: 5px;">Requêtes restantes</span>
+                                    </td>
+                                    <td style="width: 33.33%; text-align: center; background-color: #f8fafc; border-radius: 8px; padding: 20px 10px;">
+                                        <span style="font-size: 28px; font-weight: 700; color: #1e3a5f;">{{days_remaining}}</span>
+                                        <span style="display: block; font-size: 12px; color: #64748b; margin-top: 5px;">Jours restants</span>
+                                    </td>
+                                </tr>
+                            </table>
+                            
+                            <!-- Alert Message -->
+                            <table role="presentation" width="100%" cellspacing="0" cellpadding="18" border="0" 
+                                   style="{{alert_style}}; border-radius: 8px; margin-bottom: 25px;">
+                                <tr>
+                                    <td style="font-size: 14px; line-height: 1.6; {{alert_text_color}}">
+                                        <strong>{{alert_icon}} {{alert_title}}</strong><br>
+                                        {{alert_message}}
+                                    </td>
+                                </tr>
+                            </table>
+                            
+                            <!-- Current Plan Info -->
+                            <h3 style="color: #1a1a2e; margin: 0 0 15px; font-size: 16px;">Votre plan actuel</h3>
+                            
+                            <table role="presentation" width="100%" cellspacing="0" cellpadding="14" border="0" style="border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 25px;">
+                                <tr style="border-bottom: 1px solid #e2e8f0;">
+                                    <td style="color: #64748b; font-size: 13px;" width="40%">Plan</td>
+                                    <td style="color: #1e293b; font-size: 14px; font-weight: 500;">{{plan_name}} <span style="background: #006633; color: white; padding: 2px 8px; border-radius: 10px; font-size: 11px;">{{plan_badge}}</span></td>
+                                </tr>
+                                <tr style="border-bottom: 1px solid #e2e8f0;">
+                                    <td style="color: #64748b; font-size: 13%;">Quota mensuel</td>
+                                    <td style="color: #1e293b; font-size: 14px;">{{monthly_quota}} requêtes</td>
+                                </tr>
+                                <tr style="border-bottom: 1px solid #e2e8f0;">
+                                    <td style="color: #64748b; font-size: 13%;">Rate limit</td>
+                                    <td style="color: #1e293b; font-size: 14px;">{{rate_limit}} req/min</td>
+                                </tr>
+                                <tr>
+                                    <td style="color: #64748b; font-size: 13%;">Réinitialisation</td>
+                                    <td style="color: #1e293b; font-size: 14px;">{{reset_date}}</td>
+                                </tr>
+                            </table>
+                            
+                            <!-- Action Buttons -->
+                            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                                <tr>
+                                    <td style="padding: 10px 0;" width="50%" align="center">
+                                        <a href="{{dashboard_url}}" 
+                                           style="display: inline-block; background-color: #1e3a5f; color: #ffffff; text-decoration: none; padding: 14px 24px; border-radius: 8px; font-weight: 600; font-size: 14px;">
+                                            Voir le Détail
+                                        </a>
+                                    </td>
+                                    <td style="padding: 10px 0;" width="50%" align="center">
+                                        <a href="{{upgrade_url}}" 
+                                           style="display: inline-block; background: linear-gradient(135deg, #006633 0%, #00a651 100%); color: #ffffff; text-decoration: none; padding: 14px 24px; border-radius: 8px; font-weight: 600; font-size: 14px;">
+                                            Upgrader le Plan →
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
+                            
+                        </td>
+                    </tr>
+                    
+                    <!-- Tips Section -->
+                    <tr>
+                        <td style="background-color: #f8fafc; padding: 25px 40px; border-radius: 0 0 12px 12px;">
+                            <h4 style="color: #1a1a2e; margin: 0 0 12px; font-size: 14px;">💡 Conseils pour optimiser votre usage</h4>
+                            <ul style="color: #4a5568; font-size: 13px; line-height: 1.7; margin: 0; padding-left: 18px;">
+                                <li><strong>Mettez en cache</strong> les réponses des endpoints peu fréquemment mis à jour</li>
+                                <li><strong>Utilisez la pagination</strong> pour éviter de récupérer trop de données en une requête</li>
+                                <li><strong>Vérifiez vos appels en boucle</strong> qui pourraient faire des requêtes redondantes</li>
+                                <li><strong>Activez les webhooks</strong> pour recevoir les mises à jour sans polling</li>
+                            </ul>
+                        </td>
+                    </tr>
+                    
+                </table>
+                
+                <!-- Footer -->
+                <table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" style="margin-top: 20px;">
+                    <tr>
+                        <td align="center" style="color: #94a3b8; font-size: 12px; line-height: 1.5;">
+                            <p style="margin: 0;">
+                                Cette alerte automatique a été envoyée à <strong>{{email}}</strong>.
+                            </p>
+                            <p style="margin: 5px 0 0;">
+                                Pour modifier vos préférences de notification : 
+                                <a href="{{settings_url}}" style="color: #64748b;">Paramètres du compte</a>
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+                
+            </td>
+        </tr>
+    </table>
+    
+</body>
+</html>

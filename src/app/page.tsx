@@ -15,7 +15,10 @@ import {
   CheckCircle2,
   BarChart3,
   Users,
-  Server
+  Server,
+  Rocket,
+  Package,
+  Factory
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -366,6 +369,187 @@ Response:
                 </Card>
               </TabsContent>
             </Tabs>
+          </div>
+        </section>
+
+        {/* Blockchain Pilot Program Section */}
+        <section className="py-20 bg-gradient-to-br from-emerald-50 via-cyan-50 to-background">
+          <div className="container mx-auto px-4">
+            <div className="max-w-6xl mx-auto">
+              <div className="text-center mb-12">
+                <Badge variant="secondary" className="mb-4 gap-1 px-4 py-2">
+                  <Rocket className="w-4 h-4" />
+                  NEW - Blockchain Pilot Program
+                </Badge>
+                
+                <h2 className="text-3xl md:text-4xl font-bold mb-4">
+                  AlgeriaTrack.dz{' '}
+                  <span className="text-primary">Blockchain Pilot</span>
+                  {' '}Customer Onboarding
+                </h2>
+                
+                <p className="text-lg text-muted-foreground max-w-3xl mx-auto mb-8">
+                  Launch your supply chain tracking pilot in 14 days. Complete onboarding wizard, 
+                  real-time dashboard, and industry-specific templates for Algerian enterprises.
+                </p>
+
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+                  <Link href="/admin/blockchain-pilot">
+                    <Button size="lg" className="gap-2 text-base px-8 bg-emerald-600 hover:bg-emerald-700">
+                      <Rocket className="w-5 h-5" />
+                      Start Pilot Program
+                      <ArrowRight className="w-5 h-5" />
+                    </Button>
+                  </Link>
+                  
+                  <Link href="/docs/BLOCKCHAIN-PILOT/ONBOARDING-GUIDE.md" target="_blank">
+                    <Button size="lg" variant="outline" className="gap-2 text-base px-8 border-emerald-300 text-emerald-700 hover:bg-emerald-50">
+                      <BookOpen className="w-5 h-5" />
+                      View Onboarding Guide
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+
+              {/* Industry Cards */}
+              <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mt-12">
+                {[
+                  {
+                    icon: '💊',
+                    title: 'Pharmaceuticals',
+                    titleAr: 'الأدوية',
+                    companies: 'SAIDAL, BIOPHARM, Pharmal',
+                    color: 'from-red-50 to-red-100 border-red-200',
+                    features: ['AMM/ANPP integration', 'Cold chain monitoring', 'GMP compliance', 'Batch traceability']
+                  },
+                  {
+                    icon: '🌴',
+                    title: 'Dates & Agriculture',
+                    titleAr: 'تمور وزراعة',
+                    companies: 'Biskra Dates Coop, Tizi Ouzou Olive Oil',
+                    color: 'from-amber-50 to-amber-100 border-amber-200',
+                    features: ['ONSSA organic certification', 'PGI labeling', 'Harvest tracking', 'Export documentation']
+                  },
+                  {
+                    icon: '🏗️',
+                    title: 'Cement & Construction',
+                    titleAr: 'أسمنت وبناء',
+                    companies: 'SCIMAT, ERCIM, GICA Group',
+                    color: 'from-gray-50 to-gray-100 border-gray-200',
+                    features: ['NA 16001 compliance', 'QAISO certification', 'Quality testing', 'Customs integration']
+                  },
+                  {
+                    icon: '⚙️',
+                    title: 'Steel & Metals',
+                    titleAr: 'صلب ومعادن',
+                    companies: 'Tosyali Algeria, AQS',
+                    color: 'from-blue-50 to-blue-100 border-blue-200',
+                    features: ['EN 10080/NA 16004', 'Rebar traceability', 'Melt identity', 'Project linkage']
+                  }
+                ].map((industry, i) => (
+                  <Card key={i} className={`bg-gradient-to-br ${industry.color} hover:shadow-lg transition-all`}>
+                    <CardContent className="pt-6">
+                      <div className="text-4xl mb-3">{industry.icon}</div>
+                      <h3 className="font-bold text-lg mb-1">{industry.title}</h3>
+                      <p className="text-xs opacity-75 mb-3">{industry.titleAr}</p>
+                      <p className="text-xs font-medium opacity-60 mb-4">{industry.companies}</p>
+                      <ul className="space-y-1">
+                        {industry.features.slice(0, 3).map((feature, j) => (
+                          <li key={j} className="flex items-start gap-1.5 text-xs">
+                            <CheckCircle2 className="w-3.5 h-3.5 mt-0.5 shrink-0 text-emerald-600" />
+                            <span>{feature}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+
+              {/* Pilot Timeline Summary */}
+              <Card className="mt-12 bg-white/80 backdrop-blur-sm">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-xl">
+                    <Package className="w-6 h-6 text-primary" />
+                    14-Day Pilot Program Overview
+                  </CardTitle>
+                  <CardDescription>Structured onboarding from setup to full rollout decision</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid md:grid-cols-2 gap-8">
+                    {/* Week 1 */}
+                    <div>
+                      <h4 className="font-semibold mb-3 flex items-center gap-2">
+                        <Badge className="bg-blue-100 text-blue-800">Week 1</Badge>
+                        Setup & Integration
+                      </h4>
+                      <div className="space-y-2">
+                        {[
+                          { day: '1-2', task: 'Account setup & API keys', status: 'done' },
+                          { day: '3-4', task: 'Product catalog upload (batch)', status: 'done' },
+                          { day: '5-6', task: 'Staff training on scanning', status: 'current' },
+                          { day: '7', task: 'Go-live with first batch', status: 'pending' }
+                        ].map((item, i) => (
+                          <div key={i} className="flex items-center gap-2 text-sm">
+                            <span className={`w-16 h-6 rounded flex items-center justify-center text-xs font-mono ${
+                              item.status === 'done' ? 'bg-green-100 text-green-700' :
+                              item.status === 'current' ? 'bg-blue-100 text-blue-700 animate-pulse' : 'bg-gray-100 text-gray-500'
+                            }`}>
+                              D{item.day.split('-')[0]}
+                            </span>
+                            <span>{item.task}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Week 2 */}
+                    <div>
+                      <h4 className="font-semibold mb-3 flex items-center gap-2">
+                        <Badge className="bg-purple-100 text-purple-800">Week 2</Badge>
+                        Active Tracking & Optimization
+                      </h4>
+                      <div className="space-y-2">
+                        {[
+                          { day: '8-10', task: 'Monitor shipments & verify provenance', status: 'pending' },
+                          { day: '11-12', task: 'Issue digital certificates', status: 'pending' },
+                          { day: '13', task: 'Collect customer feedback', status: 'pending' },
+                          { day: '14', task: 'Pilot review & rollout decision', status: 'pending' }
+                        ].map((item, i) => (
+                          <div key={i} className="flex items-center gap-2 text-sm">
+                            <span className={`w-16 h-6 rounded flex items-center justify-center text-xs font-mono ${
+                              item.status === 'pending' ? 'bg-gray-100 text-gray-500' : 'bg-gray-100'
+                            }`}>
+                              D{item.day.split('-')[0]}
+                            </span>
+                            <span>{item.task}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Key Metrics Targeted */}
+                  <div className="mt-6 pt-6 border-t">
+                    <h4 className="font-semibold mb-3">Pilot Success KPIs</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      {[
+                        { metric: 'Tracking Coverage', target: '≥80%', icon: '📍' },
+                        { metric: 'Event Accuracy', target: '≥99%', icon: '✅' },
+                        { metric: 'User Adoption', target: '≥85%', icon: '👥' },
+                        { metric: 'Certificate Rate', target: '≥90%', icon: '🏆' }
+                      ].map((kpi, i) => (
+                        <div key={i} className="text-center p-3 bg-muted/50 rounded-lg">
+                          <div className="text-xl mb-1">{kpi.icon}</div>
+                          <div className="text-xs font-medium">{kpi.metric}</div>
+                          <div className="text-xs text-primary font-bold">{kpi.target}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </div>
         </section>
 

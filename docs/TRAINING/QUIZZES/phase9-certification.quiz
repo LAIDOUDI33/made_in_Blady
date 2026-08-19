@@ -1,0 +1,956 @@
+# Phase 9 Certification Assessment
+## AlgeriaTrade.dz - AI Business Intelligence & Compliance Engine
+### Évaluation de Certification - Quiz Complet Phase 9
+
+---
+
+**Version:** 9.0.0  
+**Date:** January 2025  
+**Total Questions:** 30 MCQ + 3 Scenarios  
+**Passing Score:** 80% (24/30 MCQ + Scenarios)  
+**Time Limit:** 60 minutes recommended  
+**الدرجة الناجحة:** ٨٠٪ (٢٤ من ٣٠ + السيناريوهات)
+
+---
+
+## INSTRUCTIONS (التعليمات)
+
+### Before You Begin (قبل البدء)
+
+1. **Read all questions carefully** - اقرأ جميع الأسئلة بعناية
+2. **Single choice only** - إجابة واحدة فقط لكل سؤال
+3. **No negative marking** - لا يوجد نقصان للإجابات الخاطئة
+4. **Passing threshold: 80%** - عتبة النجاح: ٨٠٪
+5. **Open book permitted** - مسموح بالرجوع للمواد التدريبية
+6. **Time yourself** - راقب وقتك
+
+### Certification Levels (مستويات الشهادة)
+
+| Score | Level | Certificate | Validity |
+|-------|-------|-------------|----------|
+| **95-100%** | Expert | Phase 9 Expert Certified | 24 months |
+| **85-94%** | Advanced | Phase 9 Advanced Certified | 18 months |
+| **80-84%** | Standard | Phase 9 Certified | 12 months |
+| **<80%** | Not Passed | Retake required | N/A |
+
+---
+
+## SECTION A: AI ANALYTICS (Questions 1-15)
+## القسم أ: تحليلات الذكاء الاصطناعي (الأسئلة ١-١٥)
+
+*This section tests your understanding of AI predictions, dashboard usage, recommendation engine, and admin functions*
+
+---
+
+### Question 1: Confidence Score Minimum Threshold
+
+**What is the MINIMUM confidence score recommended for using an AI prediction in critical business planning decisions?**
+
+- a) 50%
+- b) 60%
+- c) 75%
+- d) 90%
+
+**Context:** A purchasing manager at Groupe Saidal wants to use demand predictions for ordering pharmaceutical raw materials worth 50M DZD.
+
+---
+
+### Question 2: Ramadan Demand Pattern
+
+**During Ramadan in Algeria, which demand pattern does the AI model typically detect for B2B e-commerce platforms?**
+
+- a) Uniform demand throughout day and night
+- b) Decreased daytime demand (-30%), increased nighttime demand (+40%)
+- c) Complete halt of all commercial activities
+- d) Double demand across all product categories equally
+
+**Context:** Condor Algeria is planning its Ramadan marketing campaign timing.
+
+---
+
+### Question 3: Supplier Matching Dimensions
+
+**How many dimensions are evaluated when calculating the supplier compatibility score on AlgeriaTrade.dz?**
+
+- a) 4 dimensions
+- b) 5 dimensions
+- c) 6 dimensions
+- d) 8 dimensions
+
+**Context:** A buyer at Naftal is reviewing why a particular supplier received a match score of 78%.
+
+---
+
+### Question 4: Recall Metric Interpretation
+
+**In a churn prediction model, what does a Recall metric of 85% indicate?**
+
+- a) 85% of predicted churners actually churned (Precision)
+- b) 85% of customers who will actually churn are correctly identified
+- c) 85% of all predictions made by the model are correct
+- d) 85% of customers will remain loyal to the platform
+
+**Context:** The AI team at AlgeriaTrade.dz is evaluating the performance of their updated churn prediction model.
+
+---
+
+### Question 5: Standard TVA Rate
+
+**What is the standard VAT (TVA / ضريبة القيمة المضافة) rate applicable to most B2B products and services in Algeria?**
+
+- a) 0%
+- b) 9%
+- c) 14%
+- d) 19%
+
+**Context:** Cevital is invoicing industrial machinery to a local distributor.
+
+---
+
+### Question 6: Revenue Scenario Selection
+
+**When creating a conservative budget plan for board presentation, which revenue scenario should you select from the predictive dashboard?**
+
+- a) Optimistic scenario (+12 to +15% above central)
+- b) Realistic/central scenario (expected value)
+- c) Conservative scenario (-12 to -15% below central)
+- d) Average of all three scenarios
+
+**Context:** The CFO of Groupe Vitall needs to present conservative projections to the board.
+
+---
+
+### Question 7: Churn Alert Automatic Action
+
+**What automatic action is triggered when a customer's churn risk score reaches 70% or higher on AlgeriaTrade.dz?**
+
+- a) Immediate account blocking
+- b) Alert assigned to commercial contact + CRM priority task created
+- c) Automatic 10% discount coupon sent to customer
+- d) Customer data deletion process initiated
+
+**Context:** A long-standing customer of Sonelgaz shows sudden behavior changes triggering high churn risk.
+
+---
+
+### Question 8: Model Retraining Frequency
+
+**What is the recommended retraining frequency for the Demand Forecast model in production?**
+
+- a) Daily
+- b) Weekly
+- c) Monthly
+- d) Quarterly
+
+**Context:** The AI operations team is scheduling maintenance windows for model updates.
+
+---
+
+### Question 9: Drift Detection Indicator
+
+**Which indicator reveals that an AI model is suffering from "concept drift" or "data drift"?**
+
+- a) Increase in accuracy metrics over time
+- b) Greater than 5% change in input data distribution patterns
+- c) Decrease in total number of predictions generated
+- d) Increase in model response time
+
+**Context:** The ML monitoring system has flagged potential drift in the price optimization model.
+
+---
+
+### Question 10: New Product Pricing Strategy
+
+**For a new product launch in a highly competitive Algerian market with strong established players, which pricing strategy does the AI recommend?**
+
+- a) Margin Maximization strategy
+- b) Market Share / Penetration strategy
+- c) Optimal Balance strategy
+- d) Strictly Competitive strategy
+
+**Context:** A new textile manufacturer in Oran is launching against established players like Texmede.
+
+---
+
+### Question 11: Prediction Certainty
+
+**True or False: A prediction with 95% confidence score guarantees the exact predicted value will occur.**
+
+- a) True - High confidence means certainty
+- b) False - Confidence refers to interval probability, not point accuracy
+
+**Context:** Interpreting a demand forecast showing 95% confidence for 10,000 units.
+
+---
+
+### Question 12: Auto-Pricing Application
+
+**True or False: The AlgeriaTrade.dz system automatically applies ALL pricing suggestions without requiring human validation.**
+
+- a) True - Full automation for efficiency
+- b) False - All suggestions require human approval before application
+
+**Context:** Understanding the safeguards in the pricing optimization system.
+
+---
+
+### Question 13: Local Supplier Preference
+
+**True or False: The supplier matching algorithm ALWAYS favors Algerian local suppliers over foreign suppliers regardless of other factors.**
+
+- a) True - Localization is always prioritized
+- b) False - Location is one factor (20% weight); overall score determines ranking
+
+**Context:** A government procurement officer is reviewing supplier recommendations that include foreign options.
+
+---
+
+### Question 14: Holiday Seasonality Differences
+
+**True or False: The seasonal adjustment coefficients applied by the AI model are identical for Eid Al-Fitr (Aïd El-Fitr) and Eid Al-Adha (Aïd El-Adha).**
+
+- a) True - Both Eids have same impact pattern
+- b) False - Different product categories affected (textile vs livestock primarily)
+
+**Context:** Planning inventory for both major Islamic holidays.
+
+---
+
+### Question 15: Acceptable Error Rate
+
+**Is a prediction error rate of 0.5% considered acceptable according to AlgeriaTrade.dz standards?**
+
+- a) Yes - Target threshold is <1%, so 0.5% is acceptable
+- b) No - Target threshold is <0.1%, so 0.5% is too high
+
+**Context:** Reviewing monthly model performance reports.
+
+---
+
+## SECTION B: COMPLIANCE (Questions 16-30)
+## القسم ب: الامتثال (الأسئلة ١٦-٣٠)
+
+*This section tests your knowledge of Algerian legal framework, compliance checker usage, TVA rules, sanctions screening, and document management*
+
+---
+
+### Question 16: Compliance Score Processing Threshold
+
+**What is the minimum global compliance score required for STANDARD transaction processing without additional review or approval?**
+
+- a) 50-59 points
+- b) 60-74 points
+- c) 75-89 points
+- d) 90-100 points
+
+**Context:** An operator is processing a routine B2B transaction between two verified Algerian companies.
+
+---
+
+### Question 17: Commercial Code Reference
+
+**What is the correct legal reference for the Algerian Code de Commerce (قانون التجارة)?**
+
+- a) Loi 03-01 du 26 février 2003
+- b) Ordonnance 75-59 du 26 septembre 1975
+- c) Ordonnance 76-147 du 30 décembre 1976
+- d) Loi 18-07 du 10 juin 2018
+
+**Context:** A compliance officer needs to cite the correct reference in an audit report.
+
+---
+
+### Question 18: TVA Reduced Rate Products
+
+**Which of the following products qualifies for the reduced 9% TVA rate in Algeria?**
+
+- a) Luxury chocolate gifts
+- b) Industrial CNC machinery
+- c) Basic cooking oil (huile de table) for household consumption
+- d) Latest smartphone model
+
+**Context:** A supplier is categorizing products for correct TVA calculation on invoices.
+
+---
+
+### Question 19: Data Protection Law Reference
+
+**What is the correct legislative reference for Algeria's personal data protection law (similar to GDPR)?**
+
+- a) Loi 03-03 relative à la concurrence
+- b) Loi 05-04 sur le commerce électronique
+- c) Loi 18-07 relative à la protection des données personnelles
+- d) Loi 09-04 sur la protection des consommateurs
+
+**Context:** The DPO is preparing a privacy impact assessment document.
+
+---
+
+### Question 20: Sanctions Exact Match Action
+
+**What action is MANDATORY when an EXACT match is detected on any sanctions screening list (OFAC/EU/UN/DZ)?**
+
+- a) Document the match and continue monitoring only
+- b) Pause transaction for manual review within 24 hours
+- c) Immediate blocking of entity AND pending transaction
+- d) Request additional documentation from the entity
+
+**Context:** A new buyer registration triggers an exact match against the EU Consolidated List.
+
+---
+
+### Question 21: RC Extract Validity Period
+
+**What is the maximum acceptable age for a Registre du Commerce (RC) extract when submitted for compliance verification on AlgeriaTrade.dz?**
+
+- a) 7 days
+- b) 15 days
+- c) 30 days
+- d) 90 days
+
+**Context:** A supplier is submitting documentation for verification; their RC extract is 25 days old.
+
+---
+
+### Question 22: Critical Violation Response SLA
+
+**What is the MAXIMUM response time for a P1-CRITICAL (red) level compliance violation?**
+
+- a) 1 hour
+- b) 4 hours
+- c) 24 hours
+- d) 72 hours
+
+**Context:** A sanctions exact match has been detected during a transaction screening.
+
+---
+
+### Question 23: Data Subject Access Rights (Loi 18-07)
+
+**Under Algeria's data protection law (Loi 18-07), what is the maximum time limit to respond to a data subject's access request (droit d'accès)?**
+
+- a) 7 days
+- b) 15 days
+- c) 30 days
+- d) 60 days
+
+**Context:** A user has requested copies of all personal data held by AlgeriaTrade.dz.
+
+---
+
+### Question 24: Withholding Tax Rate (Retenue à la Source)
+
+**What is the standard withholding tax (IRG - retenue à la source) rate for payments to local service providers in Algeria?**
+
+- a) 10%
+- b) 14%
+- c) 19%
+- d) 24%
+
+**Context:** An IT services company is invoicing a large corporate client and needs to apply correct withholding.
+
+---
+
+### Question 25: False Positive Resolution First Step
+
+**When resolving a POTENTIAL FALSE POSITIVE sanctions match (medium probability), what should be the FIRST step taken?**
+
+- a) Immediately approve the transaction to avoid delay
+- b) Collect identity proof documents from the entity (passport, proof of address)
+- c) Escalate directly to senior management
+- d) Report to regulatory authorities immediately
+
+**Context:** Screening shows 62% probability match for "K. Benzarti" against EU list; entity claims false positive.
+
+---
+
+### Question 26: Data Breach Notification Deadline
+
+**Under Loi 18-07, what is the deadline to notify the data protection authority (ANPD) of a personal data breach?**
+
+- a) 24 hours
+- b) 48 hours
+- c) 72 hours
+- d) 7 days
+
+**Context:** AlgeriaTrade.dz discovered unauthorized access to some user records.
+
+---
+
+### Question 27: Foreign Trade Law Reference
+
+**What is the correct legal reference for Algeria's foreign trade regulation law governing imports and exports?**
+
+- a) Ordonnance 75-59
+- b) Loi 03-01 du 26 février 2003
+- c) Loi 05-04 sur le commerce électronique
+- d) Loi 18-07
+
+**Context:** Documentation required for an import license application.
+
+---
+
+### Question 28: TVA Declaration Regime Threshold
+
+**Above what annual turnover (chiffre d'affaires) threshold MUST an Algerian company use the MONTHLY TVA declaration regime instead of quarterly?**
+
+- a) 10,000,000 DZD
+- b) 20,000,000 DZD
+- c) 30,000,000 DZD
+- d) 50,000,000 DZD
+
+**Context:** A growing SME is approaching the threshold for regime change.
+
+---
+
+### Question 29: PEP Definition
+
+**In sanctions screening context, what does PEP stand for?**
+
+- a) Prioritized Entity Processing
+- b) Politically Exposed Person
+- c) Primary Economic Partner
+- d) Protected Entity Protocol
+
+**Context:** Enhanced due diligence requirements triggered for certain customer categories.
+
+---
+
+### Question 30: Audit Prohibited Action
+
+**When receiving notification of an unexpected tax audit (contrôle fiscal) from DGI, which action is PROHIBITED?**
+
+- a) Preparing relevant documents and records
+- b) Informing internal legal team immediately
+- c) Destroying, modifying, or "updating" any documents
+- d) Designating a single point of contact for auditors
+
+**Context:** A company receives unannounced visit from tax inspectors.
+
+---
+
+## ANSWER KEY & EXPLANATIONS (مفتاح الإجابات والتفسيرات)
+
+### Section A: AI Analytics Answers (إجابات قسم الذكاء الاصطناعي)
+
+| Q# | Answer | Points | Detailed Explanation |
+|----|--------|--------|---------------------|
+| **1** | **c) 75%** | 1 | Scores below 75% fall into "moderate reliability" zone requiring enhanced monitoring and manual validation. For CRITICAL decisions like 50M DZD orders, minimum 75% is mandatory per training guidelines. Scores 60-74% require additional due diligence. |
+| **2** | **b)** | 1 | The Algerian market AI model detects distinct Ramadan pattern: daytime business activity drops ~30% (shorter working hours, fasting), while nighttime activity increases ~40% (post-Iftar shopping peak 20h-23h). This is specifically calibrated for DZ market behavior. |
+| **3** | **c) 6** | 1 | Six dimensions evaluated: Product Fit (30%), Location (20%), Capacity (15%), Certification (15%), Price Competitiveness (10%), Performance History (10%). Total = 100%. This weighted approach ensures balanced matching. |
+| **4** | **b)** | 1 | Recall = TP/(TP+FN). It measures the model's ability to find ALL actual positives (customers who will churn). 85% recall means 85% of actual churners are correctly identified. Precision (option a) measures quality of positive predictions. |
+| **5** | **d) 19%** | 1 | Per Ordonnance 76-147 (Code TVA), the standard/normal rate is 19%. This applies to most goods and services unless specifically listed under reduced (9%) or zero-rated categories. Industrial machinery falls under standard rate. |
+| **6** | **c)** | 1 | Conservative scenario uses lower bound of prediction interval (-12 to -15% below central value). This provides safety margin for board presentations and ensures prudent financial planning. Never use optimistic for conservative planning. |
+| **7** | **b)** | 1 | System automatically: (1) assigns alert to designated commercial contact, (2) creates CRM priority task, (3) suggests retention actions. It does NOT auto-block, auto-discount, or delete data. Human judgment remains central. |
+| **8** | **b) Weekly** | 1 | Demand_Forecast model retrains every Sunday at 02:00. Weekly cadence captures recent trends while avoiding overfitting. More frequent models: Supplier_Matcher (daily); Less frequent: Category_Classifier (quarterly). |
+| **9** | **b)** | 1 | Drift = significant change (>5%) in statistical distribution of input data compared to training data. This indicates model may be becoming less accurate as real-world conditions diverge from training conditions. Triggers retraining alert. |
+| **10** | **b)** | 1 | Market Share/Penetration strategy recommended for new entrants in competitive markets. Uses lower prices (±3% volatility) to gain initial traction, customer base, and reviews. Can transition to "Optimal Balance" after establishing presence. |
+| **11** | **b) False** | 1 | 95% confidence means there's a 95% probability the ACTUAL value falls within the PREDICTION INTERVAL, not that it equals the point prediction. Interval interpretation is crucial - always consider range, not just central value. |
+| **12** | **b) False** | 1 | ALL pricing suggestions require human validation before application. This safeguard prevents erroneous extreme suggestions (>15% changes) from being applied automatically. User must click "Apply" after reviewing each suggestion. |
+| **13** | **b) False** | 1 | Location is ONE factor weighing 20% of total score. A foreign supplier could score higher overall if they excel in product fit (30%), capacity (15%), certifications (15%), etc. Algorithm optimizes total compatibility, not just location. |
+| **14** | **b) False** | 1 | Different primary categories affected: Aïd El-Fitr focuses on clothing/textiles, food, gifts (+200% week before). Aïd El-Adha focuses on livestock/agriculture, different food items (+150%). Coefficients differ by category. |
+| **15** | **a) Yes** | 1 | Target error rate threshold is <1%. Therefore 0.5% is well within acceptable range. Error rates 1-5% trigger warning status; >5% is critical requiring investigation. Current system operates at ~0.23% error rate. |
+
+**Section A Subtotal: _____ / 15**
+
+---
+
+### Section B: Compliance Answers (إجابات قسم الامتثال)
+
+| Q# | Answer | Points | Detailed Explanation |
+|----|--------|--------|---------------------|
+| **16** | **c) 75-89** | 1 | Scores 75-89 qualify as "GOOD" allowing standard processing without additional approval. Scores 90-100 get fast-track. Scores 60-74 require senior operator review. Below 60 requires manager approval or transaction hold. |
+| **17** | **b) Ordonnance 75-59** | 1 | Code de Commerce = Ordonnance 75-59 dated September 26, 1975. This is THE foundational commercial law. Option a (03-01) is Foreign Trade Law. Option c (76-147) is TVA Code. Option d (18-07) is Data Protection Law. |
+| **18** | **c) Basic cooking oil** | 1 | Basic food necessities qualify for reduced 9% TVA rate: flour, table oil, milk, sugar, semoule. Luxury chocolate (a) is 19%. Machinery (b) is 19%. Smartphones (d) are 19%. Only specific basic necessities get 9%. |
+| **19** | **c) Loi 18-07** | 1 | Loi 18-07 dated June 10, 2018 is Algeria's comprehensive data protection law, modeled on GDPR principles. It establishes ANPD (Autorité Nationale de Protection des Données), data subject rights, and processor obligations. |
+| **20** | **c) Immediate block** | 1 | EXACT match = confirmed sanctioned entity per OFAC/EU/UN/DZ list. Mandatory immediate blocking of BOTH entity registration AND any pending transactions. No exceptions without CLO approval. This is non-negotiable compliance requirement. |
+| **21** | **c) 30 days** | 1 | Maximum acceptable age for RC extract is 30 days. At 25 days (scenario), document is still valid but approaching expiry - system would show warning. At 31+ days, document rejected as expired, requiring fresh extract from CNRC. |
+| **22** | **a) 1 hour** | 1 | P1-CRITICAL violations require INITIAL response within 1 hour, resolution within 4 hours. Examples: sanctions exact match, data breach, suspected fraud. P2-MAJOR allows 4 hours initial response. Time is critical for critical violations. |
+| **23** | **c) 30 days** | 1 | Per Loi 18-07 (similar to GDPR Article 15), data subjects have right to access their personal data. Platform must respond within 30 days maximum. Extension possible for complex requests (with notification). Best practice: respond within 15 days. |
+| **24** | **a) 10%** | 1 | Standard IRG withholding for local service providers is 10%. Note: Rates vary by category - 24% for some consulting services, different rates for freelancers vs companies. Always verify specific service category before applying. |
+| **25** | **b) Collect proof docs** | 1 | FIRST step: request identity documentation (full passport, proof of address <3 months, professional certificates). Compare key identifiers (DOB, place of birth, nationality) against sanctioned entry. If DOB differs → likely false positive. Never reveal "you matched sanctions list." |
+| **26** | **c) 72 hours** | 1 | Mandatory notification to ANPD within 72 hours of becoming aware of personal data breach. This aligns with international best practices (GDPR requires 72 hours to supervisory authority). Internal documentation and user notification also required. |
+| **27** | **b) Loi 03-01** | 1 | Loi 03-01 dated February 26, 2003 governs foreign trade operations including imports, exports, licensing requirements, and customs procedures. This is the primary reference for trade compliance matters. |
+| **28** | **c) 30,000,000 DZD** | 1 | Companies with annual turnover exceeding 30 million DZD MUST use monthly TVA declaration regime (déclaration mensuelle). Below this threshold can use quarterly (déclaration trimestrielle). This threshold was updated in recent fiscal reforms. |
+| **29** | **b) Politically Exposed Person** | 1 | PEP = Politically Exposed Person. These are individuals who hold/held prominent public positions (government officials, politicians, judicial figures, senior executives of state-owned enterprises). Enhanced due diligence required for PEP relationships. |
+| **30** | **c) Destroying/modifying docs** | 1 | Document destruction, modification, falsification, or "updating" during audit is a CRIMINAL offense (obstruction of justice, destruction of evidence). This carries severe penalties including imprisonment. Preparing documents (a), informing legal (b), designating contact (d) are all appropriate. |
+
+**Section B Subtotal: _____ / 15**
+
+---
+
+## SCORING SUMMARY (ملخص التقييم)
+
+```
+╔═══════════════════════════════════════════════════════════════╗
+║                    PHASE 9 CERTIFICATION SCORING               ║
+╠═══════════════════════════════════════════════════════════════╣
+║                                                               ║
+║  SECTION A: AI ANALYTICS                                      ║
+║  ┌───────────────────────────────────────────────────────┐   ║
+║  │ Questions 1-15                                          │   ║
+║  │ Correct: _______ / 15                                   │   ║
+║  │ Percentage: _______ %                                    │   ║
+║  └───────────────────────────────────────────────────────┘   ║
+║                                                               ║
+║  SECTION B: COMPLIANCE                                        ║
+║  ┌───────────────────────────────────────────────────────┐   ║
+║  │ Questions 16-30                                         │   ║
+║  │ Correct: _______ / 15                                   │   ║
+║  │ Percentage: _______ %                                    │   ║
+║  └───────────────────────────────────────────────────────┘   ║
+║                                                               ║
+║  ═════════════════════════════════════════════════════════    ║
+║                                                               ║
+║  TOTAL MCQ SCORE: _______ / 30                               ║
+║  TOTAL PERCENTAGE: _______ %                                 ║
+║                                                               ║
+║  RESULT:                                                     ║
+║  □ CERTIFIED EXPERT (95-100%) ✅✅✅                          ║
+║  □ CERTIFIED ADVANCED (85-94%) ✅✅                           ║
+║  □ CERTIFIED STANDARD (80-84%) ✅                             ║
+║  □ NOT PASSED (< 80%) ❌ - RETAKE REQUIRED                   ║
+║                                                               ║
+╚═══════════════════════════════════════════════════════════════╝
+```
+
+---
+
+## SCENARIO-BASED PRACTICAL QUESTIONS (أسئلة عملية قائمة على السيناريوهات)
+
+*Each scenario is worth 5 points. Minimum 12/15 points (80%) required on scenarios combined.*
+
+---
+
+### Scenario 1: AI Prediction Interpretation (تفسير تنبؤات الذكاء الاصطناعي)
+
+**Scenario Context (سياق السيناريو):**
+
+You are the Procurement Manager at **Groupe SIMKO** (Algerian construction materials distributor, based in Sétif). You receive the following AI demand prediction:
+
+```
+DEMAND FORECAST - CONSTRUCTION MATERIALS
+Entity: Groupe SIMKO
+Location: Wilaya 28 - Sétif
+Period: March 2025 (pre-Ramadan period)
+
+PREDICTION DETAILS:
+├── Predicted Volume:     8,500 tonnes cement equivalent
+├── Confidence Score:     68% (MODERATE)
+├── Prediction Interval:  [6,800 - 10,200 tonnes]
+├── Central Value:        8,500 tonnes
+│
+├── FACTORS CONSIDERED:
+│   ├── ✓ Spring construction season starting
+│   ├── ⚠ Pre-Ramadan period (Ramadan expected ~Feb 28)
+│   ├── ⚠ New competitor entered Sétif market
+│   ├── ✓ Government infrastructure projects active
+│   └── ⚠ Cement price volatility (+8% last month)
+│
+└── MODEL VERSION: Demand_Forecast_v4.2 (retrained Feb 23, 2025)
+```
+
+**Question (السؤال):**
+
+Should you use this prediction for placing your main cement order for March? Explain your decision-making process and outline exactly how you would proceed, including what additional steps you would take given the 68% confidence level.
+
+**Model Answer (إجابة النموذج):**
+
+> **DECISION: Use with caution - do NOT rely solely on this prediction**
+>
+> **Reasoning:**
+> 
+> With 68% confidence (MODERATE reliability zone), this prediction falls below the 75% threshold recommended for critical procurement decisions. However, it provides valuable directional guidance.
+>
+> **Recommended Approach:**
+>
+> 1. **Use CONSERVATIVE scenario (6,800t)** as baseline minimum - plan for at least this volume
+> 2. **Plan tiered ordering strategy:**
+>    - Firm order: 6,800 tonnes (conservative bound)
+>    - Option/backup agreement with supplier for +1,700t if demand confirms
+>    - Express replenishment capability for upside scenario
+> 3. **Shorten reorder cycles**: Instead of one large monthly order, plan for:
+>    - Initial order: 4,000t (Week 1-2)
+>    - Mid-month review: Adjust based on actual demand signals
+>    - Second order: Remaining based on actuals
+> 4. **Validate independently:**
+>    - Contact key customers for their project timelines
+>    - Monitor competitor pricing/actions weekly
+>    - Track government project announcements
+> 5. **Document rationale**: Record why 68% confidence prediction was used with modifications
+>
+> **Actions AVOIDING:**
+> - ❌ Do NOT order full 8,500t based solely on prediction
+> - ❌ Do NOT use optimistic scenario (10,200t) for any planning
+> - ❌ Do NOT ignore prediction entirely - it contains valid signal
+>
+> **Score Allocation:**
+> - Recognizes 68% is below 75% threshold: 1 point
+> - Proposes conservative baseline usage: 1 point
+> - Includes risk mitigation (tiered ordering): 1 point
+> - Mentions independent validation: 1 point
+> - Documents what to avoid: 1 point
+
+**Points: 5**
+
+---
+
+### Scenario 2: Compliance Decision Under Pressure (قرار امتثال تحت الضغط)
+
+**Scenario Context (سياق السيناريو):**
+
+You are a **Compliance Operator** at AlgeriaTrade.dz. A long-standing client contacts you urgently:
+
+```
+CLIENT PROFILE:
+├── Company:          "MetalPro Industries SPA"
+├── Years on platform: 5 years
+├── Annual volume:     ~35,000,000 DZD
+├── Compliance history: Clean (no violations ever)
+├── Rating:           Trusted Partner (Gold status)
+│
+├── CURRENT ISSUE:
+├── Document expired TODAY: Attestation Fiscale (NIF/NIS/AI)
+├── Client request:   "Please process our 2,000,000 DZD urgent order"
+├── Client promise:   "We'll renew within 5 days, just need this one order"
+├── Client pressure:  "We've been partners for 5 years! Help us out!"
+│
+├── ORDER DETAILS:
+├── Buyer:            Known regular client (also Gold status)
+├── Product:          Standard industrial components
+├── Delivery:         Urgent (client's production line at risk)
+└── Risk if delayed:  Buyer may face production stoppage
+```
+
+**Question (السؤال):**
+
+What is your response to MetalPro Industries? Walk through your decision process, explain what you can/cannot do, and outline the exact steps you would take while maintaining compliance integrity.
+
+**Model Answer (إجابة النموذج):**
+
+> **CORRECT RESPONSE: Cannot process NEW transactions without valid document**
+>
+> **Step-by-Step Process:**
+>
+> **1. IMMEDIATE RESPONSE TO CLIENT:**
+> - Acknowledge urgency empathetically
+> - Clearly explain: "System hard-blocks transactions without valid fiscal attestation"
+> - Emphasize: This is automated - not personal discretion
+> - Avoid: Making promises you cannot keep
+>
+> **2. OPTIONS TO EXPLORE (in order):**
+>
+> **Option A - Same-Day Renewal (BEST):**
+> - Can they obtain renewed attestation TODAY from DGI?
+> - Many DGI offices offer same-day service for simple renewals
+> - If yes → Process order immediately upon receipt
+>
+> **Option B - Partial Shipment (with approvals):**
+> - If absolutely critical for production stoppage
+> - Requires: Compliance Manager approval (not operator level)
+> - Requires: Letter of commitment with penalty clause
+> - Maximum: 30% of order value
+> - Must still have valid attestation within 5 business days
+>
+> **Option C - Hold and Wait:**
+> - If neither A nor B possible
+> - Order remains on hold until valid document provided
+> - No exceptions without CLO written approval
+>
+> **3. WHAT YOU ABSOLUTELY CANNOT DO:**
+> - ❌ Process order without valid document ("just this once")
+> - ❌ Accept verbal commitment as substitute for document
+> - ❌ Bypass system controls or override blocks
+> - ❌ Make "unofficial" arrangements
+> - ❌ Accept responsibility for violating policy
+>
+> **4. DOCUMENTATION REQUIRED:**
+> - Log client request timestamp
+> - Record your response verbatim
+> - Note any pressure tactics used
+> - File for audit trail
+>
+> **5. IF PRESSURE PERSISTS:**
+> - Escalate to Senior Compliance (not buckling to pressure)
+> - Inform: "I want to help but need authorization beyond my level"
+> - Never: Make the client feel you personally are obstacle
+>
+> **Key Principle:** Even 5-year trusted partners must comply. Policy exists precisely to prevent selective enforcement that creates liability.
+>
+> **Score Allocation:**
+> - Correctly identifies cannot process: 1 point
+> - Shows empathy while maintaining firmness: 1 point
+> - Explores legitimate alternatives: 1 point
+> - Clearly states prohibited actions: 1 point
+> - Proper escalation path mentioned: 1 point
+
+**Points: 5**
+
+---
+
+### Scenario 3: Sanctions Screening False Positive (فحص العقوبات - إيجابية كاذبة)
+
+**Scenario Context (سياق السيناريو):**
+
+A new buyer registration triggers the following sanctions screening result:
+
+```
+SANCTIONS SCREENING RESULT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ENTITY REGISTERING:
+├── Name:              Khalil Mohammed Benzarti
+├── Date of Birth:      March 15, 1985 (40 years old)
+├── Nationality:        Algerian
+├── Address:            123 Rue Didouche Mourad, Constantine
+├── Profession:         Director of Import-Export, Benzarti Trading
+├── Company registered: Wilaya 25 - Constantine
+│
+SCREENING MATCH:
+├── List Source:        EU Consolidated Sanctions List
+├── Matched Entry Name: "K. Benzarti"
+├── Match Probability:  62% (MEDIUM)
+├── Match Type:         Partial name match (initial + surname)
+│
+MATCHED ENTRY DETAILS (from EU List):
+├── Name:              K. Benzarti
+├── Date of Birth:      [NOT LISTED]
+├── Nationality:       [NOT LISTED]
+├── Reason Listed:     [Financing activities related to regime]
+├── List Since:        2019
+├── Entity Type:       Individual
+│
+SYSTEM RECOMMENDATION: PAUSE - Manual Review Required
+```
+
+**Question (السؤال):**
+
+Walk through your complete step-by-step response to this situation. What do you do first? What information do you collect? How do you make your final decision? What documentation is required?
+
+**Model Answer (إجابة النموذج):**
+
+> **STEP-BY-STEP RESPONSE PROTOCOL:**
+>
+> **STEP 1: PAUSE (Not Block, Not Approve)**
+> - Set transaction status to "Pending Manual Review"
+> - Do NOT inform buyer of specific reason yet
+> - Timeline goal: Complete review within 24 hours (Medium probability = P3)
+>
+> **STEP 2: DO NOT TIP OFF**
+> - NEVER say: "You matched a sanctions list"
+> - USE instead: "Additional verification required for account activation"
+> - Reason: Prevents tip-off if entity IS actually sanctioned
+>
+> **STEP 3: REQUEST DOCUMENTS FROM ENTITY**
+> Send request for:
+> - Full passport (ALL pages, color scan)
+> - Proof of address (utility bill < 3 months old)
+> - Professional certificate (registre commerce extraction)
+> - Employment proof (company designation)
+> - Any document proving DISTINCT IDENTITY from listed person
+>
+> **STEP 4: COMPARE KEY IDENTIFIERS**
+> 
+> Focus areas for differentiation:
+> | Identifier | Our Entity | Listed Entity | Match? |
+> |-----------|-----------|---------------|--------|
+> | Full Name | Khalil Mohammed Benzarti | K. Benzarti | Partial |
+> | **Date of Birth** | **March 15, 1985** | **[Not Listed]** | **CRITICAL GAP** |
+> | Place of Birth | [Request if not known] | [Not Listed] | Check |
+> | Nationality | Algerian | [Not Listed] | Check |
+> | Address | Constantine, DZ | [Not Listed] | Check |
+>
+> **STEP 5: DECISION FRAMEWORK**
+>
+> **If DOB DIFFERS (most common resolution):**
+> - Different DOB = Different person (high probability)
+> - Can likely approve WITH documentation retained
+> - Flag for periodic rescreening (annually)
+>
+> **If DOB SAME or SIMILAR:**
+> - Higher risk - cannot clear independently
+> - ESCALATE to Senior Compliance
+> - May require enhanced due diligence
+> - Consider: Is there legitimate reason for similarity?
+>
+> **If Entity REFUSES documents:**
+> - Red flag - suspicious behavior
+> - Cannot approve without verification
+> - Block registration after reasonable period (7 days)
+> - Document refusal for audit trail
+>
+> **STEP 6: DOCUMENT EVERYTHING**
+> - All communications with entity
+> - Documents received and comparison results
+> - Decision rationale with supporting evidence
+> - Name of reviewer and timestamp
+> - Retain for minimum 7 years per compliance policy
+>
+> **EXPECTED OUTCOME FOR THIS CASE:**
+> Given that listed entry has NO date of birth, and our entity has clear DOB of 1985, plus Algerian nationality and Constantine address, this is LIKELY a false positive that can be resolved with proper documentation. Final decision depends on complete document review.
+>
+> **Score Allocation:**
+> - Correctly pauses rather than blocks/approves: 1 point
+> - Does not tip off about sanctions: 1 point
+> - Requests appropriate identity documents: 1 point
+> - Uses structured comparison framework: 1 point
+> - Proper documentation and escalation path: 1 point
+
+**Points: 5**
+
+---
+
+## FINAL CERTIFICATION (شهادة النهائية)
+
+```
+╔══════════════════════════════════════════════════════════════════════╗
+║                                                                      ║
+║              ALGERIATRADE.DZ - PHASE 9 CERTIFICATION                 ║
+║              Intelligence Artificielle & Conformité                  ║
+║                                                                      ║
+║  ─────────────────────────────────────────────────────────────────   ║
+║                                                                      ║
+║  Candidate Name: _________________________________________           ║
+║                                                                      ║
+║  Employee ID: _____________________________________________           ║
+║                                                                      ║
+║  Department: _____________________________________________           ║
+║                                                                      ║
+║  Date: ____________________                                    ║
+║                                                                      ║
+║  ─────────────────────────────────────────────────────────────────   ║
+║                                                                      ║
+║  MCQ SCORES:                                                         ║
+║  ├─ Section A (AI Analytics): _____ / 15                             ║
+║  ├─ Section B (Compliance): _____ / 15                               ║
+║  ├─ MCQ Total: _____ / 30 (_____ %)                                  ║
+║  └─ Status: □ Pass □ Fail                                            ║
+║                                                                      ║
+║  SCENARIO SCORES:                                                    ║
+║  ├─ Scenario 1 (AI Prediction): _____ / 5                            ║
+║  ├─ Scenario 2 (Compliance): _____ / 5                               ║
+║  ├─ Scenario 3 (Sanctions): _____ / 5                                ║
+║  ├─ Scenario Total: _____ / 15 (_____ %)                             ║
+║  └─ Status: □ Pass □ Fail                                            ║
+║                                                                      ║
+║  ════════════════════════════════════════════════════════════════     ║
+║                                                                      ║
+║  GRAND TOTAL: _____ / 45 points                                      ║
+║  FINAL PERCENTAGE: _____ %                                           ║
+║                                                                      ║
+║  ─────────────────────────────────────────────────────────────────   ║
+║                                                                      ║
+║  CERTIFICATION RESULT:                                               ║
+║  □ EXPERT CERTIFIED (≥95%) - Valid 24 months                         ║
+║  □ ADVANCED CERTIFIED (≥85%) - Valid 18 months                       ║
+║  □ STANDARD CERTIFIED (≥80%) - Valid 12 months                       ║
+║  □ NOT CERTIFIED (<80%) - Retake Required                            ║
+║                                                                      ║
+║  ─────────────────────────────────────────────────────────────────   ║
+║                                                                      ║
+║  Valid Until: _____ / _____ / _____                                  ║
+║                                                                      ║
+║  Certified By: _________________________                              ║
+║                                                                      ║
+║  Signature: _________________________                                ║
+║  Seal:                                                              ║
+║                                                                      ║
+╚══════════════════════════════════════════════════════════════════════╝
+```
+
+---
+
+## APPENDIX A: STUDY TIPS (نصائح المذاكرة)
+
+### Key Areas to Review - AI Analytics (مناطق رئيسية للمراجعة - تحليلات الذكاء الاصطناعي)
+
+- [ ] Confidence score interpretation table (90-100%, 75-89%, 60-74%, 40-59%, <40%)
+- [ ] Seasonality coefficients for Algerian market (especially Ramadan impact)
+- [ ] Six dimensions of supplier matching with exact weights
+- [ ] Churn risk levels (Critical/Elevated/Moderate/Low/Minimal) and intervention times
+- [ ] Pricing strategy selection criteria (when to use each of 4 strategies)
+- [ ] Model performance metrics definitions (Accuracy, Precision, Recall, F1-Score)
+- [ ] Retraining schedule by model type
+- [ ] Drift detection meaning and response
+
+### Key Areas to Review - Compliance (مناطق رئيسية للمراجعة - الامتثال)
+
+- [ ] TVA rates (19%/9%/0%) with concrete examples of each category
+- [ ] Legal references: 75-59 (Commerce), 76-147 (TVA), 03-01 (Trade), 18-07 (Data)
+- [ ] Compliance score ranges and corresponding processing actions
+- [ ] Sanctions match levels (Exact/High/Medium/Low) and required responses
+- [ ] Document validity periods (RC: 30 days, others vary)
+- [ ] Response SLAs by severity (P1: <1hr, P2: <4hr, P3: <24hr, P4: <48hr)
+- [ ] Data subject rights under Loi 18-07 (Access, Rectify, Forget, Object, Portability)
+- [ ] When to escalate and to whom
+
+### Common Mistakes to Avoid (أخطاء شائجة يجب تجنبها)
+
+| Mistake | Why Wrong | Correct Understanding |
+|---------|-----------|----------------------|
+| Confusing Precision and Recall | Different formulas | Precision = quality of positive predictions; Recall = ability to find all actual positives |
+| Mixing up TVA rates | Most products are 19% | Only specific basic necessities get 9%; exports get 0% |
+| Wrong escalation timing | Timing matters | Critical = <1 hour; Major = <4 hours; Moderate = <24 hours |
+| Document expiry confusion | Varies by type | RC max 30 days; Fiscal attestation per printed date; IDs per validity |
+| Sanctions over-reaction | Not all matches = block | Low/Medium require review first; only Exact = auto-block |
+| Assuming auto-approval | Human in loop required | ALL AI suggestions require human validation |
+| Ignoring confidence scores | Scores matter | <75% requires additional due diligence before decisions |
+| Ramadan uniform impact | Pattern varies | Day vs Night differs; pre-Aid spike varies by product category |
+
+---
+
+## APPENDIX B: FORMULA REFERENCE CARD (بطاقة مراجع الصيغ)
+
+### TVA Calculation Formulas (صيغ حساب الضريبة)
+
+```
+TVA Amount = Price_HT × TVA_Rate
+
+Price_TTC = Price_HT × (1 + TVA_Rate)
+
+Price_HT = Price_TTC / (1 + TVA_Rate)
+
+EXAMPLES:
+├── 19%:  TTC = HT × 1.19    |  HT = TTC / 1.19
+├── 9%:   TTC = HT × 1.09    |  HT = TTC / 1.09  
+└── 0%:   TTC = HT × 1.00    |  HT = TTC (no change)
+```
+
+### Confidence Interval Usage (استخدام فترات الثقة)
+
+```
+For planning purposes:
+
+CONSERVATIVE PLANNING:  Use Lower Bound (Central - 12-15%)
+STANDARD PLANNING:     Use Central Value (Expected)
+OPTIMISTIC PLANNING:   Use Upper Bound (Central + 12-15%)
+
+RULE: If Confidence < 75%, always use Conservative or validate manually
+```
+
+### Churn Score Components (مكونات درجة الفقدان)
+
+```
+Churn_Score = w1×Engagement + w2×Recency + w3×Frequency 
+            + w4×Amount + w5×Satisfaction + w6×Competition
+
+Where weights sum to 1.0 and vary by customer segment.
+
+ALERT THRESHOLDS:
+├── ≥80%: Critical - Immediate intervention
+├── ≥60%: High - Contact within 72 hours
+├── ≥40%: Moderate - Weekly monitoring
+└── <40%: Low - Standard follow-up
+```
+
+---
+
+**Document Version:** 9.0.0  
+**Total Possible Points:** 45 (30 MCQ + 15 Scenarios)  
+**Passing Threshold:** 36 points (80%)  
+**Next Version Review:** July 2025
+
+---
+
+*End of Phase 9 Certification Assessment*
+*نهاية اختبار شهادة المرحلة ٩*
