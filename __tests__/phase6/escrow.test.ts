@@ -36,15 +36,15 @@ jest.mock('next-auth', () => ({
   getServerSession: jest.fn(),
 }));
 
-const { getServerSession } = require('next-auth');
+import { getServerSession } from 'next-auth';
 const mockGetServerSession = getServerSession as jest.Mock;
 
 import { db } from '@/lib/db';
 const mockDb = db as jest.Mocked<typeof db>;
 
 // Import handlers after mocking
-const { GET, POST } = require('@/app/api/escrow/route');
-const { GET: GetById, POST: PostAction } = require('@/app/api/escrow/[id]/route');
+import { GET, POST } from '@/app/api/escrow/route';
+import { GET as GetById, POST as PostAction } from '@/app/api/escrow/[id]/route';
 
 // ===========================================
 // Test Data Factories

@@ -32,7 +32,7 @@ import { db } from '@/lib/db';
 const mockDb = db as jest.Mocked<typeof db>;
 
 // Import handlers after mocking
-const { GET, POST, PUT } = require('@/app/api/inspection/route');
+import { GET, POST, PUT } from '@/app/api/inspection/route';
 
 // ===========================================
 // Test Data Factories

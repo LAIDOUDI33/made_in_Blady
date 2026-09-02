@@ -3,10 +3,72 @@
 
 import Stripe from 'stripe';
 
+/**
+ * Validate that all required Stripe environment variables are present.
+ * Throws a descriptive error if any are missing.
+ * This is a security-critical function - NEVER fall back to hardcoded keys.
+ */
+function validateStripeConfig(): void {
+  const requiredEnvVars = {
+    STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
+    STRIPE_PUBLISHABLE_KEY: process.env.STRIPE_PUBLISHABLE_KEY,
+    STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET,
+  };
+
+  const missingVars = Object.entries(requiredEnvVars)
+    .filter(([, value]) => !value || value.trim() === '')
+    .map(([key]) => key);
+
+  if (missingVars.length > 0) {
+    throw new Error(
+      `🔴 CRITICAL SECURITY ERROR: Missing required Stripe environment variables:\n` +
+      `  - ${missingVars.join('\n  - ')}\n\n` +
+      `To fix this:\n` +
+      `1. Copy .env.example to .env.local\n` +
+      `2. Add your Stripe API keys from https://dashboard.stripe.com/apikeys\n` +
+      `3. Never commit real keys to version control!\n\n` +
+      `Required variables:\n` +
+      `  - STRIPE_SECRET_KEY: Your secret API key (sk_live_... or sk_test_...)\n` +
+      `  - STRIPE_PUBLISHABLE_KEY: Your publishable key (pk_live_... or pk_test_...)\n` +
+      `  - STRIPE_WEBHOOK_SECRET: Your webhook signing secret (whsec_...)`
+    );
+  }
+
+  // Validate key formats to catch common mistakes
+  const { STRIPE_SECRET_KEY, STRIPE_PUBLISHABLE_KEY, STRIPE_WEBHOOK_SECRET } = requiredEnvVars;
+
+  if (!STRIPE_SECRET_KEY!.startsWith('sk_')) {
+    console.warn(
+      '⚠️ WARNING: STRIPE_SECRET_KEY does not start with "sk_". ' +
+      'Please verify your Stripe secret key format.'
+    );
+  }
+
+  if (!STRIPE_PUBLISHABLE_KEY!.startsWith('pk_')) {
+    console.warn(
+      '⚠️ WARNING: STRIPE_PUBLISHABLE_KEY does not start with "pk_". ' +
+      'Please verify your Stripe publishable key format.'
+    );
+  }
+
+  if (!STRIPE_WEBHOOK_SECRET!.startsWith('whsec_')) {
+    console.warn(
+      '⚠️ WARNING: STRIPE_WEBHOOK_SECRET does not start with "whsec_". ' +
+      'Please verify your Stripe webhook secret format.'
+    );
+  }
+}
+
+// Validate configuration at module load time
+// This ensures the application fails fast with a clear message
+// rather than failing silently with dummy keys
+validateStripeConfig();
+
 export const stripeConfig = {
-  secretKey: process.env.STRIPE_SECRET_KEY || 'sk_test_dummy_for_development',
-  publishableKey: process.env.STRIPE_PUBLISHABLE_KEY || 'pk_test_dummy_for_development',
-  webhookSecret: process.env.STRIPE_WEBHOOK_SECRET || 'whsec_dummy_for_development',
+  // Keys come ONLY from environment variables - NO FALLBACKS for security
+  secretKey: process.env.STRIPE_SECRET_KEY!,
+  publishableKey: process.env.STRIPE_PUBLISHABLE_KEY!,
+  webhookSecret: process.env.STRIPE_WEBHOOK_SECRET!,
   
   // Supported currencies for export orders (international buyers)
   supportedCurrencies: ['EUR', 'USD', 'GBP', 'CHF', 'CAD', 'AUD'] as const,

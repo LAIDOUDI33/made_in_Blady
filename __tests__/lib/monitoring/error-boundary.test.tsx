@@ -4,6 +4,7 @@
 import React from 'react';
 import { render, screen, fireEvent, renderHook } from '@testing-library/react';
 import { SentryErrorBoundary, withSentryErrorBoundary, useErrorHandler, DefaultFallback } from '@/lib/monitoring/error-boundary';
+import { captureException, addBreadcrumb } from '@/lib/monitoring/sentry';
 
 // Mock Sentry module
 jest.mock('@/lib/monitoring/sentry', () => ({
@@ -92,7 +93,7 @@ describe('SentryErrorBoundary', () => {
     });
 
     it('should call captureException with error details', () => {
-      const { captureException } = require('@/lib/monitoring/sentry');
+      // captureException is imported at the top of the file
       
       render(
         <SentryErrorBoundary componentName="TestComponent">
@@ -115,7 +116,7 @@ describe('SentryErrorBoundary', () => {
     });
 
     it('should add breadcrumb before capturing exception', () => {
-      const { addBreadcrumb } = require('@/lib/monitoring/sentry');
+      // addBreadcrumb is imported at the top of the file
       
       render(
         <SentryErrorBoundary componentName="MyComponent">
@@ -300,10 +301,10 @@ describe('withSentryErrorBoundary HOC', () => {
     const NamedComponent = () => <div>Named</div>;
     NamedComponent.displayName = 'NamedComponent';
     
-    const { captureException } = require('@/lib/monitoring/sentry');
     const Wrapped = withSentryErrorBoundary(NamedComponent);
 
     // Render with error - need to trigger error inside wrapped component
+    // captureException is imported at the top of the file
     const ThrowingNamed = () => {
       throw new Error('HOC Error');
     };
@@ -415,7 +416,7 @@ describe('useErrorHandler Hook', () => {
   });
 
   it('should return a function that captures errors', () => {
-    const { captureException } = require('@/lib/monitoring/sentry');
+    // captureException is imported at the top of the file
     
     // Note: Testing hooks requires renderHook from @testing-library/react
     // This is a basic existence and type check

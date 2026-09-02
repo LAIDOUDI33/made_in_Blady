@@ -53,8 +53,8 @@ import { db } from '@/lib/db';
 const mockDb = db as jest.Mocked<typeof db>;
 
 // Import handlers after mocking
-const CertificationsAPI = require('@/app/api/certifications/route');
-const PackagesAPI = require('@/app/api/packages/route');
+import * as CertificationsAPI from '@/app/api/certifications/route';
+import * as PackagesAPI from '@/app/api/packages/route';
 
 // ===========================================
 // Test Data Factories

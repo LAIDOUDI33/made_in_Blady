@@ -10,6 +10,8 @@ import {
   DEFAULT_CONFIG,
 } from '@/lib/monitoring/sentry';
 
+import * as sentryMock from '@sentry/nextjs';
+
 import { 
   APMManager,
   getAPMManager,
@@ -20,6 +22,8 @@ import {
   getLogger,
   flushAllLoggers,
 } from '@/lib/monitoring/logger';
+
+import { getHealthMonitor } from '@/lib/monitoring/health';
 
 // ===========================================
 // Mock Setup
@@ -136,8 +140,7 @@ describe('Sentry + APM Integration', () => {
       });
       
       // Verify breadcrumbs were added
-      const sentry = require('@sentry/nextjs');
-      expect(sentry.addBreadcrumb).toHaveBeenCalledTimes(2);
+      expect(sentryMock.addBreadcrumb).toHaveBeenCalledTimes(2);
     });
   });
 
@@ -207,8 +210,7 @@ describe('Sentry + APM Integration', () => {
       apm.setUser(userContext.id, userContext.email, userContext.role);
       
       // Verify Sentry received user
-      const sentry = require('@sentry/nextjs');
-      expect(sentry.setUser).toHaveBeenCalledWith(expect.objectContaining({
+      expect(sentryMock.setUser).toHaveBeenCalledWith(expect.objectContaining({
         id: 'user-123',
         email: 'test@algeriatrade.dz',
       }));
@@ -236,9 +238,8 @@ describe('Sentry + APM Integration', () => {
       apm.setTenant(tenantTags.tenantId, tenantTags.tenantName);
       
       // Verify
-      const sentry = require('@sentry/nextjs');
-      expect(sentry.setTags).toHaveBeenCalledWith(tenantTags);
-      expect(sentry.setContext).toHaveBeenCalledWith('tenant', tenantTags);
+      expect(sentryMock.setTags).toHaveBeenCalledWith(tenantTags);
+      expect(sentryMock.setContext).toHaveBeenCalledWith('tenant', tenantTags);
     });
   });
 });
@@ -259,8 +260,7 @@ describe('Logger + Sentry Integration', () => {
       logger.fatal('System failure occurred', error);
       
       // Should be captured by Sentry
-      const sentry = require('@sentry/nextjs');
-      expect(sentry.captureException).toHaveBeenCalled();
+      expect(sentryMock.captureException).toHaveBeenCalled();
     });
 
     it('include log metadata in Sentry context', () => {
@@ -273,8 +273,7 @@ describe('Logger + Sentry Integration', () => {
       });
       
       // Verify Sentry received enriched context
-      const sentry = require('@sentry/nextjs');
-      expect(sentry.captureException).toHaveBeenCalledWith(
+      expect(sentryMock.captureException).toHaveBeenCalledWith(
         error,
         expect.any(Object) // Scope object
       );
@@ -284,9 +283,8 @@ describe('Logger + Sentry Integration', () => {
       logger.debug('Debug info');
       logger.info('User logged in');
       
-      const sentry = require('@sentry/nextjs');
-      expect(sentry.captureException).not.toHaveBeenCalled();
-      expect(sentry.captureMessage).not.toHaveBeenCalled();
+      expect(sentryMock.captureException).not.toHaveBeenCalled();
+      expect(sentryMock.captureMessage).not.toHaveBeenCalled();
     });
   });
 
@@ -308,8 +306,7 @@ describe('Logger + Sentry Integration', () => {
       });
       
       // Both should have same correlation
-      const sentry = require('@sentry/nextjs');
-      expect(sentry.captureException).toHaveBeenCalled();
+      expect(sentryMock.captureException).toHaveBeenCalled();
     });
   });
 
@@ -469,8 +466,7 @@ describe('Full Stack Integration: Sentry + APM + Logger', () => {
       }
       
       // Verify all systems received the error
-      const sentry = require('@sentry/nextjs');
-      expect(sentry.captureException).toHaveBeenCalledTimes(1);
+      expect(sentryMock.captureException).toHaveBeenCalledTimes(1);
       
       const apmMetrics = apm.getMetrics();
       expect(apmMetrics.counters.has('errors.total')).toBe(true);
@@ -514,8 +510,7 @@ describe('Full Stack Integration: Sentry + APM + Logger', () => {
       cartTransaction?.finish?.();
       
       // Verify journey is tracked
-      const sentry = require('@sentry/nextjs');
-      expect(sentry.addBreadcrumb).toHaveBeenCalledTimes(4);
+      expect(sentryMock.addBreadcrumb).toHaveBeenCalledTimes(4);
       
       // APM has transactions
       const metrics = apm.getMetrics();
@@ -525,7 +520,6 @@ describe('Full Stack Integration: Sentry + APM + Logger', () => {
 
   describe('Health Check Integration', () => {
     it('should aggregate health from all monitoring systems', async () => {
-      const { getHealthMonitor } = require('@/lib/monitoring/health');
       const healthMonitor = getHealthMonitor();
       
       // Mock health checks for each system

@@ -3,6 +3,8 @@
 
 import { GET, POST } from '@/app/api/admin/monitoring/route';
 import { NextRequest } from 'next/server';
+import { getHealthMonitor } from '@/lib/monitoring/health';
+import { getAlertManager } from '@/lib/monitoring/alerts';
 
 // Mock dependencies
 jest.mock('@/lib/monitoring/apm', () => ({
@@ -296,7 +298,7 @@ describe('GET /api/admin/monitoring', () => {
   describe('Error Handling', () => {
     it('should handle errors gracefully with 500 status', async () => {
       // Force an error by mocking a dependency to throw
-      const { getHealthMonitor } = require('@/lib/monitoring/health');
+      // getHealthMonitor is imported at the top of the file
       getHealthMonitor.mockReturnValueOnce({
         getFullStatus: jest.fn().mockRejectedValue(new Error('Database connection failed')),
       });
@@ -351,7 +353,6 @@ describe('POST /api/admin/monitoring', () => {
     });
 
     it('should call alertManager.acknowledgeAlert', async () => {
-      const { getAlertManager } = require('@/lib/monitoring/alerts');
       const mockAcknowledge = jest.fn();
       getAlertManager.mockReturnValueOnce({
         ...getAlertManager(),

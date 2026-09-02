@@ -41,15 +41,15 @@ jest.mock('next-auth', () => ({
   getServerSession: jest.fn(),
 }));
 
-const { getServerSession } = require('next-auth');
+import { getServerSession } from 'next-auth';
 const mockGetServerSession = getServerSession as jest.Mock;
 
 import { db } from '@/lib/db';
 const mockDb = db as jest.Mocked<typeof db>;
 
 // Import handlers after mocking
-const ShippingRatesAPI = require('@/app/api/shipping/rates/route');
-const ShipmentsAPI = require('@/app/api/shipments/route');
+import * as ShippingRatesAPI from '@/app/api/shipping/rates/route';
+import * as ShipmentsAPI from '@/app/api/shipments/route';
 
 // ===========================================
 // Constants - Algerian Wilayas (58)
