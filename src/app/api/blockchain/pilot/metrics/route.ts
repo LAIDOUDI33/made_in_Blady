@@ -452,7 +452,7 @@ export async function POST(request: NextRequest) {
 
     switch (action) {
       case 'record':
-        return recordKPI Measurements(pilotId, kpiMeasurements);
+        return recordKPIMeasurements(pilotId, kpiMeasurements);
       
       case 'recalculate':
         return recalculateMetrics(pilotId);

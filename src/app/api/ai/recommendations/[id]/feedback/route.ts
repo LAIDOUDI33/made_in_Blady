@@ -3,13 +3,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { recommendationEngine } from '@/lib/ai/recommendations';
 
 export async function POST(
-  request: NextResponse,
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const body = await request.json();
     const { action, userId } = body;
-    const recommendationId = params.id;
+    const { id: recommendationId } = await params;
 
     if (!recommendationId) {
       return NextResponse.json(
