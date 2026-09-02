@@ -1,154 +1,515 @@
 # =============================================================================
-# Docker Compose - AlgeriaTrade.dz
+# Docker Compose - AlgeriaTrade.dz B2B Marketplace
 # =============================================================================
-# Configuration principale pour le développement et les tests locaux
-# Utilise SQLite pour la base de données (simple)
+# Production-ready container orchestration configuration:
+#
+# Services:
+#   - app:           Next.js application (main platform)
+#   - postgres:      PostgreSQL 16 database (persistent storage)
+#   - redis:         Redis 7 (caching, sessions, real-time)
+#   - nginx:         Reverse proxy with SSL termination
+#   - message-service: Socket.IO real-time messaging
+#
+# Usage:
+#   Production:  docker compose -f docker-compose.yml --env-file .env up -d
+#   Development: docker compose -f docker-compose.dev.yml up
+#   Scale:       docker compose up -d --scale app=3
+#   Logs:        docker compose logs -f app
+#   Stop:        docker compose down
+#   Cleanup:     docker compose down -v (removes volumes!)
+#
+# Documentation: https://docs.algeriatrade.dz/deployment/docker
 # =============================================================================
 
 version: '3.8'
 
 # =============================================================================
-# Services
+# Services Definition
 # =============================================================================
 services:
 
   # ---------------------------------------------------------------------------
-  # Application Next.js principale
+  # Application Service - Next.js (Production)
   # ---------------------------------------------------------------------------
   app:
     build:
       context: .
       dockerfile: Dockerfile
       target: runner
+      args:
+        NODE_ENV: production
     container_name: algeriatrade-app
-    ports:
-      - "3000:3000"
+    restart: unless-stopped
+    
+    # Internal port only (exposed via nginx)
+    expose:
+      - "3000"
+    
+    # Environment variables for the application
+    # Priority: .env file > docker-compose defaults > application defaults
     environment:
-      # Application
+      # --- Application Configuration ---
       - NODE_ENV=production
-      - NEXT_PUBLIC_APP_URL=http://localhost:3000
-      - NEXT_PUBLIC_APP_NAME=AlgeriaTrade
+      - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL:-https://algeriatrade.dz}
+      - NEXT_PUBLIC_APP_NAME=${NEXT_PUBLIC_APP_NAME:-AlgeriaTrade}
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-https://api.algeriatrade.dz}
       
-      # Base de données (SQLite pour développement)
-      - DATABASE_URL=file:./data/production.db
+      # --- Database (PostgreSQL) ---
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-algeriatrade}:${POSTGRES_PASSWORD:-changeme}@postgres:5432/${POSTGRES_DB:-algeriatrade}
+      - DATABASE_POOL_MIN=${DATABASE_POOL_MIN:-2}
+      - DATABASE_POOL_MAX=${DATABASE_POOL_MAX:-10}
       
-      # Authentification
-      - NEXTAUTH_URL=http://localhost:3000
-      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-change-me-in-production-secret-key}
+      # --- Authentication (NextAuth.js) ---
+      - NEXTAUTH_URL=${NEXTAUTH_URL:-https://algeriatrade.dz}
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
       
-      # Email (désactivé en dev par défaut)
-      - EMAIL_PROVIDER=smtp
-      - EMAIL_FROM=noreply@localhost
+      # --- Email Configuration ---
+      - EMAIL_PROVIDER=${EMAIL_PROVIDER:-smtp}
+      - SMTP_HOST=${SMTP_HOST:-localhost}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASS=${SMTP_PASS}
+      - EMAIL_FROM=${EMAIL_FROM:-noreply@algeriatrade.dz}
+      - RESEND_API_KEY=${RESEND_API_KEY}
       
-      # Redis (optionnel en dev)
-      - REDIS_URL=redis://redis:6379
+      # --- Payment Gateways (Algerian & International) ---
+      # CIB (Carte Bancaire) - Algerian bank cards
+      - CIB_API_KEY=${CIB_API_KEY}
+      - CIB_MERCHANT_ID=${CIB_MERCHANT_ID}
+      # CCP (Chèque Postal Algérien)
+      - CCP_MERCHANT_ID=${CCP_MERCHANT_ID}
+      # BaridiMob (Algerian mobile payment)
+      - BARIDIMOB_API_KEY=${BARIDIMOB_API_KEY}
+      - BARIDIMOB_WEBHOOK_SECRET=${BARIDIMOB_WEBHOOK_SECRET}
+      # SATIM (Algerian payment gateway)
+      - SATIM_TERMINAL_ID=${SATIM_TERMINAL_ID}
+      - SATIM_API_KEY=${SATIM_API_KEY}
+      # Stripe (International)
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
+      - NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY}
       
-      # Socket.IO pour la messagerie
+      # --- Cloud Storage (S3-compatible) ---
+      - S3_BUCKET=${S3_BUCKET:-algeriatrade-uploads}
+      - S3_REGION=${S3_REGION:-eu-west-3}
+      - S3_ENDPOINT=${S3_ENDPOINT}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      
+      # --- Redis (Caching & Sessions) ---
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-changeme}@redis:6379
+      
+      # --- Real-time Features (Socket.IO) ---
       - SOCKET_IO_PORT=3003
-      - NEXT_PUBLIC_SOCKET_URL=ws://localhost:3003
+      - NEXT_PUBLIC_SOCKET_URL=${NEXT_PUBLIC_SOCKET_URL:-wss://algeriatrade.dz}
       
-      # Logging
-      - LOG_LEVEL=debug
-      - LOG_FORMAT=pretty
+      # --- AI/ML Services ---
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      
+      # --- Monitoring & Observability ---
+      - SENTRY_DSN=${SENTRY_DSN}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - LOG_FORMAT=json
+      
+      # --- Security ---
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+      - CSRF_SECRET=${CSRF_SECRET}
+    
+    # Volume mounts for persistent data
     volumes:
-      # Persister les données de la base de données
-      - ./data:/app/data
-      # Persister les fichiers uploadés
-      - ./uploads:/app/public/uploads
+      - uploads-data:/app/public/uploads
+      - app-data:/app/data
+    
+    # Service dependencies (start order)
     depends_on:
+      postgres:
+        condition: service_healthy
       redis:
         condition: service_healthy
-    restart: unless-stopped
+    
+    # Network configuration
     networks:
-      - algeriatrade-network
+      - algeriatrade-internal
+    
+    # Resource limits (prevent resource exhaustion attacks)
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    
+    # Health check for orchestration
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
+    
+    # Logging configuration (JSON format for log aggregation)
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
+        labels: "service,environment"
+        tag: "algeriatrade-app"
 
   # ---------------------------------------------------------------------------
-  # Redis - Cache et sessions
+  # PostgreSQL 16 - Primary Database
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: algeriatrade-postgres
+    restart: unless-stopped
+    
+    # Database credentials and configuration
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-algeriatrade}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-changeme}
+      - POSTGRES_DB=${POSTGRES_DB:-algeriatrade}
+      - PGDATA=/var/lib/postgresql/data/pgdata
+    
+    # Persistent volume for data
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      # Initialization script (runs on first start only)
+      - ./deploy/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    
+    # Port mapping (bind to localhost only for security)
+    ports:
+      - "127.0.0.1:5432:5432"
+    
+    # Network configuration
+    networks:
+      - algeriatrade-internal
+    
+    # PostgreSQL performance tuning for B2B marketplace workload
+    command: >
+      postgres
+      -c shared_buffers=256MB
+      -c effective_cache_size=768MB
+      -c maintenance_work_mem=64MB
+      -c work_mem=4MB
+      -c random_page_cost=1.1
+      -c effective_io_concurrency=200
+      -c min_wal_size=1GB
+      -c max_wal_size=4GB
+      -c checkpoint_completion_target=0.9
+      -c wal_buffers=64MB
+      -c default_statistics_target=100
+      -c max_connections=200
+      -c log_statement='ddl'
+      -c log_min_duration_statement=1000
+      -c slow_query_log=on
+      -c long_query_time=1.0
+    
+    # Health check
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-algeriatrade} -d ${POSTGRES_DB:-algeriatrade}"]
+      interval: 10s
+      timeout: 5s
+      retries:5
+      start_period: 30s
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.25'
+          memory: 512M
+    
+    # Logging
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "3"
+        tag: "algeriatrade-postgres"
+
+  # ---------------------------------------------------------------------------
+  # Redis 7 - Caching, Session Store, Real-time Pub/Sub
   # ---------------------------------------------------------------------------
   redis:
     image: redis:7-alpine
     container_name: algeriatrade-redis
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis-data:/data
     restart: unless-stopped
-    networks:
-      - algeriatrade-network
+    
+    # Redis configuration for production
     command: >
       redis-server
       --appendonly yes
       --appendfsync everysec
-      --maxmemory 256mb
+      --maxmemory 512mb
       --maxmemory-policy allkeys-lru
+      --requirepass ${REDIS_PASSWORD:-changeme}
+      --save 900 1
+      --save 300 10
+      --save 60 10000
+      --tcp-keepalive 300
+      --timeout 0
+      --protected-mode yes
+    
+    # Persistent volume for data (AOF + RDB)
+    volumes:
+      - redis-data:/data
+    
+    # Port mapping (localhost only)
+    ports:
+      - "127.0.0.1:6379:6379"
+    
+    # Network configuration
+    networks:
+      - algeriatrade-internal
+    
+    # Health check
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-changeme}", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 10s
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 768M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+    
+    # Logging
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "2"
+        tag: "algeriatrade-redis"
 
   # ---------------------------------------------------------------------------
-  # Service de messagerie (Socket.IO)
+  # Nginx - Reverse Proxy / SSL Termination / Load Balancer
+  # ---------------------------------------------------------------------------
+  nginx:
+    image: nginx:alpine
+    container_name: algeriatrade-nginx
+    restart: unless-stopped
+    
+    # External ports (HTTP + HTTPS)
+    ports:
+      - "80:80"
+      - "443:443"
+    
+    # Volume mounts
+    volumes:
+      # Main nginx configuration
+      - ./deploy/nginx.conf:/etc/nginx/nginx.conf:ro
+      # SSL certificates (Let's Encrypt or custom)
+      - ./certs:/etc/nginx/certs:ro
+      # Let's Encrypt challenge directory for certificate renewal
+      - certbot-www:/var/www/certbot:ro
+      - certbot-conf:/etc/letsencrypt:ro
+      # Static uploads (served directly by nginx)
+      - uploads-data:/var/www/uploads:ro
+    
+    # Dependencies
+    depends_on:
+      app:
+        condition: service_healthy
+    
+    # Network configuration
+    networks:
+      - algeriatrade-internal
+      - algeriatrade-external
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 128M
+    
+    # Logging
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "2"
+        tag: "algeriatrade-nginx"
+
+  # ---------------------------------------------------------------------------
+  # Message Service - Socket.IO Real-time Messaging
   # ---------------------------------------------------------------------------
   message-service:
     build:
       context: ./mini-services/message-service
       dockerfile: Dockerfile
     container_name: algeriatrade-messages
-    ports:
-      - "3003:3003"
+    restart: unless-stopped
+    
+    # Internal port (exposed via nginx)
+    expose:
+      - "3003"
+    
     environment:
-      - PORT=3003
-      - REDIS_URL=redis://redis:6379
       - NODE_ENV=production
+      - PORT=3003
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-changeme}@redis:6379
+    
+    # Dependencies
     depends_on:
       redis:
         condition: service_healthy
-    restart: unless-stopped
+    
+    # Network
     networks:
-      - algeriatrade-network
+      - algeriatrade-internal
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+    
+    # Logging
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "2"
+        tag: "algeriatrade-messages"
 
   # ---------------------------------------------------------------------------
-  # Nginx - Reverse proxy (optionnel, pour la production locale)
+  # Certbot - SSL Certificate Management (Let's Encrypt)
   # ---------------------------------------------------------------------------
-  nginx:
-    image: nginx:alpine
-    container_name: algeriatrade-nginx
-    ports:
-      - "80:80"
-      - "443:443"
+  certbot:
+    image: certbot/certbot
+    container_name: algeriatrade-certbot
     volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./certs:/etc/nginx/certs:ro
-      - ./uploads:/var/www/uploads:ro
-    depends_on:
-      app:
-        condition: service_healthy
-    restart: unless-stopped
+      - certbot-conf:/etc/letsencrypt
+      - certbot-www:/var/www/certbot
+    # Entry point for manual certificate renewal
+    # Run: docker compose run --rm certbot certonly --webroot -w /var/www/certbot -d algeriatrade.dz
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do sleep 6h & wait $${!}; certbot renew; done'"
     networks:
-      - algeriatrade-network
+      - algeriatrade-external
     profiles:
-      - production
+      - ssl
+
+  # ---------------------------------------------------------------------------
+  # pgAdmin - PostgreSQL Administration (Optional, Disabled by Default)
+  # Enable with: docker compose --profile admin up -d pgadmin
+  # ---------------------------------------------------------------------------
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: algeriatrade-pgadmin
+    restart: unless-stopped
+    
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=${PGADMIN_EMAIL:-admin@algeriatrade.dz}
+      - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_PASSWORD:-changeme}
+    
+    ports:
+      - "127.0.0.1:5050:80"
+    
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+    
+    depends_on:
+      postgres:
+        condition: service_healthy
+    
+    networks:
+      - algeriatrade-internal
+    
+    profiles:
+      - admin
+
+  # ---------------------------------------------------------------------------
+  # Redis Commander - Redis Administration (Optional)
+  # Enable with: docker compose --profile admin up -d redis-commander
+  # ---------------------------------------------------------------------------
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: algeriatrade-redis-commander
+    restart: unless-stopped
+    
+    environment:
+      - REDIS_HOSTS=local:redis:6379:0:${REDIS_PASSWORD:-changeme}
+    
+    ports:
+      - "127.0.0.1:8081:8081"
+    
+    depends_on:
+      redis:
+        condition: service_healthy
+    
+    networks:
+      - algeriatrade-internal
+    
+    profiles:
+      - admin
 
 # =============================================================================
-# Volumes persistants
+# Volumes (Persistent Data Storage)
 # =============================================================================
 volumes:
+  # PostgreSQL database files
+  postgres-data:
+    driver: local
+    name: algeriatrade-postgres-data
+  
+  # Redis persistence (AOF + RDB snapshots)
   redis-data:
     driver: local
+    name: algeriatrade-redis-data
+  
+  # User-uploaded files (products, companies, documents, videos)
+  uploads-data:
+    driver: local
+    name: algeriatrade-uploads-data
+  
+  # Application data (temp files, caches)
+  app-data:
+    driver: local
+    name: algeriatrade-app-data
+  
+  # Let's Encrypt certificates
+  certbot-conf:
+    driver: local
+    name: algeriatrade-certbot-conf
+  
+  # Certbot webroot for ACME challenges
+  certbot-www:
+    driver: local
+    name: algeriatrade-certbot-www
+  
+  # pgAdmin configuration and data
+  pgadmin-data:
+    driver: local
+    name: algeriatrade-pgadmin-data
 
 # =============================================================================
-# Réseaux
+# Networks
 # =============================================================================
 networks:
-  algeriatrade-network:
+  # Internal network for service-to-service communication
+  algeriatrade-internal:
     driver: bridge
     ipam:
       config:
         - subnet: 172.28.0.0/16
+    internal: true  # No external access (security)
+  
+  # External network for internet-facing services (nginx, certbot)
+  algeriatrade-external:
+    driver: bridge
