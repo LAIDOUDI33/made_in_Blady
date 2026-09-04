@@ -53,19 +53,23 @@ if (process.env.BLOCKED_IPS) {
 }
 
 // CSP Nonce generator
-let nonceCache: string | null = null;
+interface NonceCacheEntry {
+  nonce: string;
+  timestamp: number;
+}
+
+let nonceCache: NonceCacheEntry | null = null;
 const NONCE_CACHE_TTL = 1000 * 60 * 5; // 5 minutes
 
 function generateNonce(): string {
   const now = Date.now();
-  if (nonceCache && (nonceCache as any)._timestamp && now - (nonceCache as any)._timestamp < NONCE_CACHE_TTL) {
-    return nonceCache;
+  if (nonceCache && nonceCache.timestamp && now - nonceCache.timestamp < NONCE_CACHE_TTL) {
+    return nonceCache.nonce;
   }
   
   const nonce = crypto.randomUUID().replace(/-/g, '');
-  nonceCache = nonce;
-  (nonceCache as any)._timestamp = now;
-  return nonceCache;
+  nonceCache = { nonce, timestamp: now };
+  return nonceCache.nonce;
 }
 
 // Security headers configuration
