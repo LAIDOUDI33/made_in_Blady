@@ -6,7 +6,7 @@
  */
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import { Tenant, TenantContext, ThemeConfig, LocaleConfig, FeatureFlags } from '@/lib/multi-tenant/tenantResolver';
+import { Tenant, ThemeConfig, LocaleConfig, FeatureFlags } from '@/lib/multi-tenant/tenantResolver';
 import { generateCSSVariables } from '@/lib/multi-tenant/themeGenerator';
 
 // Default tenant context for when no tenant is loaded
