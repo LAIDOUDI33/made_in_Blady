@@ -294,7 +294,7 @@ export abstract class BaseERPClient implements ERPClient {
 
 const clientCache = new Map<string, ERPClient>()
 
-export function getERPClient(config: ERPConfig): ERPClient {
+export async function getERPClient(config: ERPConfig): Promise<ERPClient> {
   const cacheKey = `${config.type}-${config.id}`
   
   if (clientCache.has(cacheKey)) {

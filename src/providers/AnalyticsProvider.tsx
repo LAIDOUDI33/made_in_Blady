@@ -47,13 +47,12 @@ export function AnalyticsProvider({
   children, 
   defaultConsent = false 
 }: AnalyticsProviderProps) {
-  const [isInitialized, setIsInitialized] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(() => !isGAEnabled());
   const [consentGiven, setConsentGiven] = useState(defaultConsent);
 
   // Initialize GA on mount
   useEffect(() => {
     if (!isGAEnabled()) {
-      setIsInitialized(true);
       return;
     }
 

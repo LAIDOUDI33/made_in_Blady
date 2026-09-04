@@ -1,245 +1,199 @@
 /**
- * Health Check API Endpoint
- * 
- * Endpoint: GET /api/health
- * 
- * Utilisé par :
- * - Docker health checks
- * - Load balancers
- * - Monitoring services (UptimeRobot, Pingdom)
- * - Kubernetes liveness/readiness probes
- * 
- * Retourne l'état de santé de l'application et ses dépendances.
+ * Health Check Endpoint - AlgeriaTrade.dz
+ * Endpoint de santé pour le monitoring et les load balancers
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
+import { checkRedisHealth } from '@/lib/cache/redis-config';
+import { PrismaClient } from '@prisma/client';
 
-// Interface pour la réponse de santé
+// Global to prevent multiple instances in development
+const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
+const prisma = globalForPrisma.prisma || new PrismaClient();
+if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
+
 interface HealthStatus {
-  status: 'healthy' | 'degraded' | 'unhealthy';
+  status: 'healthy' | 'unhealthy' | 'degraded';
   timestamp: string;
-  uptime: number;
   version: string;
   environment: string;
-  responseTime: number;
-  services: {
-    database: ServiceHealth;
-    redis?: ServiceHealth;
+  uptime: number;
+  checks: {
+    database: {
+      status: 'up' | 'down' | 'degraded';
+      latency?: number;
+      error?: string;
+    };
+    redis: {
+      status: 'up' | 'down' | 'degraded';
+      latency?: number;
+      error?: string;
+    };
+    memory: {
+      status: 'healthy' | 'warning' | 'critical';
+      used: number;
+      total: number;
+      percentage: number;
+    };
+    disk: {
+      status: 'healthy' | 'warning' | 'critical';
+      used?: number;
+      total?: number;
+      percentage?: number;
+      error?: string;
+    };
   };
-  system: SystemInfo;
 }
 
-interface ServiceHealth {
-  status: 'connected' | 'disconnected' | 'degraded' | 'unknown';
+function getMemoryUsage(): { used: number; total: number; percentage: number; status: 'healthy' | 'warning' | 'critical' } {
+  const memUsage = process.memoryUsage();
+  const used = Math.round(memUsage.heapUsed / 1024 / 1024);
+  const total = Math.round(memUsage.heapTotal / 1024 / 1024);
+  const percentage = Math.round((used / total) * 100);
+  
+  let status: 'healthy' | 'warning' | 'critical' = 'healthy';
+  if (percentage > 90) status = 'critical';
+  else if (percentage > 75) status = 'warning';
+  
+  return { used, total, percentage, status };
+}
+
+async function checkDatabaseHealth(): Promise<{
+  status: 'up' | 'down' | 'degraded';
   latency?: number;
   error?: string;
+}> {
+  try {
+    const start = Date.now();
+    await prisma.$queryRaw`SELECT 1`;
+    const latency = Date.now() - start;
+    
+    if (latency > 1000) {
+      return { status: 'degraded', latency, error: 'High database latency' };
+    }
+    
+    return { status: 'up', latency };
+  } catch (error) {
+    return {
+      status: 'down',
+      error: error instanceof Error ? error.message : 'Database connection failed'
+    };
+  }
 }
 
-interface SystemInfo {
-  memory: MemoryUsage;
-  cpu: CpuUsage;
-  disk?: DiskUsage;
-}
-
-interface MemoryUsage {
-  used: number;
-  total: number;
-  percent: number;
-}
-
-interface CpuUsage {
-  load: number[];
-  percent: number;
-}
-
-interface DiskUsage {
-  used: number;
-  total: number;
-  percent: number;
-}
-
-/**
- * GET /api/health
- * 
- * Vérifie la santé de tous les services.
- */
 export async function GET(request: NextRequest) {
   const startTime = Date.now();
   
-  // Récupérer le mode (simple ou complet)
-  const searchParams = request.nextUrl.searchParams;
-  const mode = searchParams.get('mode') || 'full'; // 'simple' ou 'full'
+  // Run health checks in parallel
+  const [dbHealth, redisHealth, memoryUsage] = await Promise.all([
+    checkDatabaseHealth(),
+    checkRedisHealth().catch(() => ({ 
+      status: 'down' as const, 
+      error: 'Redis not available' 
+    })),
+    Promise.resolve(getMemoryUsage()),
+  ]);
+
+  // Determine overall status
+  let overallStatus: 'healthy' | 'unhealthy' | 'degraded' = 'healthy';
   
-  try {
-    // Initialiser la réponse
-    const healthResponse: HealthStatus = {
-      status: 'healthy',
-      timestamp: new Date().toISOString(),
-      uptime: process.uptime(),
-      version: process.env.npm_package_version || '1.0.0',
-      environment: process.env.NODE_ENV || 'unknown',
-      responseTime: 0,
-      services: {
-        database: { status: 'unknown' },
+  if (dbHealth.status === 'down') {
+    overallStatus = 'unhealthy';
+  } else if (
+    dbHealth.status === 'degraded' ||
+    redisHealth.status === 'degraded' ||
+    redisHealth.status === 'unhealthy' ||
+    memoryUsage.status === 'warning' ||
+    memoryUsage.status === 'critical'
+  ) {
+    overallStatus = 'degraded';
+  }
+
+  const healthResponse: HealthStatus = {
+    status: overallStatus,
+    timestamp: new Date().toISOString(),
+    version: process.env.npm_package_version || '1.0.0',
+    environment: process.env.NODE_ENV || 'development',
+    uptime: process.uptime(),
+    checks: {
+      database: dbHealth,
+      redis: {
+        status: redisHealth.status === 'healthy' ? 'up' : 
+                redisHealth.status === 'degraded' ? 'degraded' : 'down',
+        latency: redisHealth.latency,
+        error: redisHealth.error,
       },
-      system: {
-        memory: getMemoryUsage(),
-        cpu: getCpuUsage(),
+      memory: memoryUsage,
+      disk: {
+        status: 'healthy', // Would need fs access for real disk check
+        error: 'Disk check not implemented',
       },
+    },
+  };
+
+  // Calculate response time
+  const responseTime = Date.now() - startTime;
+
+  // Return appropriate HTTP status code
+  let httpStatus = 200;
+  if (overallStatus === 'unhealthy') httpStatus = 503;
+  else if (overallStatus === 'degraded') httpStatus = 200; // Still serving
+
+  const response = NextResponse.json(healthResponse, { status: httpStatus });
+  
+  // Add headers for load balancers and monitors
+  response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+  response.headers.set('X-Response-Time', `${responseTime}ms`);
+  response.headers.set('X-Health-Status', overallStatus);
+
+  // For detailed mode (when ?detailed=true)
+  const detailed = request.nextUrl.searchParams.get('detailed') === 'true';
+  
+  if (detailed) {
+    // Add more detailed information
+    (healthResponse as any).process = {
+      pid: process.pid,
+      platform: process.platform,
+      nodeVersion: process.version,
+      memoryUsage: process.memoryUsage(),
+      cpuUsage: process.cpuUsage(),
     };
 
-    // Vérifier la base de données
-    try {
-      const dbStart = Date.now();
-      
-      // Requête simple pour tester la connexion
-      await db.$queryRaw`SELECT 1`;
-      
-      const dbLatency = Date.now() - dbStart;
-      
-      healthResponse.services.database = {
-        status: dbLatency < 1000 ? 'connected' : 'degraded',
-        latency: dbLatency,
-      };
-      
-      // Si la latence est trop élevée, marquer comme dégradé
-      if (dbLatency > 2000) {
-        healthResponse.status = 'degraded';
-      }
-    } catch (error) {
-      healthResponse.services.database = {
-        status: 'disconnected',
-        error: error instanceof Error ? error.message : 'Database connection failed',
-      };
-      healthResponse.status = 'unhealthy';
-    }
+    (healthResponse as any).environment = {
+      ...((healthResponse as any).environment || {}),
+      region: process.env.REGION || 'unknown',
+      zone: process.env.ZONE || 'unknown',
+    };
+  }
 
-    // Vérifier Redis (si configuré) - uniquement en mode full
-    if (mode === 'full' && process.env.REDIS_URL) {
-      try {
-        const redisStart = Date.now();
-        
-        // Import dynamique de Redis (optionnel)
-        let Redis: any;
-        try {
-          Redis = (await import('ioredis')).default;
-        } catch {
-          // ioredis non installé, skip
-          healthResponse.services.redis = { status: 'unknown' };
-        }
-        
-        if (Redis) {
-          const redis = new Redis(process.env.REDIS_URL);
-          await redis.ping();
-          const redisLatency = Date.now() - redisStart;
-          
-          healthResponse.services.redis = {
-            status: redisLatency < 500 ? 'connected' : 'degraded',
-            latency: redisLatency,
-          };
-          
-          await redis.quit();
-        }
-      } catch (error) {
-        healthResponse.services.redis = {
-          status: 'disconnected',
-          error: error instanceof Error ? error.message : 'Redis connection failed',
-        };
-        
-        // Redis non critique, ne pas marquer unhealthy
-        if (healthResponse.status === 'healthy') {
-          healthResponse.status = 'degraded';
-        }
-      }
-    }
-
-    // Calculer le temps de réponse total
-    healthResponse.responseTime = Date.now() - startTime;
-
-    // Déterminer le code HTTP basé sur le statut
-    let statusCode = 200;
-    if (healthResponse.status === 'degraded') {
-      statusCode = 200; // Toujours OK mais avec avertissement
-    } else if (healthResponse.status === 'unhealthy') {
-      statusCode = 503; // Service Unavailable
-    }
-
-    return NextResponse.json(healthResponse, { status: statusCode });
-
-  } catch (error) {
-    // Erreur critique dans le endpoint lui-même
-    console.error('[Health Check] Critical error:', error);
-    
+  // Liveness probe (always returns 200 if the process is running)
+  const isLivenessProbe = request.nextUrl.searchParams.get('probe') === 'liveness';
+  if (isLivenessProbe) {
     return NextResponse.json(
-      {
-        status: 'unhealthy',
-        timestamp: new Date().toISOString(),
-        error: error instanceof Error ? error.message : 'Unknown error',
-        uptime: process.uptime(),
-      },
+      { status: 'alive', timestamp: new Date().toISOString() },
+      { status: 200 }
+    );
+  }
+
+  // Readiness probe (checks if app can serve traffic)
+  const isReadinessProbe = request.nextUrl.searchParams.get('probe') === 'readiness';
+  if (isReadinessProbe && overallStatus !== 'healthy') {
+    return NextResponse.json(
+      { status: 'not_ready', checks: healthResponse.checks },
       { status: 503 }
     );
   }
+
+  return response;
 }
 
-/**
- * Obtenir l'utilisation mémoire du processus
- */
-function getMemoryUsage(): MemoryUsage {
-  const memUsage = process.memoryUsage();
-  const used = Math.round(memUsage.heapUsed / 1024 / 1024); // MB
-  const total = Math.round(memUsage.heapTotal / 1024 / 1024); // MB
-  
-  return {
-    used,
-    total,
-    percent: total > 0 ? Math.round((used / total) * 100) : 0,
-  };
-}
-
-/**
- * Obtenir la charge CPU (Linux seulement)
- */
-function getCpuUsage(): CpuUsage {
-  try {
-    // Lire la charge système depuis /proc/loadavg (Linux)
-    const fs = require('fs');
-    const loadavg = fs.readFileSync('/proc/loadavg', 'utf8');
-    const loads = loadavg.split(' ').slice(0, 3).map(Number);
-    
-    return {
-      load: loads,
-      percent: Math.min(100, Math.round(loads[0] * 100)), // Approximation
-    };
-  } catch {
-    // Fallback pour non-Linux
-    return {
-      load: [0, 0, 0],
-      percent: 0,
-    };
-  }
-}
-
-/**
- * Obtenir l'utilisation disque (si disponible)
- */
-function getDiskUsage(): DiskUsage | undefined {
-  try {
-    const fs = require('fs');
-    const stats = fs.statSync('.');
-    
-    // Information limitée sans accès au système de fichiers
-    return undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-/**
- * Options pour le endpoint
- */
+// HEAD request for quick health checks (load balancers often use this)
 export async function HEAD() {
-  // Pour les health checks qui n'ont besoin que du status code
+  const dbHealth = await checkDatabaseHealth();
+  
+  if (dbHealth.status === 'down') {
+    return new Response(null, { status: 503 });
+  }
+  
   return new Response(null, { status: 200 });
 }

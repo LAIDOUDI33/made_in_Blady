@@ -3,11 +3,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Bell, 
-  X, 
   Check, 
   CheckCheck, 
-  Settings, 
-  Trash2,
+  Settings,
   Package,
   MessageSquare,
   CreditCard,
@@ -21,13 +19,9 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Separator } from '@/components/ui/separator';
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
@@ -127,7 +121,7 @@ export function NotificationCenter({
     const now = new Date();
     const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
     
-    if (diffInSeconds < 60) return 'À l\'instant';
+    if (diffInSeconds < 60) return "À l'instant";
     if (diffInSeconds < 3600) return `Il y a ${Math.floor(diffInSeconds / 60)} min`;
     if (diffInSeconds < 86400) return `Il y a ${Math.floor(diffInSeconds / 3600)} h`;
     if (diffInSeconds < 604800) return `Il y a ${Math.floor(diffInSeconds / 86400)} j`;
@@ -145,7 +139,82 @@ export function NotificationCenter({
     return b.createdAt.getTime() - a.createdAt.getTime();
   });
 
-  const NotificationContent = () => (
+  // Render notification item
+  const renderNotificationItem = (notification: Notification) => (
+    <div
+      key={notification.id}
+      className={`p-4 hover:bg-accent/50 cursor-pointer transition-colors ${
+        !notification.readAt ? 'bg-primary/5' : ''
+      }`}
+      onClick={() => handleNotificationClick(notification)}
+    >
+      <div className="flex gap-3">
+        {/* Icon */}
+        <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${
+          !notification.readAt ? 'bg-primary/10' : 'bg-muted'
+        }`}>
+          <div className={`${
+            !notification.readAt ? 'text-primary' : 'text-muted-foreground'
+          }`}>
+            {CATEGORY_ICONS[notification.category]}
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start justify-between gap-2">
+            <p className={`text-sm font-medium line-clamp-2 ${
+              !notification.readAt ? 'text-foreground' : 'text-muted-foreground'
+            }`}>
+              {notification.title}
+            </p>
+            {!notification.readAt && (
+              <div className="w-2 h-2 bg-primary rounded-full flex-shrink-0 mt-2" />
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+            {notification.message}
+          </p>
+          <div className="flex items-center gap-2 mt-2">
+            <span className="text-xs text-muted-foreground">
+              {formatTimeAgo(notification.createdAt)}
+            </span>
+            <Badge variant="outline" className="text-xs px-1.5 py-0">
+              {PRIORITY_COLORS[notification.priority]}
+              {' '}
+              {CATEGORY_LABELS[notification.category]}
+            </Badge>
+          </div>
+          {notification.actionUrl && (
+            <div className="mt-2">
+              <Button variant="link" size="sm" className="h-auto p-0 text-xs">
+                {notification.actionLabel || 'Voir les détails'}
+                <ExternalLink className="h-3 w-3 ml-1" />
+              </Button>
+            </div>
+          )}
+        </div>
+
+        {/* Quick Actions */}
+        {!notification.readAt && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 flex-shrink-0"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleMarkAsRead(notification.id);
+            }}
+          >
+            <Check className="h-4 w-4" />
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+
+  // Render notification content (shared between desktop and mobile)
+  const renderContent = () => (
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b">
@@ -190,92 +259,14 @@ export function NotificationCenter({
           </div>
         ) : (
           <div className="divide-y">
-            {sortedNotifications.map((notification) => (
-              <div
-                key={notification.id}
-                className={`p-4 hover:bg-accent/50 cursor-pointer transition-colors ${
-                  !notification.readAt ? 'bg-primary/5' : ''
-                }`}
-                onClick={() => handleNotificationClick(notification)}
-              >
-                <div className="flex gap-3">
-                  {/* Icon */}
-                  <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${
-                    !notification.readAt ? 'bg-primary/10' : 'bg-muted'
-                  }`}>
-                    <div className={`${
-                      !notification.readAt ? 'text-primary' : 'text-muted-foreground'
-                    }`}>
-                      {CATEGORY_ICONS[notification.category]}
-                    </div>
-                  </div>
-
-                  {/* Content */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-2">
-                      <p className={`text-sm font-medium line-clamp-2 ${
-                        !notification.readAt ? 'text-foreground' : 'text-muted-foreground'
-                      }`}>
-                        {notification.title}
-                      </p>
-                      {!notification.readAt && (
-                        <div className="w-2 h-2 bg-primary rounded-full flex-shrink-0 mt-2" />
-                      )}
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                      {notification.message}
-                    </p>
-                    <div className="flex items-center gap-2 mt-2">
-                      <span className="text-xs text-muted-foreground">
-                        {formatTimeAgo(notification.createdAt)}
-                      </span>
-                      <Badge 
-                        variant="outline" 
-                        className={`text-xs px-1.5 py-0 ${PRIORITY_COLORS[notification.priority]}`}
-                      >
-                        {CATEGORY_LABELS[notification.category]}
-                      </Badge>
-                    </div>
-                    {notification.actionUrl && (
-                      <div className="mt-2">
-                        <Button variant="link" size="sm" className="h-auto p-0 text-xs">
-                          {notification.actionLabel || 'Voir les détails'}
-                          <ExternalLink className="h-3 w-3 ml-1" />
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Quick Actions */}
-                  {!notification.readAt && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 flex-shrink-0"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleMarkAsRead(notification.id);
-                      }}
-                    >
-                      <Check className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
-              </div>
-            ))}
+            {sortedNotifications.map(renderNotificationItem)}
           </div>
-        </ScrollArea>
+        )}
       </ScrollArea>
 
       {/* Footer */}
       <div className="p-3 border-t">
-        <Button 
-          variant="outline" 
-          className="w-full" 
-          onClick={() => {
-            /* Navigate to all notifications page */
-          }}
-        >
+        <Button variant="outline" className="w-full">
           Voir toutes les notifications
         </Button>
       </div>
@@ -298,7 +289,7 @@ export function NotificationCenter({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-96 p-0">
-            <NotificationContent />
+            {renderContent()}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
@@ -320,7 +311,7 @@ export function NotificationCenter({
             <SheetHeader className="sr-only">
               <SheetTitle>Notifications</SheetTitle>
             </SheetHeader>
-            <NotificationContent />
+            {renderContent()}
           </SheetContent>
         </Sheet>
       </div>

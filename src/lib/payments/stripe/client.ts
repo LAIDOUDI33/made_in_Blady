@@ -17,6 +17,9 @@ import type {
   StripeTransactionStatus,
 } from './types';
 
+// Re-export stripeConfig for convenience
+export { stripeConfig, stripe, calculateStripeFees, isCurrencySupported, getMinimumAmount };
+
 // ============================================
 // CURRENCY CONVERSION
 // ============================================

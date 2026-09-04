@@ -1,464 +1,199 @@
 /**
- * AlgeriaTrade.dz - Next.js Middleware
- * 
- * Features:
- * - Performance monitoring
- * - Response compression hints
- * - Cache control headers
- * - Security headers
- * - Bot detection
- * - Geographic routing (multi-tenant)
- * - A/B testing support
+ * Production Security Middleware - AlgeriaTrade.dz
+ * Middleware de sécurité pour la production avec CSP, rate limiting, et headers de sécurité
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import {
-  performanceMiddleware,
-  finalizeMetrics,
-  getHealthCheckData,
-} from '@/lib/performance/middleware';
+import { checkRateLimit, getRateLimitStatus, createRateLimitResponse } from '@/lib/security/rateLimiter';
 
-// ===========================================
-// Configuration
-// ===========================================
+// Paths that don't require rate limiting
+const BYPASS_PATHS = [
+  '/_next',
+  '/api/health',
+  '/favicon.ico',
+  '/robots.txt',
+  '/sitemap.xml',
+  '/images/',
+  '/icons/',
+];
 
-const CONFIG = {
-  // Performance monitoring
-  performance: {
-    enabled: true,
-    slowQueryThreshold: 1000,
-    enableLogging: process.env.NODE_ENV === 'development',
-  },
+// Paths with stricter rate limiting (auth endpoints)
+const AUTH_PATHS = [
+  '/api/auth/login',
+  '/api/auth/register',
+  '/api/auth/forgot-password',
+  '/api/auth/reset-password',
+];
 
-  // Security headers
-  security: {
-    enableCSP: true,
-    enableHSTS: true,
-    enableXSSProtection: true,
-    allowedOrigins: [
-      'https://algeriatrade.dz',
-      'https://www.algeriatrade.dz',
-      'https://staging.algeriatrade.dz',
-      ...(process.env.NODE_ENV === 'development' ? ['http://localhost:3000'] : []),
-    ],
-  },
+// Bot/scraper detection
+const SUSPICIOUS_USER_AGENTS = [
+  /bot/i,
+  /crawler/i,
+  /spider/i,
+  /scraper/i,
+  /curl/i,
+  /wget/i,
+];
 
-  // Cache configuration
-  cache: {
-    staticAssets: 'public, max-age=31536000, immutable', // 1 year for hashed assets
-    apiResponses: 'public, max-age=60, stale-while-revalidate=300', // 1 min + 5 min SWR
-    htmlPages: 'public, max-age=0, must-revalidate', // Always revalidate HTML
-    images: 'public, max-age=86400, stale-while-revalidate=604800', // 1 day + 7 days SWR
-  },
-
-  // Rate limiting
-  rateLimit: {
-    enabled: true,
-    windowMs: 60000, // 1 minute
-    maxRequests: {
-      default: 100,
-      api: 60,
-      auth: 10,
-      search: 30,
-    },
-  },
-
-  // Request size limits (NEW - prevents DoS attacks)
-  requestSizeLimits: {
-    enabled: true,
-    maxBodySizeBytes: 10 * 1024 * 1024, // 10MB max body size
-    maxUrlLength: 2048, // 2KB max URL length
-    // Stricter limits for sensitive endpoints
-    authMaxBodySize: 1024 * 1024, // 1MB for auth endpoints
-    uploadMaxBodySize: 50 * 1024 * 1024, // 50MB for upload endpoints
-  },
-
-  // Bot detection - Updated to be more permissive for SEO
-  bots: {
-    blockBadBots: true,
-    goodBots: [
-      // Major search engines (allow these)
-      'googlebot', 'bingbot', 'slurp', 'duckduckbot', 'baiduspider',
-      'yandexbot', 'facebookexternalhit', 'twitterbot', 'linkedinbot',
-      'applebot', 'sogou', 'exabot', 'ahrefsbot', 'semrushbot',
-      'mj12bot', 'petalbot', 'ia_archiver', 'archive.org_bot'
-    ],
-    badBots: [
-      // Known malicious bots (block these)
-      'sqlmap', 'nikto', 'nmap', 'masscan', 'zgrab', 'gobuster',
-      'dirbuster', 'wfuzz', 'ffuf', 'hydra', 'medusa', 'patator',
-      'brute', 'acunetix', 'nessus', 'burpsuite', 'w3af', 'arachni'
-    ],
-  },
-};
-
-// ===========================================
-// In-Memory Rate Limiting Store
-// ===========================================
-
-const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
-
-function checkRateLimit(
-  identifier: string,
-  maxRequests: number,
-  windowMs: number
-): { allowed: boolean; remaining: number; resetTime: number } {
-  const now = Date.now();
-  const record = rateLimitStore.get(identifier);
-
-  if (!record || now > record.resetTime) {
-    // New window or expired
-    rateLimitStore.set(identifier, {
-      count: 1,
-      resetTime: now + windowMs,
-    });
-    return { allowed: true, remaining: maxRequests - 1, resetTime: now + windowMs };
-  }
-
-  if (record.count >= maxRequests) {
-    return { allowed: false, remaining: 0, resetTime: record.resetTime };
-  }
-
-  record.count++;
-  return { allowed: true, remaining: maxRequests - record.count, resetTime: record.resetTime };
-}
-
-// Cleanup old entries every minute
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, value] of rateLimitStore.entries()) {
-    if (now > value.resetTime) {
-      rateLimitStore.delete(key);
-    }
-  }
-}, 60000);
-
-// ===========================================
-// Helper Functions
-// ===========================================
-
-function getRouteCategory(pathname: string): string {
-  if (pathname.startsWith('/api/')) {
-    if (pathname.startsWith('/api/auth')) return 'auth';
-    if (pathname.startsWith('/api/search')) return 'search';
-    return 'api';
-  }
-  if (pathname.startsWith('/_next/static') || pathname.startsWith('/static/')) return 'static';
-  if (pathname.match(/\.(jpg|jpeg|png|gif|webp|avif|svg)$/i)) return 'image';
-  return 'default';
-}
-
-function isBot(userAgent: string): boolean {
+function isSuspiciousUserAgent(userAgent: string): boolean {
+  const allowedBots = ['googlebot', 'bingbot', 'slurp', 'duckduckbot'];
   const lowerUA = userAgent.toLowerCase();
   
-  // Always allow good bots (search engines, social media crawlers)
-  if (CONFIG.bots.goodBots.some(bot => lowerUA.includes(bot))) {
+  if (allowedBots.some(bot => lowerUA.includes(bot))) {
     return false;
   }
   
-  // Block known bad/malicious bots
-  if (CONFIG.bots.blockBadBots && CONFIG.bots.badBots.some(bot => lowerUA.includes(bot))) {
-    return true;
-  }
-  
-  // Only block if user-agent is empty or clearly fake (not generic bot detection)
-  if (!userAgent || userAgent.length < 10) {
-    return true; // Block requests with no/short user-agent
-  }
-  
-  // Allow all other user-agents (including benign bots and scrapers)
-  return false;
+  return SUSPICIOUS_USER_AGENTS.some(pattern => pattern.test(userAgent));
 }
 
-function getClientIdentifier(request: NextRequest): string {
-  // Use IP + user agent as identifier
-  const ip =
-    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-    request.headers.get('x-real-ip') ||
+// IP blacklist
+const IP_BLACKLIST = new Set<string>();
+if (process.env.BLOCKED_IPS) {
+  process.env.BLOCKED_IPS.split(',').forEach(ip => IP_BLACKLIST.add(ip.trim()));
+}
+
+// CSP Nonce generator
+let nonceCache: string | null = null;
+const NONCE_CACHE_TTL = 1000 * 60 * 5; // 5 minutes
+
+function generateNonce(): string {
+  const now = Date.now();
+  if (nonceCache && (nonceCache as any)._timestamp && now - (nonceCache as any)._timestamp < NONCE_CACHE_TTL) {
+    return nonceCache;
+  }
+  
+  const nonce = crypto.randomUUID().replace(/-/g, '');
+  nonceCache = nonce;
+  (nonceCache as any)._timestamp = now;
+  return nonceCache;
+}
+
+// Security headers configuration
+function getSecurityHeaders(nonce?: string): Record<string, string> {
+  const headers: Record<string, string> = {
+    'X-Content-Type-Options': 'nosniff',
+    'Referrer-Policy': 'strict-origin-when-cross-origin',
+    'X-Frame-Options': 'DENY',
+    'X-XSS-Protection': '1; mode=block',
+    'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=(), usb=()',
+    'Strict-Transport-Security': 'max-age=31536000; includeSubDomains; preload',
+    'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+    'Pragma': 'no-cache',
+    'Expires': '0',
+  };
+
+  // Content Security Policy (only in production)
+  if (process.env.NODE_ENV === 'production' && nonce) {
+    headers['Content-Security-Policy'] = [
+      "default-src 'self'",
+      `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' https:`,
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+      "font-src 'self' https://fonts.gstatic.com",
+      "img-src 'self' data: https: blob:",
+      "connect-src 'self' https://api.stripe.com wss:",
+      "frame-src https://js.stripe.com https://*.docusign.com",
+      "object-src 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+      "frame-ancestors 'none'",
+    ].join('; ');
+  }
+
+  return headers;
+}
+
+export async function securityMiddleware(request: NextRequest): Promise<NextResponse | null> {
+  const { pathname } = request.nextUrl;
+  const ip = request.ip || 
+    request.headers.get('x-forwarded-for')?.split(',')[0] || 
+    request.headers.get('x-real-ip') || 
     'unknown';
-  
-  const ua = request.headers.get('user-agent') || '';
-  
-  return `${ip}:${ua.substring(0, 50)}`;
-}
-
-// ===========================================
-// Request Size Validation (DoS Prevention)
-// ===========================================
-
-function validateRequestSize(request: NextRequest, pathname: string): { valid: boolean; error?: string } {
-  if (!CONFIG.requestSizeLimits.enabled) return { valid: true };
-  
-  // Check URL length
-  const url = request.url;
-  if (url.length > CONFIG.requestSizeLimits.maxUrlLength) {
-    return {
-      valid: false,
-      error: `URL too long. Maximum length is ${CONFIG.requestSizeLimits.maxUrlLength} characters.`,
-    };
-  }
-  
-  // Check content length header for POST/PUT/PATCH requests
-  if (['POST', 'PUT', 'PATCH'].includes(request.method)) {
-    const contentLength = parseInt(request.headers.get('content-length') || '0', 10);
-    
-    // Determine appropriate limit based on endpoint
-    let maxSize = CONFIG.requestSizeLimits.maxBodySizeBytes;
-    
-    if (pathname.startsWith('/api/auth')) {
-      maxSize = CONFIG.requestSizeLimits.authMaxBodySize;
-    } else if (pathname.includes('/upload')) {
-      maxSize = CONFIG.requestSizeLimits.uploadMaxBodySize;
-    }
-    
-    if (contentLength > maxSize) {
-      return {
-        valid: false,
-        error: `Request body too large. Maximum size is ${Math.round(maxSize / 1024 / 1024)}MB for this endpoint.`,
-      };
-    }
-  }
-  
-  return { valid: true };
-}
-
-// ===========================================
-// Main Middleware Function
-// ===========================================
-
-export async function middleware(request: NextRequest) {
-  const { pathname, searchParams } = new URL(request.url);
-  const startTime = Date.now();
-
-  // ===========================================
-  // Health Check Endpoint (skip all processing)
-  // ===========================================
-  if (pathname === '/api/health') {
-    const healthData = getHealthCheckData();
-    return NextResponse.json(healthData, {
-      status: healthData.status === 'healthy' ? 200 : 503,
-      headers: {
-        'cache-control': 'no-store',
-      },
-    });
-  }
-
-  // ===========================================
-  // Request Size Validation (DoS Prevention)
-  // ===========================================
-  if (CONFIG.requestSizeLimits.enabled) {
-    const sizeValidation = validateRequestSize(request, pathname);
-    if (!sizeValidation.valid) {
-      return NextResponse.json(
-        { error: 'Payload Too Large', message: sizeValidation.error },
-        { status: 413, headers: { 'cache-control': 'no-store' } }
-      );
-    }
-  }
-
-  // ===========================================
-  // Performance Monitoring Setup
-  // ===========================================
-  let metrics;
-  try {
-    ({ response: _, metrics } = await performanceMiddleware(request, CONFIG.performance));
-  } catch (error) {
-    console.error('Performance middleware error:', error);
-  }
-
-  // ===========================================
-  // Bot Detection & Blocking
-  // ===========================================
   const userAgent = request.headers.get('user-agent') || '';
-  
-  if (isBot(userAgent)) {
-    return new NextResponse('Access denied', {
-      status: 403,
-      headers: {
-        'x-blocked-reason': 'bot-detected',
-        'cache-control': 'no-store',
-      },
-    });
+
+  // Check IP blacklist
+  if (IP_BLACKLIST.has(ip)) {
+    return new NextResponse(
+      JSON.stringify({ error: 'Accès refusé' }),
+      { status: 403, headers: { 'Content-Type': 'application/json' } }
+    );
   }
 
-  // ===========================================
-  // Rate Limiting
-  // ===========================================
-  if (CONFIG.rateLimit.enabled) {
-    const category = getRouteCategory(pathname);
-    const maxRequests = CONFIG.rateLimit.maxRequests[category] || CONFIG.rateLimit.maxRequests.default;
-    const clientIdentifier = getClientIdentifier(request);
+  // Block suspicious bots on API routes
+  if (pathname.startsWith('/api/') && isSuspiciousUserAgent(userAgent)) {
+    return new NextResponse(
+      JSON.stringify({ error: 'Bot détecté et bloqué' }),
+      { status: 403, headers: { 'Content-Type': 'application/json' } }
+    );
+  }
+
+  // Skip rate limiting for static assets and health checks
+  const shouldBypass = BYPASS_PATHS.some(path => pathname.startsWith(path));
+  if (!shouldBypass) {
+    // Determine endpoint type for rate limiting
+    let endpointType = 'global';
     
-    const rateLimitResult = checkRateLimit(clientIdentifier, maxRequests, CONFIG.rateLimit.windowMs);
+    if (AUTH_PATHS.some(path => pathname.startsWith(path))) {
+      endpointType = 'login'; // Use strict login limits for auth
+    } else if (pathname.startsWith('/api/')) {
+      endpointType = 'global'; // Standard API limits
+    }
+
+    // Check rate limit
+    const result = checkRateLimit(ip, endpointType);
     
-    if (!rateLimitResult.allowed) {
-      return NextResponse.json(
-        {
-          error: 'Too many requests',
-          message: `Rate limit exceeded. Try again in ${Math.ceil((rateLimitResult.resetTime - Date.now()) / 1000)} seconds.`,
-          retryAfter: Math.ceil((rateLimitResult.resetTime - Date.now()) / 1000),
-        },
-        {
-          status: 429,
-          headers: {
-            'retry-after': String(Math.ceil((rateLimitResult.resetTime - Date.now()) / 1000)),
-            'x-ratelimit-limit': String(maxRequests),
-            'x-ratelimit-remaining': '0',
-            'x-ratelimit-reset': String(Math.ceil(rateLimitResult.resetTime / 1000)),
-          },
-        }
+    if (!result.allowed) {
+      return createRateLimitResponse(
+        { windowMs: 60000, maxRequests: 100, message: 'Trop de requêtes' },
+        result
       );
     }
-
-    // Add rate limit headers to successful responses
-    const response = NextResponse.next();
-    response.headers.set('x-ratelimit-limit', String(maxRequests));
-    response.headers.set('x-ratelimit-remaining', String(rateLimitResult.remaining));
-    response.headers.set('x-ratelimit-reset', String(Math.ceil(rateLimitResult.resetTime / 1000)));
-    
-    return finalizeMetrics(metrics!, response, CONFIG.performance);
   }
 
-  // ===========================================
-  // Static Asset Caching
-  // ===========================================
-  if (
-    pathname.startsWith('/_next/static/') ||
-    pathname.startsWith('/static/') ||
-    pathname.match(/\.(js|css|woff2?|ttf|eot)(\?.*)?$/)
-  ) {
-    const response = NextResponse.next();
-    response.headers.set('cache-control', CONFIG.cache.staticAssets);
-    return finalizeMetrics(metrics!, response, CONFIG.performance);
-  }
+  // Generate nonce for CSP
+  const nonce = generateNonce();
 
-  // Image caching
-  if (pathname.match(/\.(jpg|jpeg|png|gif|webp|avif|svg|ico)(\?.*)?$/)) {
-    const response = NextResponse.next();
-    response.headers.set('cache-control', CONFIG.cache.images);
-    response.headers.set('vary', 'accept-encoding');
-    return finalizeMetrics(metrics!, response, CONFIG.performance);
-  }
+  // Create response with security headers
+  const response = NextResponse.next();
+  
+  const securityHeaders = getSecurityHeaders(nonce);
+  Object.entries(securityHeaders).forEach(([key, value]) => {
+    response.headers.set(key, value);
+  });
 
-  // ===========================================
-  // API Route Handling
-  // ===========================================
+  // Store nonce in header for use in pages
+  response.headers.set('x-nonce', nonce);
+
+  // Add CORS headers for API routes
   if (pathname.startsWith('/api/')) {
-    const response = NextResponse.next();
-    
-    // API-specific headers
-    response.headers.set('cache-control', CONFIG.cache.apiResponses);
-    response.headers.set('vary', 'origin, authorization');
-    
-    // CORS headers for API routes
     const origin = request.headers.get('origin');
-    if (origin && CONFIG.security.allowedOrigins.includes(origin)) {
-      response.headers.set('access-control-allow-origin', origin);
-      response.headers.set('access-control-allow-methods', 'GET, POST, PUT, DELETE, OPTIONS');
-      response.headers.set('access-control-allow-headers', 'content-type, authorization');
-      response.headers.set('access-control-max-age', '86400');
+    const allowedOrigins = (process.env.CORS_ORIGINS || 'https://algeriatrade.dz').split(',');
+    
+    if (origin && allowedOrigins.some(o => o.trim() === origin)) {
+      response.headers.set('Access-Control-Allow-Origin', origin);
     }
+    response.headers.set('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,PATCH,OPTIONS');
+    response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, x-nonce');
+    response.headers.set('Access-Control-Allow-Credentials', 'true');
+    response.headers.set('Access-Control-Max-Age', '86400');
 
     // Handle preflight requests
     if (request.method === 'OPTIONS') {
-      return new NextResponse(null, { status: 204 });
+      return new NextResponse(null, { status: 204, headers: response.headers });
     }
-
-    return finalizeMetrics(metrics!, response, CONFIG.performance);
   }
 
-  // ===========================================
-  // Page Route Handling
-  // ===========================================
-  const response = NextResponse.next();
+  // Request ID for tracing
+  const requestId = crypto.randomUUID();
+  response.headers.set('x-request-id', requestId);
 
-  // HTML page caching
-  response.headers.set('cache-control', CONFIG.cache.htmlPages);
-
-  // ===========================================
-  // Security Headers
-  // ===========================================
-  
-  // Content Security Policy (Strengthened)
-  if (CONFIG.security.enableCSP) {
-    response.headers.set(
-      'content-security-policy',
-      [
-        "default-src 'self'",
-        // Removed 'unsafe-eval' - requires refactoring code that uses eval()/new Function()
-        // Removed 'unsafe-inline' - requires using nonces or hashes for inline scripts
-        "script-src 'self' 'nonce-${cspNonce}' https://cdn.jsdelivr.net https://analytics.google.com",
-        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net", // 'unsafe-inline' needed for CSS frameworks
-        "img-src 'self' data: blob: https://res.cloudinary.com https://images.algeriatrade.dz https: *.googleapis.com *.gstatic.com",
-        "font-src 'self' https://fonts.gstatic.com https://fonts.googleapis.com",
-        "connect-src 'self' wss: https://api.stripe.com https://*.algeriatrade.dz",
-        "frame-src https://www.youtube.com https://player.vimeo.com",
-        "object-src 'none'",
-        "base-uri 'self'",
-        "form-action 'self'",
-        "frame-ancestors 'none'",
-        "upgrade-insecure-requests",
-        // Additional security directives
-        "require-trusted-types-for 'script'", // Prevent DOM XSS
-      ].join('; ')
-    );
-  }
-
-  // HSTS
-  if (CONFIG.security.enableHSTS && process.env.NODE_ENV === 'production') {
-    response.headers.set(
-      'strict-transport-security',
-      'max-age=63072000; includeSubDomains; preload'
-    );
-  }
-
-  // Other security headers
-  response.headers.set('x-content-type-options', 'nosniff');
-  response.headers.set('x-frame-options', 'DENY');
-  response.headers.set('x-xss-protection', '1; mode=block');
-  response.headers.set('referrer-policy', 'strict-origin-when-cross-origin');
-  response.headers.set('permissions-policy', 'camera=(), microphone=(), geolocation=()');
-
-  // Remove server info
-  response.headers.delete('x-powered-by');
-
-  // ===========================================
-  // Multi-Tenant / Geo Routing
-  // ===========================================
-  
-  // Detect country from header or IP
-  const countryHeader = request.headers.get('x-vercel-ip-country') ||
-                       request.headers.get('x-country-code');
-  
-  if (countryHeader) {
-    response.headers.set('x-detected-country', countryHeader);
-    
-    // Could redirect to country-specific subdomain here
-    // Example: dz.algeriatrade.dz for Algeria
-  }
-
-  // Language preference
-  const acceptLanguage = request.headers.get('accept-language') || '';
-  const preferredLanguage = acceptLanguage.split(',')[0]?.split('-')[0] || 'en';
-  response.headers.set('x-preferred-language', preferredLanguage);
-
-  // ===========================================
-  // Finalize and Return
-  // ===========================================
-  return finalizeMetrics(metrics!, response, CONFIG.performance);
+  return null; // Continue to next middleware/handler
 }
 
-// ===========================================
-// Middleware Config
-// ===========================================
+// Default export for Next.js middleware
+export default async function middleware(request: NextRequest): Promise<NextResponse | undefined> {
+  const result = await securityMiddleware(request);
+  return result || undefined;
+}
 
-export const config = {
-  matcher: [
-    // Match all paths except for:
-    // - _next/static (static files)
-    // - _next/image (image optimization files)
-    // - favicon.ico (favicon file)
-    // - public folder files (robots.txt, etc.)
-    '/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml).*)',
-  ],
-};
+// Export utilities for use in API routes
+export { generateNonce, getSecurityHeaders };

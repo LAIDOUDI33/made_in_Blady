@@ -205,13 +205,7 @@ export function MobileBottomNav({
                   {badgeCount > 0 && (
                     <Badge 
                       variant="destructive"
-                      className="
-                        absolute top-0 right-1
-                        h-5 min-w-[20px] px-1.5
-                        text-[10px] font-bold
-                        flex items-center justify-center
-                        border-2 border-white
-                      "
+                      className="absolute top-0 right-1 h-5 min-w-[20px] px-1.5 text-[10px] font-bold flex items-center justify-center border-2 border-white"
                     >
                       {badgeCount > 99 ? '99+' : badgeCount}
                     </Badge>
@@ -257,24 +251,14 @@ export function MobileBottomNav({
 
                   {/* Active Indicator */}
                   {active && (
-                    <div className="
-                      absolute bottom-0 left-1/2 -translate-x-1/2
-                      w-5 h-1 rounded-full bg-emerald-600
-                      transition-all duration-300
-                    " />
+                    <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-5 h-1 rounded-full bg-emerald-600 transition-all duration-300" />
                   )}
 
                   {/* Notification Badge */}
                   {badgeCount > 0 && (
                     <Badge 
                       variant="destructive"
-                      className="
-                        absolute -top-0.5 -right-0.5
-                        h-4.5 min-w-[18px] px-1
-                        text-[9px] font-bold
-                        flex items-center justify-center
-                        border-2 border-white
-                      "
+                      className="absolute -top-0.5 -right-0.5 h-4.5 min-w-[18px] px-1 text-[9px] font-bold flex items-center justify-center border-2 border-white"
                     >
                       {badgeCount > 99 ? '99+' : badgeCount}
                     </Badge>

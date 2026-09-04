@@ -259,7 +259,7 @@ function CertificateCard({ certificate }: { certificate: Certificate }) {
 }
 
 // Helper for certificate status badge
-function StatusBadge({ status, badgeStatus }: { status?: string; badgeStatus: string }) {
+function CertificateStatusBadge({ status, badgeStatus }: { status?: string; badgeStatus: string }) {
   const configs: Record<string, { color: string; label: string }> = {
     active: { color: 'bg-green-100 text-green-800 border-green-200', label: 'Active' },
     revoked: { color: 'bg-red-100 text-red-800 border-red-200', label: 'Revoked' },
